@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**VoipAppZ portal** — a React 19 + Vite admin portal for VoIP/telecom tenants.
+**VoipAppZ portal** — a React 19 + Vite portal for VoIP/telecom **users** — access is user-based (user → permissions → environments); no tenant model in the app.
 The app is component-based and talks to **one backend: the voipappz-api
 "mothership"**, always same-origin through the app server (Vite proxy in dev,
-deno-api forwarder in prod). A tenant fork changes **env, not code**.
+deno-api forwarder in prod). A customer deployment (fork) changes **env, not code**.
 
 - **How it fits together** → [docs/architecture.md](./docs/architecture.md)
 - **How to add a feature** (service → hook → component recipe, data-access layer, feature flags) → [DEVELOPING.md](./DEVELOPING.md)
@@ -66,7 +66,7 @@ blocks are `lib/clients/postgrest.ts` + `components/PostgrestTable/`.
 ## Environment
 
 Env is the whole tenant-configuration surface — see `.env.example` (documented
-inline). Nothing is required out of the box; repoint a tenant fork with
+inline). Nothing is required out of the box; repoint a deployment fork with
 one var: `MOTHERSHIP_URL` (read by the dev Vite proxy, the prod deno
 forwarder, and `make dev`'s preflight).
 

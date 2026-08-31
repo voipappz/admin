@@ -1,8 +1,18 @@
 # Architecture — VoIPAppz portal
 
-A React 19 + Vite admin portal for VoIP/telecom tenants, built as reusable
-components over **one backend: the voipappz-api "mothership"**. A tenant fork
-changes **env, not code**.
+A React 19 + Vite portal for VoIP/telecom **users**, built as reusable
+components over **one backend: the voipappz-api "mothership"**. Access is
+user-based: login resolves one verified user → their permissions → the
+environments they may act in. There is no tenant model or tenant selector in
+the app — `customer_uuid`/`environment_uuid` are backend authorization and
+routing metadata, not a UI concept. A customer deployment (fork) changes
+**env, not code**.
+
+The portal lives at `apps/portal` inside the mothership stack repo (a git
+subtree of the former standalone app repo, history preserved) but remains its
+own application: its own image, its own Kamal deploy (`make portal-deploy`
+at the repo root), independent rollback. It is the product's one routinely
+updating part; the surrounding platform holds still.
 
 ## The one rule: same-origin, always
 
