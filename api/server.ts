@@ -33,6 +33,7 @@ import { dashboardCallsPerHour } from './influx.ts';
 import { INFLUX_ENABLED } from './config.ts';
 import { createDuckDbMcpHandler, type DuckDbMcpReader } from "./mcp.ts";
 import { canSendRealtime, createCoalescingRelay } from './realtime_relay.ts';
+import { createStateView, isStateEvent } from './state_events.ts';
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -445,11 +446,32 @@ function handleWebSocket(request: Request): Response {
     const streams: Array<{ identifier: Pojo; onRaw: (m: unknown) => void }> = [];
 
     if (stateUserId) {
-      // Their own state. A value stream, not a call event — relay the ops
-      // untouched and let the browser fold them (CABLE_SPEC §5).
+      // Their own state. node publishes one NAMED EVENT per transition and
+      // keeps no totals (CABLE_SPEC §5), so somebody has to fold the deltas
+      // into a picture — and that somebody is here, not the browser: this used
+      // to relay the raw document with a comment saying the browser would fold
+      // it, and nothing in src/ ever did. Folding per connection also means a
+      // reconnecting tab gets a whole view instead of the next delta.
+      const userState = createStateView();
       streams.push({
         identifier: { channel: "StateChannel", scope: "user", id: stateUserId },
-        onRaw: (message) => sendToClient({ type: "user.state", user_uuid: stateUserId, message }),
+        onRaw: (message) => {
+          // A frame that is not the envelope goes through untouched rather
+          // than being dropped or throwing — the socket outlives one bad frame.
+          if (!isStateEvent(message)) {
+            sendToClient({ type: "user.state", user_uuid: stateUserId, message });
+            return;
+          }
+          userState.apply(message);
+          sendToClient({
+            type: "user.state",
+            user_uuid: stateUserId,
+            event: message.event,
+            at: message.at,
+            view: userState.snapshot(),
+            message,
+          });
+        },
       });
       // Their notifications, pushed. This replaces the browser polling the API
       // on a timer: same server, same data, no interval.
