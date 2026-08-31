@@ -134,12 +134,20 @@ act: ## Run the complete GitHub Actions workflow locally (same pattern as ../cli
 # keeps working: `docker run -it` fails outright there.
 KAMAL_TTY := $(shell test -t 0 && echo "-it")
 
+# The portal is a subtree of the mothership repo: .git lives two levels up, so
+# mount the repo root (Kamal derives its version from git) and work from the
+# portal dir. safe.directory because the container's root user isn't the
+# host owner of the checkout.
 KAMAL ?= docker run --rm $(KAMAL_TTY) \
-  -v "$(CURDIR):/workdir" \
+  -v "$(CURDIR)/../..:/workdir" \
+  -w /workdir/apps/portal \
   -v "$(HOME)/.ssh:/root/.ssh:ro" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -e KAMAL_REGISTRY_PASSWORD \
   -e KAMAL_HEALTHCHECK_URL \
+  -e GIT_CONFIG_COUNT=1 \
+  -e GIT_CONFIG_KEY_0=safe.directory \
+  -e GIT_CONFIG_VALUE_0='*' \
   ghcr.io/basecamp/kamal:v2.12.0
 
 # Tenant destination → config/deploy.$(DEST).yml. Empty = config/deploy.yml.
