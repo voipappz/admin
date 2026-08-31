@@ -140,7 +140,7 @@ KAMAL ?= docker run --rm $(KAMAL_TTY) \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -e KAMAL_REGISTRY_PASSWORD \
   -e KAMAL_HEALTHCHECK_URL \
-  ghcr.io/basecamp/kamal:latest
+  ghcr.io/basecamp/kamal:v2.12.0
 
 # Tenant destination → config/deploy.$(DEST).yml. Empty = config/deploy.yml.
 #   make deploy DEST=mtn      # 81.199.146.152, published on :8888
