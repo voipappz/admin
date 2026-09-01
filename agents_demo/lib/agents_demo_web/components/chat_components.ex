@@ -1,0 +1,1843 @@
+defmodule AgentsDemoWeb.ChatComponents do
+  @moduledoc false
+  use Phoenix.Component
+
+  use Phoenix.VerifiedRoutes,
+    endpoint: AgentsDemoWeb.Endpoint,
+    router: AgentsDemoWeb.Router,
+    statics: AgentsDemoWeb.static_paths()
+
+  import AgentsDemoWeb.CoreComponents
+
+  alias Phoenix.LiveView.JS
+  alias LangChain.MessageDelta
+  alias LangChain.Message.ContentPart
+  alias LangChain.Message.ToolCall
+
+  attr :collapsed, :boolean, default: false
+  attr :active_tab, :string, default: "tasks"
+  attr :todos, :list
+  attr :files, :any
+
+  # Component: Tasks/Files Sidebar
+  def tasks_files_sidebar(assigns) do
+    ~H"""
+    <aside class={[
+      "h-screen bg-[var(--color-surface)] border-r border-[var(--color-border)] flex flex-col transition-all duration-300",
+      @collapsed && "w-[60px]",
+      !@collapsed && "w-80"
+    ]}>
+      <div class={[
+        "flex items-center border-b border-[var(--color-border)] h-[70px] flex-shrink-0",
+        @collapsed && "justify-center px-4",
+        !@collapsed && "justify-between px-6"
+      ]}>
+        <%= if not @collapsed do %>
+          <h3 class="text-lg font-semibold m-0">Tasks & Files</h3>
+          <button
+            phx-click="toggle_sidebar"
+            class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded hover:bg-[var(--color-border-light)] transition-colors flex-shrink-0"
+            type="button"
+            title="Collapse"
+          >
+            <.icon name="hero-chevron-left" class="w-5 h-5" />
+          </button>
+        <% else %>
+          <button
+            phx-click="toggle_sidebar"
+            class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded hover:bg-[var(--color-border-light)] transition-colors w-9 h-9 flex items-center justify-center"
+            type="button"
+            title="Expand"
+          >
+            <.icon name="hero-chevron-right" class="w-5 h-5" />
+          </button>
+        <% end %>
+      </div>
+
+      <%= if not @collapsed do %>
+        <div class="flex-1 overflow-y-auto flex flex-col">
+          <div class="flex bg-[var(--color-background)]">
+            <button
+              class={[
+                "flex-1 py-3 px-4 bg-transparent text-[var(--color-text-secondary)] font-medium text-sm transition-all border-b-2 relative cursor-pointer border-t-0 border-l-0 border-r-0",
+                @active_tab == "tasks" &&
+                  "text-[var(--color-primary)] border-[var(--color-primary)] font-semibold bg-[var(--color-surface)]",
+                @active_tab != "tasks" &&
+                  "border-[var(--color-border)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border-light)]"
+              ]}
+              phx-click="switch_tab"
+              phx-value-tab="tasks"
+              type="button"
+            >
+              Tasks
+            </button>
+            <button
+              class={[
+                "flex-1 py-3 px-4 bg-transparent text-[var(--color-text-secondary)] font-medium text-sm transition-all border-b-2 relative cursor-pointer border-t-0 border-l-0 border-r-0",
+                @active_tab == "files" &&
+                  "text-[var(--color-primary)] border-[var(--color-primary)] font-semibold bg-[var(--color-surface)]",
+                @active_tab != "files" &&
+                  "border-[var(--color-border)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border-light)]"
+              ]}
+              phx-click="switch_tab"
+              phx-value-tab="files"
+              type="button"
+            >
+              Files
+            </button>
+          </div>
+
+          <div class="flex-1 p-4 overflow-y-auto">
+            <%= if @active_tab == "tasks" do %>
+              <%= if @todos == [] do %>
+                <div class="flex flex-col items-center justify-center h-full px-4 py-12 text-center">
+                  <p class="text-[var(--color-text-secondary)] text-sm m-0">No tasks yet</p>
+                </div>
+              <% else %>
+                <.todo_items todos={@todos} />
+              <% end %>
+            <% else %>
+              <%= if @files == %{} do %>
+                <div class="flex flex-col items-center justify-center h-full px-4 py-12 text-center">
+                  <p class="text-[var(--color-text-secondary)] text-sm m-0">No files yet</p>
+                </div>
+              <% else %>
+                <div class="flex flex-col gap-3">
+                  <%!-- Group files by directory --%>
+                  <%= for {directory, dir_files} <- group_files_by_directory(@files) do %>
+                    <div class="flex flex-col gap-1">
+                      <div class="flex items-center gap-2 px-2 py-1">
+                        <.icon
+                          name="hero-folder"
+                          class="w-4 h-4 text-[var(--color-primary)] flex-shrink-0"
+                        />
+                        <span class="text-xs font-semibold text-[var(--color-text-secondary)] tracking-wide">
+                          {directory}
+                        </span>
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <%= for {path, _metadata} <- dir_files do %>
+                          <div
+                            class="flex items-center gap-2 pl-6 pr-3 py-2 bg-[var(--color-background)] border border-[var(--color-border)] rounded-md cursor-pointer hover:bg-[var(--color-border-light)] transition-colors"
+                            phx-click="view_file"
+                            phx-value-path={path}
+                          >
+                            <.icon
+                              name="hero-document-text"
+                              class="w-4 h-4 text-[var(--color-text-secondary)] flex-shrink-0"
+                            />
+                            <span class="text-sm truncate" title={path}>{Path.basename(path)}</span>
+                          </div>
+                        <% end %>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </aside>
+    """
+  end
+
+  defp group_files_by_directory(files) do
+    files
+    |> Enum.group_by(fn {_path, metadata} -> metadata.directory end)
+    |> Enum.sort_by(fn {directory, _files} -> directory end)
+  end
+
+  attr :conversation_list, :list, required: true
+  attr :conversation_id, :string, default: nil
+  attr :has_more, :boolean, default: false
+  attr :has_conversations, :boolean, default: false
+
+  # Component: Conversation History Sidebar
+  def conversation_history_sidebar(assigns) do
+    ~H"""
+    <div class="w-80 border-r border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0 flex flex-col">
+      <div class="flex justify-between items-center px-6 py-4 border-b border-[var(--color-border)]">
+        <h3 class="m-0 text-lg">Thread History</h3>
+        <button
+          phx-click="toggle_thread_history"
+          class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded hover:bg-[var(--color-border-light)] transition-colors"
+          type="button"
+          title="Close"
+        >
+          <.icon name="hero-x-mark" class="w-5 h-5" />
+        </button>
+      </div>
+
+      <div
+        id="conversation-list-container"
+        class="flex-1 overflow-y-auto"
+        phx-hook="ConversationList"
+      >
+        <%!-- Empty state shown when no conversations --%>
+        <%= if not @has_conversations do %>
+          <div class="flex flex-col items-center justify-center h-full px-4 py-12 text-center">
+            <.icon
+              name="hero-chat-bubble-left-right"
+              class="w-12 h-12 text-[var(--color-text-tertiary)] mb-3"
+            />
+            <p class="text-[var(--color-text-secondary)] text-sm m-0">No conversations yet</p>
+            <p class="text-[var(--color-text-tertiary)] text-xs m-0 mt-1">
+              Start a new conversation to get started
+            </p>
+          </div>
+        <% end %>
+
+        <%!-- Stream container - ONLY contains stream items per LiveView docs --%>
+        <div
+          id="conversation-list"
+          phx-update="stream"
+          class="flex flex-col"
+        >
+          <div
+            :for={{dom_id, conversation} <- @conversation_list}
+            id={dom_id}
+            class={[
+              "px-4 py-3 border-b border-[var(--color-border)] cursor-pointer hover:bg-[var(--color-border-light)] transition-colors flex items-start justify-between group",
+              conversation.id == @conversation_id &&
+                "bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-500"
+            ]}
+            phx-click="load_conversation"
+            phx-value-id={conversation.id}
+          >
+            <div class="flex-1 min-w-0">
+              <h4 class="text-sm font-medium text-[var(--color-text-primary)] m-0 mb-1 truncate">
+                {conversation.title}
+              </h4>
+              <p class="text-xs text-[var(--color-text-secondary)] m-0">
+                {format_relative_time(conversation.updated_at)}
+              </p>
+            </div>
+            <button
+              type="button"
+              class="ml-2 p-1 text-gray-400 hover:text-red-600 focus:outline-none opacity-0 group-hover:opacity-100 transition-opacity"
+              phx-click="delete_conversation"
+              phx-value-id={conversation.id}
+              data-confirm={"Are you sure you want to delete '#{conversation.title}'? This action cannot be undone."}
+              title="Delete conversation"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <%= if @has_more do %>
+          <div class="flex items-center justify-center py-4">
+            <div class="w-4 h-4 border-2 border-[var(--color-border)] border-t-[var(--color-primary)] rounded-full animate-spin">
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  # Helper to format relative time
+  defp format_relative_time(datetime) do
+    now = DateTime.utc_now()
+    diff_seconds = DateTime.diff(now, datetime, :second)
+
+    cond do
+      diff_seconds < 60 -> "Just now"
+      diff_seconds < 3_600 -> "#{div(diff_seconds, 60)}m ago"
+      diff_seconds < 86_400 -> "#{div(diff_seconds, 3_600)}h ago"
+      diff_seconds < 604_800 -> "#{div(diff_seconds, 86_400)}d ago"
+      true -> Calendar.strftime(datetime, "%b %d, %Y")
+    end
+  end
+
+  attr :todos, :list, required: true, doc: "List of TODO items for display"
+
+  def todo_items(assigns) do
+    assigns = assign(assigns, :stats, calculate_todo_stats(assigns.todos))
+
+    ~H"""
+    <div>
+      <%!-- Progress Summary --%>
+      <div class="mb-4 pb-4 border-b border-[var(--color-border)]">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-semibold text-[var(--color-text-primary)]">
+            {@stats.completed} of {@stats.total} completed
+          </span>
+          <span class="text-xs text-[var(--color-text-secondary)]">
+            {@stats.progress_percentage}%
+          </span>
+        </div>
+        <div class="w-full h-2 bg-[var(--color-border)] rounded-full overflow-hidden">
+          <div
+            class="h-full bg-[var(--color-success)] transition-all duration-300"
+            style={"width: #{@stats.progress_percentage}%"}
+          >
+          </div>
+        </div>
+      </div>
+
+      <%!-- Single ordered list of all TODOs --%>
+      <div class="flex flex-col gap-2">
+        <%= for todo <- @todos do %>
+          <.todo_item todo={todo} />
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  defp calculate_todo_stats(todos) do
+    total = length(todos)
+    completed = Enum.count(todos, fn todo -> todo.status == :completed end)
+    in_progress = Enum.count(todos, fn todo -> todo.status == :in_progress end)
+    pending = Enum.count(todos, fn todo -> todo.status == :pending end)
+    cancelled = Enum.count(todos, fn todo -> todo.status == :cancelled end)
+
+    %{
+      total: total,
+      completed: completed,
+      in_progress: in_progress,
+      pending: pending,
+      cancelled: cancelled,
+      progress_percentage: if(total > 0, do: round(completed / total * 100), else: 0)
+    }
+  end
+
+  attr :todo, :any, required: true
+
+  def todo_item(assigns) do
+    ~H"""
+    <div
+      class="flex items-center gap-2 px-3 py-2 bg-[var(--color-background)] border border-[var(--color-border)] rounded-md"
+      data-status={@todo.status}
+    >
+      <div class={[
+        "w-2 h-2 rounded-full flex-shrink-0",
+        @todo.status == :pending && "bg-[var(--color-text-tertiary)]",
+        @todo.status == :in_progress && "bg-[var(--color-warning)]",
+        @todo.status == :completed && "bg-[var(--color-success)]",
+        @todo.status == :cancelled && "bg-[var(--color-error)]"
+      ]}>
+      </div>
+      <span class={[
+        "text-sm",
+        @todo.status == :completed && "line-through text-[var(--color-text-secondary)]",
+        @todo.status == :cancelled && "line-through text-[var(--color-text-tertiary)]"
+      ]}>
+        {@todo.content}
+      </span>
+    </div>
+    """
+  end
+
+  attr :is_thread_history_open, :boolean, default: false
+  attr :has_messages, :boolean, default: false
+  attr :loading, :boolean, default: false
+  attr :streaming_delta, :any
+  attr :streams, :any
+  attr :input, :string, doc: "The user input being drafted for a new message"
+  attr :agent_status, :atom, default: nil
+  attr :agent_alive?, :boolean, default: false
+  attr :pending_tools, :list, default: []
+  attr :pending_question, :map, default: nil
+  attr :remaining_questions_count, :integer, default: 0
+  attr :interrupt_data, :map, default: nil
+  attr :current_scope, :any, default: nil
+  attr :conversation_id, :string, default: nil
+  attr :has_more_conversations, :boolean, default: false
+  attr :has_conversations, :boolean, default: false
+  attr :debug_mode, :boolean, default: false
+
+  # Component: Chat Interface
+  def chat_interface(assigns) do
+    ~H"""
+    <div class="flex flex-col h-screen w-full bg-[var(--color-background)]">
+      <header class="flex justify-between items-center px-6 h-[70px] border-b border-[var(--color-border)] bg-[var(--color-background)] flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <.icon name="hero-chat-bubble-left-right" class="w-7 h-7 text-[var(--color-primary)]" />
+          <h1 class="text-2xl font-semibold m-0">Agents Demo</h1>
+
+          <%!-- Gated on liveness, not on status. `@agent_status == :not_running`
+               would hide this for a conversation that is dormant *and* still
+               waiting on an answer, which is precisely when it is most useful
+               to see that nothing is running. --%>
+          <button
+            :if={@conversation_id && !@agent_alive?}
+            phx-click="wake_agent"
+            class="ml-3 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors text-sm font-medium flex items-center gap-1.5"
+            type="button"
+            title="Activate agent for debugging - loads agent state into memory without executing"
+          >
+            <.icon name="hero-bolt" class="w-4 h-4" /> Wake
+          </button>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <div class="flex items-center gap-2">
+            <button
+              phx-click="toggle_debug_mode"
+              class={[
+                "p-2 rounded-md border-none transition-colors",
+                @debug_mode && "bg-purple-600 text-white hover:bg-purple-700",
+                !@debug_mode &&
+                  "bg-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)]"
+              ]}
+              type="button"
+              title={
+                if @debug_mode,
+                  do: "Debug Mode: On (Click to disable)",
+                  else: "Debug Mode: Off (Click to enable)"
+              }
+            >
+              <.icon name="hero-bug-ant" class="w-5 h-5" />
+            </button>
+
+            <button
+              phx-click="toggle_thread_history"
+              class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors"
+              type="button"
+              title="Thread History"
+            >
+              <.icon name="hero-clock" class="w-5 h-5" />
+            </button>
+
+            <button
+              phx-click="new_thread"
+              class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors"
+              type="button"
+              title="New Thread"
+            >
+              <.icon name="hero-document-plus" class="w-5 h-5" />
+            </button>
+          </div>
+
+          <%= if @current_scope do %>
+            <div class="flex items-center gap-2 pl-4 border-l border-[var(--color-border)]">
+              <span class="text-xs text-[var(--color-text-secondary)] px-2">
+                {@current_scope.user.email}
+              </span>
+              <.link
+                href="/api/docs"
+                target="_blank"
+                class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors no-underline inline-flex items-center justify-center"
+                title="API docs"
+              >
+                <.icon name="hero-code-bracket" class="w-5 h-5" />
+              </.link>
+              <.link
+                href={~p"/users/settings"}
+                class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors no-underline inline-flex items-center justify-center"
+                title="Settings"
+              >
+                <.icon name="hero-cog-6-tooth" class="w-5 h-5" />
+              </.link>
+              <.link
+                href={~p"/users/log-out"}
+                method="delete"
+                class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors no-underline inline-flex items-center justify-center"
+                title="Log out"
+              >
+                <.icon name="hero-arrow-right-on-rectangle" class="w-5 h-5" />
+              </.link>
+            </div>
+          <% end %>
+        </div>
+      </header>
+
+      <div class="flex flex-1 relative overflow-hidden">
+        <%= if @is_thread_history_open do %>
+          <.conversation_history_sidebar
+            conversation_list={@streams.conversation_list}
+            conversation_id={@conversation_id}
+            has_more={@has_more_conversations}
+            has_conversations={@has_conversations}
+          />
+        <% end %>
+
+        <div class="flex flex-1 flex-col overflow-hidden relative">
+          <div
+            id="chat-messages-container"
+            class="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-4"
+            phx-hook="ChatContainer"
+          >
+            <%= if not @has_messages do %>
+              <div class="flex flex-col items-center justify-center h-full text-center">
+                <.icon
+                  name="hero-chat-bubble-left-right"
+                  class="w-16 h-16 text-[var(--color-text-tertiary)] mb-6"
+                />
+                <h2 class="mb-2 text-[var(--color-text-primary)]">Start a Conversation</h2>
+                <p class="text-[var(--color-text-secondary)] m-0">Ask me anything to get started</p>
+              </div>
+            <% end %>
+
+            <%= if @has_messages do %>
+              <div
+                id="messages-list"
+                phx-update="stream"
+                class="flex flex-col gap-4"
+              >
+                <div :for={{id, message} <- @streams.messages} id={id} class="hidden has-[>*]:block">
+                  <.message message={message} debug_mode={@debug_mode} />
+                </div>
+              </div>
+            <% end %>
+
+            <%= if @streaming_delta != nil do %>
+              <div>
+                <.streaming_message streaming_delta={@streaming_delta} />
+              </div>
+            <% end %>
+
+            <%= if @loading && @streaming_delta == nil do %>
+              <div class="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                <div class="w-4 h-4 border-2 border-[var(--color-border)] border-t-[var(--color-primary)] rounded-full animate-spin">
+                </div>
+                <span>Thinking...</span>
+              </div>
+            <% end %>
+          </div>
+
+          <%= if @agent_status == :interrupted && @pending_tools != [] do %>
+            <.tool_approval_prompt
+              pending_tools={@pending_tools}
+              interrupt_data={@interrupt_data}
+              debug_mode={@debug_mode}
+            />
+          <% end %>
+
+          <%= if @agent_status == :interrupted && @pending_question do %>
+            <.question_prompt
+              question={@pending_question}
+              remaining_count={@remaining_questions_count}
+            />
+          <% end %>
+        </div>
+      </div>
+
+      <form
+        phx-submit="send_message"
+        class="flex gap-3 px-6 py-5 border-t-2 border-[var(--color-border)] bg-[var(--color-background)] flex-shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]"
+      >
+        <input
+          type="text"
+          name="message"
+          value={@input}
+          phx-change="update_input"
+          phx-debounce="300"
+          placeholder={
+            case @agent_status do
+              :interrupted -> "Approve or reject pending tools first..."
+              :running -> "Type your message (it will be sent when the agent finishes)..."
+              _other -> "Type your message..."
+            end
+          }
+          class="flex-1 px-5 py-3.5 border-2 border-[var(--color-border)] rounded-xl bg-white dark:bg-[var(--color-surface)] text-[var(--color-text-primary)] text-base outline-none focus:border-[var(--color-user-message)] focus:ring-4 focus:ring-[var(--color-user-message)]/10 hover:border-[var(--color-text-tertiary)] transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          autocomplete="off"
+          disabled={@agent_status == :interrupted}
+        />
+        <%!-- Two independent controls while the agent works. Stop and send are
+             different intentions, and "I typed a correction AND I want to stop
+             it now" is exactly when you need both at once. --%>
+        <.chat_stop_button :if={@agent_status == :running} />
+        <.chat_submit_button agent_status={@agent_status} input={@input} />
+      </form>
+    </div>
+    """
+  end
+
+  # Component: Stop the running agent.
+  #
+  # Rendered only while the agent is running, alongside (not instead of) the
+  # send button. `type="button"` is load-bearing: inside a form, the default
+  # button type is "submit", which would fire send_message as well as cancel.
+  defp chat_stop_button(assigns) do
+    ~H"""
+    <button
+      id="chat-stop-button"
+      type="button"
+      phx-click="cancel_agent"
+      title="Stop the agent"
+      aria-label="Stop the agent"
+      class="px-5 py-3.5 text-white border-none rounded-xl flex items-center justify-center min-w-[56px] shadow-md bg-red-600 hover:bg-red-700 hover:shadow-lg transition-all"
+    >
+      <.icon name="hero-stop" class="w-5 h-5" />
+    </button>
+    """
+  end
+
+  attr :agent_status, :atom, default: nil
+  attr :input, :string, default: ""
+
+  # Component: Send the typed message.
+  #
+  # Always a submit button. While the agent is running this stays enabled: the
+  # message is queued by AgentServer and delivered when the current run
+  # finishes, so there is nothing to guard against. Only a pending interrupt
+  # blocks it, because the user has to approve or reject those tools first.
+  defp chat_submit_button(assigns) do
+    {classes, disabled} =
+      case assigns.agent_status do
+        :interrupted ->
+          {"bg-[var(--color-user-message)] opacity-50 cursor-not-allowed", true}
+
+        _other ->
+          {"bg-[var(--color-user-message)] hover:opacity-90 hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed",
+           assigns.input == ""}
+      end
+
+    title =
+      case assigns.agent_status do
+        :interrupted -> "Approve or reject the pending tools first"
+        :running -> "Send when the agent finishes"
+        _other -> "Send message"
+      end
+
+    assigns =
+      assigns
+      |> assign(:classes, classes)
+      |> assign(:disabled, disabled)
+      |> assign(:title, title)
+
+    ~H"""
+    <button
+      id="chat-send-button"
+      type="submit"
+      title={@title}
+      aria-label={@title}
+      class={[
+        "px-5 py-3.5 text-white border-none rounded-xl flex items-center justify-center min-w-[56px] shadow-md",
+        @classes
+      ]}
+      disabled={@disabled}
+    >
+      <.icon name="hero-paper-airplane" class="w-5 h-5" />
+    </button>
+    """
+  end
+
+  attr :message, :any, required: true
+  attr :debug_mode, :boolean, default: false
+
+  # Component: Individual Message
+  # Expects a DisplayMessage struct
+  def message(assigns) do
+    # Route to appropriate component based on content_type
+    ~H"""
+    <%= case @message.content_type do %>
+      <% "thinking" -> %>
+        <.thinking_display
+          message_id={@message.id}
+          content_text={get_in(@message.content, ["text"]) || ""}
+        />
+      <% "tool_call" -> %>
+        <.tool_call_message message={@message} debug_mode={@debug_mode} />
+      <% "tool_result" -> %>
+        <%= if @debug_mode do %>
+          <.tool_result_display
+            tool_call_id={get_in(@message.content, ["tool_call_id"])}
+            name={get_in(@message.content, ["name"])}
+            content={get_in(@message.content, ["content"])}
+            is_error={get_in(@message.content, ["is_error"]) || false}
+            is_interrupt={get_in(@message.content, ["is_interrupt"]) || false}
+            hitl_decision={get_in(@message.content, ["hitl_decision"])}
+          />
+        <% end %>
+      <% "notification" -> %>
+        <div class="px-4 py-1 text-sm italic text-[var(--color-text-secondary)]">
+          {get_in(@message.content, ["text"])}
+        </div>
+      <% "todo_snapshot" -> %>
+        <.todo_snapshot_display message={@message} />
+      <% _other -> %>
+        <.text_message
+          message={@message}
+          content_text={get_in(@message.content, ["text"]) || ""}
+        />
+    <% end %>
+    """
+  end
+
+  # Component: Text Message (normal message display)
+  defp text_message(assigns) do
+    ~H"""
+    <%= if @content_text && @content_text != "" do %>
+      <div class={[
+        "px-4 py-1.5 rounded-lg text-[var(--color-text-primary)] leading-relaxed",
+        @message.message_type == "user" &&
+          "bg-[var(--color-user-message)] text-white",
+        @message.message_type == "assistant" && "bg-[var(--color-surface)]",
+        @message.message_type == "tool" && "bg-[var(--color-background)]"
+      ]}>
+        <.markdown text={@content_text} invert={@message.message_type == "user"} />
+      </div>
+    <% end %>
+    """
+  end
+
+  attr :message_id, :any, required: true
+  attr :content_text, :string
+  attr :class, :string, default: nil
+  # Only `true` for the in-flight thinking buffer. See `markdown/1`.
+  attr :streaming, :boolean, default: false
+
+  # Component: Thinking Message (subdued, collapsible display)
+  defp thinking_display(assigns) do
+    # Generate unique IDs for this thinking block
+    thinking_id = "thinking-#{assigns.message_id}"
+    chevron_id = "chevron-#{assigns.message_id}"
+
+    assigns =
+      assigns
+      |> assign(:thinking_id, thinking_id)
+      |> assign(:chevron_id, chevron_id)
+
+    ~H"""
+    <div class={["flex gap-2 max-w-full opacity-70 hover:opacity-100 transition-opacity", @class]}>
+      <div class="flex-1 min-w-0">
+        <button
+          type="button"
+          class="flex items-center gap-2 w-full text-left py-1 px-4 rounded hover:bg-[var(--color-border-light)] transition-colors cursor-pointer border-none bg-transparent"
+          phx-click={
+            JS.toggle(to: "##{@thinking_id}")
+            |> JS.toggle_class("rotate-90", to: "##{@chevron_id}")
+          }
+        >
+          <span class="text-sm italic text-[var(--color-text-secondary)]">Thinking</span>
+          <.icon
+            name="hero-chevron-right"
+            id={@chevron_id}
+            class="w-3 h-3 text-[var(--color-text-tertiary)] transition-transform duration-200"
+          />
+        </button>
+
+        <%= if @content_text && @content_text != "" do %>
+          <div id={@thinking_id} class="hidden mt-1 ml-4">
+            <div class="px-3 py-2 rounded-lg bg-[var(--color-background)] border border-[var(--color-border)]">
+              <.markdown
+                text={@content_text}
+                class="prose-sm text-xs text-[var(--color-text-secondary)]"
+                streaming={@streaming}
+              />
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  attr :message, :map, required: true
+
+  # Component: Todo Snapshot (inline TodoList middleware snapshot card)
+  #
+  # Renders a card listing the todos in a frozen-in-time snapshot. Each row
+  # has a checkbox-style indicator (rounded square with optional inner glyph)
+  # rather than an animated icon — the snapshot is historical and shouldn't
+  # imply live activity. The four states all occupy the same visual footprint
+  # so rows align cleanly:
+  #
+  #   pending     ☐  outlined empty box (muted, holds the slot)
+  #   in_progress ▣  outlined accent box with a small filled inner square
+  #   completed   ✓  filled accent box with a white check
+  #   cancelled   ✕  outlined box with a small × glyph (dimmed, struck)
+  #
+  # Emitted by Sagents.Middleware.TodoList when configured with `inline: true`.
+  defp todo_snapshot_display(assigns) do
+    todos = get_in(assigns.message.content, ["todos"]) || []
+    summary = get_in(assigns.message.content, ["summary"]) || %{}
+
+    assigns =
+      assigns
+      |> assign(:todos, todos)
+      |> assign(:summary, summary)
+
+    ~H"""
+    <div class="ml-1 pl-3 pr-4 py-2 border-l-4 rounded bg-[var(--color-surface)] border-[var(--color-border)]">
+      <div class="flex items-center gap-2 mb-2">
+        <.icon name="hero-clipboard-document-list" class="w-4 h-4 text-[var(--color-text-secondary)]" />
+        <span class="text-sm font-medium text-[var(--color-text-primary)]">Todo list</span>
+        <span :if={@summary != %{}} class="ml-auto text-xs text-[var(--color-text-tertiary)]">
+          {Map.get(@summary, "completed", 0)}/{Map.get(@summary, "total", 0)}
+        </span>
+      </div>
+
+      <ul :if={@todos != []} class="space-y-1 text-sm">
+        <li
+          :for={todo <- @todos}
+          class={[
+            "flex items-start gap-2",
+            todo["status"] == "completed" && "line-through text-[var(--color-text-tertiary)]",
+            todo["status"] == "in_progress" &&
+              "text-[var(--color-text-primary)] font-medium",
+            todo["status"] == "pending" && "text-[var(--color-text-secondary)]",
+            todo["status"] == "cancelled" && "line-through text-[var(--color-text-tertiary)]"
+          ]}
+        >
+          <.todo_status_box status={todo["status"]} />
+          <span>{todo["content"]}</span>
+        </li>
+      </ul>
+
+      <p :if={@todos == []} class="text-xs italic text-[var(--color-text-secondary)]">
+        All tasks completed.
+      </p>
+    </div>
+    """
+  end
+
+  attr :status, :string, required: true
+
+  # Status indicator: a fixed-size rounded box so every row aligns regardless
+  # of state. Pure CSS shapes plus a small heroicon glyph for completed and
+  # cancelled; in_progress uses a nested inner square (no icon) for a stable,
+  # non-animated "active marker" look that still reads as historical.
+  defp todo_status_box(%{status: "completed"} = assigns) do
+    ~H"""
+    <span class="w-4 h-4 mt-0.5 shrink-0 rounded flex items-center justify-center bg-[var(--color-success)]">
+      <.icon name="hero-check" class="w-3 h-3 text-white" />
+    </span>
+    """
+  end
+
+  defp todo_status_box(%{status: "in_progress"} = assigns) do
+    ~H"""
+    <span class="w-4 h-4 mt-0.5 shrink-0 rounded border-2 border-[var(--color-warning)] flex items-center justify-center">
+      <span class="w-1.5 h-1.5 rounded-sm bg-[var(--color-warning)]"></span>
+    </span>
+    """
+  end
+
+  defp todo_status_box(%{status: "cancelled"} = assigns) do
+    ~H"""
+    <span class="w-4 h-4 mt-0.5 shrink-0 rounded flex items-center justify-center bg-[var(--color-error)]">
+      <.icon name="hero-x-mark" class="w-3 h-3 text-white" />
+    </span>
+    """
+  end
+
+  defp todo_status_box(assigns) do
+    ~H"""
+    <span class="w-4 h-4 mt-0.5 shrink-0 rounded border-2 border-[var(--color-text-tertiary)] bg-[var(--color-background)]">
+    </span>
+    """
+  end
+
+  attr :message, :map, required: true
+  attr :debug_mode, :boolean, default: false
+
+  # Component: Tool Call Message (with status and debug mode support)
+  def tool_call_message(assigns) do
+    ~H"""
+    <div class="tool-call-message ml-2" data-status={@message.status}>
+      <%= if @debug_mode do %>
+        <.tool_call_debug_view message={@message} />
+      <% else %>
+        <.tool_call_normal_view message={@message} />
+      <% end %>
+    </div>
+    """
+  end
+
+  # Normal user view - friendly display
+  defp tool_call_normal_view(assigns) do
+    # Prefer metadata display_text (set during status updates) over content display_text
+    display_text =
+      get_in(assigns.message.metadata, ["display_text"]) ||
+        get_in(assigns.message.content, ["display_text"]) ||
+        friendly_fallback(get_in(assigns.message.content, ["name"]))
+
+    hitl_decision = get_in(assigns.message.metadata, ["hitl_decision"])
+
+    # Treat HITL-rejected tools differently from actual execution failures
+    effective_status =
+      if assigns.message.status == "failed" && hitl_decision == "rejected",
+        do: "rejected",
+        else: assigns.message.status
+
+    icon_class =
+      case effective_status do
+        "executing" -> "w-5 h-5 text-blue-500 animate-spin"
+        "completed" -> "w-5 h-5 text-green-600 dark:text-green-500"
+        "failed" -> "w-5 h-5 text-red-600 dark:text-red-500"
+        "rejected" -> "w-5 h-5 text-orange-600 dark:text-orange-500"
+        "interrupted" -> "w-5 h-5 text-yellow-600 dark:text-yellow-500"
+        "cancelled" -> "w-5 h-5 text-red-600 dark:text-red-500"
+        _other -> "w-5 h-5 text-gray-400"
+      end
+
+    assigns =
+      assigns
+      |> assign(:display_text, display_text)
+      |> assign(:icon_class, icon_class)
+      |> assign(:hitl_decision, hitl_decision)
+      |> assign(:effective_status, effective_status)
+
+    ~H"""
+    <div class={[
+      "flex items-center gap-2 ml-1 pl-3 pr-4 py-2 border-l-4 rounded",
+      @effective_status == "interrupted" && "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-500",
+      @effective_status == "cancelled" && "bg-red-50 dark:bg-red-900/20 border-red-500",
+      @effective_status not in ["interrupted", "cancelled"] &&
+        "bg-blue-50 dark:bg-blue-900/20 border-blue-500"
+    ]}>
+      <.icon
+        name={
+          cond do
+            @effective_status == "executing" -> "hero-cog-6-tooth"
+            @effective_status == "completed" -> "hero-check-circle"
+            @effective_status == "failed" -> "hero-x-circle"
+            @effective_status == "rejected" -> "hero-no-symbol"
+            @effective_status == "interrupted" -> "hero-hand-raised"
+            @effective_status == "cancelled" -> "hero-x-mark"
+            true -> "hero-ellipsis-horizontal-circle"
+          end
+        }
+        class={@icon_class}
+      />
+      <span class="text-sm text-gray-700 dark:text-gray-300">
+        {@display_text}
+        <%= if @effective_status == "executing" do %>
+          <span class="inline-block ml-1 text-blue-500">...</span>
+        <% end %>
+      </span>
+
+      <span
+        :if={@effective_status == "failed"}
+        class="text-[10px] font-medium tracking-wide uppercase ml-auto px-2 py-0.5 rounded-full text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30"
+      >
+        Failed
+      </span>
+
+      <span
+        :if={@effective_status == "cancelled"}
+        class="text-[10px] font-medium tracking-wide uppercase ml-auto px-2 py-0.5 rounded-full text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30"
+      >
+        Cancelled
+      </span>
+
+      <span
+        :if={@hitl_decision}
+        class={[
+          "text-[10px] font-medium tracking-wide uppercase ml-auto px-2 py-0.5 rounded-full",
+          @hitl_decision == "approved" &&
+            "text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30",
+          @hitl_decision == "rejected" &&
+            "text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30"
+        ]}
+      >
+        {if @hitl_decision == "approved", do: "Approved", else: "Declined"}
+      </span>
+    </div>
+    """
+  end
+
+  # Debug view - technical details (pending action theme - blue tint)
+  defp tool_call_debug_view(assigns) do
+    assigns =
+      assign(
+        assigns,
+        :args_json,
+        format_tool_arguments(get_in(assigns.message.content, ["arguments"]))
+      )
+
+    assigns = assign(assigns, :is_failed, assigns.message.status == "failed")
+    assigns = assign(assigns, :is_executing, assigns.message.status == "executing")
+    assigns = assign(assigns, :is_interrupted, assigns.message.status == "interrupted")
+
+    ~H"""
+    <div class={[
+      "border rounded-lg p-3",
+      @is_failed && "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900",
+      @is_interrupted && "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-900",
+      !@is_failed && !@is_interrupted &&
+        "bg-blue-50/30 dark:bg-blue-950/10 border-blue-200/50 dark:border-blue-900/30"
+    ]}>
+      <div class="flex items-center gap-2 mb-2">
+        <.icon
+          name={
+            cond do
+              @is_failed -> "hero-exclamation-triangle"
+              @is_interrupted -> "hero-hand-raised"
+              @is_executing -> "hero-arrow-path"
+              true -> "hero-check-circle"
+            end
+          }
+          class={
+            cond do
+              @is_failed -> "w-4 h-4 text-red-600"
+              @is_interrupted -> "w-4 h-4 text-yellow-600"
+              @is_executing -> "w-4 h-4 text-blue-600 animate-spin"
+              true -> "w-4 h-4 text-green-600"
+            end
+          }
+        />
+        <span class={[
+          "text-sm font-semibold",
+          @is_failed && "text-red-700 dark:text-red-400",
+          @is_interrupted && "text-yellow-700 dark:text-yellow-400",
+          !@is_failed && !@is_interrupted && "text-blue-700 dark:text-blue-400"
+        ]}>
+          Tool Call: {get_in(@message.content, ["name"])}
+        </span>
+      </div>
+
+      <div class="pl-6 text-[var(--color-text-secondary)]">
+        <div class="text-xs mb-2">
+          <span class="text-gray-600 dark:text-gray-400">Call ID:</span>
+          <span class="ml-2 font-mono text-gray-900 dark:text-gray-100">
+            {get_in(@message.content, ["call_id"])}
+          </span>
+        </div>
+
+        <%= if @args_json && @args_json != "{}" do %>
+          <details class="text-xs">
+            <summary class="cursor-pointer hover:text-[var(--color-text-primary)] mb-1">
+              Arguments
+            </summary>
+            <div
+              class="mt-2 p-2 bg-[var(--color-background)] rounded whitespace-pre-wrap font-mono text-xs"
+              phx-no-format
+            >{@args_json}</div>
+          </details>
+        <% end %>
+
+        <%= if @is_failed do %>
+          <details class="text-xs mt-2" open>
+            <summary class="cursor-pointer hover:text-[var(--color-text-primary)] mb-1 text-red-600 dark:text-red-400 font-semibold">
+              Error
+            </summary>
+            <div class="mt-2 p-2 bg-red-50 dark:bg-red-950 rounded text-red-800 dark:text-red-300">
+              {get_in(@message.metadata, ["error"])}
+            </div>
+          </details>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  defp friendly_fallback(nil), do: "Tool"
+
+  defp friendly_fallback(tool_name) do
+    tool_name
+    |> String.replace("_", " ")
+    |> String.capitalize()
+  end
+
+  attr :tool_call_id, :string, required: true
+  attr :name, :string, required: true
+  attr :content, :string, required: true
+  attr :is_error, :boolean, default: false
+  attr :is_interrupt, :boolean, default: false
+  attr :hitl_decision, :string, default: nil
+
+  # Component: Tool Result Display (for DisplayMessage content)
+  # Completion action theme - green for success, red for errors, yellow/amber for interrupts
+  def tool_result_display(assigns) do
+    assigns = assign(assigns, :is_rejected, assigns.hitl_decision == "rejected")
+
+    ~H"""
+    <div>
+      <div class={[
+        "border rounded-lg p-3 ml-2",
+        @is_interrupt &&
+          "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-900",
+        @is_rejected && !@is_interrupt &&
+          "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900",
+        @is_error && !@is_interrupt && !@is_rejected &&
+          "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900",
+        !@is_error && !@is_interrupt && !@is_rejected &&
+          "bg-green-50/30 dark:bg-green-950/10 border-green-200/50 dark:border-green-900/30"
+      ]}>
+        <div class="flex items-center gap-2 mb-2">
+          <.icon
+            name={
+              cond do
+                @is_interrupt -> "hero-hand-raised"
+                @is_rejected -> "hero-no-symbol"
+                @is_error -> "hero-exclamation-triangle"
+                true -> "hero-check-circle"
+              end
+            }
+            class={
+              cond do
+                @is_interrupt -> "w-4 h-4 text-yellow-600"
+                @is_rejected -> "w-4 h-4 text-orange-600"
+                @is_error -> "w-4 h-4 text-red-600"
+                true -> "w-4 h-4 text-green-600"
+              end
+            }
+          />
+          <span class={[
+            "text-sm font-semibold",
+            @is_interrupt && "text-yellow-700 dark:text-yellow-400",
+            @is_rejected && !@is_interrupt && "text-orange-700 dark:text-orange-400",
+            @is_error && !@is_interrupt && !@is_rejected && "text-red-700 dark:text-red-400",
+            !@is_error && !@is_interrupt && !@is_rejected && "text-green-700 dark:text-green-400"
+          ]}>
+            <%= cond do %>
+              <% @is_interrupt -> %>
+                Tool Interrupted: {@name}
+              <% @is_rejected -> %>
+                Declined: {@name}
+              <% true -> %>
+                Tool Result: {@name}
+            <% end %>
+          </span>
+        </div>
+        <div class="pl-6 text-[var(--color-text-secondary)]">
+          <details class="text-xs">
+            <summary class="cursor-pointer hover:text-[var(--color-text-primary)] mb-1">
+              Response
+            </summary>
+            <div
+              class="mt-2 p-2 bg-[var(--color-background)] rounded whitespace-pre-wrap font-mono text-xs"
+              phx-no-format
+            >{format_tool_result_content(@content)}</div>
+          </details>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  # Helper function to format tool arguments as JSON
+  defp format_tool_arguments(nil), do: "{}"
+
+  defp format_tool_arguments(args) when is_map(args) do
+    Jason.encode!(args, pretty: true)
+  rescue
+    _other -> inspect(args)
+  end
+
+  defp format_tool_arguments(args), do: inspect(args)
+
+  # Helper function to format tool result content
+  defp format_tool_result_content(content) when is_binary(content), do: content
+
+  defp format_tool_result_content(content) when is_map(content) do
+    Jason.encode!(content, pretty: true)
+  rescue
+    _other -> inspect(content)
+  end
+
+  defp format_tool_result_content(contents) when is_list(contents) do
+    ContentPart.parts_to_string(contents)
+  end
+
+  defp format_tool_result_content(content), do: inspect(content)
+
+  attr :streaming_delta, :any, required: true
+
+  # Component: Streaming Message (being typed)
+  def streaming_message(assigns) do
+    # Build tool display list directly from delta.tool_calls
+    tool_calls =
+      case assigns.streaming_delta do
+        %{tool_calls: tcs} when is_list(tcs) and tcs != [] ->
+          tcs
+          |> Enum.filter(& &1.name)
+          |> Enum.map(fn tc ->
+            %{
+              name: tc.name,
+              display_name: tc.display_text || LangChain.Utils.humanize_tool_name(tc.name),
+              status: ToolCall.execution_status(tc, "identified")
+            }
+          end)
+
+        _other ->
+          []
+      end
+
+    # Convert merged_content to string for display
+    assigns =
+      assigns
+      |> assign(:tool_calls, tool_calls)
+      |> assign(
+        :thinking,
+        MessageDelta.content_to_string(assigns.streaming_delta, :thinking)
+      )
+      |> assign(
+        :content,
+        MessageDelta.content_to_string(assigns.streaming_delta, :text) || ""
+      )
+
+    ~H"""
+    <div class="flex flex-col gap-4">
+      <.thinking_display
+        :if={@thinking}
+        message_id="streaming_delta"
+        content_text={@thinking}
+        streaming={true}
+      />
+
+      <%!-- Text content as its own block, matching saved text_message layout --%>
+      <%= if @content != "" do %>
+        <div class="px-4 py-1.5 rounded-lg text-[var(--color-text-primary)] leading-relaxed bg-[var(--color-surface)]">
+          <.markdown text={@content} streaming={true} />
+          <span
+            :if={@tool_calls == []}
+            class="ml-1 inline-block w-2 h-4 bg-[var(--color-primary)] animate-pulse"
+          >
+          </span>
+        </div>
+      <% end %>
+
+      <%!-- Cursor when no content yet --%>
+      <%= if @content == "" && @tool_calls == [] do %>
+        <div class="px-4 py-1.5">
+          <span class="inline-block w-2 h-4 bg-[var(--color-primary)] animate-pulse"></span>
+        </div>
+      <% end %>
+
+      <%= for tool <- @tool_calls do %>
+        <div class="tool-call-message ml-2">
+          <div class="ml-1 flex items-center gap-2 pl-3 pr-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded">
+            <%= cond do %>
+              <% tool.status == "identified" -> %>
+                <.icon name="hero-sparkles" class="w-5 h-5 text-blue-500 animate-pulse" />
+              <% tool.status == "executing" -> %>
+                <.icon name="hero-cog-6-tooth" class="w-5 h-5 text-blue-500 animate-spin" />
+              <% true -> %>
+                <.icon name="hero-wrench-screwdriver" class="w-5 h-5 text-blue-500" />
+            <% end %>
+            <span class="text-sm text-gray-700 dark:text-gray-300">
+              {tool.display_name}
+            </span>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  attr :path, :string, required: true
+  attr :content, :string
+  attr :view_mode, :atom, default: :rendered
+
+  # Component: File Viewer Modal
+  def file_viewer_modal(assigns) do
+    ~H"""
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div
+        class="bg-[var(--color-surface)] rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col"
+        phx-click-away="close_file_modal"
+      >
+        <%!-- Modal Header --%>
+        <div class="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
+          <div class="flex items-center gap-3">
+            <.icon name="hero-document-text" class="w-6 h-6 text-[var(--color-primary)]" />
+            <h2 class="text-lg font-semibold text-[var(--color-text-primary)] m-0">
+              {Path.basename(@path)}
+            </h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <%!-- View Mode Toggle --%>
+            <button
+              phx-click="toggle_file_view_mode"
+              class="px-3 py-1.5 bg-[var(--color-background)] border border-[var(--color-border)] text-[var(--color-text-secondary)] rounded-md hover:bg-[var(--color-border-light)] transition-colors text-sm font-medium"
+              type="button"
+              title={if @view_mode == :rendered, do: "View Raw", else: "View Rendered"}
+            >
+              <%= if @view_mode == :rendered do %>
+                <.icon name="hero-code-bracket" class="w-4 h-4 inline-block mr-1" /> Raw
+              <% else %>
+                <.icon name="hero-document-text" class="w-4 h-4 inline-block mr-1" /> Rendered
+              <% end %>
+            </button>
+            <button
+              phx-click="close_file_modal"
+              class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded hover:bg-[var(--color-border-light)] transition-colors"
+              type="button"
+              title="Close"
+            >
+              <.icon name="hero-x-mark" class="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+        <%!-- File Path --%>
+        <div class="px-6 py-2 bg-[var(--color-background)] border-b border-[var(--color-border)]">
+          <span class="text-xs text-[var(--color-text-secondary)] font-mono">{@path}</span>
+        </div>
+        <%!-- File Content --%>
+        <div class="flex-1 overflow-y-auto p-6">
+          <%= if @view_mode == :rendered do %>
+            <div class="prose prose-sm dark:prose-invert max-w-none">
+              {render_markdown(@content)}
+            </div>
+          <% else %>
+            <div class="w-full h-full">
+              {render_markdown_code(@content)}
+            </div>
+          <% end %>
+        </div>
+        <%!-- Modal Footer --%>
+        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-[var(--color-border)]">
+          <button
+            phx-click="close_file_modal"
+            class="px-4 py-2 bg-[var(--color-primary)] text-white border-none rounded-lg hover:opacity-90 transition-opacity"
+            type="button"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr :pending_tools, :list, required: true
+  attr :interrupt_data, :map, default: nil
+  attr :test_mode, :boolean, default: false
+  attr :debug_mode, :boolean, default: false
+
+  # Component: Tool Approval Prompt
+  def tool_approval_prompt(assigns) do
+    pending_count = Enum.count(assigns.pending_tools)
+    is_subagent = match?(%{type: :subagent_hitl}, assigns.interrupt_data)
+    subagent_type = if is_subagent, do: assigns.interrupt_data[:subagent_type], else: nil
+
+    # Only show the first tool, with a counter
+    assigns =
+      assigns
+      |> assign(:current_tool, List.first(assigns.pending_tools))
+      |> assign(:total_count, pending_count)
+      |> assign(:remaining_count, pending_count - 1)
+      |> assign(:is_subagent, is_subagent)
+      |> assign(:subagent_type, subagent_type)
+
+    ~H"""
+    <div class="px-6 py-4 border-t-2 border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20">
+      <div class="max-w-3xl mx-auto">
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <div class="flex items-center gap-3">
+            <.icon
+              name="hero-shield-exclamation"
+              class="w-6 h-6 text-yellow-600 dark:text-yellow-400"
+            />
+            <h3 class="text-lg font-bold text-yellow-900 dark:text-yellow-100 m-0">
+              Human Approval Required
+            </h3>
+            <%= if @is_subagent do %>
+              <span class="px-2.5 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs font-bold rounded-full border border-purple-300 dark:border-purple-700">
+                Sub-agent: {@subagent_type}
+              </span>
+            <% end %>
+          </div>
+          <div class="flex items-center gap-2">
+            <%= if @remaining_count > 0 do %>
+              <span class="px-2 py-1 bg-yellow-200 dark:bg-yellow-800 text-yellow-900 dark:text-yellow-100 text-xs font-medium rounded">
+                +{@remaining_count} more
+              </span>
+            <% end %>
+            <%= if @test_mode do %>
+              <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-bold rounded-full border border-blue-300 dark:border-blue-700">
+                🧪 TEST MODE
+              </span>
+            <% end %>
+          </div>
+        </div>
+
+        <p class="text-sm text-yellow-800 dark:text-yellow-200 mb-4">
+          <%= if @test_mode do %>
+            <strong>Test Mode:</strong>
+            The agent wants to execute this tool. This is a mock request for UI testing - clicking approve/reject will only update the display.
+          <% else %>
+            The assistant wants to perform this action. Please review and approve or reject:
+          <% end %>
+        </p>
+
+        <%!-- Show only the first tool (index 0) --%>
+        <%= if @current_tool do %>
+          <.tool_approval_item tool={@current_tool} index={0} debug_mode={@debug_mode} />
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  attr :tool, :map, required: true
+  attr :index, :integer, required: true
+  attr :debug_mode, :boolean, default: false
+
+  # Component: Individual Tool Approval Item
+  def tool_approval_item(assigns) do
+    display_name =
+      assigns.tool[:display_text] ||
+        friendly_fallback(assigns.tool.tool_name)
+
+    assigns =
+      assigns
+      |> assign(:display_name, display_name)
+      |> assign(:args_json, format_tool_arguments(assigns.tool.arguments))
+
+    ~H"""
+    <div class="bg-white dark:bg-gray-800 border-2 border-yellow-300 dark:border-yellow-700 rounded-lg p-4 shadow-sm">
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center gap-2">
+          <.icon
+            name="hero-wrench-screwdriver"
+            class="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0"
+          />
+          <span class="text-lg font-bold text-gray-900 dark:text-gray-100">
+            {if @debug_mode, do: @tool.tool_name, else: @display_name}
+          </span>
+        </div>
+
+        <%= if @debug_mode do %>
+          <.tool_approval_args_debug args_json={@args_json} />
+        <% else %>
+          <.tool_approval_args_friendly arguments={@tool.arguments} />
+        <% end %>
+
+        <div class="flex items-center justify-end gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <button
+            phx-click="reject_tool"
+            phx-value-index={@index}
+            class="px-5 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-none rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium"
+            type="button"
+          >
+            <.icon name="hero-x-mark" class="w-4 h-4 inline-block mr-1" /> Reject
+          </button>
+          <button
+            phx-click="approve_tool"
+            phx-value-index={@index}
+            class="px-5 py-2.5 bg-green-600 text-white border-none rounded-lg hover:bg-green-700 transition-colors font-medium shadow-sm"
+            type="button"
+          >
+            <.icon name="hero-check" class="w-4 h-4 inline-block mr-1" /> Approve
+          </button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  # Debug view: raw JSON arguments (existing behavior)
+  attr :args_json, :string, required: true
+
+  defp tool_approval_args_debug(assigns) do
+    ~H"""
+    <%= if @args_json && @args_json != "{}" do %>
+      <details class="mt-1" open>
+        <summary class="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 mb-2">
+          Arguments
+        </summary>
+        <pre class="mt-2 p-3 bg-gray-50 dark:bg-gray-900 rounded text-xs text-gray-800 dark:text-gray-200 overflow-x-auto border border-gray-200 dark:border-gray-700 font-mono"><code>{@args_json}</code></pre>
+      </details>
+    <% end %>
+    """
+  end
+
+  # Friendly view: key-value list with humanized labels
+  attr :arguments, :map, default: %{}
+
+  defp tool_approval_args_friendly(assigns) do
+    args = assigns.arguments || %{}
+
+    formatted_args =
+      args
+      |> Enum.sort_by(fn {k, _v} -> k end)
+      |> Enum.map(fn {key, value} ->
+        %{
+          label: humanize_arg_key(key),
+          value: value,
+          long?: is_binary(value) and String.length(value) > 120
+        }
+      end)
+
+    assigns = assign(assigns, :formatted_args, formatted_args)
+
+    ~H"""
+    <%= if @formatted_args != [] do %>
+      <div class="mt-1 space-y-2">
+        <div :for={arg <- @formatted_args} class="flex flex-col gap-0.5">
+          <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            {arg.label}
+          </span>
+          <%= if arg.long? do %>
+            <details class="group">
+              <summary class="cursor-pointer text-sm text-gray-800 dark:text-gray-200">
+                <span class="font-mono text-sm">{String.slice(to_string(arg.value), 0, 120)}...</span>
+                <span class="text-xs text-blue-600 dark:text-blue-400 ml-1 group-open:hidden">
+                  Show more
+                </span>
+              </summary>
+              <pre class="mt-1 p-2 bg-gray-50 dark:bg-gray-900 rounded text-xs text-gray-800 dark:text-gray-200 overflow-x-auto border border-gray-200 dark:border-gray-700 font-mono whitespace-pre-wrap">{arg.value}</pre>
+            </details>
+          <% else %>
+            <span class="font-mono text-sm text-gray-800 dark:text-gray-200 break-all">
+              {format_arg_value(arg.value)}
+            </span>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+    """
+  end
+
+  # Component: Question Prompt (AskUserQuestion interrupt)
+  attr :question, :map, required: true
+  attr :remaining_count, :integer, default: 0
+
+  def question_prompt(assigns) do
+    ~H"""
+    <div
+      id="question-prompt"
+      class="px-6 py-4 border-t-2 border-blue-400 bg-blue-50 dark:bg-blue-900/20"
+    >
+      <div class="max-w-3xl mx-auto">
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <div class="flex items-center gap-3">
+            <.icon
+              name="hero-question-mark-circle"
+              class="w-6 h-6 text-blue-600 dark:text-blue-400"
+            />
+            <h3 class="text-lg font-bold text-blue-900 dark:text-blue-100 m-0">
+              Question
+            </h3>
+          </div>
+          <%= if @remaining_count > 0 do %>
+            <span class="px-2 py-1 bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100 text-xs font-medium rounded">
+              +{@remaining_count} more
+            </span>
+          <% end %>
+        </div>
+
+        <div class="text-sm text-blue-900 dark:text-blue-100 mb-4 font-medium prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0">
+          {render_markdown(@question.question)}
+        </div>
+
+        <%= if @question.context do %>
+          <div class="text-xs text-blue-700 dark:text-blue-300 mb-4 italic prose prose-xs dark:prose-invert max-w-none prose-p:my-1">
+            {render_markdown(@question.context)}
+          </div>
+        <% end %>
+
+        <%!-- Everything the user can type into or select lives inside an ignored
+             region, keyed on this question's tool_call_id.
+
+             Why: any diff at all makes LiveView patch this container, and
+             morphdom resyncs a TEXTAREA's value from the server's HTML for every
+             element that is not document.activeElement. The server never renders
+             what the user typed, so a half-written "Other" answer is wiped by an
+             unrelated assign change — and there is now a guaranteed one: the
+             agent going to sleep flips agent_alive?, which the header reads.
+
+             The id changing is what lets the next question in a batch render:
+             morphdom replaces the subtree wholesale rather than diffing into it.
+             restore_interrupt_data/1 injects each ToolResult's own tool_call_id,
+             so ids are distinct per question on both the live and restored path.
+
+             The QuestionForm hook still works. Ignored nodes are real DOM, and
+             the hook reads radio/checkbox state with querySelectorAll and drives
+             its own updates from a change listener rather than from LiveView
+             patches. --%>
+        <div id={"question-body-#{@question.tool_call_id}"} phx-update="ignore">
+          <%= case @question.response_type do %>
+            <% :single_select -> %>
+              <%= if @question.allow_other do %>
+                <%!-- Form-based single select with "Other" option --%>
+                <form
+                  phx-submit="question_single_submit"
+                  phx-hook="QuestionForm"
+                  id="question-single-form"
+                  class="mb-4"
+                >
+                  <div class="space-y-2 mb-4">
+                    <label
+                      :for={option <- @question.options}
+                      class="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-700 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-all duration-150"
+                    >
+                      <input
+                        type="radio"
+                        name="selected"
+                        value={option.value}
+                        class="mt-0.5 w-4 h-4 border-blue-400 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div>
+                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {option.label}
+                        </div>
+                        <%= if option.description do %>
+                          <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {option.description}
+                          </div>
+                        <% end %>
+                      </div>
+                    </label>
+                    <label class="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-700 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-all duration-150">
+                      <input
+                        type="radio"
+                        name="selected"
+                        value="other"
+                        class="mt-0.5 w-4 h-4 border-blue-400 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div class="flex-1">
+                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                          Other
+                        </div>
+                        <textarea
+                          name="other_text"
+                          rows="2"
+                          disabled
+                          data-other-input
+                          placeholder="Describe your choice..."
+                          class="w-full px-3 py-2 text-sm border border-blue-200 dark:border-blue-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y opacity-40 transition-opacity duration-150"
+                        ></textarea>
+                      </div>
+                    </label>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled
+                    data-submit-btn
+                    class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors duration-150 opacity-40 cursor-not-allowed"
+                  >
+                    Submit
+                  </button>
+                </form>
+              <% else %>
+                <%!-- Click-to-select single select (no "Other") --%>
+                <div class="space-y-2 mb-4">
+                  <div
+                    :for={option <- @question.options}
+                    phx-click="question_select"
+                    phx-value-value={option.value}
+                    class="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-700 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-all duration-150"
+                  >
+                    <div class="w-4 h-4 mt-0.5 rounded-full border-2 border-blue-400 dark:border-blue-500 flex-shrink-0">
+                    </div>
+                    <div>
+                      <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {option.label}
+                      </div>
+                      <%= if option.description do %>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {option.description}
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            <% :multi_select -> %>
+              <form
+                phx-submit="question_multi_submit"
+                phx-hook="QuestionForm"
+                id="question-multi-form"
+                class="mb-4"
+              >
+                <div class="space-y-2 mb-4">
+                  <label
+                    :for={option <- @question.options}
+                    class="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-700 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-all duration-150"
+                  >
+                    <input
+                      type="checkbox"
+                      name="selected[]"
+                      value={option.value}
+                      class="mt-0.5 w-4 h-4 rounded border-blue-400 text-blue-600 focus:ring-blue-500"
+                    />
+                    <div>
+                      <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {option.label}
+                      </div>
+                      <%= if option.description do %>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {option.description}
+                        </div>
+                      <% end %>
+                    </div>
+                  </label>
+                  <%= if @question.allow_other do %>
+                    <label class="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-700 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-all duration-150">
+                      <input
+                        type="checkbox"
+                        name="selected[]"
+                        value="other"
+                        class="mt-0.5 w-4 h-4 rounded border-blue-400 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div class="flex-1">
+                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                          Other
+                        </div>
+                        <textarea
+                          name="other_text"
+                          rows="2"
+                          disabled
+                          data-other-input
+                          placeholder="Describe your choice..."
+                          class="w-full px-3 py-2 text-sm border border-blue-200 dark:border-blue-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y opacity-40 transition-opacity duration-150"
+                        ></textarea>
+                      </div>
+                    </label>
+                  <% end %>
+                </div>
+                <button
+                  type="submit"
+                  disabled
+                  data-submit-btn
+                  class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors duration-150 opacity-40 cursor-not-allowed"
+                >
+                  Submit
+                </button>
+              </form>
+            <% :freeform -> %>
+              <form phx-submit="question_freeform_submit" id="question-freeform-form" class="mb-4">
+                <textarea
+                  name="text"
+                  rows="3"
+                  placeholder="Type your response..."
+                  class="w-full px-3 py-2 text-sm border border-blue-200 dark:border-blue-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y mb-3"
+                ></textarea>
+                <button
+                  type="submit"
+                  class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-150"
+                >
+                  Submit
+                </button>
+              </form>
+          <% end %>
+        </div>
+
+        <%= if @question.allow_cancel do %>
+          <button
+            phx-click="question_cancel"
+            class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline transition-colors duration-150"
+          >
+            Cancel
+          </button>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  defp humanize_arg_key(key) when is_binary(key) do
+    key
+    |> String.replace("_", " ")
+    |> String.capitalize()
+  end
+
+  defp humanize_arg_key(key), do: to_string(key)
+
+  defp format_arg_value(value) when is_binary(value), do: value
+  defp format_arg_value(value) when is_boolean(value), do: to_string(value)
+  defp format_arg_value(value) when is_number(value), do: to_string(value)
+  defp format_arg_value(value) when is_list(value), do: Enum.join(value, ", ")
+
+  defp format_arg_value(value) when is_map(value) do
+    case Jason.encode(value, pretty: true) do
+      {:ok, json} -> json
+      _other -> inspect(value)
+    end
+  end
+
+  defp format_arg_value(nil), do: ""
+  defp format_arg_value(value), do: inspect(value)
+
+  defp mdex_config(md_content, streaming?) do
+    [
+      streaming: streaming?,
+      markdown: md_content,
+      extension: [
+        strikethrough: true,
+        table: true,
+        autolink: true,
+        tasklist: true,
+        footnotes: true,
+        shortcodes: true
+      ],
+      parse: [
+        smart: true,
+        relaxed_tasklist_matching: true,
+        relaxed_autolinks: true
+      ],
+      render: [
+        unsafe_: true
+      ]
+    ]
+  end
+
+  @doc """
+  Render the raw content as markdown. Returns HTML rendered text.
+
+  Pass `true` for `streaming?` **only** when the text is an in-flight streaming
+  delta. See `markdown/1` for why.
+  """
+  def render_markdown(text, streaming? \\ false)
+
+  def render_markdown(nil, _streaming?), do: Phoenix.HTML.raw(nil)
+
+  def render_markdown(text, streaming?) when is_binary(text) do
+    # NOTE: This allows explicit HTML to come through.
+    #   - Don't allow this with user input.
+    text
+    |> mdex_config(streaming?)
+    |> MDEx.new()
+    |> MDEx.to_html!()
+    |> Phoenix.HTML.raw()
+  end
+
+  @doc """
+  Render code content with syntax highlighting using Lumis.
+  """
+  def render_markdown_code(nil), do: Phoenix.HTML.raw(nil)
+
+  def render_markdown_code(text) when is_binary(text) do
+    text
+    |> Lumis.highlight!(formatter: {:html_inline, language: "markdown"})
+    |> Phoenix.HTML.raw()
+  end
+
+  @doc """
+  Render a markdown containing web component.
+
+  Set `streaming` to `true` **only** when rendering an in-flight streaming delta
+  whose buffer may be truncated mid-token. Streaming mode optimistically treats a
+  trailing unclosed delimiter (e.g. a lone `~`) as the start of a construct whose
+  closer "hasn't arrived yet" - correct for a live delta, but wrong for a
+  fully-received message, where it would spuriously strike through trailing text.
+  """
+  attr :text, :string, required: true
+  attr :class, :string, default: nil
+  attr :invert, :boolean, default: false
+  attr :streaming, :boolean, default: false
+  attr :rest, :global
+
+  def markdown(%{text: nil} = assigns), do: ~H""
+
+  def markdown(assigns) do
+    ~H"""
+    <div class="w-full">
+      <div
+        class={[
+          "prose max-w-none prose-pre:whitespace-pre-wrap",
+          @invert && "prose-invert text-white",
+          !@invert && "dark:prose-invert",
+          @class
+        ]}
+        {@rest}
+      >
+        {render_markdown(@text, @streaming)}
+      </div>
+    </div>
+    """
+  end
+end

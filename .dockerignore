@@ -63,3 +63,13 @@ docker-compose*.yml
 # Sensitive config files
 cypress.config.js
 playwright.config.ts
+
+# Elixir build artifacts (agents_demo). The Dockerfile copies only sources and
+# compiles inside the image, so shipping these in the build context costs
+# hundreds of MB of transfer per build and buys nothing — and a host-built
+# _build/ carries binaries for the wrong architecture.
+agents_demo/_build
+agents_demo/deps
+agents_demo/.elixir_ls
+agents_demo/priv/static/assets
+agents_demo/erl_crash.dump

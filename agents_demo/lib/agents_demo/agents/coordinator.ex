@@ -1,0 +1,235 @@
+defmodule AgentsDemo.Agents.Coordinator do
+  @moduledoc """
+  Thin bridge between this app and `Sagents.Session`.
+
+  Session-start logic — router consult, factory invocation, state seeding,
+  supervisor config, subscriber wiring — lives in `Sagents.Session`. This
+  module declares app-specific config and exposes user-editable
+  customization slots (the `conversation_agent_id/1` mapping, presence
+  helpers).
+
+  ## The two paths a host (LiveView, GenServer, etc.) takes
+
+  ### Load path (no factory config required)
+
+  Opening a conversation just needs to subscribe to its events. The agent
+  may or may not be running — `Sagents.Subscriber.subscribe_to_agent/3`
+  returns a `:pending` entry when it isn't, which auto-upgrades to
+  `:subscribed` via `presence_diff` once the agent appears.
+
+      subs =
+        Sagents.Subscriber.subscribe_to_agent(
+          subs,
+          AgentsDemo.Agents.Coordinator.conversation_agent_id(conversation_id)
+        )
+
+  ### Action path (factory config required)
+
+  When the user takes an action that requires the agent to actually do
+  work, call `ensure_agent_session_running/1` with a state map. The function
+  starts the agent (if it isn't running) with the host seeded as an
+  initial subscriber to close the race against `init/1`/`handle_continue/2`
+  broadcasts, and upgrades the local subs map to `:subscribed`.
+
+      # LiveView
+      case AgentsDemo.Agents.Coordinator.ensure_agent_session_running(socket.assigns) do
+        {:ok, changes} -> assign(socket, changes)
+        {:error, reason} -> ...
+      end
+
+      # GenServer
+      case AgentsDemo.Agents.Coordinator.ensure_agent_session_running(state) do
+        {:ok, changes} -> {:noreply, Map.merge(state, changes)}
+        {:error, reason} -> ...
+      end
+
+  See `Sagents.FactoryRouter` for routing among multiple factories.
+
+  ## Threading per-request data into the FactoryConfig
+
+  Per-request fields (`:timezone`, `:tool_context`, project context,
+  etc.) flow through the explicit `request_opts` keyword list passed as
+  the second arg to `ensure_agent_session_running/2`. They are forwarded to
+  the router as its third argument and consumed by your
+  `*Config.from_inputs/1`:
+
+      Coordinator.ensure_agent_session_running(socket.assigns,
+        timezone: socket.assigns.timezone,
+        tool_context: %{user_id: user_id}
+      )
+
+  Add new request-scoped fields to your FactoryConfig and pass them
+  through this same arg — no magic state-map keys.
+  """
+
+  @presence_module AgentsDemoWeb.Presence
+
+  @config %{
+    factory_router: AgentsDemo.Agents.FactoryRouter,
+    agent_persistence: AgentsDemo.Agents.AgentPersistence,
+    display_message_persistence: AgentsDemo.Agents.DisplayMessagePersistence,
+    pubsub: {Phoenix.PubSub, AgentsDemo.PubSub},
+    presence_module: AgentsDemoWeb.Presence,
+    inactivity_timeout: :timer.minutes(10),
+    agent_id_fun: &__MODULE__.conversation_agent_id/1
+  }
+
+  @doc """
+  Start (or return the existing) agent session for a conversation.
+
+  Idempotent. Most callers should use `ensure_agent_session_running/1` instead,
+  which composes this with subscription bookkeeping.
+
+  See `Sagents.Session.start/3` for accepted options.
+  """
+  def start_conversation_session(conversation_id, opts \\ []),
+    do: Sagents.Session.start(@config, conversation_id, opts)
+
+  @doc """
+  Ensure the agent session for `state.conversation_id` is running and
+  that the calling process is subscribed to its events.
+
+  Per-request data for the FactoryConfig flows through the explicit
+  `request_opts` keyword list, not the state map. See
+  `Sagents.Session.ensure_running/3`.
+
+      AgentsDemo.Agents.Coordinator.ensure_agent_session_running(socket.assigns,
+        timezone: socket.assigns.timezone
+      )
+  """
+  def ensure_agent_session_running(state, request_opts \\ []),
+    do: Sagents.Session.ensure_running(@config, state, request_opts: request_opts)
+
+  @doc """
+  Answer a pending interrupt, waking the agent first if it has gone to sleep.
+
+  Use this everywhere you would otherwise call `Sagents.AgentServer.resume/2`
+  directly. Interrupts are durable, so an agent that napped while the author
+  was composing an answer is only a reason to start a process to take it, not
+  a reason to lose the answer.
+
+  Returns `:ok`, `{:ok, changes}` (merge them: they carry subscription
+  bookkeeping from the wake), or `{:error, reason}`. See
+  `Sagents.Session.resume/4`.
+
+      AgentsDemo.Agents.Coordinator.resume_agent_session(socket.assigns, response,
+        timezone: socket.assigns.timezone
+      )
+  """
+  def resume_agent_session(state, resume_data, request_opts \\ []),
+    do: Sagents.Session.resume(@config, state, resume_data, request_opts: request_opts)
+
+  @doc """
+  Dismiss a terminal `:halt` interrupt, waking the agent first if it has gone
+  to sleep.
+
+  The counterpart to `resume_agent_session/3` for the interrupt type that is
+  acknowledged rather than answered. Use this everywhere you would otherwise
+  call `Sagents.AgentServer.dismiss_interrupt/1` directly: a halt is
+  restorable, so the panel survives a nap, and its only button has to work
+  against a dormant conversation.
+
+  Returns `:ok`, `{:ok, changes}` (merge them: they carry subscription
+  bookkeeping from the wake), or `{:error, reason}`. See
+  `Sagents.Session.dismiss/3`.
+
+      AgentsDemo.Agents.Coordinator.dismiss_agent_session(socket.assigns,
+        timezone: socket.assigns.timezone
+      )
+  """
+  def dismiss_agent_session(state, request_opts \\ []),
+    do: Sagents.Session.dismiss(@config, state, request_opts: request_opts)
+
+  @doc """
+  Stop an agent session for a conversation.
+
+  Note: agents automatically stop after inactivity timeout. Only call this
+  for explicit cleanup (e.g., conversation archival).
+
+  Returns `{:ok, :stopped}`, `{:ok, :not_running}`, or
+  `{:error, :registry_unavailable}` when this node cannot answer registry
+  lookups at all.
+  """
+  def stop_conversation_session(conversation_id),
+    do: Sagents.Session.stop(@config, conversation_id)
+
+  @doc """
+  Whether an agent session is currently running for `conversation_id`.
+  **Raises on a node whose registry is unavailable.**
+
+  `Sagents.RegistryUnavailableError` comes out of this whenever this node's
+  registry cannot answer, which covers the drain window of every rolling
+  deploy. A boolean has no room for "cannot tell", and `false` reads as
+  "nothing is running", which a caller responds to by starting a duplicate
+  agent for a conversation that already has one elsewhere.
+
+  Anywhere a web request can reach, use `fetch_session_running/1` or
+  `ensure_agent_session_running/2`, which report the condition as a value.
+  """
+  def session_running?(conversation_id),
+    do: Sagents.Session.running?(@config, conversation_id)
+
+  @doc """
+  Whether an agent session is running for `conversation_id`, without raising.
+
+  Returns `{:ok, boolean}` or `{:error, :registry_unavailable}`. The
+  non-raising form of `session_running?/1`; see `Sagents.Session.fetch_running/2`.
+  """
+  def fetch_session_running(conversation_id),
+    do: Sagents.Session.fetch_running(@config, conversation_id)
+
+  # ===========================================================================
+  # Customization slots (edit after generation as needed)
+  # ===========================================================================
+
+  @doc """
+  Maps a conversation ID to an agent ID.
+
+  Customize to change the mapping strategy:
+
+      # User-centric agents (one agent per user)
+      def conversation_agent_id(conversation_id) do
+        user_id = Conversations.get_user_id(conversation_id)
+        "user-\#{user_id}"
+      end
+
+      # Conversation-centric with prefix (default)
+      def conversation_agent_id(conversation_id) do
+        "conversation-\#{conversation_id}"
+      end
+  """
+  def conversation_agent_id(conversation_id) do
+    "conversation-#{conversation_id}"
+  end
+
+  # ===========================================================================
+  # Presence helpers (per-app because of @presence_module)
+  # ===========================================================================
+
+  @doc """
+  Track a viewer's presence in a conversation.
+
+  Call this in your LiveView mount after the socket is connected to enable
+  smart agent shutdown — when no viewers are present and the agent becomes
+  idle, it can shutdown immediately to free resources.
+  """
+  def track_conversation_viewer(conversation_id, viewer_id, metadata \\ %{}) do
+    topic = presence_topic(conversation_id)
+    full_metadata = Map.merge(%{joined_at: System.system_time(:second)}, metadata)
+    Sagents.Presence.track(@presence_module, topic, viewer_id, full_metadata)
+  end
+
+  @doc "Untrack a viewer's presence from a conversation."
+  def untrack_conversation_viewer(conversation_id, viewer_id) do
+    topic = presence_topic(conversation_id)
+    Sagents.Presence.untrack(@presence_module, topic, viewer_id)
+  end
+
+  @doc "List all viewers currently present in a conversation."
+  def list_conversation_viewers(conversation_id) do
+    topic = presence_topic(conversation_id)
+    Sagents.Presence.list(@presence_module, topic)
+  end
+
+  defp presence_topic(conversation_id), do: "conversation:#{conversation_id}"
+end

@@ -1,0 +1,92 @@
+# AgentsDemo environment variables — every setting the app reads.
+#
+#   cp .envrc.example .env      # `make dev` and `mix` read .env directly
+#   cp .envrc.example .envrc    # or use direnv / `source .envrc`
+#
+# `AgentsDemo.Config` is the single place application code reads these, and
+# documents each one's default and what happens when it is missing. An unset
+# variable and one set to "" mean the same thing: absent.
+
+# ── Required ────────────────────────────────────────────────────────────────
+
+# Every agent, including title generation, is an Anthropic model.
+# https://console.anthropic.com/
+export ANTHROPIC_API_KEY="your-api-key-here"
+
+# ── Models ──────────────────────────────────────────────────────────────────
+
+# The model a conversation runs on, and the smaller one that names it. A bot's
+# own `model` overrides the first per conversation.
+# export AGENTS_DEMO_MODEL="claude-sonnet-4-6"
+# export AGENTS_DEMO_TITLE_MODEL="claude-haiku-4-5"
+
+# Extended-thinking budget in tokens. Anthropic requires at least 1024; the
+# ceiling is a cost bound, since thinking is billed as output.
+# export AGENTS_DEMO_THINKING_BUDGET="3000"
+
+# How long a tool call may run, in milliseconds. Unset means no timeout, which
+# is right when a human is watching and can give up themselves. An unattended
+# agent — answering a webhook, or a call — wants a finite one.
+# export AGENTS_DEMO_TOOL_TIMEOUT_MS="600000"
+
+# ── Public HTTP API (see /api/docs) ─────────────────────────────────────────
+
+# The API refuses every request when the key is unset, rather than running
+# unauthenticated. Both are needed; one without the other answers 401.
+# export AGENTS_DEMO_API_KEY="$(openssl rand -hex 24)"
+# export AGENTS_DEMO_API_USER_EMAIL="you@example.com"
+
+# ── WhatsApp channel ────────────────────────────────────────────────────────
+
+# Use a System User token — the ones the dashboard hands out expire in 24h,
+# which reads as an intermittent outage a day after every setup.
+# export WHATSAPP_ACCESS_TOKEN=""
+# export WHATSAPP_PHONE_NUMBER_ID=""
+# A wrong app secret fails the signature check *silently*.
+# export WHATSAPP_APP_SECRET=""
+# export WHATSAPP_VERIFY_TOKEN="$(openssl rand -hex 24)"
+# Set: every thread lands on this account and appears in the web UI beside
+# browser chats. Unset: each phone number gets its own passwordless account.
+# export WHATSAPP_OWNER_EMAIL="you@example.com"
+
+# ── Storage ─────────────────────────────────────────────────────────────────
+
+# Root of the agents' own filesystems — the /Memories each user sees. Must be
+# an absolute path outside the release in production: a deploy replaces the
+# release directory wholesale. Defaults to ./user_files in development.
+# export AGENTS_DEMO_DATA_DIR="/opt/xamal/agents_demo/data"
+
+# ── Database (development and test) ─────────────────────────────────────────
+
+# Defaults match docker-compose.yml. PGPORT is the one most often changed —
+# set it when 5432 is already taken by another project's database.
+# export PGPORT="5434"
+# export PGHOST="localhost"
+# export PGUSER="postgres"
+# export PGPASSWORD="postgres"
+# export PGDATABASE="agents_demo_dev"
+
+# Phoenix HTTP port in development. Read by config/runtime.exs and by the
+# Makefile (for the tunnel), so `.env` or the shell is enough either way.
+# export PHX_PORT="4000"
+
+# ── Clustering ──────────────────────────────────────────────────────────────
+
+# Sagents process distribution. `horde` (the default) gives cross-node process
+# discovery and needs the nodes connected in an Erlang cluster; `local` is
+# right for a one-box deploy, which otherwise pays for CRDT sync and gets
+# nothing back.
+# export AGENTS_DEMO_DISTRIBUTION="horde"
+
+# For local clustered usage
+export RELEASE_DISTRIBUTION="name"
+export RELEASE_COOKIE="my-app-cookie"
+
+# ── Optional ────────────────────────────────────────────────────────────────
+
+# Unused by the default factory; present so switching the factory to ChatOpenAI
+# needs no config change.
+# export OPENAI_KEY=""
+
+# Public HTTPS tunnel for WhatsApp webhooks — see `make tunnel`.
+# export NGROK_AUTHTOKEN=""

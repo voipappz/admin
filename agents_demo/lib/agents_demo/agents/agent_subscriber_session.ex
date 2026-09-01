@@ -1,0 +1,397 @@
+defmodule AgentsDemo.Agents.AgentSubscriberSession do
+  @moduledoc """
+  Subscriber-side session state model for a conversation's agent.
+
+  This module owns the **shape** of the subscriber's session state and the
+  state transitions in response to agent events. It is host-agnostic — every
+  function takes a plain state map (or just the inputs it needs) and returns
+  a changes map (or a tagged tuple for operations that need orchestration,
+  such as HITL decisions that may trigger a resume).
+
+  Hosts apply the changes in their native idiom:
+
+  - LiveView: `socket = assign(socket, changes)` (each key is properly
+    tracked in `__changed__` for re-render diffing).
+  - GenServer / plain process: `state = Map.merge(state, changes)`.
+
+  ## Why this module exists
+
+  A LiveView is one consumer of agent events; a GraphQL bridge GenServer
+  (or any other host that proxies agent events to an external transport)
+  is another. Both want the same state-transition logic. Putting it here
+  lets the LiveView helpers stay focused on LiveView-specific concerns
+  (streams, flash, `connected?`) and lets non-LiveView hosts call this
+  module directly without dragging in any LiveView dependency.
+
+  ## Tagged-tuple operations
+
+  A few handlers need to signal "the host should now perform a side effect"
+  in addition to producing a state change. They return tagged tuples:
+
+  - `{:resume, resume_data, changes}` — caller should resume the agent via
+    `Coordinator.resume_agent_session/3`, which wakes a sleeping
+    agent and hands it the answer at boot rather than failing. On success,
+    also apply `hitl_resume_running_changes/0` (or
+    `question_resume_running_changes/0`) on top of `changes`.
+  - `{:more, changes}` — no side effect required; just merge changes.
+
+  See `handle_hitl_decision/3` and `handle_question_response/2`.
+  """
+
+  alias AgentsDemo.Conversations
+  alias AgentsDemo.Agents.Coordinator
+  alias Sagents.AgentUtils
+  alias Sagents.StreamingSession
+  alias Sagents.Subscriber
+  alias LangChain.MessageDelta
+
+  require Logger
+
+  # ===========================================================================
+  # Default state
+  # ===========================================================================
+
+  @doc """
+  Default empty session state. Caller merges this into its own state map
+  (or passes to `assign/2` for a LiveView).
+  """
+  def init_session_state do
+    %{
+      conversation: nil,
+      conversation_id: nil,
+      agent_id: nil,
+      agent_status: :not_running,
+      agent_alive?: false,
+      todos: [],
+      has_messages: false,
+      streaming_delta: nil,
+      loading: false,
+      pending_tools: [],
+      pending_question: nil,
+      pending_halt: nil,
+      remaining_questions: [],
+      question_responses: [],
+      interrupt_data: nil,
+      hitl_decisions: [],
+      sagents_subs: %{}
+    }
+  end
+
+  # ===========================================================================
+  # Status handlers
+  # ===========================================================================
+
+  # Every non-interrupted status merges `AgentUtils.cleared_interrupt_changes/0`
+  # to enforce the invariant: any status other than `:interrupted` means there
+  # is no pending interrupt UI. This stops a dismissed/superseded interrupt's
+  # derived keys (e.g. `:pending_halt`) from re-appearing on the next
+  # transition back into `:interrupted`.
+  #
+  # Every status handler also sets `agent_alive?: true`. An inbound agent event
+  # is proof that a process is backing this session, whatever it says.
+
+  @doc "Status changed to :running."
+  def handle_status_running,
+    do:
+      Map.merge(
+        AgentUtils.cleared_interrupt_changes(),
+        %{agent_status: :running, agent_alive?: true}
+      )
+
+  @doc "Status changed to :idle (execution completed)."
+  def handle_status_idle,
+    do:
+      Map.merge(
+        AgentUtils.cleared_interrupt_changes(),
+        %{loading: false, agent_status: :idle, streaming_delta: nil, agent_alive?: true}
+      )
+
+  @doc "Status changed to :cancelled (user cancelled execution)."
+  def handle_status_cancelled,
+    do:
+      Map.merge(
+        AgentUtils.cleared_interrupt_changes(),
+        %{loading: false, agent_status: :cancelled, streaming_delta: nil, agent_alive?: true}
+      )
+
+  @doc """
+  Status changed to :error.
+
+  Returns only the state changes. The caller is responsible for surfacing
+  the error to the user (e.g. `put_flash` in LiveView). Use
+  `format_error_message/1` for a consistent message.
+  """
+  def handle_status_error(_reason),
+    do:
+      Map.merge(
+        AgentUtils.cleared_interrupt_changes(),
+        %{loading: false, agent_status: :error, streaming_delta: nil, agent_alive?: true}
+      )
+
+  @doc """
+  Status changed to :interrupted (waiting for human input).
+
+  Returns an empty changes map when `interrupt_data` is `nil` (e.g. an agent
+  whose status is `:interrupted` but whose interrupt payload hasn't been
+  populated yet). Callers can apply the result unconditionally.
+  """
+  def handle_status_interrupted(nil), do: %{}
+
+  def handle_status_interrupted(interrupt_data) do
+    Map.merge(
+      %{
+        loading: false,
+        agent_status: :interrupted,
+        agent_alive?: true,
+        interrupt_data: interrupt_data
+      },
+      AgentUtils.interrupt_session_changes(interrupt_data)
+    )
+  end
+
+  # ===========================================================================
+  # Message handlers
+  # ===========================================================================
+
+  @doc "Streaming LLM deltas (incremental response chunks)."
+  def handle_llm_deltas(state, deltas) do
+    current = Map.get(state, :streaming_delta)
+    %{streaming_delta: MessageDelta.merge_deltas(current, deltas)}
+  end
+
+  @doc "Complete LLM message received."
+  def handle_llm_message_complete, do: %{streaming_delta: nil, loading: false}
+
+  # ===========================================================================
+  # Tool execution handlers
+  # ===========================================================================
+  #
+  # The tool-call lifecycle logic lives in `Sagents.StreamingSession` so every
+  # downstream host (this LiveView, GraphQL bridges, plain GenServers) gets
+  # the same call_id-based behaviour and the same "keep the delta until every
+  # sibling tool call has terminated" semantics. We just delegate.
+
+  @doc "Tool call identified — see `Sagents.StreamingSession.handle_tool_call_identified/2`."
+  defdelegate handle_tool_call_identified(state, tool_info), to: StreamingSession
+
+  @doc "Tool execution lifecycle update — see `Sagents.StreamingSession.handle_tool_execution_update/3`."
+  defdelegate handle_tool_execution_update(state, status, tool_info), to: StreamingSession
+
+  # ===========================================================================
+  # Recovery handlers (DOWN, presence_diff, agent shutdown)
+  # ===========================================================================
+
+  @doc """
+  Route a `{:DOWN, ref, ...}` from a producer crash to
+  `Sagents.Subscriber.handle_publisher_down/3`. Returns changes to apply
+  if the ref matched a tracked subscription, or an empty map.
+  """
+  def handle_publisher_down(state, ref, reason \\ :noproc) do
+    subs = Map.get(state, :sagents_subs, %{})
+
+    case Subscriber.handle_publisher_down(subs, ref, reason) do
+      # The entry is now `:pending`; the next presence arrival re-subscribes.
+      # Interrupt state is deliberately untouched: a crashed agent with a
+      # restorable interrupt boots straight back into `:interrupted`, and one
+      # without boots `:idle` and the ordinary status handler clears the UI.
+      {:matched, new_subs} -> %{sagents_subs: new_subs, agent_alive?: false}
+      :no_match -> %{}
+    end
+  end
+
+  @doc """
+  Route a Phoenix presence diff for the agent presence topic to
+  `Sagents.Subscriber.handle_presence_diff/3`.
+  """
+  def handle_presence_diff(state, payload) do
+    subs = Map.get(state, :sagents_subs, %{})
+    new_subs = Subscriber.handle_presence_diff(subs, Subscriber.presence_topic(), payload)
+    %{sagents_subs: new_subs}
+  end
+
+  @doc """
+  Agent shutdown event.
+
+  Delegates to `Sagents.AgentUtils.shutdown_session_changes/2`, which keeps a
+  restorable interrupt prompt on screen (marking the session
+  `agent_alive?: false` but leaving `agent_status: :interrupted`) and
+  otherwise collapses the session to `:not_running`.
+
+  Note what this deliberately does *not* do:
+
+  - It does not clear `:agent_id`. That is a pure function of the conversation
+    id, it is what we need in order to wake the agent again, and nil-ing it
+    breaks `handle_conversation_title_generated/3`, which compares against it.
+  - It does not unsubscribe. `Subscriber.unsubscribe_from_agent/2` deletes the
+    subs entry, and `Subscriber.handle_presence_diff/3` only revives entries in
+    the `:pending` state, so unsubscribing here would permanently destroy the
+    auto-recovery path (the shutdown event is sent before the process dies, so
+    the delete always beats the `:DOWN` that would have marked it `:pending`).
+    Leaving it alone is what lets the subscription come back when the agent
+    wakes.
+
+  A single shutdown delivers this event more than once. Every delivery carries
+  the same payload shape, so re-applying the result is a no-op.
+  """
+  def handle_agent_shutdown(state, shutdown_data) do
+    AgentUtils.shutdown_session_changes(state, shutdown_data)
+  end
+
+  # ===========================================================================
+  # Lifecycle
+  # ===========================================================================
+
+  @doc """
+  Conversation title generated — write the new title to the DB and return
+  a change with the updated conversation. No-op (returns `%{}`) if the
+  event isn't for our agent or there's no conversation in state.
+  """
+  def handle_conversation_title_generated(state, new_title, target_agent_id) do
+    cond do
+      target_agent_id != Map.get(state, :agent_id) ->
+        %{}
+
+      is_nil(Map.get(state, :conversation)) ->
+        %{}
+
+      true ->
+        case Conversations.update_conversation(state.conversation, %{title: new_title}) do
+          {:ok, updated_conversation} ->
+            %{conversation: updated_conversation}
+
+          {:error, reason} ->
+            Logger.error("Failed to update conversation title: #{inspect(reason)}")
+            %{}
+        end
+    end
+  end
+
+  # ===========================================================================
+  # HITL decisions
+  # ===========================================================================
+
+  @doc """
+  Compute the state transition for a single HITL approve/reject decision.
+
+  Returns `{:resume, accumulated, changes}` when this decision settles all
+  pending tools (the host should call `AgentServer.resume(agent_id, accumulated)`
+  and then merge `changes` plus `hitl_resume_running_changes/0` on success),
+  or `{:more, changes}` when there are still tools to decide.
+  """
+  def handle_hitl_decision(state, index, decision_type) do
+    AgentUtils.advance_hitl_decisions(state, index, decision_type)
+  end
+
+  @doc """
+  Changes to apply on top of `handle_hitl_decision/3`'s `:resume` changes
+  after `AgentServer.resume/2` succeeds.
+  """
+  def hitl_resume_running_changes, do: %{agent_status: :running, loading: true}
+
+  @doc """
+  Persist a HITL decision label on the matching tool call display message.
+  No-op when there's no scope or the call_id can't be resolved.
+  """
+  def persist_hitl_decision(state, pending_tools, index, decision) do
+    interrupt_data = Map.get(state, :interrupt_data)
+    tool = Enum.at(pending_tools, index)
+
+    call_id =
+      case interrupt_data do
+        %{type: :subagent_hitl, tool_call_id: parent_call_id} -> parent_call_id
+        _other -> tool[:tool_call_id]
+      end
+
+    if call_id && Map.get(state, :current_scope) do
+      Conversations.record_hitl_decision(state.current_scope, call_id, decision)
+    end
+  end
+
+  # ===========================================================================
+  # Question response
+  # ===========================================================================
+
+  @doc """
+  Compute the state transition for a single answer to a pending
+  AskUserQuestion interrupt.
+
+  Returns `{:resume, resume_data, changes}` when the answered question was
+  the last one, or `{:more, changes}` when more questions remain.
+  """
+  def handle_question_response(state, response) do
+    current_question = Map.fetch!(state, :pending_question)
+    response = Map.put(response, :tool_call_id, current_question.tool_call_id)
+
+    accumulated = (Map.get(state, :question_responses, []) || []) ++ [response]
+    remaining = Map.get(state, :remaining_questions, []) || []
+
+    case remaining do
+      [] ->
+        resume_data = if length(accumulated) == 1, do: hd(accumulated), else: accumulated
+
+        {:resume, resume_data,
+         %{
+           pending_question: nil,
+           remaining_questions: [],
+           question_responses: [],
+           interrupt_data: nil
+         }}
+
+      [next | rest] ->
+        {:more,
+         %{
+           pending_question: next,
+           remaining_questions: rest,
+           question_responses: accumulated
+         }}
+    end
+  end
+
+  @doc """
+  Changes to apply on top of `handle_question_response/2`'s `:resume`
+  changes after `AgentServer.resume/2` succeeds.
+  """
+  def question_resume_running_changes, do: %{agent_status: :running, loading: true}
+
+  # ===========================================================================
+  # Presence tracking
+  # ===========================================================================
+
+  @doc """
+  Track the viewer in Phoenix.Presence so the agent can use smart shutdown.
+  No-op if `user_id` is nil.
+  """
+  def maybe_track_viewer(_conversation_id, nil), do: :ok
+
+  def maybe_track_viewer(conversation_id, user_id) do
+    case Coordinator.track_conversation_viewer(conversation_id, user_id) do
+      {:ok, _ref} ->
+        :ok
+
+      {:error, {:already_tracked, _topic, _key, _meta}} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Failed to track presence: #{inspect(reason)}")
+        :ok
+    end
+  end
+
+  # ===========================================================================
+  # Error formatting
+  # ===========================================================================
+
+  @doc """
+  Render an agent error reason as a user-facing message. Hosts use this
+  before `put_flash`-ing or otherwise surfacing the error.
+  """
+  def format_error_message(reason) do
+    error_display =
+      case reason do
+        %LangChain.LangChainError{} = error -> error.message
+        other -> inspect(other)
+      end
+
+    "Sorry, I encountered an error: #{error_display}"
+  end
+end
