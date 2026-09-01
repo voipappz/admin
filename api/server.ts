@@ -136,6 +136,7 @@ interface HealthReport {
     relayed: number;
     websocket_backpressure_drops: number;
     websocket_oversized_drops: number;
+    state_ingest_failures: number;
     dashboard_frames_received: number;
     dashboard_frames_coalesced: number;
   };
@@ -216,6 +217,7 @@ async function checkHealth(): Promise<HealthReport> {
       relayed: relayedCounter,
       websocket_backpressure_drops: websocketBackpressureDropCounter,
       websocket_oversized_drops: websocketOversizedDropCounter,
+      state_ingest_failures: stateIngestFailures,
       dashboard_frames_received: dashboardFramesReceived,
       dashboard_frames_coalesced: dashboardFramesCoalesced,
     },
@@ -251,6 +253,9 @@ let duplicateCounter = 0; // idempotent Cable redeliveries
 let persistenceFailureCounter = 0;
 let websocketBackpressureDropCounter = 0;
 let websocketOversizedDropCounter = 0;
+// A state event that could not be stored is invisible otherwise: the relay
+// still delivers it, so the browser looks healthy while history silently gaps.
+let stateIngestFailures = 0;
 let dashboardFramesReceived = 0;
 let dashboardFramesCoalesced = 0;
 let cableClient: CableClient | null = null;
@@ -463,6 +468,10 @@ function handleWebSocket(request: Request): Response {
             return;
           }
           userState.apply(message);
+          // Persist alongside call events. node stamps `event_id`, so a second
+          // tab delivering the same event is a no-op rather than a duplicate
+          // row — and the write never blocks the relay.
+          void eventStore.ingestStateEvent(message).catch(() => { stateIngestFailures++; });
           sendToClient({
             type: "user.state",
             user_uuid: stateUserId,
@@ -970,6 +979,7 @@ export function createRequestHandler(jwtVerifier?: JwtVerifier, options: Request
         persisted: persistedCounter, duplicates: duplicateCounter, persistence_failures: persistenceFailureCounter,
         websocket_backpressure_drops: websocketBackpressureDropCounter,
         websocket_oversized_drops: websocketOversizedDropCounter,
+        state_ingest_failures: stateIngestFailures,
         dashboard_frames_received: dashboardFramesReceived,
         dashboard_frames_coalesced: dashboardFramesCoalesced,
         last_event_at: fresh.last_event_at, seconds_since_last_event: fresh.age_seconds, events_status: fresh.status,

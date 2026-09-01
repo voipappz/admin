@@ -9,7 +9,8 @@ import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { listAgentStatuses, listBreakReasons, listLiveAgents, setAgentStatus } from '../../services/agentStatusApi';
-import { findCurrentUserStatus, formatStatusTime } from './userStatus';
+import { findCurrentUserStatus, formatStatusTime, mergeLiveUserStatus } from './userStatus';
+import { useUserState } from './useUserState';
 
 const POLL_MS = 10_000;
 
@@ -64,7 +65,14 @@ export default function UserStatus() {
     return () => { alive = false; window.clearInterval(timer); };
   }, [load]);
 
-  const current = useMemo(() => findCurrentUserStatus(rows, user), [rows, user]);
+  // Polling stays as the floor: it is what fills the page on load and what
+  // still works if the socket never opens. The live view rides on top, so a
+  // state change shows immediately instead of on the next 10s tick.
+  const { view: liveView } = useUserState();
+  const current = useMemo(
+    () => mergeLiveUserStatus(findCurrentUserStatus(rows, user), liveView),
+    [rows, user, liveView],
+  );
   const options = statuses.flatMap((status) => status.type === 'on_break' && breakReasons.length
     ? breakReasons.map((reason) => ({ value: `${status.type}:${reason.name}`, label: `${status.label} — ${reason.name}` }))
     : [{ value: status.type, label: status.label }]);

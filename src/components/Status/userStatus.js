@@ -26,6 +26,31 @@ export function normalizeUserStatus(row = {}) {
   };
 }
 
+/**
+ * Overlay the live state view onto the polled row.
+ *
+ * deno-api folds node's state events into a flat view whose field names are
+ * the ones normalizeUserStatus already reads (`state`, `call_state`,
+ * `call_counter`, `talking_to_number`, …), so the view is simply a fresher row.
+ *
+ * Defaults are skipped rather than written: normalizeUserStatus fills absent
+ * fields with 'Unknown'/''/0, and a live frame that only carried `state` would
+ * otherwise blank the extension and call count that polling had right.
+ */
+export function mergeLiveUserStatus(polled, view) {
+  if (!view || typeof view !== 'object' || !Object.keys(view).length) return polled;
+
+  const live = normalizeUserStatus(view);
+  const merged = { ...(polled || {}) };
+  for (const [key, value] of Object.entries(live)) {
+    if (value === '' || value === null || value === undefined) continue;
+    if (value === 'Unknown') continue;
+    if (key === 'callCount' && !value) continue;
+    merged[key] = value;
+  }
+  return merged;
+}
+
 export function findCurrentUserStatus(rows, user) {
   const candidates = [user?.user_uuid, user?.id, user?.raw?.uuid].filter(Boolean).map(String);
   const extension = String(user?.raw?.extension?.username || '');

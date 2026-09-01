@@ -61,6 +61,7 @@ Deno.test("health exposes Crystal call-event processing counters", async () => {
     relayed: 0,
     websocket_backpressure_drops: 0,
     websocket_oversized_drops: 0,
+    state_ingest_failures: 0,
     dashboard_frames_received: 0,
     dashboard_frames_coalesced: 0,
   });

@@ -4,6 +4,7 @@
 // screen read this table; Calls/Reports remain mothership-backed.
 import { DuckDBInstance } from "@duckdb/node-api";
 import type { Normalized } from "./cable.ts";
+import type { StateEvent } from "./state_events.ts";
 
 export interface StoredEvent {
   event_id: string;
@@ -315,6 +316,62 @@ export class EventStore {
     const exists = Number(before.getRowObjects()?.[0]?.count ?? 0) > 0;
     if (exists) await this.connection.run(`DELETE FROM dashboard_widgets WHERE uuid = ${sqlString(uuid)}`);
     return exists;
+  }
+
+  /**
+   * Append one of node's named state events.
+   *
+   * Kept separate from `ingest` because a state event needs no normalization
+   * and no derived id: node stamps `event_id` per message (see va-crystal
+   * `state_publisher.cr`), so the PK is handed to us and dedupe is free. That
+   * matters here — the state stream is subscribed PER BROWSER CONNECTION, so
+   * two open tabs deliver the same event twice and the second must be a no-op
+   * rather than a primary-key error.
+   */
+  async ingestStateEvent(event: StateEvent): Promise<{ eventId: string; inserted: boolean }> {
+    const operation = this.writeQueue.then(() => this.ingestStateEventUnlocked(event)).catch((error) => {
+      this.lastError = error instanceof Error ? error.message : String(error);
+      throw error;
+    });
+    this.writeQueue = operation.then(() => undefined, () => undefined);
+    return operation;
+  }
+
+  private async ingestStateEventUnlocked(event: StateEvent): Promise<{ eventId: string; inserted: boolean }> {
+    await this.open();
+    const eventId = String(event.event_id ?? "");
+    // No id means no dedupe key, and an unkeyed row cannot be reconciled later.
+    if (!eventId) return { eventId: "", inserted: false };
+
+    // Only a call-scoped event names a call. A user- or queue-scoped one leaves
+    // call_id NULL rather than inventing a join.
+    const callId = event.scope === "call"
+      ? event.id
+      : (event.metadata?.call_uuid ?? null);
+
+    const epochSeconds = Number(event.at);
+    const occurred = Number.isFinite(epochSeconds)
+      ? new Date(epochSeconds * 1000).toISOString()
+      : "";
+    const payload = JSON.stringify(event);
+
+    const before = await this.connection.runAndReadAll(
+      `SELECT COUNT(*) AS count FROM events WHERE event_id = ${sqlString(eventId)}`,
+    );
+    if (Number(before.getRowObjects()?.[0]?.count ?? 0) > 0) return { eventId, inserted: false };
+
+    const sql = `
+      INSERT INTO events (event_id, call_id, event_type, action, occurred_at, occurred_at_epoch, payload, raw_payload)
+      SELECT ${sqlString(eventId)}, ${callId ? sqlString(String(callId)) : "NULL"},
+        ${sqlString(`state.${event.scope}`)}, ${sqlString(event.event)},
+        ${occurred ? `CAST(${sqlString(occurred)} AS TIMESTAMP)` : "NULL"},
+        ${Number.isFinite(epochSeconds) ? String(Math.floor(epochSeconds)) : "NULL"},
+        CAST(${sqlString(payload)} AS JSON), NULL
+      WHERE NOT EXISTS (SELECT 1 FROM events WHERE event_id = ${sqlString(eventId)})
+    `;
+    await this.connection.run(sql);
+    this.lastError = null;
+    return { eventId, inserted: true };
   }
 
   async ingest(event: Normalized): Promise<{ eventId: string; inserted: boolean }> {
