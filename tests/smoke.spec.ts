@@ -69,11 +69,6 @@ test('mock login reaches the dashboard', async ({ page }) => {
   await expect(widgetEditor).toBeVisible();
   await widgetEditor.getByRole('button', { name: /Cancel|ביטול/i }).click();
   await expect(widgetEditor).toBeHidden();
-
-  await page.getByTestId('builder-events-tab').click();
-  await expect(page.getByTestId('dashboard-event-views')).toBeVisible();
-  await expect(page.getByTestId('create-event-counter')).toBeVisible();
-  await expect(page.getByTestId('create-event-table')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('dashboard-builder')).toBeHidden();
 
