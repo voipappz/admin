@@ -9,7 +9,17 @@ export default tseslint.config(
   // repo. Linting them reports their problems as ours and fails the push gate
   // on code that is not in the tree. eslint does not read .gitignore, so it
   // has to be said here too.
-  { ignores: ['dist', 'cypress/videos', 'cypress/screenshots','src/context/AuthContext.jsx', 'OLD/**/*', '.claude/worktrees/**'] },
+  // `chrome/**` is the Chrome extension: its OWN project, with its own
+  // package.json, its own Angular/TypeScript config and its own tslint. This
+  // config's rules are written for the React SPA and flag its generated
+  // bundles and Angular idioms as errors, so linting it here reports on a
+  // build nothing in this project produces.
+  { ignores: ['dist', 'cypress/videos', 'cypress/screenshots','src/context/AuthContext.jsx', 'OLD/**/*', '.claude/worktrees/**', 'chrome/**',
+    // The Elixir app's fetched dependencies, vendored bundles and compiled
+    // output. Not this project's source in any sense — `deps/` is what `mix
+    // deps.get` downloaded, and priv/static is what esbuild already emitted.
+    'agents_demo/deps/**', 'agents_demo/assets/vendor/**', 'agents_demo/priv/static/**',
+    'agents_demo/_build/**'] },
   // Apply TypeScript recommended config to all files
   ...tseslint.configs.recommended,
   // JavaScript/JSX files
