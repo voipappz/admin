@@ -292,10 +292,21 @@ services:
       # reconnect warning instead of dying. ClueCon is FreeSWITCH's own default,
       # i.e. deliberately not a secret.
       FREESWITCH_PASSWORD: ${FREESWITCH_PASSWORD:-ClueCon}
+      # Extra CA trust for the ApiProxy relay's HTTPS to API_URL. The image's
+      # ca-certificates predates ISRG Root YE, so a customer API on a newer
+      # Let's Encrypt chain (and one that serves only its leaf) fails TLS with
+      # OpenSSL::SSL::Error — which the channel maps to a 502 the login reads as
+      # "server down". This bundle = the image's own CAs + Root YE + the YE2
+      # intermediate. Unset by default; the real fix is bumping ca-certificates
+      # in the image, but this unblocks a customer host without a rebuild.
+      SSL_CERT_FILE: ${CABLE_SSL_CERT_FILE:-}
     volumes:
       # Read-only: the node has no business rewriting a developer's config, and
       # a container that mutates a repo file is a confusing thing to debug.
       - ./config/cable/va.yaml:/opt/va.yaml:ro
+      # The CA bundle SSL_CERT_FILE points at, when set. Read-only for the same
+      # reason.
+      - ./config/cable/ca-bundle.pem:/opt/ca-bundle.pem:ro
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://127.0.0.1:${CABLE_PORT:-4100}/health"]
       interval: 10s

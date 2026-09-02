@@ -29,6 +29,15 @@ defmodule AgentsDemoWeb.Plugs.EngineProxy do
   # falls through to the router and 404s.
   @engine_prefixes ["/auth", "/api/", "/tasks/"]
 
+  # Paths that MATCH a forwarded prefix but this app answers itself. Each one is
+  # a route that has moved, and the list is how a migration proceeds one route
+  # at a time instead of all at once — when it holds every `/api/` path the
+  # prefix above goes, and so does this.
+  #
+  # Exact paths, not prefixes: "/api/statuses" must not quietly capture
+  # "/api/statuses/:uuid" the day that exists upstream.
+  @portal_owned ["/api/statuses"]
+
   # …except these, which are THIS app's own routes and live under `/api` too
   # (see the router). Without the carve-out the forwarder swallows them and the
   # bots API answers with whatever the mothership says about a path it has
@@ -61,7 +70,8 @@ defmodule AgentsDemoWeb.Plugs.EngineProxy do
   # Either transport is enough to serve the path. Requiring ENGINE_URL as well
   # would leave a cable-only deployment 404ing every login while the relay it is
   # configured with sits idle.
-  defp forwarded?(path), do: engine_path?(path) and (ApiProxy.enabled?() or engine() != "")
+  defp forwarded?(path),
+    do: path not in @portal_owned and engine_path?(path) and (ApiProxy.enabled?() or engine() != "")
 
   defp preflight(conn) do
     conn

@@ -81,6 +81,15 @@ defmodule AgentsDemoWeb.Router do
   # retired Deno BFF yet, so `/dashboard/snapshot` and `/dashboard/events` are
   # still unserved and 404 here.
   #
+  # Served here rather than forwarded — see Portal.StatusController for why the
+  # relay currently cannot carry it, and why a static list is the right
+  # stand-in until it can. `Plugs.EngineProxy` knows to let this one through.
+  scope "/api", AgentsDemoWeb.Portal do
+    pipe_through :api
+
+    get "/statuses", StatusController, :index
+  end
+
   # `:api` and not `:browser`: these are fetched with a bearer token, never
   # navigated to, and a CSRF check on a token-authenticated fetch rejects every
   # write.
