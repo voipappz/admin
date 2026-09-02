@@ -1,721 +1,357 @@
 defmodule AgentsDemo.Conversations do
   @moduledoc """
-  Context for conversation persistence with multi-content type support.
+  Conversations, their display messages, and their agent state — on Mnesia.
 
-  ## Scope-Based Security
-
-  Every public function takes a `AgentsDemo.Accounts.Scope` as its first argument.
-  Use it to limit access and actions to the caller's authorized data.
-  Wrong-scope callers receive `{:error, :not_found}`.
-
-  ## Customization Required
-
-  The generated code uses generic scope filtering. Customize `scope_query/2`,
-  `scope_conversation_query/2`, and `get_owner_id/1` to match your Scope struct.
-
-  ## Multi-Content Type Support
-
-  Display messages support multiple content types (text, thinking, images, files, etc.).
-  All content keys are strings (not atoms) due to JSONB storage.
+  Every function takes an `AgentsDemo.Accounts.Scope` and filters on its owner.
+  Persistence is `AgentsDemo.Conversations.Store`; no Ecto, no Postgres. The
+  tool-call lifecycle, agent-state upsert, and message ordering are all plain
+  Elixir over Mnesia rows.
   """
 
-  import Ecto.Query, warn: false
+  alias AgentsDemo.Conversations.{Store, Conversation, DisplayMessage, AgentState, FlowState}
+  alias AgentsDemo.Accounts.Scope
+  alias AgentsDemo.Mnesia
   alias Sagents.Todo
-  alias AgentsDemo.Repo
-  alias AgentsDemo.Conversations.AgentState
-  alias AgentsDemo.Conversations.Conversation
-  alias AgentsDemo.Conversations.DisplayMessage
-  alias AgentsDemo.Accounts.Scope, as: Scope
 
-  #
-  # Conversation CRUD
-  #
+  ## Bot-lifecycle helpers
 
-  @doc """
-  Creates a conversation within the given scope, pinned to a bot version.
+  @doc "Count of conversations pinned to each version of a bot: `%{version_id => count}`."
+  def count_by_version(bot_id) do
+    Store.index_by_bot(bot_id) |> Enum.frequencies_by(& &1.bot_version_id)
+  end
 
-  The conversation is associated with the scope's owner. `attrs` may name a
-  `bot_id` (pins its current published version) or a `bot_version_id` (pins
-  that exact published version); otherwise the owner's default bot answers.
-  The decision and the insert happen in one transaction — see
-  `AgentsDemo.Bots.resolve_pin/2`. Accepts attrs with either atom or string keys.
-  """
+  @doc "Whether any conversation pins this bot."
+  def exists_for_bot?(bot_id), do: Store.index_by_bot(bot_id) != []
+
+  @doc "The bot_version_id a conversation pins, or nil."
+  def pinned_version_id(conversation_id) do
+    case Store.get(conversation_id) do
+      %Conversation{bot_version_id: id} -> id
+      _ -> nil
+    end
+  end
+
+  ## Conversation CRUD
+
   def create_conversation(%Scope{} = scope, attrs) do
-    Repo.transaction(fn ->
+    Mnesia.transaction(fn ->
       with {:ok, pin} <- AgentsDemo.Bots.resolve_pin(scope, attrs),
-           {:ok, conversation} <-
-             scope
-             |> get_owner_id()
-             |> Conversation.create_changeset(attrs, pin)
-             |> Repo.insert() do
-        conversation
+           {:ok, conv} <- Conversation.validate_new(owner_id(scope), attrs, pin) do
+        Store.put(conv)
       else
-        {:error, reason} -> Repo.rollback(reason)
+        {:error, reason} -> :mnesia.abort(reason)
       end
     end)
   end
 
-  @doc """
-  A conversation with the bot and published version it pins, preloaded with
-  the version's skills — what the agent factory compiles from.
-  """
+  @doc "A conversation with its bot and pinned version (skills included) attached."
   def get_conversation_with_version(%Scope{} = scope, id) do
-    Conversation
-    |> scope_query(scope)
-    |> preload([:bot, bot_version: :skills])
-    |> Repo.get(id)
-    |> case do
-      nil -> {:error, :not_found}
-      conversation -> {:ok, conversation}
+    with {:ok, conv} <- get_conversation(scope, id) do
+      {:ok, %{conv | bot: AgentsDemo.Bots.Store.get_bot(conv.bot_id), bot_version: AgentsDemo.Bots.Store.get_version(conv.bot_version_id)}}
     end
   end
 
-  @doc """
-  Hands the conversation to a person, or back to the bot. While a human
-  holds it, `handler` is `:human`, the bot stands down, and a return clears
-  any flow position so the bot starts fresh. Broadcasts
-  `{:conversation, {:handler_changed, handler}}` on the conversation topic.
-  """
   def set_handler(%Scope{} = scope, conversation_id, handler) when handler in [:bot, :human] do
-    with {:ok, conversation} <- get_conversation(scope, conversation_id),
-         {:ok, updated} <-
-           conversation
-           |> Conversation.handler_changeset(handler, DateTime.utc_now())
-           |> Repo.update() do
+    with {:ok, conv} <- get_conversation(scope, conversation_id) do
+      updated =
+        case handler do
+          :human -> %{conv | handler: :human, handed_off_at: DateTime.utc_now()}
+          :bot -> %{conv | handler: :bot, handed_off_at: nil, flow_state: nil}
+        end
+
+      stored = Store.put(updated)
       broadcast(conversation_id, {:handler_changed, handler})
-      {:ok, updated}
+      {:ok, stored}
     end
   end
 
-  @doc "Hands off to a human, recording the idempotency key and topic in metadata."
   def hand_off(%Scope{} = scope, conversation_id, %{key: key} = info) do
-    with {:ok, conversation} <- get_conversation(scope, conversation_id),
+    with {:ok, conv} <- get_conversation(scope, conversation_id),
          {:ok, _} <-
-           update_conversation(conversation, %{
-             metadata:
-               Map.merge(conversation.metadata || %{}, %{
-                 "handoff_key" => key,
-                 "handoff_topic" => info[:topic]
-               })
+           update_conversation(conv, %{
+             metadata: Map.merge(conv.metadata || %{}, %{"handoff_key" => key, "handoff_topic" => info[:topic]})
            }) do
       set_handler(scope, conversation_id, :human)
     end
   end
 
-  @doc "Returns a handed-off conversation to the bot."
-  def return_to_bot(%Scope{} = scope, conversation_id),
-    do: set_handler(scope, conversation_id, :bot)
+  def return_to_bot(%Scope{} = scope, conversation_id), do: set_handler(scope, conversation_id, :bot)
 
-  @doc """
-  Records the flow position and the time of the latest user message. Both
-  are read by `AgentsDemo.Turns` before every turn.
-  """
   def touch_turn(%Scope{} = scope, conversation_id, attrs) do
-    with {:ok, conversation} <- get_conversation(scope, conversation_id) do
-      update_conversation(conversation, attrs)
-    end
+    with {:ok, conv} <- get_conversation(scope, conversation_id), do: update_conversation(conv, attrs)
   end
 
-  @doc """
-  The PubSub topic a conversation's own events go out on — replies posted
-  without an agent, handler changes. `Phoenix.PubSub.subscribe(AgentsDemo.PubSub, topic)`.
-  """
   def topic(conversation_id), do: "conversation:#{conversation_id}"
 
-  @doc """
-  A reply the bot sends without a model: a deterministic flow step, a handoff
-  notice. Persisted as a completed assistant message — the same shape the
-  agent's replies have — delivered to the conversation's channel through
-  `AgentsDemo.Channels.deliver/2`, and broadcast to the LiveView.
+  def post_bot_reply(%Scope{} = scope, conversation_id, content) when is_map(content),
+    do: post_assistant(scope, conversation_id, content, %{"author" => "bot"})
 
-  `content` is the display-message content map: `%{"text" => …}` for text,
-  or an `"interactive"`/`"image"` content (see
-  `AgentsDemo.Conversations.DisplayMessage`). The content type is inferred.
-  """
-  def post_bot_reply(%Scope{} = scope, conversation_id, content) when is_map(content) do
-    post_assistant(scope, conversation_id, content, %{"author" => "bot"})
-  end
+  def post_human_reply(%Scope{} = scope, conversation_id, text) when is_binary(text),
+    do: post_assistant(scope, conversation_id, %{"text" => text}, %{"author" => "human", "user_id" => scope.user.id})
 
-  @doc "A reply typed by a person who took the conversation over."
-  def post_human_reply(%Scope{} = scope, conversation_id, text) when is_binary(text) do
-    post_assistant(scope, conversation_id, %{"text" => text}, %{
-      "author" => "human",
-      "user_id" => scope.user.id
-    })
-  end
-
-  @doc """
-  Stores what a user sent, with where it came from. Never a delivery
-  candidate: `Channels.deliver/2` only sends assistant messages, so nothing a
-  phone sent is echoed back to it.
-  """
   def append_user_message(%Scope{} = scope, conversation_id, text, origin) when is_binary(text) do
     append_display_message(scope, conversation_id, %{
-      message_type: "user",
-      content_type: "text",
-      content: %{"text" => text},
-      status: "completed",
-      metadata: %{"origin" => to_string(origin)}
+      message_type: "user", content_type: "text", content: %{"text" => text},
+      status: "completed", metadata: %{"origin" => to_string(origin)}
     })
   end
 
   defp post_assistant(scope, conversation_id, content, metadata) do
     attrs = %{
-      message_type: "assistant",
-      content_type: DisplayMessage.content_type_for(content),
-      content: content,
-      status: "completed",
-      metadata: metadata
+      message_type: "assistant", content_type: DisplayMessage.content_type_for(content),
+      content: content, status: "completed", metadata: metadata
     }
 
     with {:ok, message} <- append_display_message(scope, conversation_id, attrs),
-         {:ok, conversation} <- get_conversation(scope, conversation_id) do
-      AgentsDemo.Channels.deliver(message, conversation)
+         {:ok, conv} <- get_conversation(scope, conversation_id) do
+      AgentsDemo.Channels.deliver(message, conv)
       broadcast(conversation_id, {:display_message_saved, message})
       {:ok, message}
     end
   end
 
-  defp broadcast(conversation_id, event) do
-    Phoenix.PubSub.broadcast(AgentsDemo.PubSub, topic(conversation_id), {:conversation, event})
-  end
+  defp broadcast(conversation_id, event),
+    do: Phoenix.PubSub.broadcast(AgentsDemo.PubSub, topic(conversation_id), {:conversation, event})
 
-  @doc """
-  Gets a conversation by ID, scoped to the given context.
-
-  Raises if the conversation doesn't exist or doesn't belong to the scope.
-  """
   def get_conversation!(%Scope{} = scope, id) do
-    Conversation
-    |> scope_query(scope)
-    |> Repo.get!(id)
-  end
-
-  @doc """
-  Gets a conversation by ID, scoped to the given context.
-
-  Returns `{:ok, conversation}` or `{:error, :not_found}`.
-  """
-  def get_conversation(%Scope{} = scope, id) do
-    Conversation
-    |> scope_query(scope)
-    |> Repo.get(id)
-    |> case do
-      nil -> {:error, :not_found}
-      conversation -> {:ok, conversation}
+    case get_conversation(scope, id) do
+      {:ok, conv} -> conv
+      {:error, :not_found} -> raise KeyError, key: id, term: __MODULE__
     end
   end
 
-  @doc """
-  Lists all conversations accessible within the given scope.
+  def get_conversation(%Scope{} = scope, id) do
+    case Store.get(id) do
+      %Conversation{user_id: uid} = conv -> if uid == owner_id(scope), do: {:ok, conv}, else: {:error, :not_found}
+      nil -> {:error, :not_found}
+    end
+  end
 
-  ## Options
-
-    * `:limit` - Maximum number of conversations to return (default: 50)
-    * `:offset` - Number of conversations to skip (default: 0)
-  """
   def list_conversations(%Scope{} = scope, opts \\ []) do
     limit = Keyword.get(opts, :limit, 50)
     offset = Keyword.get(opts, :offset, 0)
 
-    Conversation
-    |> scope_query(scope)
-    |> order_by([c], desc: c.updated_at)
-    |> limit(^limit)
-    |> offset(^offset)
-    |> Repo.all()
+    scope
+    |> owner_id()
+    |> Store.list_for_user()
+    |> Enum.sort_by(& &1.updated_at, {:desc, DateTime})
+    |> Enum.drop(offset)
+    |> Enum.take(limit)
   end
 
-  def update_conversation(%Conversation{} = conversation, attrs) do
-    conversation
-    |> Conversation.changeset(attrs)
-    |> Repo.update()
+  @doc "The newest scoped conversation whose source and metadata value match."
+  def latest_by_source_metadata(%Scope{} = scope, source, key, value)
+      when is_binary(source) and is_binary(key) do
+    scope
+    |> list_conversations(limit: 10_000)
+    |> Enum.find(fn conversation ->
+      conversation.source == source and Map.get(conversation.metadata || %{}, key) == value
+    end)
   end
 
-  def delete_conversation(%Conversation{} = conversation) do
-    Repo.delete(conversation)
+  def update_conversation(%Conversation{} = conv, attrs) do
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
+
+    updated = %{
+      conv
+      | title: Map.get(attrs, "title", conv.title),
+        version: Map.get(attrs, "version", conv.version),
+        metadata: Map.get(attrs, "metadata", conv.metadata),
+        source: Map.get(attrs, "source", conv.source),
+        last_user_message_at: Map.get(attrs, "last_user_message_at", conv.last_user_message_at),
+        flow_state: flow_state(attrs, conv.flow_state)
+    }
+
+    {:ok, Store.put(updated)}
   end
+
+  defp flow_state(attrs, current) do
+    case Map.fetch(attrs, "flow_state") do
+      {:ok, nil} -> nil
+      {:ok, %FlowState{} = fs} -> fs
+      {:ok, map} when is_map(map) -> FlowState.new(map)
+      :error -> current
+    end
+  end
+
+  def delete_conversation(%Conversation{} = conv), do: {:ok, tap(conv, &Store.delete(&1.id))}
 
   def delete_conversation(%Scope{} = scope, conversation_id) when is_binary(conversation_id) do
-    conversation = get_conversation!(scope, conversation_id)
-    Repo.delete(conversation)
+    with {:ok, conv} <- get_conversation(scope, conversation_id) do
+      Store.delete(conv.id)
+      {:ok, conv}
+    end
   end
 
-  #
-  # Agent State Persistence
-  #
+  ## Agent state
 
-  @doc """
-  Saves (upsert) the serialized agent state for a conversation.
-
-  Verifies the conversation belongs to `scope` before writing. Returns
-  `{:error, :not_found}` if the conversation doesn't belong to the caller.
-  """
   def save_agent_state(%Scope{} = scope, conversation_id, state) do
-    with :ok <- authorize_conversation(scope, conversation_id) do
-      attrs = %{
-        conversation_id: conversation_id,
-        state_data: state,
-        version: state["version"] || 1
-      }
-
-      case get_agent_state(scope, conversation_id) do
-        nil ->
-          %AgentState{}
-          |> AgentState.changeset(attrs)
-          |> Repo.insert()
-
-        existing ->
-          existing
-          |> AgentState.changeset(attrs)
-          |> Repo.update()
-      end
+    with :ok <- authorize(scope, conversation_id) do
+      existing = Store.get_agent_state(conversation_id)
+      base = existing || %AgentState{conversation_id: conversation_id}
+      {:ok, Store.put_agent_state(%{base | state_data: state, version: state["version"] || 1})}
     end
   end
 
-  @doc """
-  Records whether the conversation's agent is currently in an interrupted
-  state, by writing a boolean flag to `conversation.metadata["interrupted"]`.
-
-  This is the load-path optimization for restored interrupts: rather than
-  deserializing the full agent state on every conversation open just to find
-  out whether there's a pending question, the load path reads this flag from
-  the conversation row (which it loads anyway) and decides whether to
-  auto-wake the agent.
-
-  Called by `AgentsDemo.Agents.AgentPersistence.set_interrupted/3`, which sagents
-  invokes only on actual transitions of the durable flag — once on enter
-  (`true`) and once on leave (`false`). Steady-state turns issue no call,
-  so this function is not on the hot path of normal completion.
-  """
-  def set_interrupt_status(%Scope{} = scope, conversation_id, interrupted?)
-      when is_boolean(interrupted?) do
-    with {:ok, conversation} <- get_conversation(scope, conversation_id) do
-      new_metadata = Map.put(conversation.metadata || %{}, "interrupted", interrupted?)
-      update_conversation(conversation, %{metadata: new_metadata})
+  def set_interrupt_status(%Scope{} = scope, conversation_id, interrupted?) when is_boolean(interrupted?) do
+    with {:ok, conv} <- get_conversation(scope, conversation_id) do
+      update_conversation(conv, %{metadata: Map.put(conv.metadata || %{}, "interrupted", interrupted?)})
     end
   end
 
-  @doc """
-  Returns `true` if the conversation's metadata indicates a pending
-  interrupt. Cheap to read as it does not deserialize the agent state.
-
-  Used on the load path (e.g. by your generated agent_live_helpers) to
-  decide whether to auto-wake the agent when a host opens an idle
-  conversation whose last persisted status was `:interrupted`.
-  """
   def interrupted?(%Conversation{metadata: %{"interrupted" => true}}), do: true
   def interrupted?(_conversation), do: false
 
-  @doc """
-  Loads the serialized agent state for a conversation, filtered by scope.
-
-  Returns `{:ok, state_data}` on success or `{:error, :not_found}` if no state
-  exists or the conversation doesn't belong to the caller.
-  """
   def load_agent_state(%Scope{} = scope, conversation_id) do
-    case get_agent_state(scope, conversation_id) do
-      nil -> {:error, :not_found}
-      state -> {:ok, state.state_data}
+    with :ok <- authorize(scope, conversation_id),
+         %AgentState{state_data: data} <- Store.get_agent_state(conversation_id) do
+      {:ok, data}
+    else
+      _ -> {:error, :not_found}
     end
   end
 
-  @doc """
-  Loads just the TODOs from a saved agent state, filtered by scope.
-
-  Useful for displaying TODOs in the UI when browsing historical conversations
-  without starting the agent. Returns an empty list if no state exists, no todos
-  are present, or the conversation doesn't belong to the caller.
-  """
   def load_todos(%Scope{} = scope, conversation_id) do
     case load_agent_state(scope, conversation_id) do
       {:ok, %{"state" => %{"todos" => todos}}} when is_list(todos) ->
         case Todo.list_from_maps(todos) do
           {:ok, parsed} -> parsed
-          {:error, _reason} -> []
+          {:error, _} -> []
         end
 
-      {:ok, _other} ->
-        []
-
-      {:error, :not_found} ->
+      _ ->
         []
     end
   end
 
-  # Scoped agent-state lookup. Joins to Conversation so we inherit the same
-  # tenant filter as `scope_query/2` applies to conversations.
-  defp get_agent_state(%Scope{} = scope, conversation_id) do
-    from(s in AgentState,
-      join: c in Conversation,
-      on: s.conversation_id == c.id,
-      where: s.conversation_id == ^conversation_id
-    )
-    |> scope_conversation_query(scope)
-    |> Repo.one()
-  end
+  ## Display messages
 
-  #
-  # Display Messages
-  #
-
-  @doc """
-  Appends a display message to a conversation, filtered by scope.
-
-  Verifies the conversation belongs to `scope` before inserting.
-  """
   def append_display_message(%Scope{} = scope, conversation_id, attrs) do
-    with :ok <- authorize_conversation(scope, conversation_id) do
-      conversation_id
-      |> DisplayMessage.create_changeset(attrs)
-      |> Repo.insert()
+    with :ok <- authorize(scope, conversation_id),
+         {:ok, message} <- DisplayMessage.new(conversation_id, attrs) do
+      {:ok, Store.insert_message(message)}
     end
   end
 
-  @doc """
-  Loads display messages for a conversation, ordered chronologically.
-
-  Verifies the conversation belongs to `scope` before querying.
-
-  ## Options
-
-    * `:limit` - Maximum number of messages to return (default: all)
-    * `:offset` - Number of messages to skip (default: 0)
-  """
   def load_display_messages(%Scope{} = scope, conversation_id, opts \\ []) do
-    case authorize_conversation(scope, conversation_id) do
+    case authorize(scope, conversation_id) do
       :ok ->
-        query =
-          DisplayMessage
-          |> where([m], m.conversation_id == ^conversation_id)
-          |> order_by([m], asc: m.inserted_at, asc: m.sequence)
-
-        query =
-          case Keyword.get(opts, :limit) do
-            nil -> query
-            limit -> limit(query, ^limit)
-          end
-
-        query =
-          case Keyword.get(opts, :offset) do
-            nil -> query
-            offset -> offset(query, ^offset)
-          end
-
-        Repo.all(query)
+        Store.list_messages(conversation_id)
+        |> drop_take(Keyword.get(opts, :offset), Keyword.get(opts, :limit))
 
       {:error, :not_found} ->
         []
     end
   end
 
-  #
-  # Content Type Helper Functions
-  # NOTE: All helper functions create content maps with STRING keys (not atoms)
-  # because Ecto :map type (JSONB) stores keys as strings
-  #
-
-  @doc """
-  Appends a text message to the conversation, filtered by scope.
-  """
   def append_text_message(%Scope{} = scope, conversation_id, message_type, text) do
     append_display_message(scope, conversation_id, %{
-      message_type: message_type,
-      content_type: "text",
-      content: %{"text" => text}
+      message_type: message_type, content_type: "text", content: %{"text" => text}
     })
   end
 
-  #
-  # Tool call lifecycle
-  #
+  ## Tool-call lifecycle
 
-  @doc """
-  Updates a pending tool call message to "executing" status, scoped.
+  def mark_tool_executing(%Scope{} = scope, call_id),
+    do: transition(scope, call_id, ["pending"], fn m -> %{m | status: "executing"} end)
 
-  Joins to Conversation to enforce tenant isolation — wrong-scope callers
-  receive `{:error, :not_found}`.
-  """
-  @spec mark_tool_executing(Scope.t(), String.t()) ::
-          {:ok, DisplayMessage.t()} | {:error, :not_found | Ecto.Changeset.t()}
-  def mark_tool_executing(%Scope{} = scope, call_id) do
-    call_id
-    |> tool_call_query()
-    |> where([m], m.status == "pending")
-    |> scope_conversation_query(scope)
-    |> Repo.one()
-    |> case do
-      nil ->
-        {:error, :not_found}
+  def complete_tool_call(%Scope{} = scope, call_id, result_metadata \\ %{}),
+    do: transition(scope, call_id, ["pending", "executing", "interrupted"], fn m ->
+      %{m | status: "completed", metadata: Map.merge(m.metadata || %{}, result_metadata)}
+    end)
 
-      message ->
-        message
-        |> DisplayMessage.changeset(%{"status" => "executing"})
-        |> Repo.update()
-    end
-  end
+  def fail_tool_call(%Scope{} = scope, call_id, error_info \\ %{}),
+    do: transition(scope, call_id, ["pending", "executing", "interrupted"], fn m ->
+      %{m | status: "failed", metadata: Map.merge(m.metadata || %{}, error_info)}
+    end)
 
-  @doc """
-  Updates a tool call message to "completed" status with result metadata, scoped.
-  """
-  @spec complete_tool_call(Scope.t(), String.t(), map()) ::
-          {:ok, DisplayMessage.t()} | {:error, :not_found | Ecto.Changeset.t()}
-  def complete_tool_call(%Scope{} = scope, call_id, result_metadata \\ %{}) do
-    call_id
-    |> tool_call_query()
-    |> where([m], m.status in ["pending", "executing", "interrupted"])
-    |> scope_conversation_query(scope)
-    |> Repo.one()
-    |> case do
-      nil ->
-        {:error, :not_found}
+  def interrupt_tool_call(%Scope{} = scope, call_id, interrupt_info \\ %{}),
+    do: transition(scope, call_id, ["pending", "executing"], fn m ->
+      %{m | status: "interrupted", metadata: Map.merge(m.metadata || %{}, interrupt_info)}
+    end)
 
-      message ->
-        updated_metadata = Map.merge(message.metadata, result_metadata)
+  def cancel_tool_call(%Scope{} = scope, call_id),
+    do: transition(scope, call_id, ["pending", "executing", "interrupted"], fn m -> %{m | status: "cancelled"} end)
 
-        message
-        |> DisplayMessage.changeset(%{
-          "status" => "completed",
-          "metadata" => updated_metadata
-        })
-        |> Repo.update()
-    end
-  end
-
-  @doc """
-  Updates a tool call message to "failed" status with error information, scoped.
-  """
-  @spec fail_tool_call(Scope.t(), String.t(), map()) ::
-          {:ok, DisplayMessage.t()} | {:error, :not_found | Ecto.Changeset.t()}
-  def fail_tool_call(%Scope{} = scope, call_id, error_info \\ %{}) do
-    call_id
-    |> tool_call_query()
-    |> where([m], m.status in ["pending", "executing", "interrupted"])
-    |> scope_conversation_query(scope)
-    |> Repo.one()
-    |> case do
-      nil ->
-        {:error, :not_found}
-
-      message ->
-        updated_metadata = Map.merge(message.metadata, error_info)
-
-        message
-        |> DisplayMessage.changeset(%{
-          "status" => "failed",
-          "metadata" => updated_metadata
-        })
-        |> Repo.update()
-    end
-  end
-
-  @doc """
-  Updates a tool call message to "interrupted" status, scoped.
-  """
-  @spec interrupt_tool_call(Scope.t(), String.t(), map()) ::
-          {:ok, DisplayMessage.t()} | {:error, :not_found | Ecto.Changeset.t()}
-  def interrupt_tool_call(%Scope{} = scope, call_id, interrupt_info \\ %{}) do
-    call_id
-    |> tool_call_query()
-    |> where([m], m.status in ["pending", "executing"])
-    |> scope_conversation_query(scope)
-    |> Repo.one()
-    |> case do
-      nil ->
-        {:error, :not_found}
-
-      message ->
-        updated_metadata = Map.merge(message.metadata, interrupt_info)
-
-        message
-        |> DisplayMessage.changeset(%{
-          "status" => "interrupted",
-          "metadata" => updated_metadata
-        })
-        |> Repo.update()
-    end
-  end
-
-  @doc """
-  Updates a tool call message to "cancelled" status, scoped.
-  """
-  @spec cancel_tool_call(Scope.t(), String.t()) ::
-          {:ok, DisplayMessage.t()} | {:error, :not_found | Ecto.Changeset.t()}
-  def cancel_tool_call(%Scope{} = scope, call_id) do
-    call_id
-    |> tool_call_query()
-    |> where([m], m.status in ["pending", "executing", "interrupted"])
-    |> scope_conversation_query(scope)
-    |> Repo.one()
-    |> case do
-      nil ->
-        {:error, :not_found}
-
-      message ->
-        message
-        |> DisplayMessage.changeset(%{"status" => "cancelled"})
-        |> Repo.update()
-    end
-  end
-
-  @doc """
-  Records an HITL decision (approved/rejected) on a tool call display message, scoped.
-
-  Adds `"hitl_decision"` to the tool call's metadata so the UI can display a
-  discreet indicator of what the user decided. The metadata persists through
-  subsequent status transitions since those operations merge metadata. Also stamps
-  the matching tool_result message when one exists.
-  """
-  @spec record_hitl_decision(Scope.t(), String.t(), String.t()) ::
-          {:ok, DisplayMessage.t()} | {:error, :not_found | Ecto.Changeset.t()}
-  def record_hitl_decision(%Scope{} = scope, call_id, decision)
-      when decision in ["approved", "rejected"] do
+  def record_hitl_decision(%Scope{} = scope, call_id, decision) when decision in ["approved", "rejected"] do
     result =
-      call_id
-      |> tool_call_query()
-      |> scope_conversation_query(scope)
-      |> Repo.one()
-      |> case do
-        nil ->
-          {:error, :not_found}
+      transition(scope, call_id, :any, fn m ->
+        %{m | metadata: Map.put(m.metadata || %{}, "hitl_decision", decision)}
+      end)
 
-        message ->
-          updated_metadata = Map.put(message.metadata, "hitl_decision", decision)
-
-          message
-          |> DisplayMessage.changeset(%{"metadata" => updated_metadata})
-          |> Repo.update()
-      end
-
-    call_id
-    |> tool_result_query()
-    |> scope_conversation_query(scope)
-    |> Repo.one()
-    |> case do
-      nil ->
-        :ok
-
-      tr_msg ->
-        updated_content = Map.put(tr_msg.content, "hitl_decision", decision)
-
-        tr_msg
-        |> DisplayMessage.changeset(%{"content" => updated_content})
-        |> Repo.update()
+    # Stamp the matching tool_result too, when one exists.
+    case find_message(scope, call_id, "tool_result", :any) do
+      %DisplayMessage{} = tr -> Store.update_message(%{tr | content: Map.put(tr.content || %{}, "hitl_decision", decision)})
+      _ -> :ok
     end
 
     result
   end
 
-  @doc """
-  Resolves an interrupted tool result display message after a sub-agent resumes, scoped.
-  """
-  @spec resolve_interrupted_tool_result(Scope.t(), String.t(), String.t()) ::
-          {:ok, DisplayMessage.t()} | {:error, :not_found | Ecto.Changeset.t()}
   def resolve_interrupted_tool_result(%Scope{} = scope, tool_call_id, result_content) do
-    tool_call_id
-    |> tool_result_query()
-    |> where([m], fragment("(?->>'is_interrupt')::boolean = true", m.content))
-    |> scope_conversation_query(scope)
-    |> Repo.one()
-    |> case do
-      nil ->
+    case find_message(scope, tool_call_id, "tool_result", :any) do
+      %DisplayMessage{content: %{"is_interrupt" => true} = content} = m ->
+        updated = content |> Map.put("is_interrupt", false) |> Map.put("content", result_content)
+        {:ok, Store.update_message(%{m | content: updated})}
+
+      _ ->
         {:error, :not_found}
-
-      message ->
-        updated_content =
-          message.content
-          |> Map.put("is_interrupt", false)
-          |> Map.put("content", result_content)
-
-        message
-        |> DisplayMessage.changeset(%{"content" => updated_content})
-        |> Repo.update()
     end
   end
 
-  @doc """
-  Searches message content across all types, within the scope's conversations.
-  """
+  # Find a scoped tool_call message in one of `statuses` and apply `fun`.
+  defp transition(scope, call_id, statuses, fun) do
+    case find_message(scope, call_id, "tool_call", statuses) do
+      %DisplayMessage{} = m -> {:ok, Store.update_message(fun.(m))}
+      nil -> {:error, :not_found}
+    end
+  end
+
+  defp find_message(%Scope{} = scope, call_id, content_type, statuses) do
+    owner = owner_id(scope)
+
+    Store.messages_by_tool_call(call_id)
+    |> Enum.find(fn m ->
+      m.content_type == content_type and
+        (statuses == :any or m.status in statuses) and
+        owns?(owner, m.conversation_id)
+    end)
+  end
+
+  defp owns?(owner_id, conversation_id) do
+    case Store.get(conversation_id) do
+      %Conversation{user_id: ^owner_id} -> true
+      _ -> false
+    end
+  end
+
+  ## Search
+
   def search_messages(%Scope{} = scope, search_term) do
-    owner_id = get_owner_id(scope)
+    term = String.downcase(search_term)
+    owner = owner_id(scope)
+    conv_ids = owner |> Store.list_for_user() |> MapSet.new(& &1.id)
 
-    from(m in DisplayMessage,
-      join: c in Conversation,
-      on: m.conversation_id == c.id,
-      where: c.user_id == ^owner_id,
-      where: fragment("?::text ILIKE ?", m.content, ^"%#{search_term}%")
-    )
-    |> Repo.all()
+    for id <- conv_ids, m <- Store.list_messages(id), matches?(m.content, term), do: m
   end
 
-  #
-  # Private Helpers
-  #
-
-  # Scope the primary Conversation table.
-  #
-  # CUSTOMIZE based on YOUR scope struct fields:
-  #
-  # Single-user scope:
-  #   defp scope_query(query, %Scope{user_id: user_id}) do
-  #     from q in query, where: q.user_id == ^user_id
-  #   end
-  #
-  # Multi-tenant (organization):
-  #   defp scope_query(query, %Scope{organization_id: org_id}) do
-  #     from q in query, where: q.organization_id == ^org_id
-  #   end
-  defp scope_query(query, %Scope{} = scope) do
-    owner_id = get_owner_id(scope)
-    from q in query, where: q.user_id == ^owner_id
+  defp matches?(content, term) do
+    content |> inspect() |> String.downcase() |> String.contains?(term)
   end
 
-  # Scope a query that has already joined to Conversation. Applies the tenant
-  # filter to the joined `c` binding instead of the primary binding.
-  defp scope_conversation_query(query, %Scope{} = scope) do
-    owner_id = get_owner_id(scope)
-    from [_m, c] in query, where: c.user_id == ^owner_id
-  end
+  ## Helpers
 
-  # Base query for tool_call display messages by call_id. Callers refine with
-  # their own status predicate (or none) and pipe through scope_conversation_query/2
-  # to enforce tenant isolation.
-  defp tool_call_query(call_id) do
-    from m in DisplayMessage,
-      join: c in Conversation,
-      on: m.conversation_id == c.id,
-      where: m.tool_call_id == ^call_id,
-      where: m.content_type == "tool_call"
-  end
-
-  # Base query for tool_result display messages by tool_call_id. Callers refine
-  # with additional predicates (e.g. is_interrupt) and pipe through
-  # scope_conversation_query/2 to enforce tenant isolation.
-  defp tool_result_query(tool_call_id) do
-    from m in DisplayMessage,
-      join: c in Conversation,
-      on: m.conversation_id == c.id,
-      where: m.tool_call_id == ^tool_call_id,
-      where: m.content_type == "tool_result"
-  end
-
-  # Authorization check: does this conversation belong to the given scope?
-  # Emits `SELECT 1 ... LIMIT 1` instead of hydrating the row, since the
-  # caller only needs a yes/no answer before proceeding with a write.
-  defp authorize_conversation(%Scope{} = scope, conversation_id) do
-    Conversation
-    |> scope_query(scope)
-    |> where([c], c.id == ^conversation_id)
-    |> Repo.exists?()
-    |> case do
-      true -> :ok
-      false -> {:error, :not_found}
+  defp authorize(%Scope{} = scope, conversation_id) do
+    case get_conversation(scope, conversation_id) do
+      {:ok, _} -> :ok
+      error -> error
     end
   end
 
-  # Extracts the owner ID from the scope struct.
-  #
-  # This default assumes your Scope has a `user` field containing
-  # a struct with an `id` field. Customize if your Scope has a different structure.
-  defp get_owner_id(%Scope{user: user}), do: user.id
+  defp drop_take(list, offset, limit) do
+    list = if offset, do: Enum.drop(list, offset), else: list
+    if limit, do: Enum.take(list, limit), else: list
+  end
+
+  defp owner_id(%Scope{user: user}), do: user.id
 end

@@ -23,10 +23,6 @@ config :agents_demo, :scopes,
     test_setup_helper: :register_and_log_in_user
   ]
 
-config :agents_demo,
-  ecto_repos: [AgentsDemo.Repo],
-  generators: [timestamp_type: :utc_datetime]
-
 # Configures the endpoint
 config :agents_demo, AgentsDemoWeb.Endpoint,
   url: [host: "localhost"],

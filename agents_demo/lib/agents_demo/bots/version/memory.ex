@@ -1,20 +1,13 @@
 defmodule AgentsDemo.Bots.Version.Memory do
-  @moduledoc """
-  What the bot may remember across conversations.
-  """
+  @moduledoc "What the bot may remember across conversations."
+  @derive Jason.Encoder
+  defstruct files_enabled: false, retention_days: nil
 
-  use Ecto.Schema
-  import Ecto.Changeset
+  @fields [:files_enabled, :retention_days]
 
-  @primary_key false
-  embedded_schema do
-    field :files_enabled, :boolean, default: false
-    field :retention_days, :integer
-  end
-
-  def changeset(memory, attrs) do
-    memory
-    |> cast(attrs, [:files_enabled, :retention_days])
-    |> validate_number(:retention_days, greater_than: 0)
+  def new(attrs \\ %{}) do
+    m = AgentsDemo.Bots.Version.take(attrs, %__MODULE__{}, @fields)
+    errors = AgentsDemo.Bots.Version.range(%{}, :retention_days, m.retention_days, gt: 0)
+    AgentsDemo.Bots.Version.done(errors, struct(__MODULE__, m))
   end
 end

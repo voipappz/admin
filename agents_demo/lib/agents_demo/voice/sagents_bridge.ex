@@ -81,6 +81,7 @@ defmodule AgentsDemo.Voice.SagentsBridge do
      %{
        conversation_id: Keyword.fetch!(opts, :conversation_id),
        scope: Keyword.fetch!(opts, :scope),
+       turns: Keyword.get(opts, :turns, AgentsDemo.Turns),
        greeting: Keyword.get(opts, :greeting),
        agent_id: nil,
        # The caller is mid-sentence; transcriptions accumulate until they stop.
@@ -247,10 +248,15 @@ defmodule AgentsDemo.Voice.SagentsBridge do
 
     # Through Turns like every other surface, so a conversation a human has
     # taken over is not answered by the bot over voice either.
-    case AgentsDemo.Turns.submit(state.scope, state.conversation_id, %AgentsDemo.Turns.Input{
-           text: text,
-           origin: :voice
-         }) do
+    case state.turns.submit(
+           state.scope,
+           state.conversation_id,
+           %AgentsDemo.Turns.Input{
+             text: text,
+             origin: :voice
+           },
+           []
+         ) do
       {:error, reason} ->
         Logger.error("[voice] could not submit turn: #{inspect(reason)}")
         state

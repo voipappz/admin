@@ -71,7 +71,15 @@ defmodule AgentsDemoWeb.Plugs.EngineProxy do
   # would leave a cable-only deployment 404ing every login while the relay it is
   # configured with sits idle.
   defp forwarded?(path),
-    do: path not in @portal_owned and engine_path?(path) and (ApiProxy.enabled?() or engine() != "")
+    do: path not in @portal_owned and engine_path?(path) and (relay_enabled?() or engine() != "")
+
+  defp relay_enabled? do
+    case Application.get_env(:agents_demo, :api_relay, :default) do
+      :default -> ApiProxy.enabled?()
+      nil -> false
+      _module -> true
+    end
+  end
 
   defp preflight(conn) do
     conn

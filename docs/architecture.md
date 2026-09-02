@@ -8,11 +8,10 @@ the app — `customer_uuid`/`environment_uuid` are backend authorization and
 routing metadata, not a UI concept. A customer deployment (fork) changes
 **env, not code**.
 
-The portal lives at `apps/portal` inside the mothership stack repo (a git
-subtree of the former standalone app repo, history preserved) but remains its
-own application: its own image, its own Kamal deploy (`make portal-deploy`
-at the repo root), independent rollback. It is the product's one routinely
-updating part; the surrounding platform holds still.
+The portal is this standalone repository, cloned beside the mothership repo.
+It remains its own application and image with an independent Kamal deploy;
+deployment policy lives in mothership and is invoked there with
+`make portal-deploy DEST=nimbus`.
 
 ## The one rule: same-origin, always
 
@@ -26,7 +25,7 @@ URLs**. The app server in front owns the actual upstream:
     │                                       │
     ▼                                       ▼
   Vite :4200 ──proxy──►  Elixir portal :4001  ◄── serves dist/ itself
-                              ├─ /auth, /api/, /tasks/ ──► MOTHERSHIP_URL
+                              ├─ /auth, /api/, /tasks/ ──► ENGINE_URL
                               ├─ /ws/events               (its own socket)
                               └─ everything else          (the SPA)
 ```
@@ -108,9 +107,10 @@ Frontend building blocks, layered like everything else:
 
 Env is the whole tenant surface — every knob is documented inline in
 [.env.example](../.env.example) (frontend `VITE_*` only; the portal reads the
-unprefixed vars — never `VITE_`-prefix a secret). Defaults point at the
-voipappz cloud; repoint a fork with the single `MOTHERSHIP_URL` (read by the
-dev proxy, the prod forwarder, and `make dev`'s preflight).
+unprefixed vars — never `VITE_`-prefix a secret). The local stack points the
+portal and cable at the API on port 5000 by default; `PORTAL_ENGINE_URL` and
+`CABLE_API_URL` move those two hops together. Production Kamal destinations
+set `ENGINE_URL` in mothership's deploy policy.
 
 ## Verify
 

@@ -1,5 +1,5 @@
 defmodule AgentsDemoWeb.UserLive.ConfirmationTest do
-  use AgentsDemoWeb.ConnCase, async: true
+  use AgentsDemoWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
   import AgentsDemo.AccountsFixtures

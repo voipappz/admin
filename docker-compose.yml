@@ -51,7 +51,7 @@ services:
       NODE_ENV: development
       TERM: xterm
       # Every same-origin browser request enters the Elixir portal. It forwards
-      # /api, /auth and /tasks to MOTHERSHIP_URL, serves /ws/events, and holds
+      # /api, /auth and /tasks to PORTAL_ENGINE_URL, serves /ws/events, and holds
       # the cable connection. The portal uses host networking, so Vite reaches
       # it via the host gateway.
       VITE_PORTAL_TARGET: ${VITE_PORTAL_TARGET:-http://host.docker.internal:4001}
@@ -186,8 +186,7 @@ services:
       # development; this is the fallback that makes :4001 a complete origin
       # on its own — the extension logs in against it with no Vite running.
       SPA_ROOT: /spa
-      # The API. /auth, /api/ and /tasks/ are forwarded here, and it is also
-      # the issuer that answers auth.request.verify over NATS.
+      # The API. /auth, /api/ and /tasks/ are forwarded here.
       #
       # DELIBERATELY NOT `${ENGINE_URL:-${MOTHERSHIP_URL:-...}}`. Compose
       # interpolates from .env, where MOTHERSHIP_URL is the TENANT knob and is
@@ -203,15 +202,21 @@ services:
       # The LISTEN half: one upstream cable connection for the whole app.
       CABLE_URL: ${PORTAL_CABLE_URL:-ws://127.0.0.1:${CABLE_PORT:-4100}/cable}
       # Mints the cable credential instead of forwarding the browser's token —
-      # cable is then handed a statement this app makes about an identity NATS
-      # already verified, carrying the uuid and nothing else. Unset, the
+      # cable is then handed a statement this app makes about an identity the
+      # node already verified, carrying the uuid and nothing else. Unset, the
       # caller's own token is forwarded, which also works. `make dev` supplies
       # this from the API container, the same value the cable verifies with.
       CABLE_SECRET_KEY: ${SECRET_KEY:-}
-      # The ASK half. Token verification is a NATS request/reply to the API —
-      # this app never verifies a credential it did not have to ask about, and
-      # never reaches the API over HTTP. Unset, every connection is refused.
-      NATS_URL: ${NATS_URL:-}
+      # Log shipping to InfluxDB 3 — the SAME four names the node reads, so one
+      # .env configures both. Empty unless set, and empty means "not
+      # configured": no handler is installed and nothing is posted. The console
+      # log is untouched either way; this is an addition for querying.
+      # Host-networked, so the compose default `influxdb` resolves to nothing
+      # here — point it at 127.0.0.1 to use the API stack's InfluxDB.
+      VA_INFLUXDB_HOST: ${VA_INFLUXDB_HOST:-}
+      VA_INFLUXDB_PORT: ${VA_INFLUXDB_PORT:-}
+      VA_INFLUXDB_DATABASE: ${VA_INFLUXDB_DATABASE:-}
+      VA_MONITOR_TOKEN: ${VA_MONITOR_TOKEN:-}
     volumes:
       - ./agents_demo:/app
       # The built SPA, read-only: the server has no reason to write into it.
@@ -285,7 +290,7 @@ services:
       # by NODE_UUID alone (`GET #{API_URL}/switch/api/crystal/...`) — there is
       # no account, token or basic-auth path anywhere in va-crystal's source.
       # So this server only answers if NODE_UUID names a node registered on it.
-      API_URL: ${CABLE_API_URL:-https://nimbus-prod.voipappz.io}
+      API_URL: ${CABLE_API_URL:-http://127.0.0.1:5000}
       # A stable dev identity. Not registered with the API — this is a cable
       # endpoint for a developer, not a node claiming to be a switch.
       NODE_UUID: ${CABLE_NODE_UUID:-00000000-0000-0000-0000-0000000cab1e}

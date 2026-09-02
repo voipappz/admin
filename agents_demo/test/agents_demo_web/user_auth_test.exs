@@ -1,5 +1,5 @@
 defmodule AgentsDemoWeb.UserAuthTest do
-  use AgentsDemoWeb.ConnCase, async: true
+  use AgentsDemoWeb.ConnCase, async: false
 
   alias Phoenix.LiveView
   alias AgentsDemo.Accounts

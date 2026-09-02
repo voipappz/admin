@@ -100,10 +100,10 @@ defmodule AgentsDemo.Bots.Compiler do
              | issues
            ]}
 
-        {:error, %Ecto.Changeset{} = changeset} ->
+        {:error, %{} = errors} ->
           {resolved,
            [
-             issue(:invalid_skill_settings, "#{path}.settings", changeset_message(changeset))
+             issue(:invalid_skill_settings, "#{path}.settings", errors_message(errors))
              | issues
            ]}
       end
@@ -188,10 +188,8 @@ defmodule AgentsDemo.Bots.Compiler do
     Map.new(named ++ gated, &{&1, true})
   end
 
-  defp changeset_message(changeset) do
-    changeset
-    |> Ecto.Changeset.traverse_errors(fn {msg, _opts} -> msg end)
-    |> Enum.map_join("; ", fn {field, msgs} -> "#{field} #{Enum.join(msgs, ", ")}" end)
+  defp errors_message(errors) do
+    Enum.map_join(errors, "; ", fn {field, msgs} -> "#{field} #{Enum.join(msgs, ", ")}" end)
   end
 
   defp issue(code, path, message), do: %{code: code, path: path, message: message}

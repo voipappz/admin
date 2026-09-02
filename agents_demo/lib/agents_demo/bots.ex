@@ -1,103 +1,69 @@
 defmodule AgentsDemo.Bots do
   @moduledoc """
-  Bots and their versions: create, edit a draft, publish, pin.
+  Bots and their versions: create, edit a draft, publish, pin — on Mnesia.
 
-  Every function takes a `AgentsDemo.Accounts.Scope` first and filters on it,
-  so one owner's bots are invisible to another. The one exception is
-  `pinned_version/1`, which runs inside the agent process on behalf of a
-  conversation that was already loaded through a scope.
+  Every function takes an `AgentsDemo.Accounts.Scope` first and filters on it, so
+  one owner's bots are invisible to another (`pinned_version/1` is the exception,
+  running inside an already-scoped agent process).
 
-  ## Lifecycle
-
-      create_bot        -> bot + draft v1
-      update_draft      -> edits the draft (creating one from the current
-                           version when there is none)
-      publish_draft     -> validates, fingerprints, freezes v1, points
-                           current_version at it — one transaction
-      create_draft      -> copies the current version into draft v2
-      publish_draft     -> v2 becomes current; conversations on v1 stay on v1
-      retire_version    -> a superseded published version, kept for its
-                           conversations, no longer pinnable
-      archive_bot       -> no new conversations; nothing existing changes
-
-  Published versions are never patched in place: the changesets refuse, and
-  so does a database trigger.
+  Lifecycle: `create_bot` → bot + draft v1; `update_draft` edits the draft
+  (creating one from the current version when absent); `publish_draft` validates,
+  fingerprints, freezes it and points `current_version` at it in one
+  transaction; `create_draft` copies the current version into the next draft;
+  `retire_version` supersedes a published version; `archive_bot` closes the bot
+  to new conversations. Published versions are never patched in place — the
+  immutability check lives in `BotVersion.apply_draft/2`.
   """
 
-  import Ecto.Query, warn: false
-
   alias AgentsDemo.Accounts.Scope
-  alias AgentsDemo.Bots.Bot
-  alias AgentsDemo.Bots.BotVersion
-  alias AgentsDemo.Bots.Snapshot
-  alias AgentsDemo.Bots.Validator
-  alias AgentsDemo.Conversations.Conversation
-  alias AgentsDemo.Repo
+  alias AgentsDemo.Bots.{Bot, BotVersion, Store, Snapshot, Validator}
+  alias AgentsDemo.Conversations
+  alias AgentsDemo.Mnesia
 
   @default_slug "default"
-  @preloads [:current_version, :draft_version]
 
   ## Reading
 
-  def list_bots(%Scope{} = scope) do
-    Bot
-    |> scope_query(scope)
-    |> order_by([b], asc: b.name)
-    |> preload(^@preloads)
-    |> Repo.all()
-  end
+  def list_bots(%Scope{} = scope),
+    do:
+      scope
+      |> owner_id()
+      |> Store.list_bots()
+      |> Enum.map(&attach_versions/1)
+      |> Enum.sort_by(& &1.name)
 
   def get_bot(%Scope{} = scope, id) do
-    Bot
-    |> scope_query(scope)
-    |> preload(^@preloads)
-    |> Repo.get(id)
-    |> case do
-      nil -> {:error, :not_found}
-      bot -> {:ok, bot}
+    case Store.get_bot(id) do
+      %Bot{user_id: uid} = bot ->
+        if uid == owner_id(scope),
+          do: {:ok, attach_versions(bot)},
+          else: {:error, :not_found}
+
+      nil ->
+        {:error, :not_found}
     end
-  rescue
-    Ecto.Query.CastError -> {:error, :not_found}
   end
 
   def get_bot_by_slug(%Scope{} = scope, slug) when is_binary(slug) do
-    Bot
-    |> scope_query(scope)
-    |> preload(^@preloads)
-    |> Repo.get_by(slug: slug)
-    |> case do
+    case Store.get_bot_by_slug(owner_id(scope), slug) do
+      %Bot{} = bot -> {:ok, attach_versions(bot)}
       nil -> {:error, :not_found}
-      bot -> {:ok, bot}
     end
   end
 
   def list_versions(%Scope{} = scope, bot_id) do
-    with {:ok, bot} <- get_bot(scope, bot_id) do
-      versions =
-        BotVersion
-        |> where([v], v.bot_id == ^bot.id)
-        |> order_by([v], desc: v.number)
-        |> preload(:skills)
-        |> Repo.all()
-
-      {:ok, versions}
-    end
+    with {:ok, bot} <- get_bot(scope, bot_id), do: {:ok, Store.list_versions(bot.id)}
   end
 
   def get_version(%Scope{} = scope, bot_id, number) when is_integer(number) do
     with {:ok, bot} <- get_bot(scope, bot_id) do
-      BotVersion
-      |> where([v], v.bot_id == ^bot.id and v.number == ^number)
-      |> preload(:skills)
-      |> Repo.one()
-      |> case do
+      case Store.get_version_by_number(bot.id, number) do
+        %BotVersion{} = v -> {:ok, v}
         nil -> {:error, :not_found}
-        version -> {:ok, version}
       end
     end
   end
 
-  @doc "Canonical content of two versions side by side, for a diff view."
   def version_diff(%Scope{} = scope, bot_id, from, to) do
     with {:ok, a} <- get_version(scope, bot_id, from),
          {:ok, b} <- get_version(scope, bot_id, to) do
@@ -105,106 +71,87 @@ defmodule AgentsDemo.Bots do
     end
   end
 
-  @doc "How many conversations pin each version of a bot."
   def conversation_counts(%Scope{} = scope, bot_id) do
-    with {:ok, bot} <- get_bot(scope, bot_id) do
-      counts =
-        Conversation
-        |> where([c], c.bot_id == ^bot.id)
-        |> group_by([c], c.bot_version_id)
-        |> select([c], {c.bot_version_id, count(c.id)})
-        |> Repo.all()
-        |> Map.new()
-
-      {:ok, counts}
-    end
+    with {:ok, bot} <- get_bot(scope, bot_id), do: {:ok, Conversations.count_by_version(bot.id)}
   end
 
   ## Creating and editing
 
-  @doc """
-  Creates a bot and its first draft in one transaction. `attrs` may carry a
-  `"version"` map of configuration areas for the draft.
-  """
   def create_bot(%Scope{} = scope, attrs) do
     attrs = normalize(attrs)
     {version_attrs, bot_attrs} = Map.pop(attrs, "version", %{})
+    owner = owner_id(scope)
 
-    Repo.transaction(fn ->
-      with {:ok, bot} <- scope |> owner_id() |> Bot.create_changeset(bot_attrs) |> Repo.insert(),
-           {:ok, draft} <- insert_draft(bot, 1, version_attrs),
-           {:ok, bot} <- point(bot, draft_version_id: draft.id) do
-        %{bot | draft_version: draft, current_version: nil}
-      else
-        {:error, reason} -> Repo.rollback(reason)
-      end
-    end)
-  end
+    with {:ok, bot} <- Bot.validate_new(owner, bot_attrs),
+         {:ok, draft} <- BotVersion.new_draft(nil, 1) |> BotVersion.apply_draft(version_attrs) do
+      Mnesia.transaction(fn ->
+        if Store.name_or_slug_taken?(owner, bot.name, bot.slug, nil),
+          do: :mnesia.abort(%{name: ["you already have a bot with that name"]})
 
-  def update_bot(%Scope{} = scope, id, attrs) do
-    with {:ok, bot} <- get_bot(scope, id) do
-      bot |> Bot.changeset(normalize(attrs)) |> Repo.update()
+        stored = Store.put_bot_tx(bot)
+        draft = Store.put_version_tx(%{draft | bot_id: stored.id})
+        %{Store.put_bot_tx(%{stored | draft_version_id: draft.id}) | draft_version_id: draft.id}
+      end)
+      |> attach_result_versions()
     end
   end
 
-  @doc """
-  Edits the bot's draft, creating one from the current version first when
-  there is none. Only drafts change; the current version is untouched.
-  """
-  def update_draft(%Scope{} = scope, bot_id, attrs) do
-    Repo.transaction(fn ->
-      with {:ok, bot} <- lock_bot(scope, bot_id),
-           {:ok, draft} <- ensure_draft(bot),
-           {:ok, draft} <- draft |> BotVersion.draft_changeset(normalize(attrs)) |> Repo.update() do
-        Repo.preload(draft, :skills, force: true)
-      else
-        {:error, reason} -> Repo.rollback(reason)
-      end
-    end)
+  def update_bot(%Scope{} = scope, id, attrs) do
+    with {:ok, bot} <- get_bot(scope, id),
+         {:ok, updated} <- Bot.validate_update(bot, normalize(attrs)) do
+      {:ok, Store.put_bot(updated) |> attach_versions()}
+    end
   end
 
-  @doc "Starts a new draft as a copy of the current version."
+  def update_draft(%Scope{} = scope, bot_id, attrs) do
+    with {:ok, bot} <- get_bot(scope, bot_id) do
+      Mnesia.transaction(fn ->
+        {_bot, draft} = ensure_draft!(bot)
+
+        case BotVersion.apply_draft(draft, normalize(attrs)) do
+          {:ok, edited} -> Store.put_version_tx(edited)
+          {:error, errors} -> :mnesia.abort(errors)
+        end
+      end)
+    end
+  end
+
   def create_draft(%Scope{} = scope, bot_id) do
-    Repo.transaction(fn ->
-      with {:ok, bot} <- lock_bot(scope, bot_id),
-           :ok <- no_draft(bot),
-           {:ok, draft} <- ensure_draft(bot) do
-        draft
+    with {:ok, bot} <- get_bot(scope, bot_id) do
+      if bot.draft_version_id do
+        {:error, :draft_exists}
       else
-        {:error, reason} -> Repo.rollback(reason)
+        Mnesia.transaction(fn ->
+          {_bot, draft} = ensure_draft!(bot)
+          draft
+        end)
       end
-    end)
+    end
   end
 
   def delete_draft(%Scope{} = scope, bot_id) do
-    Repo.transaction(fn ->
-      with {:ok, bot} <- lock_bot(scope, bot_id),
-           %BotVersion{} = draft <- bot.draft_version || {:error, :no_draft},
-           {:ok, _bot} <- point(bot, draft_version_id: nil),
-           {:ok, _draft} <- Repo.delete(draft) do
-        :ok
-      else
-        {:error, reason} -> Repo.rollback(reason)
+    with {:ok, bot} <- get_bot(scope, bot_id) do
+      case bot.draft_version_id do
+        nil ->
+          {:error, :no_draft}
+
+        draft_id ->
+          Mnesia.transaction(fn ->
+            Store.delete_version_tx(draft_id)
+            Store.put_bot_tx(%{bot | draft_version_id: nil})
+            :ok
+          end)
       end
-    end)
+    end
   end
 
-  @doc """
-  Validates and compiles the draft (or the current version when there is no
-  draft) without publishing: the report `publish_draft/3` would act on, plus
-  the compiled, redacted spec — the exact prompt and capability list the
-  model would get — so an author can inspect before making it live.
-  """
   def preflight(%Scope{} = scope, bot_id) do
     with {:ok, bot} <- get_bot(scope, bot_id),
-         %BotVersion{} = version <-
-           bot.draft_version || bot.current_version || {:error, :no_draft} do
-      version = Repo.preload(version, :skills)
-
+         %BotVersion{} = version <- draft_or_current(bot) || {:error, :no_draft} do
       compiled =
         case AgentsDemo.Bots.Compiler.compile(version) do
           {:ok, spec} -> AgentsDemo.Bots.CompiledSpec.redacted(spec)
-          {:error, _report} -> nil
+          {:error, _} -> nil
         end
 
       {:ok,
@@ -214,174 +161,144 @@ defmodule AgentsDemo.Bots do
 
   ## Publishing
 
-  @doc """
-  Publishes the draft: validates it, fingerprints it, freezes it, and moves
-  `current_version` to it — all in one transaction, so a conversation created
-  while this runs pins either the old version or the new one, never a
-  half-published state.
-
-  Options: `retire_previous: true` retires the version being replaced; by
-  default it stays published so API callers may still pin it explicitly.
-  """
   def publish_draft(%Scope{} = scope, bot_id, opts \\ []) do
     now = DateTime.utc_now()
 
-    Repo.transaction(fn ->
-      with {:ok, bot} <- lock_bot(scope, bot_id),
-           %BotVersion{} = draft <- bot.draft_version || {:error, :no_draft},
-           draft = Repo.preload(draft, :skills),
-           %Validator.Report{valid?: true} <- Validator.validate(draft),
-           {:ok, published} <-
-             draft
-             |> BotVersion.publish_changeset(owner_id(scope), Snapshot.fingerprint(draft), now)
-             |> Repo.update(),
-           {:ok, _previous} <- maybe_retire(bot.current_version, opts, now),
-           {:ok, bot} <- point(bot, current_version_id: published.id, draft_version_id: nil) do
-        %{bot | current_version: published, draft_version: nil}
-      else
-        %Validator.Report{} = report -> Repo.rollback(report)
-        {:error, reason} -> Repo.rollback(reason)
-      end
-    end)
+    with {:ok, bot} <- get_bot(scope, bot_id) do
+      Mnesia.transaction(fn ->
+        draft = bot.draft_version_id && Store.get_version(bot.draft_version_id)
+        unless draft, do: :mnesia.abort(:no_draft)
+
+        case Validator.validate(draft) do
+          %Validator.Report{valid?: true} -> :ok
+          report -> :mnesia.abort(report)
+        end
+
+        published =
+          Store.put_version_tx(%{
+            draft
+            | status: :published,
+              fingerprint: Snapshot.fingerprint(draft),
+              published_at: now,
+              published_by_user_id: owner_id(scope)
+          })
+
+        if Keyword.get(opts, :retire_previous, false) and bot.current_version_id do
+          if prev = Store.get_version(bot.current_version_id),
+            do: Store.put_version_tx(%{prev | status: :retired, retired_at: now})
+        end
+
+        %{
+          Store.put_bot_tx(%{bot | current_version_id: published.id, draft_version_id: nil})
+          | current_version_id: published.id,
+            draft_version_id: nil
+        }
+      end)
+      |> attach_result_versions()
+    end
   end
 
-  @doc "Retires a published version that is no longer current."
   def retire_version(%Scope{} = scope, bot_id, number) do
     now = DateTime.utc_now()
 
-    Repo.transaction(fn ->
-      with {:ok, bot} <- lock_bot(scope, bot_id),
-           {:ok, version} <- get_version(scope, bot.id, number),
-           :ok <- retirable(bot, version) do
-        {:ok, retired} = version |> BotVersion.retire_changeset(now) |> Repo.update()
-        retired
-      else
-        {:error, reason} -> Repo.rollback(reason)
+    with {:ok, bot} <- get_bot(scope, bot_id),
+         {:ok, version} <- get_version(scope, bot.id, number) do
+      cond do
+        version.id == bot.current_version_id -> {:error, :version_is_current}
+        version.status != :published -> {:error, :version_not_published}
+        true -> {:ok, Store.put_version(%{version | status: :retired, retired_at: now})}
       end
-    end)
+    end
   end
 
   ## Lifecycle
 
   def archive_bot(%Scope{} = scope, id) do
-    with {:ok, bot} <- get_bot(scope, id) do
-      bot |> Bot.archive_changeset(DateTime.utc_now()) |> Repo.update()
-    end
+    with {:ok, bot} <- get_bot(scope, id),
+         do:
+           {:ok,
+            Store.put_bot(%{bot | status: :archived, archived_at: DateTime.utc_now()})
+            |> attach_versions()}
   end
 
   def unarchive_bot(%Scope{} = scope, id) do
-    with {:ok, bot} <- get_bot(scope, id) do
-      bot |> Bot.unarchive_changeset() |> Repo.update()
-    end
+    with {:ok, bot} <- get_bot(scope, id),
+         do: {:ok, Store.put_bot(%{bot | status: :active, archived_at: nil}) |> attach_versions()}
   end
 
-  @doc """
-  Deletes a bot that has no history: no published version and no
-  conversation. Anything with history is archived instead, because the
-  versions it published are what its conversations are reproducible from.
-  """
   def delete_bot(%Scope{} = scope, id) do
-    Repo.transaction(fn ->
-      with {:ok, bot} <- lock_bot(scope, id),
-           :ok <- no_history(bot),
-           {:ok, bot} <- point(bot, current_version_id: nil, draft_version_id: nil),
-           {:ok, bot} <- Repo.delete(bot) do
-        bot
+    with {:ok, bot} <- get_bot(scope, id) do
+      published? = Enum.any?(Store.list_versions(bot.id), &(&1.status in [:published, :retired]))
+      used? = Conversations.exists_for_bot?(bot.id)
+
+      if published? or used? do
+        {:error, :has_history}
       else
-        {:error, reason} -> Repo.rollback(reason)
+        Mnesia.transaction(fn ->
+          Enum.each(Store.list_versions(bot.id), &Store.delete_version_tx(&1.id))
+          Store.delete_bot_tx(bot.id)
+          bot
+        end)
       end
-    end)
+    end
   end
 
   ## Pinning
 
-  @doc """
-  Decides which bot and version a new conversation pins.
-
-  `%{bot_id: id}` pins the bot's current published version; the bot must be
-  active and have one. `%{bot_version_id: id}` pins that exact version; it
-  must be published and belong to one of the caller's bots. With neither,
-  the caller's default bot answers. Runs inside the conversation-creating
-  transaction, so the decision and the insert are atomic.
-  """
   def resolve_pin(%Scope{} = scope, attrs) do
     attrs = normalize(attrs)
 
     case {attrs["bot_version_id"], attrs["bot_id"]} do
-      {version_id, _bot_id} when is_binary(version_id) -> pin_version(scope, version_id)
-      {_no_version, bot_id} when is_binary(bot_id) -> pin_bot(scope, get_bot(scope, bot_id))
-      _neither -> pin_bot(scope, get_bot_by_slug(scope, @default_slug))
+      {version_id, _} when is_binary(version_id) -> pin_version(scope, version_id)
+      {_, bot_id} when is_binary(bot_id) -> pin_bot(get_bot(scope, bot_id))
+      _ -> pin_bot(get_bot_by_slug(scope, @default_slug))
     end
   end
 
-  defp pin_bot(_scope, {:error, :not_found}), do: {:error, :not_found}
-  defp pin_bot(_scope, {:ok, %Bot{status: :archived}}), do: {:error, :bot_archived}
-  defp pin_bot(_scope, {:ok, %Bot{current_version_id: nil}}), do: {:error, :no_published_version}
+  defp pin_bot({:error, :not_found}), do: {:error, :not_found}
+  defp pin_bot({:ok, %Bot{status: :archived}}), do: {:error, :bot_archived}
+  defp pin_bot({:ok, %Bot{current_version_id: nil}}), do: {:error, :no_published_version}
 
-  defp pin_bot(_scope, {:ok, %Bot{} = bot}),
+  defp pin_bot({:ok, %Bot{} = bot}),
     do: {:ok, %{bot_id: bot.id, bot_version_id: bot.current_version_id}}
 
   defp pin_version(scope, version_id) do
-    query =
-      from v in BotVersion,
-        join: b in Bot,
-        on: b.id == v.bot_id,
-        where: v.id == ^version_id and b.user_id == ^owner_id(scope),
-        select: {v, b}
-
-    case Repo.one(query) do
-      nil ->
-        {:error, :not_found}
-
-      {%BotVersion{status: :published} = v, %Bot{status: :active}} ->
-        {:ok, %{bot_id: v.bot_id, bot_version_id: v.id}}
-
-      {_version, %Bot{status: :archived}} ->
-        {:error, :bot_archived}
-
-      {%BotVersion{}, _bot} ->
-        {:error, :version_not_published}
+    with %BotVersion{} = v <- Store.get_version(version_id),
+         %Bot{} = bot <- Store.get_bot(v.bot_id),
+         true <- bot.user_id == owner_id(scope) do
+      cond do
+        bot.status == :archived -> {:error, :bot_archived}
+        v.status != :published -> {:error, :version_not_published}
+        true -> {:ok, %{bot_id: v.bot_id, bot_version_id: v.id}}
+      end
+    else
+      _ -> {:error, :not_found}
     end
-  rescue
-    Ecto.Query.CastError -> {:error, :not_found}
   end
 
-  @doc """
-  The published version a conversation pins, with its skills.
-
-  Unscoped by design: this runs inside the agent process for a conversation
-  that `AgentsDemo.Agents.FactoryRouter` already loaded through the caller's
-  scope, and the join to the conversation is what constrains it.
-  """
+  @doc "The published version a conversation pins, with its skills."
   def pinned_version(conversation_id) do
-    Repo.one(
-      from v in BotVersion,
-        join: c in Conversation,
-        on: c.bot_version_id == v.id,
-        where: c.id == ^conversation_id,
-        preload: :skills
-    )
+    with version_id when is_binary(version_id) <- Conversations.pinned_version_id(conversation_id),
+         %BotVersion{} = version <- Store.get_version(version_id) do
+      version
+    else
+      _ -> nil
+    end
   end
 
   ## Defaults
 
-  @doc """
-  Every account gets one published bot, so every conversation compiles the
-  same way and there is no "no bot" path. Idempotent on the `default` slug.
-  """
   def ensure_default_bot(%Scope{} = scope) do
     case get_bot_by_slug(scope, @default_slug) do
       {:ok, bot} ->
         {:ok, bot}
 
       {:error, :not_found} ->
-        with {:ok, bot} <- create_bot(scope, default_definition()) do
-          publish_draft(scope, bot.id)
-        end
+        with {:ok, bot} <- create_bot(scope, default_definition()),
+             do: publish_draft(scope, bot.id)
     end
   end
 
-  @doc "The definition of the default assistant: the platform's own behaviour as a bot."
   def default_definition do
     %{
       "name" => "Default assistant",
@@ -389,16 +306,8 @@ defmodule AgentsDemo.Bots do
       "description" => "A general assistant with memory files and web lookup.",
       "version" => %{
         "behavior" => %{
-          "instructions" => """
-          You are a helpful AI assistant with access to a persistent memory system and web search capabilities.
-
-          You can read, write, and manage files in the /Memories directory.
-          You can search the web for current information using the web_lookup tool.
-
-          Be friendly, helpful, and demonstrate your capabilities when appropriate.
-          When users ask about current information, recent events, or facts that may have changed,
-          use the web_lookup tool to get accurate, up-to-date information.
-          """
+          "instructions" =>
+            "You are a helpful AI assistant with access to persistent files under /Memories and web search capabilities."
         },
         "memory" => %{"files_enabled" => true},
         "limits" => %{"max_runs" => 50},
@@ -413,102 +322,54 @@ defmodule AgentsDemo.Bots do
 
   ## Internals
 
-  defp insert_draft(%Bot{id: bot_id}, number, attrs) do
-    bot_id
-    |> BotVersion.new_draft(number)
-    |> BotVersion.draft_changeset(attrs)
-    |> Repo.insert()
+  # Returns {bot, draft} inside a transaction, creating the draft from the
+  # current version when there is none.
+  defp ensure_draft!(%Bot{draft_version_id: id} = bot) when is_binary(id),
+    do: {bot, Store.get_version(id)}
+
+  defp ensure_draft!(%Bot{} = bot) do
+    number = (Store.list_versions(bot.id) |> Enum.map(& &1.number) |> Enum.max(fn -> 0 end)) + 1
+    base = if bot.current_version_id, do: Store.get_version(bot.current_version_id), else: nil
+
+    draft =
+      BotVersion.new_draft(bot.id, number)
+      |> copy_from(base)
+      |> Store.put_version_tx()
+
+    bot = Store.put_bot_tx(%{bot | draft_version_id: draft.id})
+    {bot, draft}
   end
 
-  # The draft to edit: the existing one, or a copy of the current version.
-  defp ensure_draft(%Bot{draft_version: %BotVersion{} = draft}),
-    do: {:ok, Repo.preload(draft, :skills)}
+  defp copy_from(draft, nil), do: draft
 
-  defp ensure_draft(%Bot{} = bot) do
-    number = next_number(bot)
-
-    attrs =
-      case bot.current_version do
-        %BotVersion{} = current -> current |> Repo.preload(:skills) |> copy_attrs()
-        nil -> %{}
-      end
-
-    with {:ok, draft} <- insert_draft(bot, number, attrs),
-         {:ok, _bot} <- point(bot, draft_version_id: draft.id) do
-      {:ok, Repo.preload(draft, :skills)}
-    end
+  defp copy_from(draft, %BotVersion{} = base) do
+    areas = Map.take(base, BotVersion.areas())
+    %{struct(draft, areas) | skills: base.skills}
   end
 
-  # A version's content as draft attrs: exactly what `draft_changeset/2`
-  # casts, taken from the canonical snapshot so copying and fingerprinting
-  # agree on what "the content" is.
-  defp copy_attrs(%BotVersion{} = version) do
-    %{"areas" => areas, "skills" => skills} = Snapshot.canonical(version)
-    Map.put(areas, "skills", skills)
+  defp draft_or_current(%Bot{draft_version_id: id}) when is_binary(id), do: Store.get_version(id)
+
+  defp draft_or_current(%Bot{current_version_id: id}) when is_binary(id),
+    do: Store.get_version(id)
+
+  defp draft_or_current(_bot), do: nil
+
+  defp attach_result_versions({:ok, %Bot{} = bot}), do: {:ok, attach_versions(bot)}
+  defp attach_result_versions(result), do: result
+
+  defp attach_versions(%Bot{} = bot) do
+    %{
+      bot
+      | current_version: load_version(bot.current_version_id),
+        draft_version: load_version(bot.draft_version_id)
+    }
   end
 
-  defp next_number(%Bot{id: bot_id}) do
-    (Repo.one(from v in BotVersion, where: v.bot_id == ^bot_id, select: max(v.number)) || 0) + 1
-  end
+  defp load_version(id) when is_binary(id), do: Store.get_version(id)
+  defp load_version(_id), do: nil
 
-  defp maybe_retire(%BotVersion{} = previous, opts, now) do
-    if Keyword.get(opts, :retire_previous, false) do
-      previous |> BotVersion.retire_changeset(now) |> Repo.update()
-    else
-      {:ok, previous}
-    end
-  end
-
-  defp maybe_retire(nil, _opts, _now), do: {:ok, nil}
-
-  defp retirable(%Bot{current_version_id: id}, %BotVersion{id: id}),
-    do: {:error, :version_is_current}
-
-  defp retirable(_bot, %BotVersion{status: :published}), do: :ok
-  defp retirable(_bot, %BotVersion{}), do: {:error, :version_not_published}
-
-  defp no_draft(%Bot{draft_version_id: nil}), do: :ok
-  defp no_draft(%Bot{}), do: {:error, :draft_exists}
-
-  defp no_history(%Bot{id: bot_id}) do
-    published? =
-      Repo.exists?(
-        from v in BotVersion, where: v.bot_id == ^bot_id and v.status in ^[:published, :retired]
-      )
-
-    used? = Repo.exists?(from c in Conversation, where: c.bot_id == ^bot_id)
-
-    if published? or used?, do: {:error, :has_history}, else: :ok
-  end
-
-  defp point(%Bot{} = bot, changes) do
-    bot |> Bot.versions_changeset(Map.new(changes)) |> Repo.update()
-  end
-
-  defp lock_bot(%Scope{} = scope, id) do
-    Bot
-    |> scope_query(scope)
-    |> where([b], b.id == ^id)
-    |> lock("FOR UPDATE")
-    |> preload(^@preloads)
-    |> Repo.one()
-    |> case do
-      nil -> {:error, :not_found}
-      bot -> {:ok, bot}
-    end
-  rescue
-    Ecto.Query.CastError -> {:error, :not_found}
-  end
-
-  # Attrs arrive with atom keys from code and string keys from the API; the
-  # changesets take either, but popping "version" out needs one convention.
-  defp normalize(attrs) when is_map(attrs) do
-    Map.new(attrs, fn {key, value} -> {to_string(key), value} end)
-  end
-
-  defp scope_query(query, %Scope{} = scope) do
-    from q in query, where: q.user_id == ^owner_id(scope)
-  end
+  defp normalize(attrs) when is_map(attrs),
+    do: Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
 
   defp owner_id(%Scope{user: user}), do: user.id
 end

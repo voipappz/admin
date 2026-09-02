@@ -13,29 +13,33 @@ make prod-down   # stop it
 ```
 
 Runtime env comes from `.env` beside the compose file (`ENGINE_URL`, `NATS_URL`,
-`NATS_CDR_SUBJECTS`,
-optional cable, and the NATS bus—see `.env.example`).
-The event inspector is off in production unless `EVENT_INSPECTOR_ENABLED=1` is
-deliberately supplied; when enabled it appears at `/event-explorer`. Compose does not re-read env on
-restart — use `docker compose --profile prod up -d --force-recreate
-production` after editing.
+the optional cable connection, and the portal database—see `.env.example`).
+Compose does not re-read env on restart; use
+`docker compose --profile prod up -d --force-recreate production` after
+editing.
 
-## Deploy to the production server
+## Deploy to Nimbus with Kamal
 
 ```bash
-make deploy   # build image → push to registry → swap the container on prod
-make ship     # git push + deploy in one shot
-make status   # local git + prod health + deployed version (set PROD_URL in .env)
+cd ../mothership
+make portal-print DEST=nimbus   # print exact commands; changes nothing
+make portal-deploy DEST=nimbus  # build image → push → swap the container
+make portal-status              # git + production health + deployed version
 ```
 
-`make deploy` needs two one-time things on the machine you deploy from:
+The portal source and `Dockerfile.production` stay in this repository. Kamal's
+destination catalog, deploy YAML, hooks and secrets live under
+`../mothership/config/portal/`; deployment logic must not be copied back here.
 
-1. `cp .kamal/secrets.example .kamal/secrets` and fill in the registry
-   password (gitignored — never committed).
+`make portal-deploy DEST=nimbus` needs two one-time things on the machine you
+deploy from:
+
+1. The destination's Kamal secret file under
+   `../mothership/config/portal/.kamal/`, filled from `secrets.example`
+   (gitignored — never committed).
 2. An SSH key authorized on the production server.
 
 That's it — the deploy tool itself runs inside a Docker image automatically;
-nothing to install. The server/registry targets live in `config/deploy.yml`
-(per-tenant variants: `config/deploy.<tenant>.yml`), and a post-deploy hook
-smoke-probes the live host (`/health`, `/test`, the SPA, auth + transcript
-routes) — a deploy is only "done" when those pass.
+nothing to install. Nimbus is configured by
+`config/portal/deploy.nimbus.yml`; the post-deploy hook verifies the live SPA
+and current Elixir health surfaces before the deploy is considered complete.

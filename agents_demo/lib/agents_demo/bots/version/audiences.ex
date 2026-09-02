@@ -1,36 +1,23 @@
 defmodule AgentsDemo.Bots.Version.Audiences do
-  @moduledoc """
-  Who the bot is talking to, decided deterministically from the sender.
+  @moduledoc "Who the bot is talking to, decided from the sender's phone; unmatched senders get `default_id`."
+  alias AgentsDemo.Bots.Version.Audiences.Entry
+  @derive Jason.Encoder
+  defstruct default_id: "customer", entries: []
 
-  An entry maps phone numbers to an audience id (for example `"partner"`);
-  anyone unmatched is the `default_id`. A flow may start at a different
-  state per audience. Names are optional and only used for greetings.
-  """
+  @id ~r/^[a-z][a-z0-9_]*$/
 
-  use Ecto.Schema
-  import Ecto.Changeset
+  def new(attrs \\ %{}) do
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
+    default_id = attrs["default_id"] || "customer"
 
-  alias __MODULE__.Entry
-
-  @primary_key false
-  embedded_schema do
-    field :default_id, :string, default: "customer"
-    embeds_many :entries, Entry, on_replace: :delete
+    with :ok <- valid_id(default_id),
+         {:ok, entries} <- build(attrs["entries"] || []),
+         :ok <- unique_phones(entries) do
+      {:ok, %__MODULE__{default_id: default_id, entries: entries}}
+    end
   end
 
-  def changeset(audiences, attrs) do
-    audiences
-    |> cast(attrs, [:default_id])
-    |> validate_required([:default_id])
-    |> validate_format(:default_id, ~r/^[a-z][a-z0-9_]*$/)
-    |> cast_embed(:entries)
-    |> validate_unique_phones()
-  end
-
-  @doc """
-  The audience id and display name for a phone number, or the default with
-  no name.
-  """
+  @doc "The audience id and display name for a phone number, or the default with no name."
   def resolve(%__MODULE__{} = audiences, phone) when is_binary(phone) do
     digits = String.replace(phone, ~r/\D/, "")
 
@@ -42,16 +29,27 @@ defmodule AgentsDemo.Bots.Version.Audiences do
 
   def resolve(%__MODULE__{default_id: id}, _no_phone), do: %{id: id, name: nil}
 
-  defp validate_unique_phones(changeset) do
-    phones =
-      changeset
-      |> get_field(:entries)
-      |> Enum.map(&String.replace(&1.phone || "", ~r/\D/, ""))
+  defp valid_id(id) do
+    if Regex.match?(@id, to_string(id)), do: :ok, else: {:error, %{default_id: ["is invalid"]}}
+  end
 
-    if length(phones) == length(Enum.uniq(phones)) do
-      changeset
-    else
-      add_error(changeset, :entries, "list the same phone number more than once")
+  defp build(list) do
+    Enum.reduce_while(list, {:ok, []}, fn attrs, {:ok, acc} ->
+      case Entry.new(attrs) do
+        {:ok, e} -> {:cont, {:ok, [e | acc]}}
+        {:error, e} -> {:halt, {:error, %{entries: [e]}}}
+      end
+    end)
+    |> case do
+      {:ok, es} -> {:ok, Enum.reverse(es)}
+      other -> other
     end
+  end
+
+  defp unique_phones(entries) do
+    phones = Enum.map(entries, &String.replace(&1.phone || "", ~r/\D/, ""))
+    if length(phones) == length(Enum.uniq(phones)),
+      do: :ok,
+      else: {:error, %{entries: ["list the same phone number more than once"]}}
   end
 end

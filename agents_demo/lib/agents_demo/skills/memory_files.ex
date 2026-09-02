@@ -10,24 +10,28 @@ defmodule AgentsDemo.Skills.MemoryFiles do
 
   defmodule Settings do
     @moduledoc false
-    use Ecto.Schema
-    import Ecto.Changeset
 
     @all_tools ~w(list_files read_file create_file insert_file_lines find_in_file move_file delete_file)
     @default_tools ~w(list_files read_file create_file find_in_file move_file delete_file)
 
-    @primary_key false
-    embedded_schema do
-      field :enabled_tools, {:array, :string}, default: @default_tools
-    end
+    defstruct enabled_tools: @default_tools
 
     def all_tools, do: @all_tools
 
-    def changeset(settings, attrs) do
-      settings
-      |> cast(attrs, [:enabled_tools])
-      |> validate_subset(:enabled_tools, @all_tools)
-      |> validate_length(:enabled_tools, min: 1)
+    @doc "Build from attrs, returning `{:ok, struct}` or `{:error, %{field => [msg]}}`."
+    def new(attrs \\ %{}) do
+      %{enabled_tools: tools} =
+        AgentsDemo.Bots.Version.take(attrs, %__MODULE__{}, [:enabled_tools])
+
+      errors =
+        cond do
+          not is_list(tools) -> %{enabled_tools: ["is invalid"]}
+          tools == [] -> %{enabled_tools: ["should have at least 1 item(s)"]}
+          Enum.any?(tools, &(&1 not in @all_tools)) -> %{enabled_tools: ["has an invalid entry"]}
+          true -> %{}
+        end
+
+      AgentsDemo.Bots.Version.done(errors, %__MODULE__{enabled_tools: tools})
     end
   end
 

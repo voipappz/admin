@@ -2,7 +2,7 @@ defmodule AgentsDemo.Agents.AgentPersistence do
   @moduledoc """
   Implements `Sagents.AgentPersistence` for state snapshots.
 
-  Persists full agent state (messages, todos, metadata) to the database
+  Persists full agent state (messages, todos, metadata) to Mnesia
   via `AgentsDemo.Conversations.save_agent_state/3`, and mirrors the
   durable interrupt flag onto `conversation.metadata["interrupted"]` via
   `set_interrupted/3` (called by sagents only on actual transitions).
@@ -21,23 +21,17 @@ defmodule AgentsDemo.Agents.AgentPersistence do
         Logger.debug("Persisted agent state for #{context.agent_id} (#{context.lifecycle})")
         :ok
 
-      {:error, %Ecto.Changeset{errors: errors}} = error ->
-        if conversation_deleted?(errors) do
-          Logger.warning(
-            "Skipping agent state persistence for #{context.agent_id} (#{context.lifecycle}): conversation no longer exists"
-          )
-
-          :ok
-        else
-          error
-        end
-
+      # The conversation is gone or belongs to someone else: nothing to
+      # persist against, and not a reason to crash the agent.
       {:error, :not_found} ->
         Logger.warning(
           "Skipping agent state persistence for #{context.agent_id} (#{context.lifecycle}): conversation not accessible in scope"
         )
 
         :ok
+
+      {:error, _reason} = error ->
+        error
     end
   end
 
@@ -73,12 +67,5 @@ defmodule AgentsDemo.Agents.AgentPersistence do
 
   defp extract_conversation_id(agent_id) do
     String.replace_prefix(agent_id, "conversation-", "")
-  end
-
-  defp conversation_deleted?(changeset_errors) do
-    Enum.any?(changeset_errors, fn
-      {:conversation_id, {_msg, opts}} -> Keyword.get(opts, :constraint) == :foreign
-      _other -> false
-    end)
   end
 end

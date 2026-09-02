@@ -255,14 +255,10 @@ defmodule AgentsDemo.Agents.AgentSubscriberSession do
         %{}
 
       true ->
-        case Conversations.update_conversation(state.conversation, %{title: new_title}) do
-          {:ok, updated_conversation} ->
-            %{conversation: updated_conversation}
+        {:ok, updated_conversation} =
+          Conversations.update_conversation(state.conversation, %{title: new_title})
 
-          {:error, reason} ->
-            Logger.error("Failed to update conversation title: #{inspect(reason)}")
-            %{}
-        end
+        %{conversation: updated_conversation}
     end
   end
 

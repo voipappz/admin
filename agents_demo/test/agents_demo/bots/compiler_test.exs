@@ -1,5 +1,5 @@
 defmodule AgentsDemo.Bots.CompilerTest do
-  use AgentsDemo.DataCase, async: true
+  use AgentsDemo.DataCase, async: false
 
   import AgentsDemo.AccountsFixtures
   import AgentsDemo.BotsFixtures
@@ -9,7 +9,6 @@ defmodule AgentsDemo.Bots.CompilerTest do
   alias AgentsDemo.Bots.CompiledSpec
   alias AgentsDemo.Bots.Compiler
   alias AgentsDemo.Bots.Validator.Report
-  alias AgentsDemo.Repo
 
   setup do
     %{scope: user_scope_fixture()}
@@ -17,7 +16,7 @@ defmodule AgentsDemo.Bots.CompilerTest do
 
   defp version(scope, attrs) do
     bot = bot_fixture(scope, version: valid_version_attrs(attrs))
-    Repo.preload(bot.draft_version, :skills)
+    bot.draft_version
   end
 
   test "resolves skills, assembles the prompt, and is deterministic", %{scope: scope} do
@@ -101,7 +100,7 @@ defmodule AgentsDemo.Bots.CompilerTest do
 
   test "Runtime caches published specs by fingerprint", %{scope: scope} do
     bot = published_bot_fixture(scope)
-    version = Repo.preload(bot.current_version, :skills)
+    version = bot.current_version
 
     assert {:ok, spec} = AgentsDemo.Bots.Runtime.spec_for(version)
     assert spec.fingerprint == version.fingerprint

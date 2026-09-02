@@ -321,7 +321,6 @@ defmodule AgentsDemoWeb.Api.BotController do
   end
 
   def render_version(%BotVersion{} = version, opts \\ []) do
-    version = AgentsDemo.Repo.preload(version, :skills)
     %{"areas" => areas, "skills" => skills} = Snapshot.canonical(version)
 
     summary(version)

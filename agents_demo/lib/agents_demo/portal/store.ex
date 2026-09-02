@@ -26,6 +26,8 @@ defmodule AgentsDemo.Portal.Store do
 
   use GenServer
 
+  alias AgentsDemo.Mnesia
+
   require Logger
 
   @dashboards :portal_dashboards
@@ -40,14 +42,23 @@ defmodule AgentsDemo.Portal.Store do
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
+  @doc false
+  def reset_for_test! do
+    Mnesia.clear_tables!([@widgets, @dashboards])
+    seed_default()
+    :ok
+  end
+
   @impl true
   def init(_opts) do
-    ensure_named_node()
-    set_dir()
-    ensure_schema()
-    :ok = start_mnesia()
-    ensure_tables()
-    :ok = :mnesia.wait_for_tables([@dashboards, @widgets], 10_000)
+    Mnesia.ensure_table(@dashboards, attributes: @dashboard_fields, type: :set)
+
+    Mnesia.ensure_table(@widgets,
+      attributes: @widget_fields,
+      type: :set,
+      index: [:dashboard_uuid]
+    )
+
     seed_default()
     Logger.info("portal store: Mnesia ready (dir=#{:mnesia.system_info(:directory)})")
     {:ok, %{}}
@@ -64,7 +75,8 @@ defmodule AgentsDemo.Portal.Store do
     end)
   end
 
-  def get_dashboard(uuid), do: read(fn -> one(@dashboards, uuid, @dashboard_fields, &to_dashboard/1) end)
+  def get_dashboard(uuid),
+    do: read(fn -> one(@dashboards, uuid, @dashboard_fields, &to_dashboard/1) end)
 
   def create_dashboard(name) do
     row =
@@ -75,12 +87,19 @@ defmodule AgentsDemo.Portal.Store do
         updated_at: now()
       }
 
-    write(fn -> put(@dashboards, @dashboard_fields, row) end, to_dashboard(record(@dashboard_fields, row)))
+    write(
+      fn -> put(@dashboards, @dashboard_fields, row) end,
+      to_dashboard(record(@dashboard_fields, row))
+    )
   end
 
   def rename_dashboard(%{uuid: uuid, position: position}, name) do
     row = %{uuid: uuid, name: name, position: position, updated_at: now()}
-    write(fn -> put(@dashboards, @dashboard_fields, row) end, to_dashboard(record(@dashboard_fields, row)))
+
+    write(
+      fn -> put(@dashboards, @dashboard_fields, row) end,
+      to_dashboard(record(@dashboard_fields, row))
+    )
   end
 
   @doc """
@@ -126,7 +145,8 @@ defmodule AgentsDemo.Portal.Store do
     end)
   end
 
-  def get_widget(uuid), do: read(fn -> one(@widgets, uuid, @widget_fields, &to_widget_struct/1) end)
+  def get_widget(uuid),
+    do: read(fn -> one(@widgets, uuid, @widget_fields, &to_widget_struct/1) end)
 
   def create_widget(attrs, dashboard_uuid \\ @default) do
     attrs = stringify(attrs)
@@ -136,14 +156,20 @@ defmodule AgentsDemo.Portal.Store do
       dashboard_uuid: field(attrs, "dashboard_uuid") || dashboard_uuid,
       position: field(attrs, "position") || default_position(),
       definition:
-        Map.merge(%{"title" => "", "type" => "counter", "metric" => "total"}, definition_of(attrs)),
+        Map.merge(
+          %{"title" => "", "type" => "counter", "metric" => "total"},
+          definition_of(attrs)
+        ),
       updated_at: now()
     }
 
     write(fn -> put(@widgets, @widget_fields, row) end, to_widget_struct(row))
   end
 
-  def update_widget(%{uuid: uuid, definition: definition, dashboard_uuid: dash, position: pos}, attrs) do
+  def update_widget(
+        %{uuid: uuid, definition: definition, dashboard_uuid: dash, position: pos},
+        attrs
+      ) do
     attrs = stringify(attrs)
 
     row = %{
@@ -168,123 +194,6 @@ defmodule AgentsDemo.Portal.Store do
       {:atomic, :ok} -> {:ok, uuid}
       {:aborted, :not_found} -> {:error, :not_found}
       {:aborted, reason} -> {:error, reason}
-    end
-  end
-
-  # ── Setup ────────────────────────────────────────────────────────────────
-
-  # 127.0.0.1 AND LONGNAMES, not the hostname and :shortnames.
-  #
-  # Mnesia's schema is bound to the node name, so the name only has to be
-  # stable and resolvable — it never has to be reachable by anyone else. This
-  # is one node holding its own tables on disc, not a cluster.
-  #
-  # The hostname is neither reliable nor harmless. On a WSL host it resolves to
-  # IPv6 LINK-LOCAL addresses ahead of 127.0.1.1:
-  #
-  #     $ getent hosts LT-7G19VF4
-  #     fe80::96d:da56:f663:179    LT-7G19VF4
-  #     …
-  #
-  # `Node.start/2` still answers {:ok, _} there — distribution "starts" — and
-  # then `:mnesia.create_schema/1` blocks forever on a name that cannot be used.
-  # The endpoint is never reached, because this store is started before it, so
-  # the whole origin is gone: no login, no /ws/events, no SPA. And the only
-  # trace is this function's own success line, which makes the naming step look
-  # like the thing that WORKED.
-  #
-  # A loopback longname sidesteps the host's resolver entirely and cannot
-  # change under the node between restarts, which a DHCP-renamed host can.
-  defp ensure_named_node do
-    if node() == :nonode@nohost do
-      case Node.start(:"agents_demo@127.0.0.1", :longnames) do
-        {:ok, _} ->
-          Logger.info("portal store: named node #{node()} for disc persistence")
-
-        {:error, reason} ->
-          Logger.warning(
-            "portal store: could not name node (#{inspect(reason)}) — Mnesia will be RAM-only"
-          )
-      end
-    end
-  end
-
-  defp set_dir do
-    dir = System.get_env("MNESIA_DIR") || Path.join(:code.priv_dir(:agents_demo), "mnesia")
-    File.mkdir_p!(dir)
-    Application.put_env(:mnesia, :dir, String.to_charlist(dir))
-  end
-
-  defp ensure_schema do
-    # Only disc nodes get a schema; a RAM-only node (unnamed) runs schemaless.
-    if node() != :nonode@nohost do
-      # STOP FIRST. `create_schema/1` refuses while Mnesia is running, and this
-      # GenServer can be started more than once in one BEAM — a crash here is
-      # restarted by the supervisor, and the second attempt would find Mnesia
-      # already up from the first with a RAM schema it cannot replace. Every
-      # later `create_table(..., disc_copies)` then blocks forever inside
-      # `mnesia_schema:schema_transaction/1` waiting for a disc-capable node
-      # that does not exist. Stopping is a no-op on the first pass.
-      :mnesia.stop()
-
-      case :mnesia.create_schema([node()]) do
-        :ok -> :ok
-        {:error, {_, {:already_exists, _}}} -> :ok
-        {:error, reason} -> Logger.warning("portal store: create_schema — #{inspect(reason)}")
-      end
-    end
-  end
-
-  defp start_mnesia do
-    case :mnesia.start() do
-      :ok -> :ok
-      {:error, {:already_started, _}} -> :ok
-    end
-  end
-
-  defp ensure_tables do
-    # ASK MNESIA, do not infer from the node name. A named node is necessary for
-    # a disc schema and not sufficient: if `create_schema/1` did not take — a
-    # read-only directory, a half-started run, a dir set after Mnesia was
-    # already up — Mnesia runs schemaless and `use_dir` is false.
-    #
-    # Creating a `disc_copies` table in that state does not fail. It HANGS, in
-    # `mnesia_schema:schema_transaction/1`, and since this store is started
-    # before the endpoint the whole origin never comes up: no login, no
-    # /ws/events, no SPA, and the last log line is the one saying the node was
-    # named successfully. Degrading to RAM keeps the portal serving and says so
-    # once, which is a failure someone can actually see and act on.
-    copies =
-      cond do
-        node() == :nonode@nohost -> :ram_copies
-        :mnesia.system_info(:use_dir) -> :disc_copies
-        true ->
-          Logger.warning(
-            "portal store: Mnesia has no disc schema (dir=#{:mnesia.system_info(:directory)}) " <>
-              "— tables are RAM-ONLY and dashboards will not survive a restart"
-          )
-
-          :ram_copies
-      end
-
-    create_table(@dashboards, attributes: @dashboard_fields, type: :set, storage: copies)
-
-    create_table(@widgets,
-      attributes: @widget_fields,
-      type: :set,
-      storage: copies,
-      index: [:dashboard_uuid]
-    )
-  end
-
-  defp create_table(name, opts) do
-    {storage, opts} = Keyword.pop!(opts, :storage)
-    opts = Keyword.put(opts, storage, [node()])
-
-    case :mnesia.create_table(name, opts) do
-      {:atomic, :ok} -> :ok
-      {:aborted, {:already_exists, ^name}} -> :ok
-      {:aborted, reason} -> Logger.warning("portal store: create_table #{name} — #{inspect(reason)}")
     end
   end
 
@@ -323,7 +232,9 @@ defmodule AgentsDemo.Portal.Store do
   defp put(table, fields, map), do: :mnesia.write(record(table, fields, map))
 
   defp record(fields, map), do: record(:row, fields, map)
-  defp record(table, fields, map), do: List.to_tuple([table | Enum.map(fields, &Map.fetch!(map, &1))])
+
+  defp record(table, fields, map),
+    do: List.to_tuple([table | Enum.map(fields, &Map.fetch!(map, &1))])
 
   defp one(table, key, fields, to_struct) do
     case :mnesia.read(table, key) do
@@ -356,7 +267,7 @@ defmodule AgentsDemo.Portal.Store do
 
   # ── Value helpers ──────────────────────────────────────────────────────────
 
-  defp uuid, do: Ecto.UUID.generate()
+  defp uuid, do: Mnesia.uuid()
   defp now, do: DateTime.utc_now()
   defp count(table), do: :mnesia.table_info(table, :size)
   defp default_position, do: System.system_time(:millisecond) |> rem(1_000_000)

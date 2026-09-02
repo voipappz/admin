@@ -1,5 +1,5 @@
 defmodule AgentsDemoWeb.UserLive.SettingsTest do
-  use AgentsDemoWeb.ConnCase, async: true
+  use AgentsDemoWeb.ConnCase, async: false
 
   alias AgentsDemo.Accounts
   import Phoenix.LiveViewTest

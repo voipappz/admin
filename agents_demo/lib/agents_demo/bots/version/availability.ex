@@ -1,38 +1,36 @@
 defmodule AgentsDemo.Bots.Version.Availability do
-  @moduledoc """
-  When the bot counts as "in hours".
+  @moduledoc "When the bot counts as \"in hours\": a time zone plus open windows. No windows = always open."
+  alias AgentsDemo.Bots.Version.Availability.Window
+  @derive Jason.Encoder
+  defstruct time_zone: "UTC", windows: []
 
-  Borrowed from Papercups' account working hours: a time zone plus windows of
-  `{day, start_minute, end_minute}`. Unlike Papercups, *any* window matching
-  the day counts, so a split shift is two windows on the same day. No
-  windows means always open. The predicate lives in
-  `AgentsDemo.Controls.BusinessHours`; this module only holds the data.
-  """
+  def new(attrs \\ %{}) do
+    attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
+    zone = attrs["time_zone"] || "UTC"
 
-  use Ecto.Schema
-  import Ecto.Changeset
-
-  alias __MODULE__.Window
-
-  @primary_key false
-  embedded_schema do
-    field :time_zone, :string, default: "UTC"
-    embeds_many :windows, Window, on_replace: :delete
+    with :ok <- valid_zone(zone),
+         {:ok, windows} <- build(attrs["windows"] || []) do
+      {:ok, %__MODULE__{time_zone: zone, windows: windows}}
+    end
   end
 
-  def changeset(availability, attrs) do
-    availability
-    |> cast(attrs, [:time_zone])
-    |> validate_time_zone()
-    |> cast_embed(:windows)
+  defp valid_zone(zone) do
+    case DateTime.now(zone) do
+      {:ok, _} -> :ok
+      {:error, _} -> {:error, %{time_zone: ["is not a known IANA time zone"]}}
+    end
   end
 
-  defp validate_time_zone(changeset) do
-    validate_change(changeset, :time_zone, fn :time_zone, zone ->
-      case DateTime.now(zone) do
-        {:ok, _now} -> []
-        {:error, _unknown} -> [time_zone: "is not a known IANA time zone"]
+  defp build(list) do
+    Enum.reduce_while(list, {:ok, []}, fn attrs, {:ok, acc} ->
+      case Window.new(attrs) do
+        {:ok, w} -> {:cont, {:ok, [w | acc]}}
+        {:error, e} -> {:halt, {:error, %{windows: [e]}}}
       end
     end)
+    |> case do
+      {:ok, ws} -> {:ok, Enum.reverse(ws)}
+      other -> other
+    end
   end
 end

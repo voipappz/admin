@@ -4,18 +4,12 @@ defmodule AgentsDemo.Fakes.EchoCapability do
 
   defmodule Args do
     @moduledoc false
-    use AgentsDemo.Capabilities.Args
+    use AgentsDemo.Capabilities.Args,
+      fields: [text: :string, mode: {:string, default: "echo"}],
+      required: [:text]
 
-    embedded_schema do
-      field :text, :string
-      field :mode, :string, default: "echo"
-    end
-
-    def changeset(args, attrs) do
-      args
-      |> cast(attrs, [:text, :mode])
-      |> validate_required([:text])
-      |> validate_inclusion(:mode, ~w(echo raise sleep))
+    def validate(%__MODULE__{} = args) do
+      %{} |> inclusion(:mode, args.mode, ~w(echo raise sleep)) |> done(args)
     end
 
     def descriptions, do: %{text: "What to echo back"}

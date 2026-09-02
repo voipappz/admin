@@ -7,12 +7,8 @@ defmodule AgentsDemoWeb.ConnCase do
   import other functionality to make it easier
   to build common data structures and query the data layer.
 
-  Finally, if the test case interacts with the database,
-  we enable the SQL sandbox, so changes done to the database
-  are reverted at the end of every test. If you are using
-  PostgreSQL, you can even run database tests asynchronously
-  by setting `use AgentsDemoWeb.ConnCase, async: true`, although
-  this option is not recommended for other databases.
+  Mnesia tables are cleared before each test. Connection tests run
+  synchronously because those tables are shared process-wide.
   """
 
   use ExUnit.CaseTemplate
@@ -31,8 +27,9 @@ defmodule AgentsDemoWeb.ConnCase do
     end
   end
 
-  setup tags do
-    AgentsDemo.DataCase.setup_sandbox(tags)
+  setup _tags do
+    AgentsDemo.Mnesia.reset_domain_for_test!()
+    AgentsDemo.Portal.Store.reset_for_test!()
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 

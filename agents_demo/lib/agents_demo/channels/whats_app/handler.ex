@@ -21,8 +21,6 @@ defmodule AgentsDemo.Channels.WhatsApp.Handler do
 
   @behaviour Anu.Webhook.Handler
 
-  import Ecto.Query
-
   require Logger
 
   alias AgentsDemo.Accounts
@@ -32,8 +30,6 @@ defmodule AgentsDemo.Channels.WhatsApp.Handler do
   alias AgentsDemo.Config
   alias AgentsDemo.Agents.DemoSetup
   alias AgentsDemo.Conversations
-  alias AgentsDemo.Conversations.Conversation
-  alias AgentsDemo.Repo
   alias AgentsDemo.Turns
   alias AgentsDemo.Turns.Input
 
@@ -119,15 +115,8 @@ defmodule AgentsDemo.Channels.WhatsApp.Handler do
   # one. WhatsApp has no threading, so every message from a number continues
   # the same conversation.
   defp find_or_create_conversation(scope, phone) do
-    query =
-      from c in Conversation,
-        where: c.source == "whatsapp",
-        where: fragment("?->>'phone' = ?", c.metadata, ^phone),
-        order_by: [desc: c.updated_at],
-        limit: 1
-
-    case Repo.one(query) do
-      %Conversation{} = conversation ->
+    case Conversations.latest_by_source_metadata(scope, "whatsapp", "phone", phone) do
+      %AgentsDemo.Conversations.Conversation{} = conversation ->
         {:ok, conversation}
 
       nil ->

@@ -2,8 +2,8 @@
 
 A **React + Vite** portal for VoIP/telecom tenants, built as reusable components
 on top of the **voipappz-api mothership**. A tenant fork changes **env, not
-code** — repoint the mothership with one var (`MOTHERSHIP_URL`) and the same app
-lights up against that tenant's data (login, calls, reports, feature flags).
+code**; the browser always reaches that API through the same-origin Elixir
+portal.
 
 - **Documentation index** → [docs/README.md](./docs/README.md)
 - **Building a feature?** → [docs/modules.md](./docs/modules.md)
@@ -18,7 +18,7 @@ lights up against that tenant's data (login, calls, reports, feature flags).
 ```bash
 gh repo create my-tenant-portal --template voipappz/app --private --clone
 cd my-tenant-portal
-make env                      # writes .env — set MOTHERSHIP_URL to your tenant
+make env                      # writes .env without overwriting an existing one
 make dev                      # the whole stack in Docker
 ```
 
@@ -31,14 +31,15 @@ included GitHub Actions CI works out of the box in the new repo.
 ## Quick start
 
 ```bash
-cp .env.example .env          # defaults work out of the box (cloud mothership)
+cp .env.example .env          # defaults expect the local API on :5000
 make dev                      # → http://localhost:4200  (everything runs in Docker)
 ```
 
-**Docker is the only requirement** — no local node/npm needed. Log in with a
-real mothership user (or `VITE_MOCK_LOGIN=1 make up` for an offline login with
-any email + OTP `123456`). Prefer host tooling? `npm install && npm run dev`
-works too.
+**Docker is the only requirement for the Makefile workflow** — no local
+node/npm needed. Start the sibling mothership stack first so `va-app`, NATS and
+Postgres are available, then log in with its user. For frontend-only work,
+`VITE_MOCK_LOGIN=1 make up` provides an offline login with any email + OTP
+`123456`. Prefer host tooling? `npm install && npm run dev` works too.
 
 Every push is guarded by the repository's `.githooks/pre-push` hook. `npm
 install` configures it automatically. Run the identical gate manually with
@@ -93,13 +94,18 @@ through Deno.
 ## Configuration
 
 All configuration is env (see **[.env.example](./.env.example)** — copy it to
-`.env`). Nothing is required out of the box — the browser uses relative URLs
-and reaches the mothership through the app server (Vite proxy in dev, the
-portal's forwarder in prod). Repoint a tenant fork with:
+`.env`). The browser uses relative URLs and reaches the mothership through the
+Elixir portal in both development and production. The local stack defaults to
+the API on port 5000; override it with:
 
 ```bash
-MOTHERSHIP_URL=https://tenant.example    # dev proxy + prod forwarder + preflight
+PORTAL_ENGINE_URL=https://tenant.example
+CABLE_API_URL=https://tenant.example     # keep cable on the same API
 ```
+
+`MOTHERSHIP_URL` remains the fallback for the local production Compose profile.
+Kamal destinations set their production `ENGINE_URL` in mothership's deploy
+configuration.
 
 Everything else (softphone SIP, dashboard extras, branding, mocks) is optional
 and documented inline in `.env.example`. Do **not** set `VITE_API_BASE_URL` in
@@ -115,14 +121,16 @@ make            # list targets
 |---|---|
 | `make dev` | Run the app in Docker (attached logs) |
 | `make up` / `make down` | Start / stop the full Docker stack (web + portal + cable) |
+| `make logs` | Follow every local-stack log, including cable |
 | `make build` | Production build (`dist/`, in Docker) |
 | `make lint` / `make unit` | ESLint / Vitest in Docker |
+| `make portal-compile` / `make portal-test` | Compile or test the Elixir portal in the running container |
 | `make test` | Playwright E2E (needs the app running) |
 | `make act-portal` | Run the Elixir portal CI job locally; installs `act` into `/tmp` if needed |
 | `make act` | Run the complete GitHub Actions workflow locally |
 | `make verify` | Health check: the portal's probes, Vite and the cable |
 | `make status` | Local git + production health (set `PROD_URL`) |
-| `make deploy` / `make ship` | Deploy to the production server / push + deploy |
+| `cd ../mothership && make portal-deploy DEST=nimbus` | Deploy Nimbus through Kamal |
 
 ## Project layout
 
@@ -170,8 +178,7 @@ layout direction.
 
 ## Deploy
 
-Two ways, both Docker-only (nothing to install): `make prod` runs the
-production image on this box (:8000); `make deploy` builds, pushes to the
-registry, and swaps the container on the production server (`make ship` =
-`git push` + deploy; `make status` probes the deployed version). See
-[deployment guide](./docs/deployment.md).
+`make prod` runs the production image on this box (:8000). Production deploy
+policy belongs to the sibling mothership repository; from there,
+`make portal-deploy DEST=nimbus` builds, pushes and swaps the container through
+Kamal. See the [deployment guide](./docs/deployment.md).

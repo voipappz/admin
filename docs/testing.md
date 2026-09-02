@@ -6,6 +6,8 @@
 |---|---|
 | `npm run verify:push` | ESLint, frontend unit tests, a clean Elixir compile, production build and the Playwright end-user smoke. |
 | `make unit` | Vitest unit tests (services, hooks) in Docker. |
+| `make portal-test` | ExUnit in the running Elixir container; pass `TEST=test/path.exs:line` for a targeted run. |
+| `make portal-compile` | Elixir test build with warnings treated as errors. |
 | `make act-portal` | The exact GitHub Actions Elixir portal job, run locally with an empty env file. |
 | `make act` | Complete GitHub Actions workflow locally. |
 | `make prod` | Builds/runs the exact local production artifact on port 8000 and probes `/` and `/health/alive`. |
@@ -13,9 +15,10 @@
 The Git pre-push hook runs `npm run verify:push`, so a normal push is rejected
 when the core gate fails.
 
-The portal's own suite needs a Postgres and is therefore **not** in the pre-push
+The portal's own suite needs Postgres and is therefore **not** in the pre-push
 gate — CI runs it against a service container. Run it locally against the dev
-stack with:
+stack with `make portal-test`; use `make portal-compile` for the clean compile.
+The underlying command is:
 
 ```bash
 docker compose exec -e MIX_ENV=test elixir mix test

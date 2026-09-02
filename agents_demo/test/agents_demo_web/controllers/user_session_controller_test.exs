@@ -1,5 +1,5 @@
 defmodule AgentsDemoWeb.UserSessionControllerTest do
-  use AgentsDemoWeb.ConnCase, async: true
+  use AgentsDemoWeb.ConnCase, async: false
 
   import AgentsDemo.AccountsFixtures
   alias AgentsDemo.Accounts

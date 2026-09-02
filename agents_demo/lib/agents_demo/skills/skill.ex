@@ -3,8 +3,8 @@ defmodule AgentsDemo.Skills.Skill do
   A Skill: a curated, reusable behaviour bundle a bot version can select.
 
   A Skill is code. It declares a stable id and a semantic version, a settings
-  schema (an embedded schema whose `changeset/2` validates what a bot may
-  store for it), the capabilities it exposes to the model, the instructions
+  schema (a struct module whose `new/1` validates what a bot may store for
+  it), the capabilities it exposes to the model, the instructions
   it contributes to the prompt, and the Sagents middleware it needs at run
   time. A bot version stores only `{id, version, settings}`; the registry in
   `AgentsDemo.Skills` maps the id to the module.

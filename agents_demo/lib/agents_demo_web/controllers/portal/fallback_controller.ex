@@ -14,14 +14,13 @@ defmodule AgentsDemoWeb.Portal.FallbackController do
   def call(conn, {:error, :permanent}),
     do: send_error(conn, :conflict, "default dashboard cannot be deleted")
 
-  def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
-    send_error(conn, :unprocessable_entity, translate(changeset))
+  # A validator's `%{field => [message]}` report.
+  def call(conn, {:error, %{} = errors}) when is_non_struct_map(errors) do
+    send_error(conn, :unprocessable_entity, translate(errors))
   end
 
-  defp translate(changeset) do
-    changeset
-    |> Ecto.Changeset.traverse_errors(fn {msg, _opts} -> msg end)
-    |> Enum.map_join("; ", fn {field, msgs} -> "#{field} #{Enum.join(msgs, ", ")}" end)
+  defp translate(errors) do
+    Enum.map_join(errors, "; ", fn {field, msgs} -> "#{field} #{Enum.join(List.wrap(msgs), ", ")}" end)
   end
 
   defp send_error(conn, status, message) do

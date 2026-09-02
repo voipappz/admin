@@ -189,6 +189,45 @@ defmodule AgentsDemo.Config do
   @spec fireberry_token() :: String.t() | nil
   def fireberry_token, do: env("FIREBERRY_TOKEN")
 
+  # ── Log shipping (InfluxDB 3) ───────────────────────────────────────────────
+  #
+  # The SAME variable names va-crystal's node reads (`node/influx/writer.cr`),
+  # on purpose: one deployment sets them once and both the node's metrics and
+  # this portal's log lines land in the same database. Renaming them here to
+  # something "portal-ish" would mean a second set of secrets to ship and keep
+  # in sync, which is how one of the two quietly stops writing.
+
+  @doc """
+  InfluxDB host (`VA_INFLUXDB_HOST`), default `"influxdb"` — the compose
+  service name. A host-networked container cannot resolve that; set it to
+  `127.0.0.1` there, as the node's startup check says.
+  """
+  @spec influxdb_host() :: String.t()
+  def influxdb_host, do: env("VA_INFLUXDB_HOST") || "influxdb"
+
+  @doc "InfluxDB port (`VA_INFLUXDB_PORT`), default 8181 — InfluxDB 3's own listener."
+  @spec influxdb_port() :: pos_integer()
+  def influxdb_port, do: int_env("VA_INFLUXDB_PORT", 8181, 1..65535)
+
+  @doc "InfluxDB database log lines are written to (`VA_INFLUXDB_DATABASE`), default `\"telegraf\"`."
+  @spec influxdb_database() :: String.t()
+  def influxdb_database, do: env("VA_INFLUXDB_DATABASE") || "telegraf"
+
+  @doc """
+  Bearer token for InfluxDB (`VA_MONITOR_TOKEN`), or `nil`.
+
+  This is the gate, exactly as it is in the node's `Influx.configured?`: absent,
+  no log handler is installed and nothing is ever posted. There is no
+  "write without auth" mode here — a portal that ships its logs somewhere it
+  was never told about is not a default anyone asked for.
+  """
+  @spec monitor_token() :: String.t() | nil
+  def monitor_token, do: env("VA_MONITOR_TOKEN")
+
+  @doc "True when log lines should be shipped to InfluxDB — the token is set."
+  @spec influx_configured?() :: boolean()
+  def influx_configured?, do: is_binary(monitor_token())
+
   # ── Storage ─────────────────────────────────────────────────────────────────
 
   @doc """
@@ -206,6 +245,16 @@ defmodule AgentsDemo.Config do
   """
   @spec data_dir() :: String.t()
   def data_dir, do: env("AGENTS_DEMO_DATA_DIR") || default_data_dir()
+
+  @doc """
+  Directory holding Mnesia's durable tables (`MNESIA_DIR`).
+
+  Defaults to `mnesia/` under `AGENTS_DEMO_DATA_DIR`, keeping all mutable state
+  outside a release. Set it directly only when table files need a separate
+  volume or filesystem.
+  """
+  @spec mnesia_dir() :: String.t()
+  def mnesia_dir, do: env("MNESIA_DIR") || Path.join(data_dir(), "mnesia")
 
   defp default_data_dir do
     case @compiled_env do
@@ -240,13 +289,18 @@ defmodule AgentsDemo.Config do
       {"AGENTS_DEMO_API_KEY", presence(api_key())},
       {"AGENTS_DEMO_API_USER_EMAIL", api_user_email() || "not set"},
       {"AGENTS_DEMO_DATA_DIR", data_dir()},
+      {"MNESIA_DIR", mnesia_dir()},
       {"WHATSAPP_ACCESS_TOKEN", presence(whatsapp_access_token())},
       {"WHATSAPP_PHONE_NUMBER_ID", presence(whatsapp_phone_number_id())},
       {"WHATSAPP_APP_SECRET", presence(whatsapp_app_secret())},
       {"WHATSAPP_VERIFY_TOKEN", presence(whatsapp_verify_token())},
       {"WHATSAPP_OWNER_EMAIL", whatsapp_owner_email() || "not set"},
       {"WHATSAPP_BOT_SLUG", whatsapp_bot_slug()},
-      {"FIREBERRY_TOKEN", presence(fireberry_token())}
+      {"FIREBERRY_TOKEN", presence(fireberry_token())},
+      {"VA_INFLUXDB_HOST", influxdb_host()},
+      {"VA_INFLUXDB_PORT", to_string(influxdb_port())},
+      {"VA_INFLUXDB_DATABASE", influxdb_database()},
+      {"VA_MONITOR_TOKEN", presence(monitor_token())}
     ]
   end
 

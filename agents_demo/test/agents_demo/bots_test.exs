@@ -8,9 +8,9 @@ defmodule AgentsDemo.BotsTest do
   alias AgentsDemo.Bots
   alias AgentsDemo.Bots.Bot
   alias AgentsDemo.Bots.BotVersion
+  alias AgentsDemo.Bots.Store
   alias AgentsDemo.Bots.Snapshot
   alias AgentsDemo.Bots.Validator
-  alias AgentsDemo.Repo
 
   setup do
     %{scope: user_scope_fixture()}
@@ -34,11 +34,13 @@ defmodule AgentsDemo.BotsTest do
     test "rolls the bot back when the draft is invalid", %{scope: scope} do
       before = length(Bots.list_bots(scope))
 
-      assert {:error, %Ecto.Changeset{}} =
+      assert {:error, errors} =
                Bots.create_bot(scope, %{
                  "name" => "Broken",
                  "version" => %{"skills" => [%{"skill_id" => "nope", "skill_version" => "1.0.0"}]}
                })
+
+      assert is_map(errors)
 
       assert length(Bots.list_bots(scope)) == before
     end
@@ -92,7 +94,7 @@ defmodule AgentsDemo.BotsTest do
 
       assert {:ok, bot} = Bots.publish_draft(scope, bot.id)
       assert bot.current_version.number == 2
-      assert Repo.get!(BotVersion, v1.id).status == :published
+      assert Store.get_version(v1.id).status == :published
     end
 
     test "retire_previous: true retires the replaced version", %{scope: scope} do
@@ -103,7 +105,7 @@ defmodule AgentsDemo.BotsTest do
         Bots.update_draft(scope, bot.id, %{"behavior" => %{"instructions" => "Two."}})
 
       assert {:ok, _bot} = Bots.publish_draft(scope, bot.id, retire_previous: true)
-      assert Repo.get!(BotVersion, v1.id).status == :retired
+      assert Store.get_version(v1.id).status == :retired
     end
   end
 
@@ -111,46 +113,35 @@ defmodule AgentsDemo.BotsTest do
     test "a published version refuses edits in the changeset", %{scope: scope} do
       bot = published_bot_fixture(scope)
 
-      changeset =
-        BotVersion.draft_changeset(bot.current_version, %{
-          "behavior" => %{"instructions" => "changed"}
-        })
+      assert {:error, errors} =
+               BotVersion.apply_draft(bot.current_version, %{
+                 "behavior" => %{"instructions" => "changed"}
+               })
 
-      refute changeset.valid?
-      assert changeset.errors[:status]
+      assert errors.status
     end
 
     test "the database refuses a change to a published version", %{scope: scope} do
       bot = published_bot_fixture(scope)
 
-      assert_raise Postgrex.Error, ~r/create a new draft instead/, fn ->
-        Repo.update_all(
-          from(v in BotVersion, where: v.id == ^bot.current_version_id),
-          set: [change_note: "sneaky"]
-        )
+      assert_raise MatchError, fn ->
+        Store.put_version(%{bot.current_version | change_note: "sneaky"})
       end
     end
 
     test "the database refuses removing a published version's skills", %{scope: scope} do
       bot = published_bot_fixture(scope)
 
-      assert_raise Postgrex.Error, ~r/create a new draft instead/, fn ->
-        Repo.delete_all(
-          from(s in AgentsDemo.Bots.BotVersionSkill,
-            where: s.bot_version_id == ^bot.current_version_id
-          )
-        )
+      assert_raise MatchError, fn ->
+        Store.put_version(%{bot.current_version | skills: []})
       end
     end
 
     test "the database refuses turning a published version back into a draft", %{scope: scope} do
       bot = published_bot_fixture(scope)
 
-      assert_raise Postgrex.Error, ~r/cannot become a draft/, fn ->
-        Repo.update_all(
-          from(v in BotVersion, where: v.id == ^bot.current_version_id),
-          set: [status: "draft"]
-        )
+      assert_raise MatchError, fn ->
+        Store.put_version(%{bot.current_version | status: :draft})
       end
     end
   end
@@ -181,7 +172,7 @@ defmodule AgentsDemo.BotsTest do
       {:ok, draft} = Bots.create_draft(scope, bot.id)
 
       assert {:ok, :ok} = Bots.delete_draft(scope, bot.id)
-      assert Repo.get(BotVersion, draft.id) == nil
+      assert Store.get_version(draft.id) == nil
       assert {:ok, %Bot{draft_version_id: nil}} = Bots.get_bot(scope, bot.id)
       assert {:error, :no_draft} = Bots.delete_draft(scope, bot.id)
     end
@@ -194,8 +185,8 @@ defmodule AgentsDemo.BotsTest do
                  "skills" => [%{"skill_id" => "web_lookup", "skill_version" => "2.0.0"}]
                })
 
-      assert %{skills: skills} = errors_on(changeset)
-      assert Enum.any?(skills, &match?(%{skill_version: ["is incompatible" <> _]}, &1))
+      assert %{skills: %{skill_version: [message]}} = errors_on(changeset)
+      assert message =~ "is incompatible"
     end
   end
 

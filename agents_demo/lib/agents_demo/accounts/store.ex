@@ -27,7 +27,15 @@ defmodule AgentsDemo.Accounts.Store do
   alias AgentsDemo.Mnesia
 
   @users :users
-  @user_fields [:id, :first_name, :email, :hashed_password, :confirmed_at, :inserted_at, :updated_at]
+  @user_fields [
+    :id,
+    :first_name,
+    :email,
+    :hashed_password,
+    :confirmed_at,
+    :inserted_at,
+    :updated_at
+  ]
 
   @tokens :users_tokens
   @token_fields [:id, :token, :context, :sent_to, :user_id, :authenticated_at, :inserted_at]
@@ -71,6 +79,7 @@ defmodule AgentsDemo.Accounts.Store do
     row =
       user
       |> Map.from_struct()
+      |> Map.take(@user_fields)
       |> Map.merge(%{id: Mnesia.next_id(@users), inserted_at: now, updated_at: now})
 
     Mnesia.transaction!(fn -> Mnesia.write(@users, @user_fields, row) end)
@@ -79,7 +88,12 @@ defmodule AgentsDemo.Accounts.Store do
 
   @doc "Persist changes to an existing `%User{}`."
   def update_user(%User{id: id} = user) when not is_nil(id) do
-    row = user |> Map.from_struct() |> Map.put(:updated_at, DateTime.utc_now(:second))
+    row =
+      user
+      |> Map.from_struct()
+      |> Map.take(@user_fields)
+      |> Map.put(:updated_at, DateTime.utc_now(:second))
+
     Mnesia.transaction!(fn -> Mnesia.write(@users, @user_fields, row) end)
     to_user(row)
   end
@@ -100,12 +114,27 @@ defmodule AgentsDemo.Accounts.Store do
     struct(UserToken, row)
   end
 
+  def update_token(%UserToken{id: id} = token) when not is_nil(id) do
+    row = token |> Map.from_struct() |> Map.take(@token_fields)
+    Mnesia.transaction!(fn -> Mnesia.write(@tokens, @token_fields, row) end)
+    to_token(row)
+  end
+
   @doc "The token row for a raw token value and context, or nil."
   def get_token(token, context) do
     Mnesia.transaction!(fn ->
       @tokens
       |> Mnesia.index_read(@token_fields, token, :token)
       |> Enum.find(&(&1.context == context))
+    end)
+    |> to_token()
+  end
+
+  def get_token_by_value(token) do
+    Mnesia.transaction!(fn ->
+      @tokens
+      |> Mnesia.index_read(@token_fields, token, :token)
+      |> List.first()
     end)
     |> to_token()
   end
@@ -117,10 +146,14 @@ defmodule AgentsDemo.Accounts.Store do
 
   def delete_token(id), do: Mnesia.transaction!(fn -> Mnesia.delete(@tokens, id) end)
 
-  @doc "Delete every token for a user; returns the deleted rows."
-  def delete_user_tokens(user_id) do
+  @doc "Delete a user's tokens, optionally restricted to exact contexts."
+  def delete_user_tokens(user_id, contexts \\ :all) do
     Mnesia.transaction!(fn ->
-      tokens = Mnesia.index_read(@tokens, @token_fields, user_id, :user_id)
+      tokens =
+        @tokens
+        |> Mnesia.index_read(@token_fields, user_id, :user_id)
+        |> Enum.filter(&(contexts == :all or &1.context in contexts))
+
       Enum.each(tokens, &Mnesia.delete(@tokens, &1.id))
       tokens
     end)

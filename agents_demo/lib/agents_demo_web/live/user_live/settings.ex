@@ -4,6 +4,7 @@ defmodule AgentsDemoWeb.UserLive.Settings do
   on_mount {AgentsDemoWeb.UserAuth, :require_sudo_mode}
 
   alias AgentsDemo.Accounts
+  alias AgentsDemoWeb.UserForm
 
   @impl true
   def render(assigns) do
@@ -145,17 +146,12 @@ defmodule AgentsDemoWeb.UserLive.Settings do
 
   def mount(_params, _session, socket) do
     user = socket.assigns.current_scope.user
-    email_changeset = Accounts.change_user_email(user, %{}, validate_unique: false)
-    password_changeset = Accounts.change_user_password(user, %{}, hash_password: false)
-
-    profile_changeset = Accounts.change_user_profile(user, %{})
-
     socket =
       socket
       |> assign(:current_email, user.email)
-      |> assign(:profile_form, to_form(profile_changeset))
-      |> assign(:email_form, to_form(email_changeset))
-      |> assign(:password_form, to_form(password_changeset))
+      |> assign(:profile_form, UserForm.build(user))
+      |> assign(:email_form, UserForm.build(user))
+      |> assign(:password_form, UserForm.build(user))
       |> assign(:trigger_submit, false)
 
     {:ok, socket}
@@ -163,11 +159,11 @@ defmodule AgentsDemoWeb.UserLive.Settings do
 
   @impl true
   def handle_event("validate_profile", %{"user" => user_params}, socket) do
+    user = socket.assigns.current_scope.user
+    result = Accounts.change_user_profile(user, user_params)
+
     profile_form =
-      socket.assigns.current_scope.user
-      |> Accounts.change_user_profile(user_params)
-      |> Map.put(:action, :validate)
-      |> to_form()
+      UserForm.build(UserForm.user(result, user), user_params, UserForm.errors(result))
 
     {:noreply, assign(socket, profile_form: profile_form)}
   end
@@ -182,7 +178,7 @@ defmodule AgentsDemoWeb.UserLive.Settings do
          |> put_flash(:info, "Profile updated successfully.")}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, profile_form: to_form(changeset, action: :insert))}
+        {:noreply, assign(socket, profile_form: UserForm.build(user, user_params, changeset))}
     end
   end
 
@@ -190,11 +186,11 @@ defmodule AgentsDemoWeb.UserLive.Settings do
   def handle_event("validate_email", params, socket) do
     %{"user" => user_params} = params
 
+    user = socket.assigns.current_scope.user
+    result = Accounts.change_user_email(user, user_params, validate_unique: false)
+
     email_form =
-      socket.assigns.current_scope.user
-      |> Accounts.change_user_email(user_params, validate_unique: false)
-      |> Map.put(:action, :validate)
-      |> to_form()
+      UserForm.build(UserForm.user(result, user), user_params, UserForm.errors(result))
 
     {:noreply, assign(socket, email_form: email_form)}
   end
@@ -205,9 +201,9 @@ defmodule AgentsDemoWeb.UserLive.Settings do
     true = Accounts.sudo_mode?(user)
 
     case Accounts.change_user_email(user, user_params) do
-      %{valid?: true} = changeset ->
+      {:ok, updated_user} ->
         Accounts.deliver_user_update_email_instructions(
-          Ecto.Changeset.apply_action!(changeset, :insert),
+          updated_user,
           user.email,
           &url(~p"/users/settings/confirm-email/#{&1}")
         )
@@ -215,19 +211,19 @@ defmodule AgentsDemoWeb.UserLive.Settings do
         info = "A link to confirm your email change has been sent to the new address."
         {:noreply, socket |> put_flash(:info, info)}
 
-      changeset ->
-        {:noreply, assign(socket, :email_form, to_form(changeset, action: :insert))}
+      {:error, errors} ->
+        {:noreply, assign(socket, :email_form, UserForm.build(user, user_params, errors))}
     end
   end
 
   def handle_event("validate_password", params, socket) do
     %{"user" => user_params} = params
 
+    user = socket.assigns.current_scope.user
+    result = Accounts.change_user_password(user, user_params, hash_password: false)
+
     password_form =
-      socket.assigns.current_scope.user
-      |> Accounts.change_user_password(user_params, hash_password: false)
-      |> Map.put(:action, :validate)
-      |> to_form()
+      UserForm.build(UserForm.user(result, user), user_params, UserForm.errors(result))
 
     {:noreply, assign(socket, password_form: password_form)}
   end
@@ -237,12 +233,16 @@ defmodule AgentsDemoWeb.UserLive.Settings do
     user = socket.assigns.current_scope.user
     true = Accounts.sudo_mode?(user)
 
-    case Accounts.change_user_password(user, user_params) do
-      %{valid?: true} = changeset ->
-        {:noreply, assign(socket, trigger_submit: true, password_form: to_form(changeset))}
+    case Accounts.change_user_password(user, user_params, hash_password: false) do
+      {:ok, changed_user} ->
+        {:noreply,
+         assign(socket,
+           trigger_submit: true,
+           password_form: UserForm.build(changed_user, user_params)
+         )}
 
-      changeset ->
-        {:noreply, assign(socket, password_form: to_form(changeset, action: :insert))}
+      {:error, errors} ->
+        {:noreply, assign(socket, password_form: UserForm.build(user, user_params, errors))}
     end
   end
 end

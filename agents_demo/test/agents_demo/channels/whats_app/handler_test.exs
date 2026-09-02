@@ -8,8 +8,6 @@ defmodule AgentsDemo.Channels.WhatsApp.HandlerTest do
   alias AgentsDemo.Agents.Coordinator
   alias AgentsDemo.Channels.WhatsApp.Handler
   alias AgentsDemo.Conversations
-  alias AgentsDemo.Conversations.Conversation
-  alias AgentsDemo.Repo
   alias Sagents.AgentServer
 
   setup :set_mimic_global
@@ -40,8 +38,8 @@ defmodule AgentsDemo.Channels.WhatsApp.HandlerTest do
   defp text_of(%{content: parts}) when is_list(parts), do: Enum.map_join(parts, & &1.content)
 
   defp conversation(scope) do
-    Conversation
-    |> Repo.all()
+    scope
+    |> Conversations.list_conversations(limit: 10_000)
     |> Enum.find(&(&1.source == "whatsapp"))
     |> tap(fn c -> assert c end)
     |> then(fn c ->
@@ -124,14 +122,14 @@ defmodule AgentsDemo.Channels.WhatsApp.HandlerTest do
                inbound(%{type: "reaction", raw: %{"reaction" => %{"emoji" => "👍"}}})
              )
 
-    assert Repo.all(Conversation) |> Enum.filter(&(&1.source == "whatsapp")) == []
+    assert whatsapp_conversations() == []
   end
 
-  test "every message from a number continues the same conversation", %{scope: scope} do
+  test "every message from a number continues the same conversation", %{scope: _scope} do
     Handler.handle_event(:message_received, inbound(%{type: "text", text: "one"}))
     Handler.handle_event(:message_received, inbound(%{type: "text", text: "two"}))
 
-    assert [_single] = Repo.all(Conversation) |> Enum.filter(&(&1.source == "whatsapp"))
+    assert [_single] = whatsapp_conversations()
     assert_received {:submitted, "one"}
     assert_received {:submitted, "two"}
   end
@@ -139,6 +137,16 @@ defmodule AgentsDemo.Channels.WhatsApp.HandlerTest do
   test "a missing owner account drops the message rather than crashing" do
     System.put_env("WHATSAPP_OWNER_EMAIL", "nobody@example.invalid")
     assert :ok = Handler.handle_event(:message_received, inbound(%{type: "text", text: "hi"}))
-    assert Repo.all(Conversation) |> Enum.filter(&(&1.source == "whatsapp")) == []
+    assert whatsapp_conversations() == []
+  end
+
+  defp whatsapp_conversations do
+    AgentsDemo.Accounts.Store.list_users()
+    |> Enum.flat_map(fn user ->
+      user
+      |> AgentsDemo.Accounts.Scope.for_user()
+      |> Conversations.list_conversations(limit: 10_000)
+    end)
+    |> Enum.filter(&(&1.source == "whatsapp"))
   end
 end

@@ -11,18 +11,18 @@ defmodule AgentsDemo.Skills.WebLookup do
 
   defmodule Settings do
     @moduledoc false
-    use Ecto.Schema
-    import Ecto.Changeset
+    defstruct timeout_ms: 120_000
 
-    @primary_key false
-    embedded_schema do
-      field :timeout_ms, :integer, default: 120_000
-    end
+    @doc "Build from attrs, returning `{:ok, struct}` or `{:error, %{field => [msg]}}`."
+    def new(attrs \\ %{}) do
+      %{timeout_ms: timeout} = AgentsDemo.Bots.Version.take(attrs, %__MODULE__{}, [:timeout_ms])
 
-    def changeset(settings, attrs) do
-      settings
-      |> cast(attrs, [:timeout_ms])
-      |> validate_number(:timeout_ms, greater_than: 1_000, less_than_or_equal_to: 600_000)
+      errors =
+        if is_integer(timeout),
+          do: AgentsDemo.Bots.Version.range(%{}, :timeout_ms, timeout, gt: 1_000, lte: 600_000),
+          else: %{timeout_ms: ["is invalid"]}
+
+      AgentsDemo.Bots.Version.done(errors, %__MODULE__{timeout_ms: timeout})
     end
   end
 

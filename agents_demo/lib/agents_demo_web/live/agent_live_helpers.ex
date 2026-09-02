@@ -203,7 +203,7 @@ defmodule AgentsDemoWeb.AgentLiveHelpers do
 
       {:ok, socket}
     rescue
-      Ecto.NoResultsError ->
+      KeyError ->
         {:error, put_flash(socket, :error, "Conversation not found")}
     end
   end

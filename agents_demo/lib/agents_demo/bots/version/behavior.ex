@@ -1,29 +1,20 @@
 defmodule AgentsDemo.Bots.Version.Behavior do
-  @moduledoc """
-  What the bot is told to be.
+  @moduledoc "What the bot is told to be. `instructions` is the complete prompt."
+  @derive Jason.Encoder
+  defstruct instructions: nil, purpose: nil, audience_description: nil, languages: ["en"], style: nil
 
-  `instructions` is the complete prompt. It replaces the platform default
-  rather than extending it: someone who writes instructions means them, and a
-  hidden prefix would make their text unpredictable. Skills may append their
-  own instructions in a documented order (see `AgentsDemo.Bots.Compiler`).
-  """
+  @fields [:instructions, :purpose, :audience_description, :languages, :style]
 
-  use Ecto.Schema
-  import Ecto.Changeset
+  @doc "Build from attrs, returning `{:ok, struct}` or `{:error, %{field => [msg]}}`."
+  def new(attrs \\ %{}) do
+    m = AgentsDemo.Bots.Version.take(attrs, %__MODULE__{}, @fields)
+    m = %{m | languages: m.languages || ["en"]}
 
-  @primary_key false
-  embedded_schema do
-    field :instructions, :string
-    field :purpose, :string
-    field :audience_description, :string
-    field :languages, {:array, :string}, default: ["en"]
-    field :style, :string
-  end
+    errors =
+      %{}
+      |> AgentsDemo.Bots.Version.max_len(:instructions, m.instructions, 100_000)
+      |> AgentsDemo.Bots.Version.min_items(:languages, m.languages, 1)
 
-  def changeset(behavior, attrs) do
-    behavior
-    |> cast(attrs, [:instructions, :purpose, :audience_description, :languages, :style])
-    |> validate_length(:instructions, max: 100_000)
-    |> validate_length(:languages, min: 1)
+    AgentsDemo.Bots.Version.done(errors, struct(__MODULE__, m))
   end
 end

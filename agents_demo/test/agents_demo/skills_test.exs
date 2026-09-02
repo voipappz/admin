@@ -4,7 +4,13 @@ defmodule AgentsDemo.SkillsTest do
   alias AgentsDemo.Skills
 
   test "the catalog is a fixed set of ids" do
-    assert Enum.sort(Skills.ids()) == ["memory_files", "todo", "web_lookup"]
+    assert Enum.sort(Skills.ids()) == [
+             "customer_lookup",
+             "human_handoff",
+             "memory_files",
+             "todo",
+             "web_lookup"
+           ]
   end
 
   test "fetch/2 resolves a compatible version and refuses the rest" do
@@ -21,7 +27,7 @@ defmodule AgentsDemo.SkillsTest do
     assert {:ok, %AgentsDemo.Skills.MemoryFiles.Settings{enabled_tools: ["read_file"]}} =
              Skills.validate_settings("memory_files", "1.0.0", %{"enabled_tools" => ["read_file"]})
 
-    assert {:error, %Ecto.Changeset{}} =
+    assert {:error, %{enabled_tools: [_message]}} =
              Skills.validate_settings("memory_files", "1.0.0", %{"enabled_tools" => ["rm_rf"]})
 
     assert {:ok, %AgentsDemo.Skills.Todo.Settings{inline: true}} =

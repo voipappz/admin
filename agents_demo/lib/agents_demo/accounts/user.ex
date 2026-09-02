@@ -11,6 +11,7 @@ defmodule AgentsDemo.Accounts.User do
   alias __MODULE__
 
   @derive {Jason.Encoder, only: [:id, :first_name, :email, :confirmed_at, :inserted_at]}
+  @derive {Inspect, except: [:password, :password_confirmation]}
   defstruct [
     :id,
     :first_name,
@@ -20,7 +21,10 @@ defmodule AgentsDemo.Accounts.User do
     :inserted_at,
     :updated_at,
     # Virtual — never stored: set from the token on session load.
-    :authenticated_at
+    :authenticated_at,
+    # Virtual form fields. Store functions deliberately drop them.
+    :password,
+    :password_confirmation
   ]
 
   @email_format ~r/^[^@,;\s]+@[^@,;\s]+$/
@@ -40,8 +44,12 @@ defmodule AgentsDemo.Accounts.User do
 
     %{}
     |> require_present(:email, email)
-    |> check(:email, email && !Regex.match?(@email_format, email),
-      "must have the @ sign and no spaces")
+    |> check(:email, not is_nil(email) and email == user.email, "did not change")
+    |> check(
+      :email,
+      email && !Regex.match?(@email_format, email),
+      "must have the @ sign and no spaces"
+    )
     |> check(:email, email && String.length(email) > 160, "should be at most 160 character(s)")
     |> then(fn errors ->
       if Keyword.get(opts, :validate_unique, true),
@@ -53,12 +61,17 @@ defmodule AgentsDemo.Accounts.User do
 
   defp validate_email_unique(errors, user, email) do
     cond do
-      errors[:email] -> errors
-      is_nil(email) -> errors
-      email == user.email -> Map.update(errors, :email, ["did not change"], &["did not change" | &1])
+      errors[:email] ->
+        errors
+
+      is_nil(email) ->
+        errors
+
       AgentsDemo.Accounts.Store.email_taken?(email, user.id) ->
         Map.update(errors, :email, ["has already been taken"], &["has already been taken" | &1])
-      true -> errors
+
+      true ->
+        errors
     end
   end
 
@@ -76,19 +89,37 @@ defmodule AgentsDemo.Accounts.User do
     errors =
       %{}
       |> require_present(:password, password)
-      |> check(:password, password && String.length(password) < 12,
-        "should be at least 12 character(s)")
-      |> check(:password, password && String.length(password) > 72,
-        "should be at most 72 character(s)")
-      |> check(:password, confirmation != nil && confirmation != password,
-        "does not match password")
+      |> check(
+        :password,
+        password && String.length(password) < 12,
+        "should be at least 12 character(s)"
+      )
+      |> check(
+        :password,
+        password && String.length(password) > 72,
+        "should be at most 72 character(s)"
+      )
+      |> check(
+        :password_confirmation,
+        confirmation != nil && confirmation != password,
+        "does not match password"
+      )
 
     cond do
-      map_size(errors) > 0 -> {:error, errors}
+      map_size(errors) > 0 ->
+        {:error, errors}
+
       Keyword.get(opts, :hash_password, true) ->
-        {:ok, %{user | hashed_password: Bcrypt.hash_pwd_salt(password)}}
+        {:ok,
+         %{
+           user
+           | hashed_password: Bcrypt.hash_pwd_salt(password),
+             password: nil,
+             password_confirmation: nil
+         }}
+
       true ->
-        {:ok, user}
+        {:ok, %{user | password: password, password_confirmation: confirmation}}
     end
   end
 
@@ -118,7 +149,7 @@ defmodule AgentsDemo.Accounts.User do
   # ── helpers ────────────────────────────────────────────────────────────────
 
   defp normalize(nil), do: nil
-  defp normalize(email), do: email |> to_string() |> String.trim()
+  defp normalize(email), do: email |> to_string() |> String.trim() |> String.downcase()
 
   defp require_present(errors, field, value) when value in [nil, ""],
     do: Map.update(errors, field, ["can't be blank"], &["can't be blank" | &1])

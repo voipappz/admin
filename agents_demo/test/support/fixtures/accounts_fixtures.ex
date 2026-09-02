@@ -4,10 +4,8 @@ defmodule AgentsDemo.AccountsFixtures do
   entities via the `AgentsDemo.Accounts` context.
   """
 
-  import Ecto.Query
-
   alias AgentsDemo.Accounts
-  alias AgentsDemo.Accounts.Scope
+  alias AgentsDemo.Accounts.{Scope, Store}
 
   def unique_user_email, do: "user#{System.unique_integer()}@example.com"
   def valid_user_password, do: "hello world!"
@@ -64,26 +62,24 @@ defmodule AgentsDemo.AccountsFixtures do
   end
 
   def override_token_authenticated_at(token, authenticated_at) when is_binary(token) do
-    AgentsDemo.Repo.update_all(
-      from(t in Accounts.UserToken,
-        where: t.token == ^token
-      ),
-      set: [authenticated_at: authenticated_at]
-    )
+    token
+    |> Store.get_token_by_value()
+    |> Map.put(:authenticated_at, authenticated_at)
+    |> Store.update_token()
   end
 
   def generate_user_magic_link_token(user) do
     {encoded_token, user_token} = Accounts.UserToken.build_email_token(user, "login")
-    AgentsDemo.Repo.insert!(user_token)
+    Store.insert_token(user_token)
     {encoded_token, user_token.token}
   end
 
   def offset_user_token(token, amount_to_add, unit) do
     dt = DateTime.add(DateTime.utc_now(:second), amount_to_add, unit)
 
-    AgentsDemo.Repo.update_all(
-      from(ut in Accounts.UserToken, where: ut.token == ^token),
-      set: [inserted_at: dt, authenticated_at: dt]
-    )
+    token
+    |> Store.get_token_by_value()
+    |> Map.merge(%{inserted_at: dt, authenticated_at: dt})
+    |> Store.update_token()
   end
 end

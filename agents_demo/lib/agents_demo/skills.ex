@@ -50,20 +50,15 @@ defmodule AgentsDemo.Skills do
   end
 
   @doc """
-  Casts and validates a Skill's settings against its schema, returning the
-  typed struct. A Skill without a schema accepts only an empty map.
+  Validates a Skill's settings through its settings struct's `new/1`,
+  returning the typed struct or `{:error, %{field => [message]}}`. A Skill
+  without a schema accepts only an empty map.
   """
   def validate_settings(id, version, settings) when is_map(settings) do
     with {:ok, mod} <- fetch(id, version) do
       case mod.settings_schema() do
-        nil ->
-          if settings == %{}, do: {:ok, %{}}, else: {:error, {:no_settings, id}}
-
-        schema ->
-          schema
-          |> struct()
-          |> schema.changeset(settings)
-          |> Ecto.Changeset.apply_action(:validate)
+        nil -> if settings == %{}, do: {:ok, %{}}, else: {:error, {:no_settings, id}}
+        schema -> schema.new(settings)
       end
     end
   end

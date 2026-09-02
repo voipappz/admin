@@ -19,17 +19,10 @@ defmodule AgentsDemo.Capabilities.CustomerLookup do
 
   defmodule Args do
     @moduledoc false
-    use AgentsDemo.Capabilities.Args
+    use AgentsDemo.Capabilities.Args, fields: [line_number: :string], required: [:line_number]
 
-    embedded_schema do
-      field :line_number, :string
-    end
-
-    def changeset(args, attrs) do
-      args
-      |> cast(attrs, [:line_number])
-      |> validate_required([:line_number])
-      |> validate_length(:line_number, max: 32)
+    def validate(%__MODULE__{} = args) do
+      %{} |> max_len(:line_number, args.line_number, 32) |> done(args)
     end
 
     def descriptions,

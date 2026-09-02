@@ -349,10 +349,6 @@ defmodule AgentsDemoWeb.ChatLive do
         Logger.error("Failed to delete conversation: #{inspect(reason)}")
         {:noreply, put_flash(socket, :error, "Failed to delete conversation")}
     end
-  rescue
-    Ecto.NoResultsError ->
-      Logger.warning("Attempted to delete non-existent conversation #{conversation_id}")
-      {:noreply, put_flash(socket, :error, "Conversation not found")}
   end
 
   @impl true

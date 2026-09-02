@@ -1,5 +1,5 @@
 defmodule AgentsDemoWeb.AgentLiveHelpersTest do
-  use AgentsDemoWeb.ConnCase, async: true
+  use AgentsDemoWeb.ConnCase, async: false
   use Mimic
 
   import Phoenix.LiveView, only: [stream: 4]
@@ -957,8 +957,8 @@ defmodule AgentsDemoWeb.AgentLiveHelpersTest do
       scope = {:user, 1}
 
       Conversations
-      |> stub(:get_conversation!, fn _scope, _other ->
-        raise Ecto.NoResultsError, queryable: "conversations"
+      |> stub(:get_conversation!, fn _scope, conversation_id ->
+        raise KeyError, key: conversation_id, term: AgentsDemo.Conversations.Conversation
       end)
 
       {:error, result} =

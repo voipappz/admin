@@ -1,23 +1,15 @@
 defmodule AgentsDemo.Bots.Version.Knowledge do
-  @moduledoc """
-  Approved sources of truth and how strictly the bot must stay on them.
-  """
-
-  use Ecto.Schema
-  import Ecto.Changeset
+  @moduledoc "Approved sources of truth and how strictly the bot must stay on them."
+  @derive Jason.Encoder
+  defstruct grounding: "open", cite_sources: false, unavailable_source_behavior: nil
 
   @grounding ~w(open sources_only)
+  @fields [:grounding, :cite_sources, :unavailable_source_behavior]
 
-  @primary_key false
-  embedded_schema do
-    field :grounding, :string, default: "open"
-    field :cite_sources, :boolean, default: false
-    field :unavailable_source_behavior, :string
-  end
-
-  def changeset(knowledge, attrs) do
-    knowledge
-    |> cast(attrs, [:grounding, :cite_sources, :unavailable_source_behavior])
-    |> validate_inclusion(:grounding, @grounding)
+  def new(attrs \\ %{}) do
+    m = AgentsDemo.Bots.Version.take(attrs, %__MODULE__{}, @fields)
+    m = %{m | grounding: m.grounding || "open"}
+    errors = AgentsDemo.Bots.Version.inclusion(%{}, :grounding, m.grounding, @grounding)
+    AgentsDemo.Bots.Version.done(errors, struct(__MODULE__, m))
   end
 end

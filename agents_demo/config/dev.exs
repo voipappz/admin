@@ -1,13 +1,5 @@
 import Config
 
-# Connection details (host, port, credentials, database) come from the
-# environment in config/runtime.exs, which runs after `.env` is loaded. Only
-# the dev-only debugging behaviour is set here.
-config :agents_demo, AgentsDemo.Repo,
-  stacktrace: true,
-  show_sensitive_data_on_connection_error: true,
-  pool_size: 10
-
 # For development, we disable any cache and enable
 # debugging and code reloading.
 #
@@ -68,6 +60,9 @@ config :agents_demo, AgentsDemoWeb.Endpoint,
 
 # Enable dev routes for dashboard and mailbox
 config :agents_demo, dev_routes: true
+# Keep the LiveView routes compiled in development so verified routes remain
+# warning-free; the shipped portal still owns the production UI.
+config :agents_demo, :liveview_ui?, true
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"

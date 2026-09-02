@@ -35,7 +35,7 @@ defmodule AgentsDemo.Agents.FactoryRouter do
       |> FactoryConfig.build()
       |> case do
         {:ok, config} -> {:ok, Factory, config}
-        {:error, %Ecto.Changeset{}} = error -> error
+        {:error, %{}} = error -> error
       end
     end
   end

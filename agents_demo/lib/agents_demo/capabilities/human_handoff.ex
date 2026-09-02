@@ -22,19 +22,15 @@ defmodule AgentsDemo.Capabilities.HumanHandoff do
 
   defmodule Args do
     @moduledoc false
-    use AgentsDemo.Capabilities.Args
+    use AgentsDemo.Capabilities.Args,
+      fields: [summary: :string, topic: :string],
+      required: [:summary]
 
-    embedded_schema do
-      field :summary, :string
-      field :topic, :string
-    end
-
-    def changeset(args, attrs) do
-      args
-      |> cast(attrs, [:summary, :topic])
-      |> validate_required([:summary])
-      |> validate_length(:summary, max: 4_000)
-      |> validate_length(:topic, max: 200)
+    def validate(%__MODULE__{} = args) do
+      %{}
+      |> max_len(:summary, args.summary, 4_000)
+      |> max_len(:topic, args.topic, 200)
+      |> done(args)
     end
 
     def descriptions,

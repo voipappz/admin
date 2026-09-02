@@ -14,6 +14,13 @@ defmodule AgentsDemo.Voice.SagentsBridgeTest do
 
   alias AgentsDemo.Voice.SagentsBridge
 
+  defmodule TestTurns do
+    def submit(_scope, _conversation_id, %AgentsDemo.Turns.Input{text: text}, _opts) do
+      send(self(), {:submitted, text})
+      {:ok, :accepted}
+    end
+  end
+
   alias Feline.Frames.All.{
     ErrorFrame,
     InterruptionFrame,
@@ -48,7 +55,7 @@ defmodule AgentsDemo.Voice.SagentsBridgeTest do
   end
 
   defp state(overrides \\ %{}) do
-    {:ok, state} = SagentsBridge.init(conversation_id: "conv-1", scope: :scope)
+    {:ok, state} = SagentsBridge.init(conversation_id: "conv-1", scope: :scope, turns: TestTurns)
     Map.merge(%{state | agent_id: "conversation-conv-1"}, overrides)
   end
 
@@ -185,11 +192,6 @@ defmodule AgentsDemo.Voice.SagentsBridgeTest do
 
   describe "typed input reaches the agent" do
     test "an LLMMessagesAppendFrame becomes a user message" do
-      expect(AgentServer, :add_message, fn "conversation-conv-1", %Message{} = message ->
-        send(self(), {:submitted, message})
-        :ok
-      end)
-
       frame = %LLMMessagesAppendFrame{
         messages: [%{"role" => "user", "content" => "what is my balance"}],
         run_llm: true
@@ -197,15 +199,10 @@ defmodule AgentsDemo.Voice.SagentsBridgeTest do
 
       assert {:ok, _state} = SagentsBridge.handle_frame(frame, :downstream, ctx(), state())
 
-      assert_received {:submitted, %Message{role: :user} = message}
-
-      assert LangChain.Message.ContentPart.content_to_string(message.content) ==
-               "what is my balance"
+      assert_received {:submitted, "what is my balance"}
     end
 
     test "a frame carrying no user content submits nothing" do
-      stub(AgentServer, :add_message, fn _id, _message -> flunk("should not submit") end)
-
       frame = %LLMMessagesAppendFrame{messages: [%{"role" => "assistant", "content" => "hi"}]}
 
       assert {:ok, _state} = SagentsBridge.handle_frame(frame, :downstream, ctx(), state())
@@ -214,15 +211,6 @@ defmodule AgentsDemo.Voice.SagentsBridgeTest do
 
   describe "turn aggregation" do
     test "transcriptions accumulate while speaking and commit when the caller stops" do
-      expect(AgentServer, :add_message, fn _id, message ->
-        send(
-          self(),
-          {:submitted, LangChain.Message.ContentPart.content_to_string(message.content)}
-        )
-
-        :ok
-      end)
-
       s = state()
 
       {:push, _frame, :downstream, s} =
@@ -254,15 +242,6 @@ defmodule AgentsDemo.Voice.SagentsBridgeTest do
     end
 
     test "a final transcription landing after the turn ended commits immediately" do
-      expect(AgentServer, :add_message, fn _id, message ->
-        send(
-          self(),
-          {:submitted, LangChain.Message.ContentPart.content_to_string(message.content)}
-        )
-
-        :ok
-      end)
-
       # speaking? is false: the caller already stopped, STT was just late.
       assert {:ok, _s} =
                SagentsBridge.handle_frame(
@@ -276,8 +255,6 @@ defmodule AgentsDemo.Voice.SagentsBridgeTest do
     end
 
     test "silence commits nothing" do
-      stub(AgentServer, :add_message, fn _id, _message -> flunk("should not submit") end)
-
       {:push, _frame, :downstream, s} =
         SagentsBridge.handle_frame(%UserStoppedSpeakingFrame{}, :downstream, ctx(), state())
 

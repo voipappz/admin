@@ -61,8 +61,8 @@ defmodule AgentsDemo.Skills.Capability do
       {:ok, typed} ->
         {:ok, typed}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:error, "invalid arguments: " <> errors(changeset)}
+      {:error, %{} = errors} ->
+        {:error, "invalid arguments: " <> errors(errors)}
     end
   end
 
@@ -106,9 +106,7 @@ defmodule AgentsDemo.Skills.Capability do
 
   defp redact(_reason), do: "internal error"
 
-  defp errors(changeset) do
-    changeset
-    |> Ecto.Changeset.traverse_errors(fn {msg, _opts} -> msg end)
-    |> Enum.map_join("; ", fn {field, msgs} -> "#{field} #{Enum.join(msgs, ", ")}" end)
+  defp errors(errors) do
+    Enum.map_join(errors, "; ", fn {field, msgs} -> "#{field} #{Enum.join(msgs, ", ")}" end)
   end
 end

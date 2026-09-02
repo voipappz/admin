@@ -45,8 +45,8 @@ defmodule AgentsDemo.Bots.CompiledSpec do
         }
 
   @type t :: %__MODULE__{
-          bot_version_id: Ecto.UUID.t(),
-          bot_id: Ecto.UUID.t() | nil,
+          bot_version_id: String.t(),
+          bot_id: String.t() | nil,
           fingerprint: String.t() | nil,
           prompt: String.t(),
           prompt_segments: [%{source: String.t(), text: String.t()}],

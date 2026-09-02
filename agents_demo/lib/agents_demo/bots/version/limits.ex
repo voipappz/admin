@@ -1,35 +1,23 @@
 defmodule AgentsDemo.Bots.Version.Limits do
-  @moduledoc """
-  Operational ceilings. `max_runs` bounds model calls per turn;
-  `session_idle_timeout_seconds` is how long a thread may sit silent before a
-  deterministic flow restarts from its entry.
-  """
+  @moduledoc "Operational ceilings. `max_runs` bounds model calls per turn."
+  @derive Jason.Encoder
+  defstruct max_runs: 10, tool_timeout_ms: 30_000, session_idle_timeout_seconds: nil,
+            max_session_seconds: nil, token_budget: nil
 
-  use Ecto.Schema
-  import Ecto.Changeset
+  @fields [:max_runs, :tool_timeout_ms, :session_idle_timeout_seconds, :max_session_seconds, :token_budget]
 
-  @primary_key false
-  embedded_schema do
-    field :max_runs, :integer, default: 10
-    field :tool_timeout_ms, :integer, default: 30_000
-    field :session_idle_timeout_seconds, :integer
-    field :max_session_seconds, :integer
-    field :token_budget, :integer
-  end
+  def new(attrs \\ %{}) do
+    m = AgentsDemo.Bots.Version.take(attrs, %__MODULE__{}, @fields)
+    m = %{m | max_runs: m.max_runs || 10, tool_timeout_ms: m.tool_timeout_ms || 30_000}
 
-  def changeset(limits, attrs) do
-    limits
-    |> cast(attrs, [
-      :max_runs,
-      :tool_timeout_ms,
-      :session_idle_timeout_seconds,
-      :max_session_seconds,
-      :token_budget
-    ])
-    |> validate_number(:max_runs, greater_than: 0, less_than_or_equal_to: 50)
-    |> validate_number(:tool_timeout_ms, greater_than: 0)
-    |> validate_number(:session_idle_timeout_seconds, greater_than: 0)
-    |> validate_number(:max_session_seconds, greater_than: 0)
-    |> validate_number(:token_budget, greater_than: 0)
+    errors =
+      %{}
+      |> AgentsDemo.Bots.Version.range(:max_runs, m.max_runs, gt: 0, lte: 50)
+      |> AgentsDemo.Bots.Version.range(:tool_timeout_ms, m.tool_timeout_ms, gt: 0)
+      |> AgentsDemo.Bots.Version.range(:session_idle_timeout_seconds, m.session_idle_timeout_seconds, gt: 0)
+      |> AgentsDemo.Bots.Version.range(:max_session_seconds, m.max_session_seconds, gt: 0)
+      |> AgentsDemo.Bots.Version.range(:token_budget, m.token_budget, gt: 0)
+
+    AgentsDemo.Bots.Version.done(errors, struct(__MODULE__, m))
   end
 end

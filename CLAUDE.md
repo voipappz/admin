@@ -18,28 +18,29 @@ the Elixir portal's forwarder in prod). A customer deployment (fork) changes
 
 | Command | Description |
 |---|---|
-| `make env` | Create `.env` (never overwrites an existing one) — then set `MOTHERSHIP_URL` |
+| `make env` | Create `.env` (never overwrites an existing one) |
 | `make dev` | Run the whole local stack in Docker — Vite :4200 · portal :4001 · cable :4100, attached logs. The usual loop; needs only Docker. |
 | `make up` / `make down` | Same stack, detached |
 | `make cable` / `make cable-down` | Just va-crystal's cable on :4100 (opt-in profile; needs the API container running) |
 | `make lint` / `make unit` | ESLint / Vitest one-shot — run in Docker (host `npm run lint` / `npm test` also work if you have node) |
+| `make portal-compile` / `make portal-test` | Compile with warnings as errors / run ExUnit in the running Elixir container |
 | `make test` | Playwright E2E in Docker — needs the app running; use `VITE_MOCK_LOGIN=1 make up` first for the offline suite |
 | `make act-portal` / `make act` | Run the Elixir portal job / complete CI workflow locally with `act` (auto-installs to `/tmp` when absent; never imports `.env`) |
 | `make build` | Production bundle → `dist/`, built in Docker. Must be clean before shipping. |
 | `make verify` | Health check: the portal's `/health` probes, Vite and the cable |
 | `make prod` / `make prod-down` | Run the production image on this box via docker compose (:8000) |
-| `make deploy` / `make ship` | Deploy to the production server / push + deploy — **always via the Makefile**; Docker-only, see `docs/deployment.md` |
+| `cd ../mothership && make portal-deploy DEST=nimbus` | Deploy Nimbus through the mothership-owned Kamal policy |
 
 ## The local stack
 
-`make dev` starts three containers. They only work as a set, because the portal
+`make dev` starts the web, portal, cable and extension containers. They only work as a set, because the portal
 verifies tokens against the API and listens on the cable — point any one of them
 somewhere else and the failures look like broken auth rather than a mismatched
 host.
 
 | Service | Port | What it is |
 |---|---|---|
-| `react-app` | 4200 | Vite HMR. Proxies `/api` to the mothership. |
+| `react-app` | 4200 | Vite HMR. Proxies backend requests to the Elixir portal. |
 | `elixir` | **4001** | The portal — **the origin**. Serves the SPA and `/ws/events`, verifies tokens, holds the cable connection, forwards `/auth` · `/api/` · `/tasks/` to the mothership. |
 | `cable` | 4100 | va-crystal's node, `nirlevi/voipappz-crystal:latest`. The realtime endpoint the portal subscribes to. |
 
@@ -87,10 +88,10 @@ on Bitbucket with its own install path; this compose consumes a published image.
 The portal's `ENGINE_URL` and `CABLE_URL` and the cable's `API_URL` are scoped
 to their own variables (`PORTAL_ENGINE_URL`, `PORTAL_CABLE_URL`,
 `CABLE_API_URL`) and default to local. They deliberately do **not** fall back to
-`MOTHERSHIP_URL`: that is the *tenant* knob Vite proxies to and is normally the
-cloud, so the old chain silently pointed the portal at production while the
-cable and broker beside it stayed local — which presented as a login failing for
-a user who exists locally.
+`MOTHERSHIP_URL`: that is the local-production fallback and may name the cloud,
+so the old chain silently pointed the portal at production while the cable and
+broker beside it stayed local — which presented as a login failing for a user
+who exists locally.
 
 ### The login pipeline
 
@@ -203,9 +204,9 @@ There is **no Supabase** — auth is mothership accounts + a JWT.
 ## Environment
 
 Env is the whole tenant-configuration surface — see `.env.example` (documented
-inline). Nothing is required out of the box; repoint a deployment fork with
-one var: `MOTHERSHIP_URL` (read by the dev Vite proxy, the portal's forwarder
-in prod, and `make dev`'s preflight).
+inline). The local stack keeps the portal and cable on the API at port 5000 by
+default; change `PORTAL_ENGINE_URL` and `CABLE_API_URL` together when that API
+lives elsewhere. Production Kamal destinations set `ENGINE_URL` in mothership.
 
 - **The browser never carries a backend host.** Clients build relative URLs;
   the Vite proxy (dev) or the portal's forwarder (prod) owns the actual

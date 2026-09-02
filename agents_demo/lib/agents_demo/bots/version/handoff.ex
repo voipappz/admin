@@ -1,28 +1,15 @@
 defmodule AgentsDemo.Bots.Version.Handoff do
-  @moduledoc """
-  When and how the bot hands a conversation to a person.
-
-  `stand_down` is the important flag: once a human holds the thread the bot
-  stores what arrives and answers nothing until the thread is returned.
-  """
-
-  use Ecto.Schema
-  import Ecto.Changeset
+  @moduledoc "When and how the bot hands a conversation to a person."
+  @derive Jason.Encoder
+  defstruct enabled: false, destination: "human_operator", stand_down: true, in_hours_text: nil, after_hours_text: nil
 
   @destinations ~w(human_operator)
+  @fields [:enabled, :destination, :stand_down, :in_hours_text, :after_hours_text]
 
-  @primary_key false
-  embedded_schema do
-    field :enabled, :boolean, default: false
-    field :destination, :string, default: "human_operator"
-    field :stand_down, :boolean, default: true
-    field :in_hours_text, :string
-    field :after_hours_text, :string
-  end
-
-  def changeset(handoff, attrs) do
-    handoff
-    |> cast(attrs, [:enabled, :destination, :stand_down, :in_hours_text, :after_hours_text])
-    |> validate_inclusion(:destination, @destinations)
+  def new(attrs \\ %{}) do
+    m = AgentsDemo.Bots.Version.take(attrs, %__MODULE__{}, @fields)
+    m = %{m | destination: m.destination || "human_operator"}
+    errors = AgentsDemo.Bots.Version.inclusion(%{}, :destination, m.destination, @destinations)
+    AgentsDemo.Bots.Version.done(errors, struct(__MODULE__, m))
   end
 end

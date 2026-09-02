@@ -1,5 +1,5 @@
 defmodule AgentsDemoWeb.ErrorJSONTest do
-  use AgentsDemoWeb.ConnCase, async: true
+  use AgentsDemoWeb.ConnCase, async: false
 
   test "renders 404" do
     assert AgentsDemoWeb.ErrorJSON.render("404.json", %{}) == %{errors: %{detail: "Not Found"}}

@@ -1,5 +1,5 @@
 defmodule AgentsDemoWeb.HealthControllerTest do
-  use AgentsDemoWeb.ConnCase, async: true
+  use AgentsDemoWeb.ConnCase, async: false
   use Mimic
 
   describe "GET /health/alive" do

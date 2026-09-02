@@ -46,20 +46,14 @@ defmodule AgentsDemoWeb.Api.FallbackController do
   def call(conn, {:error, reason}) when is_map_key(@lifecycle_errors, reason),
     do: send_error(conn, :unprocessable_entity, Map.fetch!(@lifecycle_errors, reason))
 
-  def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
-    send_error(conn, :unprocessable_entity, changeset_message(changeset))
+  # A validator's `%{field => [message]}` report.
+  def call(conn, {:error, %{} = errors}) when is_non_struct_map(errors) do
+    send_error(conn, :unprocessable_entity, errors_message(errors))
   end
 
   def call(conn, {:error, reason}) do
     send_error(conn, :internal_server_error, inspect(reason))
   end
-
-  # Changeset error opts carry types and tuples as well as strings and
-  # numbers; only the printable ones belong in a message.
-  defp interpolable(value) when is_binary(value) or is_number(value) or is_atom(value),
-    do: to_string(value)
-
-  defp interpolable(value), do: inspect(value)
 
   defp send_error(conn, status, message) do
     conn
@@ -67,13 +61,7 @@ defmodule AgentsDemoWeb.Api.FallbackController do
     |> json(%{error: message})
   end
 
-  defp changeset_message(changeset) do
-    changeset
-    |> Ecto.Changeset.traverse_errors(fn {msg, opts} ->
-      Enum.reduce(opts, msg, fn {key, value}, acc ->
-        String.replace(acc, "%{#{key}}", interpolable(value))
-      end)
-    end)
-    |> Enum.map_join("; ", fn {field, msgs} -> "#{field} #{Enum.join(msgs, ", ")}" end)
+  defp errors_message(errors) do
+    Enum.map_join(errors, "; ", fn {field, msgs} -> "#{field} #{Enum.join(List.wrap(msgs), ", ")}" end)
   end
 end

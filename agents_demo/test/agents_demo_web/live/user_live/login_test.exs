@@ -1,5 +1,5 @@
 defmodule AgentsDemoWeb.UserLive.LoginTest do
-  use AgentsDemoWeb.ConnCase, async: true
+  use AgentsDemoWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
   import AgentsDemo.AccountsFixtures
@@ -27,8 +27,8 @@ defmodule AgentsDemoWeb.UserLive.LoginTest do
 
       assert html =~ "If your email is in our system"
 
-      assert AgentsDemo.Repo.get_by!(AgentsDemo.Accounts.UserToken, user_id: user.id).context ==
-               "login"
+      assert [token] = AgentsDemo.Accounts.Store.list_tokens_for_user(user.id)
+      assert token.context == "login"
     end
 
     test "does not disclose if user is registered", %{conn: conn} do

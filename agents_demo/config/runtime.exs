@@ -20,7 +20,7 @@ source!([
 # Everything below reads the environment. `AgentsDemo.Config` documents each
 # variable, and is what application code calls; this file exists for the
 # settings that have to be *application config* because a library reads them —
-# Ecto, the Endpoint, :langchain, :anu, :sagents. It cannot call
+# the Endpoint, :langchain, :anu, :sagents. It cannot call
 # AgentsDemo.Config itself: config is evaluated before that module is loaded.
 #
 # An unset variable and one set to "" mean the same thing — absent — because
@@ -98,28 +98,6 @@ if System.get_env("PHX_SERVER") do
   config :agents_demo, AgentsDemoWeb.Endpoint, server: true
 end
 
-# Development and test database, and the port the dev server listens on.
-#
-# These live here rather than in dev.exs/test.exs so that `.env` reaches them.
-# Dotenvy loads `.env` at the top of this file, which runs *after* dev.exs — a
-# PGPORT set only in `.env` was therefore invisible to a Repo configured there,
-# and the Makefile had to export it before `mix` started. Configured here, one
-# `.env` is the whole story and the Makefile only needs the value for
-# docker-compose.
-if config_env() in [:dev, :test] do
-  partition = System.get_env("MIX_TEST_PARTITION", "")
-
-  default_database =
-    if config_env() == :test, do: "agents_demo_test#{partition}", else: "agents_demo_dev"
-
-  config :agents_demo, AgentsDemo.Repo,
-    username: env.("PGUSER") || "postgres",
-    password: env.("PGPASSWORD") || "postgres",
-    hostname: env.("PGHOST") || "localhost",
-    port: int_env.("PGPORT", 5432),
-    database: env.("PGDATABASE") || default_database
-end
-
 # PHX_PORT is the dev server's port, read here so `.env` is enough for a plain
 # `mix phx.server`; PORT is honoured too so a release-style environment works.
 if config_env() == :dev do
@@ -128,23 +106,6 @@ if config_env() == :dev do
 end
 
 if config_env() == :prod do
-  database_url =
-    System.get_env("DATABASE_URL") ||
-      raise """
-      environment variable DATABASE_URL is missing.
-      For example: ecto://USER:PASS@HOST/DATABASE
-      """
-
-  maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
-
-  config :agents_demo, AgentsDemo.Repo,
-    # ssl: true,
-    url: database_url,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-    # For machines with several cores, consider starting multiple pools of `pool_size`
-    # pool_count: 4,
-    socket_options: maybe_ipv6
-
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
   # want to use a different value for prod and you most likely don't want

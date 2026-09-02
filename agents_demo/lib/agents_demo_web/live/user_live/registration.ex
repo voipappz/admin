@@ -3,6 +3,7 @@ defmodule AgentsDemoWeb.UserLive.Registration do
 
   alias AgentsDemo.Accounts
   alias AgentsDemo.Accounts.User
+  alias AgentsDemoWeb.UserForm
 
   @impl true
   def render(assigns) do
@@ -84,9 +85,7 @@ defmodule AgentsDemoWeb.UserLive.Registration do
   end
 
   def mount(_params, _session, socket) do
-    changeset = Accounts.change_user_email(%User{}, %{}, validate_unique: false)
-
-    {:ok, assign_form(socket, changeset), temporary_assigns: [form: nil]}
+    {:ok, assign(socket, form: UserForm.build(%User{})), temporary_assigns: [form: nil]}
   end
 
   @impl true
@@ -107,18 +106,22 @@ defmodule AgentsDemoWeb.UserLive.Registration do
          )
          |> push_navigate(to: ~p"/users/log-in")}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign_form(socket, changeset)}
+      {:error, errors} ->
+        {:noreply, assign(socket, form: UserForm.build(%User{}, user_params, errors))}
     end
   end
 
   def handle_event("validate", %{"user" => user_params}, socket) do
-    changeset = Accounts.change_user_email(%User{}, user_params, validate_unique: false)
-    {:noreply, assign_form(socket, Map.put(changeset, :action, :validate))}
-  end
+    result = Accounts.change_user_email(%User{}, user_params, validate_unique: false)
 
-  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
-    form = to_form(changeset, as: "user")
-    assign(socket, form: form)
+    {:noreply,
+     assign(socket,
+       form:
+         UserForm.build(
+           UserForm.user(result, %User{}),
+           user_params,
+           UserForm.errors(result)
+         )
+     )}
   end
 end

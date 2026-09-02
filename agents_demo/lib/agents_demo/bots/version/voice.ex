@@ -1,24 +1,13 @@
 defmodule AgentsDemo.Bots.Version.Voice do
-  @moduledoc """
-  Voice profile for a future realtime adapter. Provider profiles are
-  references; secrets stay in the environment.
-  """
+  @moduledoc "Voice profile for a future realtime adapter. References only; secrets stay in the environment."
+  @derive Jason.Encoder
+  defstruct enabled: false, locale: nil, voice_profile: nil, greeting: nil, max_call_seconds: nil
 
-  use Ecto.Schema
-  import Ecto.Changeset
+  @fields [:enabled, :locale, :voice_profile, :greeting, :max_call_seconds]
 
-  @primary_key false
-  embedded_schema do
-    field :enabled, :boolean, default: false
-    field :locale, :string
-    field :voice_profile, :string
-    field :greeting, :string
-    field :max_call_seconds, :integer
-  end
-
-  def changeset(voice, attrs) do
-    voice
-    |> cast(attrs, [:enabled, :locale, :voice_profile, :greeting, :max_call_seconds])
-    |> validate_number(:max_call_seconds, greater_than: 0)
+  def new(attrs \\ %{}) do
+    m = AgentsDemo.Bots.Version.take(attrs, %__MODULE__{}, @fields)
+    errors = AgentsDemo.Bots.Version.range(%{}, :max_call_seconds, m.max_call_seconds, gt: 0)
+    AgentsDemo.Bots.Version.done(errors, struct(__MODULE__, m))
   end
 end

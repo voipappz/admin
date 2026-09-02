@@ -36,22 +36,25 @@ defmodule AgentsDemo.Bots.Validator do
     %Report{valid?: errors == [], errors: Enum.reverse(errors), warnings: Enum.reverse(warnings)}
   end
 
+  # Re-validate the version by re-applying its own areas through the same
+  # `apply_draft/2` used on edit, so a version that would fail to save also
+  # fails to publish. The error shape is `%{area => %{field => [msg]}}`.
   defp changeset_errors(issues, version) do
-    changeset = BotVersion.draft_changeset(%{version | status: :draft}, %{})
+    attrs =
+      version
+      |> Map.take(BotVersion.areas())
+      |> Map.new(fn {area, struct} -> {Atom.to_string(area), Map.from_struct(struct)} end)
 
-    if changeset.valid? do
-      issues
-    else
-      changeset
-      |> Ecto.Changeset.traverse_errors(fn {msg, opts} ->
-        Enum.reduce(opts, msg, fn {key, value}, acc ->
-          String.replace(acc, "%{#{key}}", to_string(value))
+    case BotVersion.apply_draft(%{version | status: :draft}, attrs) do
+      {:ok, _} ->
+        issues
+
+      {:error, errors} ->
+        errors
+        |> flatten_errors("")
+        |> Enum.reduce(issues, fn {path, message}, acc ->
+          [{:error, issue(:invalid_field, path, message)} | acc]
         end)
-      end)
-      |> flatten_errors("")
-      |> Enum.reduce(issues, fn {path, message}, acc ->
-        [{:error, issue(:invalid_field, path, message)} | acc]
-      end)
     end
   end
 

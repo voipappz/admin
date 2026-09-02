@@ -17,6 +17,7 @@ Mimic.copy(Sagents.AgentServer)
 # assert what reaches the agent — and, for a handed-off conversation, that
 # nothing does. Copied to stand in for a live session.
 Mimic.copy(AgentsDemo.Agents.Coordinator)
+Mimic.copy(AgentsDemo.Turns)
 
 # The dashboard routes authenticate with a real user's mothership token, which
 # `TokenAuth` verifies by asking the API over NATS. Copied so a controller test
@@ -36,5 +37,3 @@ ExUnit.after_suite(fn _results ->
     File.rm_rf!(test_dir)
   end
 end)
-
-Ecto.Adapters.SQL.Sandbox.mode(AgentsDemo.Repo, :manual)

@@ -26,7 +26,7 @@ defmodule AgentsDemo.Agents.FactoryConfigTest do
              |> FactoryConfig.from_inputs()
              |> FactoryConfig.build()
 
-    assert changeset.errors[:spec]
+    assert changeset.spec
   end
 
   test "request options narrow presentation only; the spec is untouched" do
@@ -48,6 +48,6 @@ defmodule AgentsDemo.Agents.FactoryConfigTest do
 
   test "tool_context must be a map" do
     assert {:error, changeset} = build(%{tool_context: "nope"})
-    assert changeset.errors[:tool_context]
+    assert changeset.tool_context
   end
 end

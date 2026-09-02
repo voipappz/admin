@@ -51,8 +51,8 @@ defmodule AgentsDemo.ConversationsTest do
     test "raises when conversation doesn't exist" do
       scope = user_scope_fixture()
 
-      assert_raise Ecto.NoResultsError, fn ->
-        Conversations.get_conversation!(scope, Ecto.UUID.generate())
+      assert_raise KeyError, fn ->
+        Conversations.get_conversation!(scope, AgentsDemo.Mnesia.uuid())
       end
     end
 
@@ -62,7 +62,7 @@ defmodule AgentsDemo.ConversationsTest do
 
       conversation = conversation_fixture(%{scope: scope1})
 
-      assert_raise Ecto.NoResultsError, fn ->
+      assert_raise KeyError, fn ->
         Conversations.get_conversation!(scope2, conversation.id)
       end
     end
@@ -157,7 +157,7 @@ defmodule AgentsDemo.ConversationsTest do
       assert {:ok, deleted} = Conversations.delete_conversation(conversation)
       assert deleted.id == conversation.id
 
-      assert_raise Ecto.NoResultsError, fn ->
+      assert_raise KeyError, fn ->
         Conversations.get_conversation!(scope, conversation.id)
       end
     end

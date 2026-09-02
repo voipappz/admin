@@ -10,15 +10,16 @@ defmodule AgentsDemo.Skills.Todo do
 
   defmodule Settings do
     @moduledoc false
-    use Ecto.Schema
-    import Ecto.Changeset
+    defstruct inline: true
 
-    @primary_key false
-    embedded_schema do
-      field :inline, :boolean, default: true
+    @doc "Build from attrs, returning `{:ok, struct}` or `{:error, %{field => [msg]}}`."
+    def new(attrs \\ %{}) do
+      %{inline: inline} = AgentsDemo.Bots.Version.take(attrs, %__MODULE__{}, [:inline])
+
+      if is_boolean(inline),
+        do: {:ok, %__MODULE__{inline: inline}},
+        else: {:error, %{inline: ["is invalid"]}}
     end
-
-    def changeset(settings, attrs), do: cast(settings, attrs, [:inline])
   end
 
   @impl true

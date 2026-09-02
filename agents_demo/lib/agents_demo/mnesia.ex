@@ -32,10 +32,36 @@ defmodule AgentsDemo.Mnesia do
   finds everything already there.
   """
   def ensure_started do
-    ensure_named_node()
-    set_dir()
-    ensure_schema()
-    start()
+    if :persistent_term.get({__MODULE__, :ready}, false) and
+         :mnesia.system_info(:is_running) == :yes do
+      :ok
+    else
+      ensure_named_node()
+      # `:mnesia` is an OTP application dependency, so releases may have
+      # started it before this application's supervision tree. Its directory
+      # and disc schema can only be selected while it is stopped.
+      :stopped = :mnesia.stop()
+      set_dir()
+      ensure_schema()
+      start()
+      # The shared integer-sequence table (replaces `bigserial`), created
+      # directly — not via `ensure_table/2`, which calls back into here.
+      seq_storage = storage_type()
+
+      case :mnesia.create_table(:agents_demo_seq, [
+             {:attributes, [:name, :value]},
+             {:type, :set},
+             {seq_storage, [node()]}
+           ]) do
+        {:atomic, :ok} -> :ok
+        {:aborted, {:already_exists, _}} -> :ok
+        {:aborted, reason} -> Logger.warning("mnesia: seq table — #{inspect(reason)}")
+      end
+
+      :ok = :mnesia.wait_for_tables([:agents_demo_seq], 10_000)
+      :persistent_term.put({__MODULE__, :ready}, true)
+      :ok
+    end
   end
 
   @doc """
@@ -46,9 +72,17 @@ defmodule AgentsDemo.Mnesia do
   them too (`replicate/1`), so a cluster shares one consistent copy with no
   external database — Mnesia's native distribution, the OTP-idiomatic answer to
   "distributed". Single node → simply local disc storage.
+
+  Bootstraps Mnesia (`ensure_started/0`) on first use, so any store's `init`
+  can call this without an ordering dependency on a separate setup step.
   """
   def ensure_table(name, opts) do
-    storage = if disc?(), do: :disc_copies, else: :ram_copies
+    ensure_started()
+    do_create(name, opts)
+  end
+
+  defp do_create(name, opts) do
+    storage = storage_type()
     opts = Keyword.put(opts, storage, [node()])
 
     case :mnesia.create_table(name, opts) do
@@ -67,14 +101,19 @@ defmodule AgentsDemo.Mnesia do
   is logged, not fatal. No-op on a single node.
   """
   def replicate(table) do
-    if disc?() do
+    if storage_type() == :disc_copies do
       have = :mnesia.table_info(table, :disc_copies)
 
       for peer <- Node.list(), peer not in have do
         case :mnesia.add_table_copy(table, peer, :disc_copies) do
-          {:atomic, :ok} -> Logger.info("mnesia: replicated #{table} to #{peer}")
-          {:aborted, {:already_exists, _, _}} -> :ok
-          {:aborted, reason} -> Logger.warning("mnesia: replicate #{table}→#{peer} — #{inspect(reason)}")
+          {:atomic, :ok} ->
+            Logger.info("mnesia: replicated #{table} to #{peer}")
+
+          {:aborted, {:already_exists, _, _}} ->
+            :ok
+
+          {:aborted, reason} ->
+            Logger.warning("mnesia: replicate #{table}→#{peer} — #{inspect(reason)}")
         end
       end
     end
@@ -167,27 +206,45 @@ defmodule AgentsDemo.Mnesia do
 
   # ── setup internals ──────────────────────────────────────────────────────
 
-  defp disc?, do: node() != :nonode@nohost
+  defp storage_type do
+    cond do
+      node() == :nonode@nohost ->
+        :ram_copies
+
+      :mnesia.system_info(:use_dir) ->
+        :disc_copies
+
+      true ->
+        Logger.warning(
+          "mnesia: no disc schema at #{:mnesia.system_info(:directory)} — tables are RAM-only"
+        )
+
+        :ram_copies
+    end
+  end
 
   defp ensure_named_node do
     if node() == :nonode@nohost do
-      {:ok, host} = :inet.gethostname()
+      # A stable loopback longname avoids hostname/IPv6 resolver drift (notably
+      # on WSL) while still giving Mnesia the named node disc_copies requires.
+      case Node.start(:"agents_demo@127.0.0.1", :longnames) do
+        {:ok, _} ->
+          Logger.info("mnesia: named node #{node()} for disc persistence")
 
-      case Node.start(:"agents_demo@#{host}", :shortnames) do
-        {:ok, _} -> Logger.info("mnesia: named node agents_demo@#{host} for disc persistence")
-        {:error, reason} -> Logger.warning("mnesia: node not named (#{inspect(reason)}) — RAM-only")
+        {:error, reason} ->
+          Logger.warning("mnesia: node not named (#{inspect(reason)}) — RAM-only")
       end
     end
   end
 
   defp set_dir do
-    dir = System.get_env("MNESIA_DIR") || Path.join(:code.priv_dir(:agents_demo), "mnesia")
+    dir = AgentsDemo.Config.mnesia_dir()
     File.mkdir_p!(dir)
     Application.put_env(:mnesia, :dir, String.to_charlist(dir))
   end
 
   defp ensure_schema do
-    if disc?() do
+    if node() != :nonode@nohost do
       case :mnesia.create_schema([node()]) do
         :ok -> :ok
         {:error, {_, {:already_exists, _}}} -> :ok
@@ -201,9 +258,32 @@ defmodule AgentsDemo.Mnesia do
       :ok -> :ok
       {:error, {:already_started, _}} -> :ok
     end
+  end
 
-    # A shared sequence table for integer primary keys (users, tokens, bots …),
-    # replacing Postgres `bigserial`. `dirty_update_counter` is atomic.
-    ensure_table(:agents_demo_seq, attributes: [:name, :value], type: :set)
+  @doc "Clear the named tables. Intended for deterministic test setup."
+  def clear_tables!(tables) when is_list(tables) do
+    Enum.each(tables, fn table ->
+      case :mnesia.clear_table(table) do
+        {:atomic, :ok} -> :ok
+        {:aborted, {:no_exists, ^table}} -> :ok
+        {:aborted, reason} -> raise "could not clear Mnesia table #{table}: #{inspect(reason)}"
+      end
+    end)
+
+    :ok
+  end
+
+  @doc false
+  def reset_domain_for_test! do
+    clear_tables!([
+      :users_tokens,
+      :sagents_display_messages,
+      :sagents_agent_states,
+      :sagents_conversations,
+      :bot_versions,
+      :bots,
+      :users,
+      :agents_demo_seq
+    ])
   end
 end

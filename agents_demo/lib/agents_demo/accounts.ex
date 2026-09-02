@@ -12,7 +12,8 @@ defmodule AgentsDemo.Accounts do
 
   ## Getters
 
-  def get_user_by_email(email) when is_binary(email), do: Store.get_user_by_email(email)
+  def get_user_by_email(email) when is_binary(email),
+    do: email |> String.trim() |> String.downcase() |> Store.get_user_by_email()
 
   def get_user_by_email_and_password(email, password)
       when is_binary(email) and is_binary(password) do
@@ -22,7 +23,7 @@ defmodule AgentsDemo.Accounts do
 
   @doc "Fetch a user by id, raising when absent."
   def get_user!(id) do
-    Store.get_user(id) || raise "user #{inspect(id)} not found"
+    Store.get_user(id) || raise KeyError, key: id, term: User
   end
 
   ## Registration
@@ -66,7 +67,7 @@ defmodule AgentsDemo.Accounts do
          true <- UserToken.valid?(t),
          {:ok, updated} <- User.validate_email(user, %{email: email}) do
       stored = Store.update_user(updated)
-      Store.delete_user_tokens(user.id)
+      Store.delete_user_tokens(user.id, [context])
       {:ok, stored}
     else
       _ -> {:error, :transaction_aborted}
@@ -89,7 +90,8 @@ defmodule AgentsDemo.Accounts do
   def change_user_profile(user, attrs \\ %{}), do: User.validate_profile(user, attrs)
 
   def update_user_profile(user, attrs) do
-    with {:ok, updated} <- User.validate_profile(user, attrs), do: {:ok, Store.update_user(updated)}
+    with {:ok, updated} <- User.validate_profile(user, attrs),
+         do: {:ok, Store.update_user(updated)}
   end
 
   ## Sessions

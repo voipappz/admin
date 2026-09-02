@@ -1,4 +1,4 @@
-.PHONY: help env dev check-mothership up down build lint unit verify test test-chrome chrome-build chrome-serve cable cable-down probe act act-portal push status tmux module prod prod-down
+.PHONY: help env dev check-engine check-mothership up down logs build lint unit portal-compile portal-test verify test test-chrome chrome-build chrome-serve cable cable-down probe act act-portal push status module prod prod-down
 
 # Everything runs in Docker — no host node/npm/ruby required. One-off npm/node
 # commands reuse the react-app service (repo mount + cached node_modules volume).
@@ -7,13 +7,17 @@ ACT ?= act
 ACT_PLATFORM ?= catthehacker/ubuntu:act-latest
 
 # ── Config (override on the CLI or in .env) ─────────────────────────────────
-# The mothership base, resolved exactly as vite.config.js does so the preflight
-# always probes the host Vite actually proxies to: VITE_API_TARGET wins, else
-# MOTHERSHIP_URL. Two seds, not one alternation — an alternation matches by line
-# order in .env, not by precedence, so it could report OK against the wrong host.
-MOTHERSHIP ?= $(shell sed -n 's/^VITE_API_TARGET=//p' .env 2>/dev/null | grep . | head -1 | tr -d '\r"')
-MOTHERSHIP := $(if $(MOTHERSHIP),$(MOTHERSHIP),$(shell sed -n 's/^MOTHERSHIP_URL=//p' .env 2>/dev/null | grep . | head -1 | tr -d '\r"'))
-MOTHERSHIP := $(if $(MOTHERSHIP),$(MOTHERSHIP),https://cloud.voipappz.io)
+# The API the LOCAL Elixir portal forwards to. Vite no longer talks to the API
+# directly: it proxies every backend request to the portal, and the portal owns
+# the upstream hop. Keep this resolution identical to docker-compose.yml.
+PORTAL_ENGINE_URL ?= $(shell sed -n 's/^PORTAL_ENGINE_URL=//p' .env 2>/dev/null | grep . | head -1 | tr -d '\r"')
+PORTAL_ENGINE_URL := $(if $(PORTAL_ENGINE_URL),$(PORTAL_ENGINE_URL),http://127.0.0.1:5000)
+
+# Cable's ApiProxy must belong to the same API as the portal. A separate value
+# remains available for the rare remote-node case, but the coherent default is
+# the portal engine rather than an unrelated production tenant.
+CABLE_API_URL ?= $(shell sed -n 's/^CABLE_API_URL=//p' .env 2>/dev/null | grep . | head -1 | tr -d '\r"')
+CABLE_API_URL := $(if $(CABLE_API_URL),$(CABLE_API_URL),$(PORTAL_ENGINE_URL))
 
 # Local stack endpoints. PORTAL is the origin: the SPA, the Chrome extension
 # and Vite's proxy all point at 4001, and it does not move.
@@ -36,16 +40,27 @@ API_CONTAINER ?= va-app
 # Refusing to start without the secret is the point: cable would otherwise come
 # up, answer /health, and reject every connection, and the portal would refuse
 # every token — both of which look like a broken network from the client.
-STACK_UP = key=$$(docker exec $(API_CONTAINER) printenv SECRET_KEY 2>/dev/null); \
+STACK_UP = key="$${SECRET_KEY:-}"; \
+	  if [ -z "$$key" ]; then key=$$(docker exec $(API_CONTAINER) printenv SECRET_KEY 2>/dev/null); fi; \
 	  if [ -z "$$key" ]; then \
 	    echo "no SECRET_KEY from container '$(API_CONTAINER)' — is the API running?"; \
 	    echo "without it cable refuses every connection and the portal refuses every token."; \
 	    echo "start the API, or pass it yourself:  SECRET_KEY=... make <target>"; \
 	    exit 1; \
 	  fi; \
-	  nats=$$(docker exec $(API_CONTAINER) printenv NATS_URL 2>/dev/null \
-	          | sed -E 's|@[^:/]+:|@127.0.0.1:|'); \
-	  SECRET_KEY="$$key" NATS_URL="$$nats" docker compose --profile cable up -d
+	  nats="$${NATS_URL:-}"; \
+	  if [ -z "$$nats" ]; then \
+	    nats=$$(docker exec $(API_CONTAINER) printenv NATS_URL 2>/dev/null \
+	            | sed -E 's|@[^:/]+:|@127.0.0.1:|'); \
+	  fi; \
+	  if [ -z "$$nats" ]; then \
+	    echo "no NATS_URL from container '$(API_CONTAINER)' — token verification and realtime would be disabled."; \
+	    echo "start the API, or pass it yourself:  NATS_URL=... make <target>"; \
+	    exit 1; \
+	  fi; \
+	  SECRET_KEY="$$key" NATS_URL="$$nats" \
+	    PORTAL_ENGINE_URL="$(PORTAL_ENGINE_URL)" CABLE_API_URL="$(CABLE_API_URL)" \
+	    docker compose --profile cable up -d
 WEB_APP  ?= http://localhost:4200
 # The Chrome extension's artefact. Chrome loads an extension from a DIRECTORY,
 # never over HTTP, so this path — not a port — is what `make dev` hands you.
@@ -70,25 +85,32 @@ help: ## Show this help
 
 env: ## Create .env (never overwrites an existing one)
 	@if [ -f .env ]; then \
-	  echo ".env exists — leaving it alone. Mothership: $(MOTHERSHIP)"; \
+	  echo ".env exists — leaving it alone. Local portal engine: $(PORTAL_ENGINE_URL)"; \
 	else \
-	  cp .env.example .env && echo "wrote .env — set MOTHERSHIP_URL to point at your tenant"; \
+	  cp .env.example .env && echo "wrote .env — set PORTAL_ENGINE_URL if the local API is not on :5000"; \
 	fi
 
-dev: check-mothership ## Run the whole local stack in Docker (Vite :4200 · portal :4001 · cable :4100 · extension), attached logs
+dev: check-engine ## Run the whole local stack in Docker (Vite :4200 · portal :4001 · cable :4100 · extension), attached logs
 	@$(STACK_UP) react-app elixir cable chrome-ext chrome-web
 	@echo "portal → $(PORTAL) · cable → ws://127.0.0.1:$(CABLE_PORT)/cable"
-	@echo "Vite → $(WEB_APP) (proxies /api → mothership $(MOTHERSHIP))"
+	@echo "Vite → $(WEB_APP) → portal → engine $(PORTAL_ENGINE_URL)"
 	@echo "extension → $(EXT_DIST) (chrome://extensions → Load unpacked)"
 	@echo "extension UI → $(EXT_WEB) (the popup as a plain page, hot-reloading)"
 	@echo "Ctrl-C detaches; stack keeps running"
-	docker compose logs -f react-app elixir chrome-ext chrome-web
+	docker compose --profile cable logs -f react-app elixir cable chrome-ext chrome-web
 
-check-mothership: ## Verify the mothership (MOTHERSHIP_URL) is reachable
-	@echo "==> Mothership (override: MOTHERSHIP=https://<host>)"
-	@code=$$(curl -s -o /dev/null -w '%{http_code}' "$(MOTHERSHIP)/tasks/customer_portal_data" --max-time 5); \
-	  case $$code in [234]*) s="OK ($$code)";; *) s="UNREACHABLE ($$code) — set MOTHERSHIP_URL in .env";; esac; \
-	  printf "  %-11s %-34s %s\n" "mothership" "$(MOTHERSHIP)" "$$s"
+check-engine: ## Verify the local portal's API upstream is reachable
+	@echo "==> Portal engine (override: PORTAL_ENGINE_URL=https://<host>)"
+	@code=$$(curl -s -o /dev/null -w '%{http_code}' "$(PORTAL_ENGINE_URL)/tasks/customer_portal_data" --max-time 5); \
+	  case $$code in \
+	    [234]*) printf "  %-11s %-34s OK (%s)\n" "engine" "$(PORTAL_ENGINE_URL)" "$$code";; \
+	    *) printf "  %-11s %-34s UNREACHABLE (%s)\n" "engine" "$(PORTAL_ENGINE_URL)" "$$code"; \
+	       echo "  start the local API or set PORTAL_ENGINE_URL in .env"; exit 1;; \
+	  esac
+
+# Compatibility for scripts and muscle memory from before Vite's upstream
+# moved behind the portal. It deliberately does not appear in `make help`.
+check-mothership: check-engine
 
 up: ## Start the full Docker stack (web + portal + cable + extension)
 	@$(STACK_UP) react-app elixir cable chrome-ext chrome-web
@@ -97,9 +119,8 @@ up: ## Start the full Docker stack (web + portal + cable + extension)
 down: ## Stop all services
 	docker compose --profile cable down --remove-orphans
 
-tmux: ## Open the dev cockpit (tmuxinator: stack + logs + shells)
-	@command -v tmuxinator >/dev/null || { echo "tmuxinator not installed (gem install tmuxinator)"; exit 1; }
-	tmuxinator local
+logs: ## Follow logs for every service in the local stack
+	docker compose --profile cable logs -f react-app elixir cable chrome-ext chrome-web
 
 # --user: the scaffolder writes into the repo mount and the container is root,
 # so without it the new files land root-owned and you need sudo to edit or
@@ -119,14 +140,26 @@ lint: ## ESLint (in Docker)
 unit: ## Vitest unit tests, one-shot (in Docker)
 	$(NPM_RUN) 'npm install --loglevel=error --no-audit --no-fund && npm run test:run'
 
+portal-compile: ## Compile the Elixir portal with warnings as errors (running stack required)
+	docker compose exec -T -e MIX_ENV=test elixir mix compile --warnings-as-errors
+
+portal-test: ## Run ExUnit in the Elixir container (TEST=path:line for a targeted run)
+	docker compose exec -T -e MIX_ENV=test elixir mix test $(TEST)
+
 prod: ## Deploy via docker compose: build + run the production image (:8000)
 	docker compose --profile prod build production
 	docker compose --profile prod up -d production
-	@echo "waiting for boot..."; for i in $$(seq 1 60); do \
-	  curl -sf -o /dev/null localhost:8000/health/alive && break; sleep 1; done
-	@curl -s -o /dev/null -w "  /             → %{http_code}\n" localhost:8000/
-	@curl -s -o /dev/null -w "  /health/alive → %{http_code}\n" localhost:8000/health/alive
-	@curl -s -o /dev/null -w "  /health/ready → %{http_code}\n" localhost:8000/health/ready
+	@echo "waiting for readiness..."; ready=0; for i in $$(seq 1 60); do \
+	  if curl -sf -o /dev/null localhost:8000/health/ready; then ready=1; break; fi; sleep 1; done; \
+	  if [ "$$ready" != 1 ]; then \
+	    echo "production did not become ready within 60s"; \
+	    docker compose --profile prod logs --tail 80 production; exit 1; \
+	  fi
+	@failed=0; for path in / /health/alive /health/ready; do \
+	  code=$$(curl -s -o /dev/null -w '%{http_code}' "localhost:8000$$path"); \
+	  printf "  %-14s → %s\n" "$$path" "$$code"; \
+	  [ "$$code" = 200 ] || failed=1; \
+	 done; exit $$failed
 	@echo "production → http://localhost:8000  (env from .env; recreate to re-read)"
 
 prod-down: ## Stop the docker compose production container
@@ -134,10 +167,16 @@ prod-down: ## Stop the docker compose production container
 
 verify: ## Health check: the portal's probes and the Vite dev server
 	@echo "==> Services"
-	@printf "  %-9s %-30s " "portal" "$(PORTAL)/health/alive"; curl -sf -o /dev/null "$(PORTAL)/health/alive" && echo OK || echo DOWN
-	@printf "  %-9s %-30s " "ready"  "$(PORTAL)/health/ready"; curl -sf -o /dev/null "$(PORTAL)/health/ready" && echo OK || echo "NOT READY"
-	@printf "  %-9s %-30s " "web/vite" "$(WEB_APP)/";          curl -sf -o /dev/null "$(WEB_APP)/"            && echo OK || echo DOWN
-	@printf "  %-9s %-30s " "cable" "ws://127.0.0.1:$(CABLE_PORT)"; curl -sf -o /dev/null "http://127.0.0.1:$(CABLE_PORT)/health" && echo OK || echo DOWN
+	@failed=0; \
+	  probe() { name="$$1"; url="$$2"; label="$$3"; \
+	    printf "  %-9s %-30s " "$$name" "$$label"; \
+	    if curl -sf -o /dev/null "$$url"; then echo OK; else echo DOWN; failed=1; fi; \
+	  }; \
+	  probe portal "$(PORTAL)/health/alive" "$(PORTAL)/health/alive"; \
+	  probe ready "$(PORTAL)/health/ready" "$(PORTAL)/health/ready"; \
+	  probe web/vite "$(WEB_APP)/" "$(WEB_APP)/"; \
+	  probe cable "http://127.0.0.1:$(CABLE_PORT)/health" "ws://127.0.0.1:$(CABLE_PORT)"; \
+	  exit $$failed
 
 test: ## Playwright E2E in Docker (needs the app running — make up / make dev)
 	docker compose --profile test run --rm e2e
@@ -213,10 +252,10 @@ act: ## Run the complete GitHub Actions workflow locally (same pattern as ../cli
 #     cd ../mothership
 #     make portal-deploy               # default destination
 #     make portal-deploy DEST=nimbus   # a tenant, per config/portal/portal-destinations.tsv
-#     make portal-config DEST=nimbus   # render and verify, read-only
+#     make portal-print DEST=nimbus    # print exact Kamal commands, read-only
 #
-# mothership links this repo in at apps/portal and mounts it as the build
-# context, so the image is still built from THIS checkout at THIS sha:
+# mothership mounts this sibling checkout as Kamal's build context, so the
+# image is still built from THIS checkout at THIS sha:
 # `make portal-deploy` stamps VITE_APP_VERSION from the commit you have here.
 #
 # What stays here: dev, lint, unit, verify, test, status. Building the app is
@@ -234,9 +273,10 @@ status: ## Local git + production health + deployed version
 	  echo "=== Production: PROD_URL not set (skip) — set PROD_URL in .env ==="; \
 	else \
 	  echo "=== Production ($(PROD_URL)) ==="; \
-	  curl -s -o /dev/null -w "GET /      → %{http_code}\n" $(PROD_URL)/; \
-	  curl -s -o /dev/null -w "GET /test  → %{http_code}\n" $(PROD_URL)/test; \
+	  curl -s -o /dev/null -w "GET /health/alive → %{http_code}\n" "$(PROD_URL)/health/alive"; \
+	  curl -s -o /dev/null -w "GET /health/ready → %{http_code}\n" "$(PROD_URL)/health/ready"; \
+	  curl -s -o /dev/null -w "GET /             → %{http_code}\n" "$(PROD_URL)/"; \
 	  echo "=== Deployed version ==="; \
-	  curl -s $(PROD_URL)/ | grep -oE 'src="/assets/[^"]+\.js"' | head -1 | sed 's/src="//;s/"//' \
+	  curl -s "$(PROD_URL)/" | grep -oE 'src="/assets/[^"]+\.js"' | head -1 | sed 's/src="//;s/"//' \
 	    | xargs -I{} curl -s "$(PROD_URL){}" | grep -oE '2026\.[0-9.]+-[a-f0-9]+' | sort -u | head -1; \
 	fi
