@@ -4,10 +4,13 @@ defmodule AgentsDemo.Realtime.ApiProxy do
 
       Chrome ──> Elixir ──cable──> va-crystal ──HTTP──> Ruby API
 
-  `Realtime.Bus` is the ASK path (NATS request/reply) and `Realtime.CableClient`
-  is the LISTEN path (one connection per signed-in user). This is the third:
-  `/auth`, `/api/` and `/tasks/` relayed over ONE connection held for the whole
-  server, so the transport rule — cable or NATS, never HTTP — covers login too.
+  `Realtime.CableClient` is the LISTEN path (one connection per signed-in
+  user). This is the ASK path: `/auth`, `/api/` and `/tasks/` relayed over ONE
+  connection held for the whole server, plus `verify/1`, which asks the node
+  whether a user token is real and whose it is. Together they make cable the
+  portal's only transport to the platform — never HTTP, and no longer NATS
+  either: `Realtime.Bus` used to be the ask path and is what `verify/1`
+  replaces.
 
   The node half is `va-crystal node/realtime/api_proxy_channel.cr`, and it is
   the authority on this contract; the frames below are copied from it.
@@ -41,6 +44,17 @@ defmodule AgentsDemo.Realtime.ApiProxy do
       %{"identifier" => ~s({"channel":"ApiProxy"}),
         "message" => %{"id" => "…", "status" => 200,
                        "content_type" => "application/json", "body" => "…"}}
+
+  `verify` is a second action on the same channel and the same envelope:
+
+      data: ~s({"action":"verify","id":"…","token":"…"})
+
+  answered `200 {"ok":true,"user_uuid":…,"account_uuid":…,"environment_uuid":…}`
+  or `401 {"ok":false,"error":"invalid"}`. The node answers it from its OWN
+  `SECRET_KEY` — the one its connection admits sockets with — rather than
+  forwarding it anywhere, which is the point: the previous verifier was a NATS
+  request to the local API, and after a login relayed through this channel to a
+  DIFFERENT mothership it timed out on a token that node would have accepted.
 
   **`id` is what makes a reply a reply.** One connection carries every user's
   requests concurrently and cable is asynchronous, so correlation is by `id`
@@ -95,8 +109,14 @@ defmodule AgentsDemo.Realtime.ApiProxy do
     :ref,
     :uri,
     subscribed?: false,
+    # Each entry is `{from, timer, kind}` — `kind` is `:request` or `:verify`,
+    # and says how the reply envelope is turned into an answer.
     pending: %{},
-    attempts: 0
+    attempts: 0,
+    # Set when the node answers `verify` with its unknown-action 400. It is
+    # reset on reconnect, because a node that has just restarted may be running
+    # an image that has the action.
+    verify_unsupported?: false
   ]
 
   # ── API ──────────────────────────────────────────────────────────────────
@@ -158,6 +178,54 @@ defmodule AgentsDemo.Realtime.ApiProxy do
     :exit, reason -> {:error, {:exit, reason}}
   end
 
+  @doc """
+  Ask the node whether `token` is a user token it would admit, and whose.
+
+  Returns `{:ok, %{"user_uuid" => _, "account_uuid" => _, "environment_uuid" => _}}`
+  (any of which may be nil), `{:error, :invalid}` when the node refused it, or
+  `{:error, :disabled | :not_connected | :timeout | :disconnected | :unavailable}`
+  when no verdict was obtained. `:unavailable` covers the reply the protocol has
+  for a node that predates the action — its unknown-action 400 — and any reply
+  that is not one of the two the action defines.
+
+  The caller must treat every `:error` but `:invalid` as "could not check", not
+  as "refused": `TokenAuth` logs them apart because an operator fixing the node
+  and a user with a stale token are different problems.
+  """
+  def verify(token, timeout \\ @timeout) do
+    if enabled?() do
+      GenServer.call(__MODULE__, {:verify, token, timeout}, timeout + 1_000)
+    else
+      {:error, :disabled}
+    end
+  catch
+    :exit, reason -> {:error, {:exit, reason}}
+  end
+
+  @doc false
+  # The verify envelope, interpreted. Pure so the contract with the node can be
+  # pinned by a test without a socket; the GenServer maps `:unsupported` to
+  # `:unavailable` after logging it once.
+  #
+  # The unknown-action body is matched by its prefix and nothing else. The
+  # node's message names the actions it does know, and that list has already
+  # changed once; a match on the whole string would go stale the next time.
+  def decode_verify(status, body) do
+    case {status, Jason.decode(body || "")} do
+      {200, {:ok, %{"ok" => true} = claims}} ->
+        {:ok, Map.take(claims, ["user_uuid", "account_uuid", "environment_uuid"])}
+
+      {401, {:ok, %{"ok" => false}}} ->
+        {:error, :invalid}
+
+      {400, {:ok, %{"error" => "unknown action" <> _}}} ->
+        {:error, :unsupported}
+
+      _ ->
+        {:error, :unexpected}
+    end
+  end
+
   # ── GenServer ────────────────────────────────────────────────────────────
 
   @impl true
@@ -178,8 +246,12 @@ defmodule AgentsDemo.Realtime.ApiProxy do
     {:reply, {:error, :not_connected}, state}
   end
 
-  def handle_call({:request, method, path, body, content_type, authorization, timeout}, from, state) do
-    id = Base.url_encode64(:crypto.strong_rand_bytes(12), padding: false)
+  def handle_call(
+        {:request, method, path, body, content_type, authorization, timeout},
+        from,
+        state
+      ) do
+    id = new_id()
 
     data =
       %{action: "request", id: id, method: method, path: path}
@@ -190,12 +262,41 @@ defmodule AgentsDemo.Realtime.ApiProxy do
       # authenticated read comes back "Missing Authorize token." while the
       # login beside it succeeds, because a login's credentials are in the body.
       |> maybe_put(:authorization, authorization)
-      |> Jason.encode!()
 
-    state = send_frame(state, %{command: "message", identifier: @identifier, data: data})
+    {:noreply, dispatch(state, id, data, from, timeout, :request)}
+  end
+
+  def handle_call({:verify, _token, _timeout}, _from, %{subscribed?: false} = state) do
+    # Same reason as for `:request` above: unconfirmed means unrouted, and
+    # unrouted means no reply ever.
+    {:reply, {:error, :not_connected}, state}
+  end
+
+  def handle_call({:verify, _token, _timeout}, _from, %{verify_unsupported?: true} = state) do
+    # Answered here rather than round-tripped: the node has already said it
+    # does not know the action, and every socket open would otherwise send it
+    # a frame it will 400 and add a line to a log that already said so once.
+    {:reply, {:error, :unavailable}, state}
+  end
+
+  def handle_call({:verify, token, timeout}, from, state) do
+    id = new_id()
+
+    {:noreply,
+     dispatch(state, id, %{action: "verify", id: id, token: token}, from, timeout, :verify)}
+  end
+
+  defp new_id, do: Base.url_encode64(:crypto.strong_rand_bytes(12), padding: false)
+
+  # One path for both actions: encode, send, arm the timer, remember who asked.
+  # The `kind` is what tells the reply handler how to read the envelope back —
+  # an HTTP-shaped tuple for a request, a verdict for a verify.
+  defp dispatch(state, id, data, from, timeout, kind) do
+    state =
+      send_frame(state, %{command: "message", identifier: @identifier, data: Jason.encode!(data)})
 
     timer = Process.send_after(self(), {:timeout, id}, timeout)
-    {:noreply, %{state | pending: Map.put(state.pending, id, {from, timer})}}
+    %{state | pending: Map.put(state.pending, id, {from, timer, kind})}
   end
 
   @impl true
@@ -224,7 +325,7 @@ defmodule AgentsDemo.Realtime.ApiProxy do
       {nil, _} ->
         {:noreply, state}
 
-      {{from, _timer}, pending} ->
+      {{from, _timer, _kind}, pending} ->
         Logger.warning("api proxy: no reply for #{id} within the timeout")
         GenServer.reply(from, {:error, :timeout})
         {:noreply, %{state | pending: pending}}
@@ -360,19 +461,48 @@ defmodule AgentsDemo.Realtime.ApiProxy do
         Logger.debug("api proxy: reply for unknown id #{id}")
         state
 
-      {{from, timer}, pending} ->
+      {{from, timer, kind}, pending} ->
         Process.cancel_timer(timer)
-
-        GenServer.reply(
-          from,
-          {:ok, message["status"] || 502, message["body"] || "", message["content_type"]}
-        )
-
-        %{state | pending: pending}
+        {answer, state} = answer(kind, message, %{state | pending: pending})
+        GenServer.reply(from, answer)
+        state
     end
   end
 
   defp handle_cable_message(_other, state), do: state
+
+  defp answer(:request, message, state) do
+    {{:ok, message["status"] || 502, message["body"] || "", message["content_type"]}, state}
+  end
+
+  defp answer(:verify, message, state) do
+    case decode_verify(message["status"], message["body"]) do
+      {:error, :unsupported} ->
+        # Once per connection, at ERROR, naming the cause. Without this the
+        # only trace is `token verification unavailable (:unavailable)` per
+        # socket open, which reads as the node being down when it is up and
+        # merely old. The relay itself keeps working — `request` is unaffected.
+        unless state.verify_unsupported? do
+          Logger.error(
+            "api proxy: the node predates the verify action (its ApiProxy channel " <>
+              "only knows \"request\"), so no user token can be verified and every " <>
+              "/ws/events upgrade will be refused until it runs a newer image"
+          )
+        end
+
+        {{:error, :unavailable}, %{state | verify_unsupported?: true}}
+
+      {:error, :unexpected} ->
+        Logger.warning(
+          "api proxy: unexpected verify reply (status #{inspect(message["status"])})"
+        )
+
+        {{:error, :unavailable}, state}
+
+      verdict ->
+        {verdict, state}
+    end
+  end
 
   defp send_frame(%{websocket: nil} = state, _payload), do: state
 
@@ -399,7 +529,7 @@ defmodule AgentsDemo.Realtime.ApiProxy do
     # cannot survive the reconnect — their replies were addressed to a
     # connection that no longer exists — and a caller waiting on a frame that
     # can never arrive is the failure this whole module is arranged to avoid.
-    for {_id, {from, timer}} <- state.pending do
+    for {_id, {from, timer, _kind}} <- state.pending do
       Process.cancel_timer(timer)
       GenServer.reply(from, {:error, :disconnected})
     end
@@ -415,7 +545,8 @@ defmodule AgentsDemo.Realtime.ApiProxy do
         ref: nil,
         subscribed?: false,
         pending: %{},
-        attempts: attempts
+        attempts: attempts,
+        verify_unsupported?: false
     }
   end
 
