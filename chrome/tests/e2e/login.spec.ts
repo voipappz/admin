@@ -121,7 +121,7 @@ test.describe('Main page (post-login)', () => {
 // ─── Cable WebSocket ──────────────────────────────────────────────────────────
 
 test.describe('Realtime', () => {
-  test('targets wss://<domain>/ws/events after login', async ({ context, popupPage }) => {
+  test('targets <ws|wss>://<domain>/ws/events after login', async ({ context, popupPage }) => {
     test.skip(!DOMAIN || !USERNAME || !PASSWORD, NEED_CREDS);
 
     await loginWith(popupPage, DOMAIN, USERNAME, PASSWORD);
@@ -141,7 +141,13 @@ test.describe('Realtime', () => {
     );
 
     expect(realtimeUrl).not.toBeNull();
-    expect(realtimeUrl).toMatch(/^wss:\/\//);
+    // The scheme FOLLOWS the domain's — https -> wss, http -> ws (47ba1e0).
+    // Asserting wss unconditionally passed only because every domain used to
+    // be https; against a plaintext portal it fails on correct behaviour, and
+    // forcing wss at a server that speaks no TLS is a handshake that never
+    // completes rather than an error worth reading.
+    const scheme = DOMAIN.startsWith('http://') ? 'ws://' : 'wss://';
+    expect(realtimeUrl!.startsWith(scheme), `expected ${scheme} for ${DOMAIN}`).toBe(true);
     expect(realtimeUrl).toContain('/ws/events');
   });
 

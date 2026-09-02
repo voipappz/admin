@@ -85,7 +85,7 @@ test.describe('User connect', () => {
    * subscribing to the wrong server. `_realtime_url` is set before connect() is
    * awaited, so this holds whether or not /cable is routed on this node yet.
    */
-  test('the background worker targets wss://<typed domain>/ws/events', async ({ context, popupPage }) => {
+  test('the background worker targets <ws|wss>://<typed domain>/ws/events', async ({ context, popupPage }) => {
     await popupPage.evaluate((d) => localStorage.setItem('_domain', d), DOMAIN);
     await popupPage.locator('input[formcontrolname="username"]').fill(USERNAME);
     await popupPage.locator('input[formcontrolname="password"]').fill(PASSWORD);
@@ -105,6 +105,11 @@ test.describe('User connect', () => {
     );
 
     expect(realtimeUrl, 'background worker never reached the realtime connect step').not.toBeNull();
-    expect(realtimeUrl).toBe(normalize(DOMAIN).replace(/^https?:\/\//, 'wss://') + '/ws/events');
+    // http -> ws, https -> wss: the worker follows the typed domain's scheme
+    // (47ba1e0). Rewriting both to wss asserts the behaviour that change removed.
+    const expected = normalize(DOMAIN)
+      .replace(/^http:\/\//, 'ws://')
+      .replace(/^https:\/\//, 'wss://');
+    expect(realtimeUrl).toBe(`${expected}/ws/events`);
   });
 });
