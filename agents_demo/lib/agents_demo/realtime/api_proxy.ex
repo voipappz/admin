@@ -79,6 +79,16 @@ defmodule AgentsDemo.Realtime.ApiProxy do
   @reconnect_base 1_000
   @reconnect_max 30_000
 
+  # How long a subscribe may go unanswered before it is called a failure.
+  #
+  # A node WITHOUT the channel does not reject — `Cable::Connection#subscribe`
+  # raises `Missing hash key: "ApiProxy"` looking it up in CHANNELS, so nothing
+  # is transmitted back at all. That is the likeliest failure in the field (the
+  # channel ships in an image, and old images are everywhere) and it is the one
+  # the protocol has no frame for, so silence has to be timed instead of waited
+  # on. Without this the symptom is only that logins quietly take the HTTP path.
+  @subscribe_timeout 5_000
+
   defstruct [
     :conn,
     :websocket,
@@ -167,6 +177,21 @@ defmodule AgentsDemo.Realtime.ApiProxy do
 
   @impl true
   def handle_info(:reconnect, state), do: {:noreply, connect(state)}
+
+  def handle_info(:subscribe_deadline, %{subscribed?: true} = state), do: {:noreply, state}
+
+  def handle_info(:subscribe_deadline, state) do
+    # Named causes, in the order they are worth checking. Neither is visible
+    # from here — the node answered the connection and then said nothing — so
+    # the diagnosis has to be carried in the message.
+    Logger.error(
+      "api proxy: the node never confirmed the ApiProxy subscription. Either it " <>
+        "predates the channel (check its log for `Missing hash key: \"ApiProxy\"`) " <>
+        "or CABLE_API_PROXY is unset on it. Logins are taking the HTTP fallback."
+    )
+
+    {:noreply, state}
+  end
 
   def handle_info({:timeout, id}, state) do
     # The node transmits a reply on every failure path it knows about, so
@@ -278,8 +303,10 @@ defmodule AgentsDemo.Realtime.ApiProxy do
   defp handle_frame({:close, _code, _reason}, state), do: schedule_reconnect(state)
   defp handle_frame(_frame, state), do: state
 
-  defp handle_cable_message({:ok, %{"type" => "welcome"}}, state),
-    do: send_frame(state, %{command: "subscribe", identifier: @identifier})
+  defp handle_cable_message({:ok, %{"type" => "welcome"}}, state) do
+    Process.send_after(self(), :subscribe_deadline, @subscribe_timeout)
+    send_frame(state, %{command: "subscribe", identifier: @identifier})
+  end
 
   defp handle_cable_message({:ok, %{"type" => "confirm_subscription"}}, state) do
     Logger.info("api proxy: cable relay ready (#{System.get_env("CABLE_URL")})")
