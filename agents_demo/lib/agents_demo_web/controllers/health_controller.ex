@@ -78,6 +78,17 @@ defmodule AgentsDemoWeb.HealthController do
     checks = %{
       bus: check(AgentsDemo.Realtime.Bus.configured?(), "NATS_URL is not set — tokens cannot be verified"),
       cable: check(AgentsDemo.Realtime.CableClient.enabled?(), "CABLE_URL is not set — no realtime events"),
+      # The exception to "configuration, not probes", and deliberately so.
+      # Configured-but-not-confirmed is this relay's actual failure mode: an
+      # older node accepts the connection and never answers the subscribe, and
+      # every login then works over the HTTP fallback with nothing visible to
+      # say so. A check that only reported CABLE_URL would be green for exactly
+      # the state worth seeing.
+      api_relay:
+        check(
+          not AgentsDemo.Realtime.ApiProxy.enabled?() or AgentsDemo.Realtime.ApiProxy.ready?(),
+          "the node has not confirmed the ApiProxy channel — /auth is falling back to HTTP"
+        ),
       engine: check(engine?(), "ENGINE_URL is not set — /auth and /api are not forwarded")
     }
 

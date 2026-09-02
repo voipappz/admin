@@ -111,6 +111,22 @@ defmodule AgentsDemo.Realtime.ApiProxy do
     if enabled?(), do: [__MODULE__], else: []
   end
 
+  @doc """
+  True when the node has CONFIRMED the ApiProxy subscription — i.e. a request
+  sent now would actually be relayed.
+
+  Distinct from `enabled?/0`, which only says this deployment was configured for
+  cable. The gap between the two is the whole failure mode: an older node
+  answers the connection and never confirms the channel, and everything keeps
+  working over the HTTP fallback. Without a way to ask, a test that passes over
+  the fallback looks exactly like one that proved the relay.
+  """
+  def ready? do
+    enabled?() and GenServer.call(__MODULE__, :ready?, 5_000)
+  catch
+    :exit, _ -> false
+  end
+
   @doc "True when a cable URL is configured and a credential can be minted for it."
   def enabled? do
     url = System.get_env("CABLE_URL")
@@ -151,6 +167,8 @@ defmodule AgentsDemo.Realtime.ApiProxy do
   def handle_continue(:connect, state), do: {:noreply, connect(state)}
 
   @impl true
+  def handle_call(:ready?, _from, state), do: {:reply, state.subscribed?, state}
+
   def handle_call({:request, _m, _p, _b, _ct, _t}, _from, %{subscribed?: false} = state) do
     # Refusing while the subscription is unconfirmed is deliberate. A frame sent
     # before `confirm_subscription` is routed to a channel that does not exist

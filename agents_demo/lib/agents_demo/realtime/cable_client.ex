@@ -48,6 +48,11 @@ defmodule AgentsDemo.Realtime.CableClient do
     :ref,
     :uri,
     :identifiers,
+    # The accumulated state picture. `fanout/3` reads AND writes it, so its
+    # absence here was a KeyError on the first state message — which killed
+    # this GenServer and took the Notifications subscription down with it, so
+    # the visible symptom was screen pops silently stopping.
+    view: nil,
     welcomed?: false,
     confirmed: MapSet.new(),
     attempts: 0
@@ -267,7 +272,12 @@ defmodule AgentsDemo.Realtime.CableClient do
   # Onto the user's own PubSub topic, in the frame shape the extension is
   # already tested against — clients cannot tell which upstream delivered a
   # message, which is what made replacing the bus with cable invisible to them.
-  defp fanout(state, identifier, message) do
+  #
+  # Public only so a test can drive it without standing up a WebSocket. It is
+  # the function that decides what a client sees, so it is the one worth
+  # asserting on directly.
+  @doc false
+  def fanout(state, identifier, message) do
     if identifier =~ "Notifications" do
       broadcast(state.user_uuid, %{type: "notification", message: message})
       state

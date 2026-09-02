@@ -110,13 +110,27 @@ defmodule AgentsDemoWeb.Plugs.EngineProxy do
   # API_URL, and dropping it would turn every filtered read into an unfiltered
   # one rather than into an error.
   defp over_cable(conn, body) do
-    ApiProxy.request(
-      conn.method,
-      conn.request_path <> query(conn),
-      body,
-      content_type(conn)
-    )
+    case relay() do
+      nil ->
+        {:error, :disabled}
+
+      module ->
+        module.request(conn.method, conn.request_path <> query(conn), body, content_type(conn))
+    end
   end
+
+  # Configurable so a test can have NO cable rather than the developer's.
+  #
+  # `ApiProxy.enabled?/0` reads CABLE_URL from the environment, and the dev
+  # container sets it — so a plug test that stood up a fake HTTP upstream had
+  # its request relayed to the real node instead, and asserted on whatever the
+  # real API answered. It passed on a machine with no cable and failed on one
+  # with, which is the worst version of a broken test: the suite's verdict
+  # depended on what happened to be running beside it.
+  #
+  # `config/test.exs` sets this to nil, so the HTTP path is what the plug's own
+  # tests exercise. A test that wants the cable path sets it to a stub.
+  defp relay, do: Application.get_env(:agents_demo, :api_relay, ApiProxy)
 
   defp over_http(conn, _body, "") do
     # Cable is the only transport configured and it could not serve this. Saying

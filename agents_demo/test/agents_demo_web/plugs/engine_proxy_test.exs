@@ -119,4 +119,84 @@ defmodule AgentsDemoWeb.Plugs.EngineProxyTest do
              ]
     end
   end
+
+  # ── the transport choice ───────────────────────────────────────────────────
+
+  defmodule StubRelay do
+    @moduledoc false
+    # Records what it was asked to relay, and answers with whatever the test
+    # put in the process dictionary of the caller — the plug runs inline, so
+    # the test process IS the caller.
+    def request(method, path, body, content_type) do
+      send(self(), {:relayed, method, path, body, content_type})
+      Process.get(:relay_answer, {:error, :not_connected})
+    end
+  end
+
+  describe "cable first, HTTP as the fallback" do
+    setup do
+      relay = Application.get_env(:agents_demo, :api_relay)
+      Application.put_env(:agents_demo, :api_relay, StubRelay)
+      on_exit(fn -> Application.put_env(:agents_demo, :api_relay, relay) end)
+      :ok
+    end
+
+    test "a relayed answer is served, and the upstream is never called" do
+      # Unreachable on purpose: reaching HTTP at all fails this.
+      System.put_env("ENGINE_URL", "http://127.0.0.1:1")
+      Process.put(:relay_answer, {:ok, 200, ~s({"token":"t"}), "application/json"})
+
+      conn =
+        :post
+        |> conn("/auth/user_login", "email=a%40b.test&password=x")
+        |> put_req_header("content-type", "application/x-www-form-urlencoded")
+        |> put_req_header("origin", @extension)
+        |> call()
+
+      assert conn.status == 200
+      assert conn.resp_body == ~s({"token":"t"})
+      # The origin's CORS contract holds on this path too — the extension is
+      # still the caller, whichever transport answered it.
+      assert get_resp_header(conn, "access-control-allow-origin") == ["*"]
+
+      assert_received {:relayed, "POST", "/auth/user_login", body, content_type}
+      assert body == "email=a%40b.test&password=x"
+      assert content_type == "application/x-www-form-urlencoded"
+    end
+
+    test "a relayed 401 is returned, NOT retried over HTTP" do
+      # The distinction the whole fallback rests on. An API refusal is a
+      # SUCCESSFUL relay; retrying it over HTTP would send the credential a
+      # second time, to a second host, after it had already been rejected.
+      System.put_env("ENGINE_URL", "http://127.0.0.1:1")
+
+      Process.put(
+        :relay_answer,
+        {:ok, 401, ~s({"id":"unauthorized","message":"Invalid email or password"}), "application/json"}
+      )
+
+      conn =
+        :post
+        |> conn("/auth/user_login", "email=a%40b.test&password=wrong")
+        |> put_req_header("content-type", "application/x-www-form-urlencoded")
+        |> call()
+
+      # 401, not the 502 an unreachable ENGINE_URL would produce.
+      assert conn.status == 401
+      assert conn.resp_body =~ "Invalid email or password"
+    end
+
+    test "the query string travels on the path, not dropped" do
+      # The node forwards `path` verbatim to API_URL. Dropping the query would
+      # turn a filtered read into an unfiltered one rather than into an error.
+      Process.put(:relay_answer, {:ok, 200, "[]", "application/json"})
+
+      :get
+      |> conn("/api/calls?limit=5&status=answered")
+      |> call()
+
+      assert_received {:relayed, "GET", "/api/calls?limit=5&status=answered", _body, _ct}
+    end
+  end
+
 end

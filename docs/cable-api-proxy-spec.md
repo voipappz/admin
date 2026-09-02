@@ -1,9 +1,20 @@
 # Spec: cable as a stateless proxy between Elixir and the Ruby API
 
-**Status:** proposal. This describes a change to `../va-crystal`, which this
-repo does not edit. Nothing here has been implemented.
+**Status:** IMPLEMENTED on both sides, and this document is now a record of
+the contract rather than a proposal.
 
-**Audience:** whoever implements it in va-crystal.
+- **Node:** `va-crystal node/realtime/api_proxy_channel.cr` — that file is the
+  authority on the contract, not this one. Read it first if the two disagree.
+- **Portal:** `AgentsDemo.Realtime.ApiProxy`, with `Plugs.EngineProxy` choosing
+  the transport and keeping HTTP as a fallback.
+
+**One caveat before enabling it anywhere real.** The vendored shard logs the
+whole message payload at INFO before the channel ever sees it
+(`node/lib/cable/src/cable/connection.cr:180`), so a proxied login writes its
+password into the node's log in cleartext. `ApiProxy` itself is careful never
+to log a body; that care is defeated one layer above it. Fix the shard first.
+
+**Audience:** anyone changing either half.
 
 ## Why
 

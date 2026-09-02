@@ -111,10 +111,29 @@ Ruby API                            the remote server — the login database
 ```
 
 **va-crystal performs the login, not Elixir.** The portal holds no user
-database and makes no HTTP call to the platform; it hands the request to the
-cable and waits for the reply. The node forwards it to `API_URL` and transmits
-the response back to that one subscriber. Nothing is stored on the way through
-— no session, no cache, no `STATE` write.
+database; it hands the request to the cable and waits for the reply. The node
+forwards it to `API_URL` and transmits the response back to that one
+subscriber. Nothing is stored on the way through — no session, no cache, no
+`STATE` write.
+
+**There is still an HTTP fallback, and it is not a hedge.** The relay needs a
+node carrying the `ApiProxy` channel with `CABLE_API_PROXY=1`, and that is not
+true of every deployed node — the channel ships in an image, and old images are
+everywhere. `Plugs.EngineProxy` tries cable first and falls back to
+`ENGINE_URL` over HTTP; a portal that answered 502 against an older node would
+be a worse regression than one HTTP hop. It falls back only when *this hop*
+failed, never on a status the API itself returned: a relayed 401 is a
+successful relay.
+
+Which one served a request is in the log — `proxy: POST /auth/user_login -> 401
+via cable`, or `via <host>`. Worth reading before concluding anything about the
+transport, because both paths return the same body.
+
+**A node without the channel is silent, not loud.** Cable has no frame for "no
+such channel": `Connection#subscribe` raises `Missing hash key: "ApiProxy"` and
+transmits nothing back — no rejection. `Realtime.ApiProxy` therefore times the
+silence and logs an error five seconds after an unconfirmed subscribe, because
+the only other symptom is that every login quietly takes the HTTP path.
 
 The bootstrap is not circular even though a credential is needed to open the
 cable, because the *browser's* credential is not what opens it. The portal
