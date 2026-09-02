@@ -133,6 +133,33 @@ services:
         npm run watch
       "
 
+  # The extension's popup as an ordinary web page, on :4300.
+  #
+  # Same Angular app, served by `ng serve` instead of packed into an extension,
+  # so the UI can be iterated on in a normal tab with hot reload — no
+  # rebuild → chrome://extensions → reload loop. `chrome.*` does not exist
+  # there, which is what `angular/src/app/providers/chrome-shim.ts` stands in
+  # for; it is self-installing and inert inside a real extension.
+  #
+  # NOT a replacement for chrome-ext beside it. This serves a page; that one
+  # keeps angular/dist built, which is the only thing Chrome can load unpacked.
+  # The background service worker and content script only exist in the packed
+  # form, so realtime and screen pops are the extension's job, not this one's.
+  chrome-web:
+    image: node:20
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /app
+    volumes:
+      - ./chrome:/app
+      - chrome_node_modules:/app/node_modules
+    ports:
+      - "4300:4300"
+    command: >
+      bash -c "
+        [ -x node_modules/.bin/ng ] || npm ci --legacy-peer-deps --no-audit --no-fund;
+        npm run serve
+      "
+
   # The Elixir portal — the origin everything else points at. It serves the SPA
   # and /ws/events, verifies tokens over NATS, holds ONE cable connection and
   # fans out over PubSub, and forwards the mothership's own routes (/auth,

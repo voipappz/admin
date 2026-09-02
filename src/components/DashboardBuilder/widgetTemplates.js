@@ -21,14 +21,12 @@ export const SOURCE_BY_TYPE = {
   bar: 'calls_per_hour',
   pie: 'calls_per_hour',
   table: 'recent_calls',
-  event_counter: 'events',
-  event_table: 'events',
 };
 
 export const WIDGET_TYPES = [
   'counter', 'table', 'pie', 'line', 'bar', 'gauge', 'stat',
   // Kept for definitions created by the earlier portal builder.
-  'trend', 'event_counter', 'event_table',
+  'trend',
 ];
 
 /** Blank widget — every field the editor can touch, so merges are total. */
@@ -103,14 +101,6 @@ export const WIDGET_TEMPLATES = {
     title: 'Recent calls (compact)', type: 'table',
     fields: ['started_at', 'from_number', 'status'],
   },
-  allEventCount: {
-    title: 'All events', type: 'event_counter', metric: 'total',
-    icon: 'Insights', unit: 'events',
-  },
-  recentEvents: {
-    title: 'Recent events', type: 'event_table',
-    fields: ['occurred_at', 'event_type', 'action', 'call_id'],
-  },
 };
 
 /** Template keys grouped for the editor's chip row. */
@@ -119,7 +109,6 @@ export const TEMPLATE_CATEGORIES = {
   gauges: ['failureGauge', 'handleTimeGauge'],
   trends: ['callsPerHour', 'inboundPerHour'],
   tables: ['recentCalls', 'recentFailures'],
-  events: ['allEventCount', 'recentEvents'],
 };
 
 /**

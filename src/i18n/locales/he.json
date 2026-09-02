@@ -804,27 +804,6 @@
     "loadError": "לא ניתן לטעון את הסטטוס שלך.",
     "saveError": "לא ניתן לעדכן את הזמינות שלך."
   },
-  "eventExplorer": {
-    "title": "אירועים גולמיים מ-DuckDB",
-    "subtitle": "אירועי NATS/Cable המקוריים שנשמרו. בחירת שורה מציגה את ה-JSON הגולמי.",
-    "refresh": "רענון",
-    "search": "חיפוש ב-JSON או במזהים",
-    "eventType": "סוג אירוע",
-    "action": "פעולה",
-    "callId": "מזהה שיחה",
-    "eventId": "מזהה אירוע",
-    "occurredAt": "זמן האירוע",
-    "apply": "החל",
-    "clear": "נקה",
-    "disabled": "מציג האירועים אינו זמין: הצד השרתי שלו טרם הועבר לפורטל.",
-    "error": "לא ניתן לטעון אירועים מ-DuckDB",
-    "empty": "לא נמצאו אירועים שמורים התואמים למסננים.",
-    "table": "רשומות אירועים מ-DuckDB",
-    "rawPayload": "האירוע הגולמי כפי שנשמר",
-    "normalizedPayload": "ההקרנה המנורמלת",
-    "copyRaw": "העתקת JSON גולמי",
-    "copied": "הועתק"
-  },
   "dashboardLive": {
     "heading": "לוח בקרה חי",
     "widgetsHeading": "תורים וסוכנים בזמן אמת"
@@ -832,7 +811,7 @@
   "dashboardBuilder": {
     "heading": "עורך לוח הבקרה",
     "open": "בניית לוח בקרה",
-    "hint": "צרו לוחות ורכיבים מהאירועים השמורים ב-DuckDB של האפליקציה.",
+    "hint": "צרו לוחות ורכיבים מנתוני השיחות שלכם.",
     "dashboard": "לוח בקרה",
     "createDashboard": "לוח חדש",
     "dashboardName": "שם לוח הבקרה",
@@ -846,7 +825,7 @@
     "addWidget": "הוספת רכיב",
     "addFirstWidget": "הוספת הרכיב הראשון",
     "buildHeading": "בניית לוח הבקרה",
-    "buildHint": "בחרו סוג רכיב וחברו אותו לשיחות או לאירועים השמורים ב-DuckDB.",
+    "buildHint": "בחרו סוג רכיב וחברו אותו לנתוני השיחות שלכם.",
     "copySuffix": "עותק",
     "duplicateWidget": "שכפול רכיב",
     "widgetActions": "פעולות רכיב",
@@ -884,9 +863,7 @@
       "line": "תרשים קו",
       "bar": "תרשים עמודות",
       "pie": "תרשים עוגה",
-      "table": "טבלה",
-      "event_counter": "מונה אירועים",
-      "event_table": "טבלת אירועים"
+      "table": "טבלה"
     },
     "newType": {
       "counter": "מונה חדש",
@@ -898,26 +875,7 @@
       "stat": "נתון חדש"
     },
     "tabs": {
-      "widgets": "רכיבים",
-      "events": "אירועי DuckDB"
-    },
-    "events": {
-      "heading": "תצוגות אירועים מ-DuckDB",
-      "open": "תצוגות אירועים מ-DuckDB",
-      "duckdbView": "תצוגת אירועים מ-DuckDB",
-      "hint": "עיינו באירועים המנורמלים שב-DuckDB והפכו את התצוגה הנוכחית לרכיב.",
-      "search": "חיפוש אירועים",
-      "type": "סוג אירוע",
-      "action": "פעולה",
-      "apply": "החלת תצוגה",
-      "createCounter": "יצירת רכיב מונה",
-      "createTable": "יצירת רכיב טבלה",
-      "resultCount": "{{shown}} מתוך {{total}} אירועים",
-      "use": "שימוש",
-      "loadMore": "טעינת נוספים",
-      "allEvents": "כל האירועים",
-      "loadError": "לא ניתן לטעון אירועים מ-DuckDB.",
-      "empty": "אין אירועים תואמים."
+      "widgets": "רכיבים"
     },
     "fields": {
       "pickOne": "מדד",

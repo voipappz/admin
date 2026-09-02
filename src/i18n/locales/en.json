@@ -783,27 +783,6 @@
     "loadError": "Could not load your status.",
     "saveError": "Could not update your availability."
   },
-  "eventExplorer": {
-    "title": "Raw DuckDB events",
-    "subtitle": "Original NATS/Cable events, as persisted. Select a row to inspect its raw JSON.",
-    "refresh": "Refresh",
-    "search": "Search raw JSON or IDs",
-    "eventType": "Event type",
-    "action": "Action",
-    "callId": "Call ID",
-    "eventId": "Event ID",
-    "occurredAt": "Occurred",
-    "apply": "Apply",
-    "clear": "Clear",
-    "disabled": "The event inspector is not available: its backend has not been ported to the portal yet.",
-    "error": "Could not load DuckDB events",
-    "empty": "No stored events match these filters.",
-    "table": "DuckDB event rows",
-    "rawPayload": "Raw event as stored",
-    "normalizedPayload": "Normalized projection",
-    "copyRaw": "Copy raw JSON",
-    "copied": "Copied"
-  },
   "dashboardLive": {
     "heading": "Live dashboard",
     "widgetsHeading": "Live queues & agents"
@@ -811,7 +790,7 @@
   "dashboardBuilder": {
     "heading": "Dashboard builder",
     "open": "Build dashboard",
-    "hint": "Create dashboards and widgets from the events stored in this app's DuckDB.",
+    "hint": "Create dashboards and widgets from your call data.",
     "dashboard": "Dashboard",
     "createDashboard": "New dashboard",
     "dashboardName": "Dashboard name",
@@ -825,7 +804,7 @@
     "addWidget": "Add widget",
     "addFirstWidget": "Add your first widget",
     "buildHeading": "Build your dashboard",
-    "buildHint": "Choose a widget type and connect it to the calls or events stored in DuckDB.",
+    "buildHint": "Choose a widget type and connect it to your call data.",
     "copySuffix": "copy",
     "duplicateWidget": "Duplicate widget",
     "widgetActions": "Widget actions",
@@ -863,9 +842,7 @@
       "line": "Line chart",
       "bar": "Bar chart",
       "pie": "Pie chart",
-      "table": "Table",
-      "event_counter": "Event counter",
-      "event_table": "Event table"
+      "table": "Table"
     },
     "newType": {
       "counter": "New counter",
@@ -877,26 +854,7 @@
       "stat": "New stat"
     },
     "tabs": {
-      "widgets": "Widgets",
-      "events": "DuckDB events"
-    },
-    "events": {
-      "heading": "DuckDB event views",
-      "open": "DuckDB event views",
-      "duckdbView": "DuckDB event view",
-      "hint": "Browse normalized events stored in DuckDB, then turn the current view into a widget.",
-      "search": "Search events",
-      "type": "Event type",
-      "action": "Action",
-      "apply": "Apply view",
-      "createCounter": "Create count widget",
-      "createTable": "Create table widget",
-      "resultCount": "{{shown}} of {{total}} events",
-      "use": "Use",
-      "loadMore": "Load more",
-      "allEvents": "All events",
-      "loadError": "Could not load DuckDB events.",
-      "empty": "No matching events."
+      "widgets": "Widgets"
     },
     "fields": {
       "pickOne": "Metric",

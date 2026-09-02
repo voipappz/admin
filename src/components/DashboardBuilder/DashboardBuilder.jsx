@@ -20,19 +20,17 @@ import QueryStatsIcon from '@mui/icons-material/QueryStats';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import SpeedIcon from '@mui/icons-material/Speed';
-import StorageIcon from '@mui/icons-material/Storage';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import { useTranslation } from 'react-i18next';
 import { useDashboardBuilder } from './useDashboardBuilder';
 import BuilderWidget from './BuilderWidget';
-import EventViews from './EventViews';
 import WidgetEditor from './WidgetEditor';
 import { deriveFieldOptions } from './widgetFields';
 import { withDefaults } from './widgetTemplates';
 import { exportFilename, exportWidgets, parseImportedWidgets } from './widgetIo';
 
 // This is the same explicit type chooser as the deleted Nimbus builder. The
-// data source is intentionally different: every type is backed by DuckDB.
+// data source is intentionally different per widget type.
 const TYPE_CHOICES = [
   { value: 'counter', label: 'Counter', icon: NumbersIcon },
   { value: 'table', label: 'Table', icon: TableChartIcon },
@@ -65,16 +63,11 @@ export default function DashboardBuilder({
   const [renameValue, setRenameValue] = useState('');
   const [dashboardMenuAnchor, setDashboardMenuAnchor] = useState(null);
   const [addMenuAnchor, setAddMenuAnchor] = useState(null);
-  const [eventExplorerOpen, setEventExplorerOpen] = useState(false);
-  const [duckdbFields, setDuckdbFields] = useState([]);
   const [ioError, setIoError] = useState(null);
   const fileInput = useRef(null);
 
   const currentDashboard = dashboards.find((dashboard) => dashboard.uuid === selectedDashboardId);
-  const options = useMemo(() => {
-    const base = deriveFieldOptions(snapshot);
-    return { ...base, events: duckdbFields.length ? duckdbFields : base.events };
-  }, [duckdbFields, snapshot]);
+  const options = useMemo(() => deriveFieldOptions(snapshot), [snapshot]);
 
   const chooseWidgetType = (type) => {
     setAddMenuAnchor(null);
@@ -153,9 +146,6 @@ export default function DashboardBuilder({
             {saving && <Chip size="small" color="info" variant="outlined" label={t('dashboardBuilder.saving', 'Saving…')} />}
 
             <Box sx={{ flex: 1 }} />
-            <Tooltip title={t('dashboardBuilder.events.open', 'DuckDB event views')}>
-              <IconButton color={eventExplorerOpen ? 'primary' : 'default'} onClick={() => setEventExplorerOpen((value) => !value)} data-testid="builder-events-tab"><StorageIcon /></IconButton>
-            </Tooltip>
             <Tooltip title={t('dashboardBuilder.export', 'Export JSON')}><span><IconButton disabled={!widgets.length} onClick={handleExport}><FileDownloadOutlinedIcon /></IconButton></span></Tooltip>
             <Tooltip title={t('dashboardBuilder.import', 'Import JSON')}><IconButton onClick={() => fileInput.current?.click()}><FileUploadOutlinedIcon /></IconButton></Tooltip>
             <input ref={fileInput} type="file" accept="application/json,.json" hidden onChange={handleImport} />
@@ -210,7 +200,6 @@ export default function DashboardBuilder({
             <Button size="small" variant="text" startIcon={<RefreshIcon />} onClick={refresh} disabled={loading}>{t('dashboardBuilder.refresh', 'Refresh')}</Button>
             <Box sx={{ flex: 1 }} />
             <Chip size="small" variant="outlined" label={t('dashboardBuilder.last24Hours', 'Last 24 hours')} />
-            <Chip icon={<StorageIcon />} size="small" color="success" variant="outlined" label="DuckDB" />
             <Chip icon={<GridViewIcon />} size="small" variant="outlined" label={t('dashboardBuilder.count', '{{count}} widgets', { count: widgets.length })} />
           </Paper>
 
@@ -223,7 +212,7 @@ export default function DashboardBuilder({
             <Paper elevation={0} sx={{ p: { xs: 5, md: 9 }, textAlign: 'center', border: '2px dashed', borderColor: 'divider', borderRadius: 3 }}>
               <DashboardIcon sx={{ fontSize: 72, color: 'action.disabled', mb: 1.5 }} />
               <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>{t('dashboardBuilder.buildHeading', 'Build your dashboard')}</Typography>
-              <Typography color="text.secondary" sx={{ maxWidth: 520, mx: 'auto', mb: 3 }}>{t('dashboardBuilder.buildHint', 'Choose a widget type and connect it to the calls or events stored in DuckDB.')}</Typography>
+              <Typography color="text.secondary" sx={{ maxWidth: 520, mx: 'auto', mb: 3 }}>{t('dashboardBuilder.buildHint', 'Choose a widget type and connect it to your call data.')}</Typography>
               <Button size="large" variant="contained" startIcon={<AddIcon />} onClick={(event) => setAddMenuAnchor(event.currentTarget)}>{t('dashboardBuilder.addFirstWidget', 'Add your first widget')}</Button>
             </Paper>
           ) : (
@@ -239,23 +228,6 @@ export default function DashboardBuilder({
           </Box>
         </Box>
 
-        {eventExplorerOpen && (
-          <Paper
-            square elevation={0} data-testid="dashboard-event-explorer"
-            sx={{ width: { xs: '100%', md: 440 }, flexShrink: 0, borderInlineStart: '1px solid', borderColor: 'divider', overflow: 'auto', p: 2, position: { xs: 'absolute', md: 'relative' }, inset: { xs: 0, md: 'auto' }, zIndex: 2 }}
-          >
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-              <StorageIcon color="primary" />
-              <Box sx={{ flex: 1 }}><Typography variant="h6" sx={{ fontWeight: 750 }}>{t('dashboardBuilder.events.heading', 'DuckDB event views')}</Typography></Box>
-              <IconButton onClick={() => setEventExplorerOpen(false)}><CloseIcon /></IconButton>
-            </Stack>
-            <Divider sx={{ mb: 2 }} />
-            <EventViews
-              active={open && eventExplorerOpen} saving={saving} onFields={setDuckdbFields}
-              onCreateWidget={async (draft) => { if (await addWidget(draft)) setEventExplorerOpen(false); }}
-            />
-          </Paper>
-        )}
       </Box>
 
       <WidgetEditor open={Boolean(editing)} widget={editing?.uuid ? editing : null} initialDraft={editing} options={options} saving={saving} onClose={() => setEditing(null)} onSave={saveDraft} />

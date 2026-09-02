@@ -127,8 +127,8 @@ defmodule AgentsDemoWeb.Plugs.EngineProxyTest do
     # Records what it was asked to relay, and answers with whatever the test
     # put in the process dictionary of the caller — the plug runs inline, so
     # the test process IS the caller.
-    def request(method, path, body, content_type) do
-      send(self(), {:relayed, method, path, body, content_type})
+    def request(method, path, body, content_type, authorization \\ nil) do
+      send(self(), {:relayed, method, path, body, content_type, authorization})
       Process.get(:relay_answer, {:error, :not_connected})
     end
   end
@@ -159,7 +159,7 @@ defmodule AgentsDemoWeb.Plugs.EngineProxyTest do
       # still the caller, whichever transport answered it.
       assert get_resp_header(conn, "access-control-allow-origin") == ["*"]
 
-      assert_received {:relayed, "POST", "/auth/user_login", body, content_type}
+      assert_received {:relayed, "POST", "/auth/user_login", body, content_type, _auth}
       assert body == "email=a%40b.test&password=x"
       assert content_type == "application/x-www-form-urlencoded"
     end
@@ -186,6 +186,34 @@ defmodule AgentsDemoWeb.Plugs.EngineProxyTest do
       assert conn.resp_body =~ "Invalid email or password"
     end
 
+    test "the caller's Authorization is carried in the frame" do
+      # The regression this replaces was not subtle once you looked: the node
+      # relayed Content-Type and nothing else, so the API answered
+      # "Missing Authorize token." on every authenticated read while the login
+      # beside it worked — a login's credentials are in the body.
+      Process.put(:relay_answer, {:ok, 200, "[]", "application/json"})
+
+      :get
+      |> conn("/api/users")
+      |> put_req_header("authorization", "Bearer abc.def.ghi")
+      |> call()
+
+      assert_received {:relayed, "GET", "/api/users", _body, _ct, authorization}
+      assert authorization == "Bearer abc.def.ghi"
+    end
+
+    test "no Authorization header means none is sent, not an empty one" do
+      # An empty string is not the same as absent: the node only sets the header
+      # when it is non-empty, and a blank Authorization is a header the API must
+      # then reject rather than treat as anonymous.
+      Process.put(:relay_answer, {:ok, 200, "[]", "application/json"})
+
+      :get |> conn("/api/users") |> call()
+
+      assert_received {:relayed, "GET", "/api/users", _body, _ct, authorization}
+      assert is_nil(authorization)
+    end
+
     test "the query string travels on the path, not dropped" do
       # The node forwards `path` verbatim to API_URL. Dropping the query would
       # turn a filtered read into an unfiltered one rather than into an error.
@@ -195,7 +223,7 @@ defmodule AgentsDemoWeb.Plugs.EngineProxyTest do
       |> conn("/api/calls?limit=5&status=answered")
       |> call()
 
-      assert_received {:relayed, "GET", "/api/calls?limit=5&status=answered", _body, _ct}
+      assert_received {:relayed, "GET", "/api/calls?limit=5&status=answered", _body, _ct, _auth}
     end
   end
 

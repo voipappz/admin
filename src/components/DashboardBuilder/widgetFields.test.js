@@ -59,7 +59,8 @@ describe('field selection', () => {
     expect(isSingleField('table')).toBe(false);
     expect(isSingleField('trend')).toBe(false);
     expect(isSingleField('line')).toBe(false);
-    expect(isFieldless('event_counter')).toBe(true);
+    // Nothing is fieldless since the event widgets went.
+    expect(isFieldless('counter')).toBe(false);
   });
 
   it('keeps metric and fields in sync for a counter', () => {
@@ -84,7 +85,6 @@ describe('field selection', () => {
     expect(fieldsForType('trend', options)).toBe(options.calls_per_hour);
     expect(fieldsForType('pie', options)).toBe(options.calls_per_hour);
     expect(fieldsForType('gauge', options)).toBe(options.stats);
-    expect(fieldsForType('event_table', options)).toBe(options.events);
   });
 });
 
@@ -108,11 +108,6 @@ describe('retargetType', () => {
   it('keeps the overlap when both sources share a name', () => {
     expect(retargetType({ type: 'table', fields: ['status', 'inbound'] }, 'trend', options()).fields)
       .toEqual(['inbound']);
-  });
-
-  it('clears fields when switching to an event counter', () => {
-    expect(retargetType({ type: 'table', fields: ['status'] }, 'event_counter', options()))
-      .toMatchObject({ type: 'event_counter', metric: 'total', fields: [] });
   });
 
   function options() { return deriveFieldOptions(SNAPSHOT); }

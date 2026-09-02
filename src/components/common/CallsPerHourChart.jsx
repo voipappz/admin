@@ -12,7 +12,7 @@ import { statusColor, statusLabel } from './statusColors';
  * CallsPerHourChart — stacked bar of calls bucketed by hour.
  *
  * Two inputs, in priority order:
- *  1. `points` — pre-aggregated by the local DuckDB Dashboard projection.
+ *  1. `points` — pre-aggregated by the Dashboard projection.
  *  2. `calls` — already-windowed PostgREST rows (started_at + status), bucketed
  *     CLIENT-SIDE by hour (epoch-keyed so hours on different days stay distinct)
  *     and stacked by status. Honors the dashboard's active time-range filter and
@@ -36,7 +36,7 @@ export default function CallsPerHourChart({ calls = [], points = null, series: o
       : (theme.palette[key]?.main || theme.palette.grey[500]);
   };
 
-  // DuckDB projection: server-bucketed points → inbound/outbound stacks. The bucket
+  // Server-bucketed points → inbound/outbound stacks. The bucket
   // is a zoneless UTC instant; render the hour label in the browser's local tz.
   const projectionData = useMemo(() => {
     if (!useProjection) return [];

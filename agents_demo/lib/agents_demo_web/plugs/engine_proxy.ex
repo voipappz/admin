@@ -125,7 +125,13 @@ defmodule AgentsDemoWeb.Plugs.EngineProxy do
         {:error, :disabled}
 
       module ->
-        module.request(conn.method, conn.request_path <> query(conn), body, content_type(conn))
+        module.request(
+          conn.method,
+          conn.request_path <> query(conn),
+          body,
+          content_type(conn),
+          req_header(conn, "authorization")
+        )
     end
   end
 
@@ -215,12 +221,20 @@ defmodule AgentsDemoWeb.Plugs.EngineProxy do
 
   defp log_upstream(_conn, _via, _status), do: :ok
 
-  # The request's own content type, which is all the node forwards — it does not
-  # relay the caller's headers, deliberately (a node that replays its callers'
-  # tokens upstream is a confused deputy). `/auth/user_login` is form-encoded and
-  # the API reads the body by that type, so this one header is load-bearing.
-  defp content_type(conn) do
-    case Plug.Conn.get_req_header(conn, "content-type") do
+  # The two headers the frame carries. The node relays no others — it does not
+  # blanket-forward the caller's headers, and it never sends its OWN cable token
+  # upstream, which would make it a confused deputy.
+  #
+  # `content-type` because `/auth/user_login` is form-encoded and the API reads
+  # the body by it. `authorization` because it is the CALLER's credential and
+  # the API is what judges it; relaying a credential the caller already sent is
+  # what a proxy does. Omitting it does not degrade gracefully — every
+  # authenticated read answers "Missing Authorize token." while the login
+  # beside it works, because a login carries its credentials in the body.
+  defp content_type(conn), do: req_header(conn, "content-type")
+
+  defp req_header(conn, name) do
+    case Plug.Conn.get_req_header(conn, name) do
       [value | _] -> value
       [] -> nil
     end

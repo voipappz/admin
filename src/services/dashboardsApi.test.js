@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import {
-  buildDashboardEventsQuery, COUNTER_METRICS, createDashboard, createWidget,
-  deleteWidget, getDashboardEvents, getDashboards, getWidgets, normalizeDashboards,
+import { COUNTER_METRICS, createDashboard, createWidget,
+  deleteWidget, getDashboards, getWidgets, normalizeDashboards,
   normalizeWidgets,
 } from './dashboardsApi';
 
@@ -52,7 +51,7 @@ describe('local widget CRUD', () => {
   });
 });
 
-describe('local dashboards and DuckDB event views', () => {
+describe('local dashboards', () => {
   it('lists and creates dashboard definitions', async () => {
     const mock = stubFetch({ dashboards: [{ uuid: 'default', name: 'Main dashboard' }] });
     expect(await getDashboards()).toEqual([{ uuid: 'default', name: 'Main dashboard' }]);
@@ -68,19 +67,7 @@ describe('local dashboards and DuckDB event views', () => {
       .toEqual([{ uuid: 'd1', name: 'One' }]);
   });
 
-  it('pages filtered normalized events through the dashboard endpoint', async () => {
-    const mock = stubFetch({ events: [{ event_id: 'e1' }], total: 9, limit: 20, offset: 4 });
-    expect(await getDashboardEvents({ limit: 20, offset: 4, eventType: 'call.cdr', action: 'write' }))
-      .toMatchObject({ events: [{ event_id: 'e1' }], total: 9, limit: 20, offset: 4 });
-    expect(mock.mock.calls[0][0]).toContain('/dashboard/events?');
-    expect(mock.mock.calls[0][0]).toContain('event_type=call.cdr');
-    expect(mock.mock.calls[0][0]).toContain('action=write');
-  });
 
-  it('omits blank event filters', () => {
-    expect(buildDashboardEventsQuery({ q: ' ', eventType: '', limit: 5 }))
-      .toBe('limit=5&offset=0');
-  });
 });
 
 describe('COUNTER_METRICS', () => {

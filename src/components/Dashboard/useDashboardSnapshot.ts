@@ -42,7 +42,7 @@ const EMPTY: DashboardSnapshot = {
   recent_calls: [],
 };
 
-/** Dashboard-only DuckDB projection. Calls and Reports never use this hook. */
+/** Dashboard-only projection. Calls and Reports never use this hook. */
 export function useDashboardSnapshot({ from, to }: { from: Date; to: Date }) {
   const [snapshot, setSnapshot] = useState<DashboardSnapshot>(EMPTY);
   const [status, setStatus] = useState<DashboardStatus>('loading');

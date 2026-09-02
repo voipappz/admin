@@ -10,7 +10,7 @@ describe('the template catalog', () => {
     for (const [key, template] of Object.entries(WIDGET_TEMPLATES)) {
       const source = SOURCE_BY_TYPE[template.type];
       expect(source, `${key} has an unknown type`).toBeTruthy();
-      if (template.metric && template.type !== 'event_counter') {
+      if (template.metric) {
         expect(FALLBACK_FIELDS[source], key).toContain(template.metric);
       }
       for (const field of template.fields || []) {

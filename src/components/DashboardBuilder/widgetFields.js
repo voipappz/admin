@@ -62,7 +62,6 @@ export function deriveFieldOptions(snapshot) {
     stats: build('stats', stats),
     calls_per_hour: build('calls_per_hour', perHour),
     recent_calls: build('recent_calls', recent),
-    events: build('events', []),
   };
 }
 
@@ -76,8 +75,10 @@ export function isSingleField(type) {
   return SOURCE_BY_TYPE[type] === 'stats';
 }
 
-export function isFieldless(type) {
-  return type === 'event_counter';
+export function isFieldless(_type) {
+  // Nothing is fieldless now — the only type that was went with the event
+  // widgets. Kept as a seam because callers still ask.
+  return false;
 }
 
 /**

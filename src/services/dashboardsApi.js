@@ -79,24 +79,4 @@ export function deleteWidget(uuid) {
   return send('DELETE', `/dashboard/widgets/${encodeURIComponent(uuid)}`);
 }
 
-export function buildDashboardEventsQuery({
-  limit = 50, offset = 0, q = '', eventType = '', action = '', callId = '',
-} = {}) {
-  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-  if (q.trim()) params.set('q', q.trim());
-  if (eventType.trim()) params.set('event_type', eventType.trim());
-  if (action.trim()) params.set('action', action.trim());
-  if (callId.trim()) params.set('call_id', callId.trim());
-  return params.toString();
-}
 
-/** Authenticated, normalized DuckDB events for the builder (never raw_payload). */
-export async function getDashboardEvents(filters = {}) {
-  const payload = await send('GET', `/dashboard/events?${buildDashboardEventsQuery(filters)}`);
-  return {
-    events: Array.isArray(payload?.events) ? payload.events : [],
-    total: Number(payload?.total) || 0,
-    limit: Number(payload?.limit) || 50,
-    offset: Number(payload?.offset) || 0,
-  };
-}

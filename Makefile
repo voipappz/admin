@@ -56,6 +56,8 @@ EXT_DIST ?= $(PWD)/chrome/angular/dist
 export UID := $(shell id -u)
 export GID := $(shell id -g)
 TEST_DOMAIN_CHROME ?= $(PORTAL)
+# The popup served as a plain page (chrome-web), for iterating on the UI.
+EXT_WEB ?= http://localhost:4300
 
 # Production URL for `make status` — set PROD_URL in .env (or on the CLI).
 PROD_URL ?= $(shell sed -n 's/^PROD_URL=//p' .env 2>/dev/null | head -1 | tr -d '\r"')
@@ -74,12 +76,13 @@ env: ## Create .env (never overwrites an existing one)
 	fi
 
 dev: check-mothership ## Run the whole local stack in Docker (Vite :4200 · portal :4001 · cable :4100 · extension), attached logs
-	@$(STACK_UP) react-app elixir cable chrome-ext
+	@$(STACK_UP) react-app elixir cable chrome-ext chrome-web
 	@echo "portal → $(PORTAL) · cable → ws://127.0.0.1:$(CABLE_PORT)/cable"
 	@echo "Vite → $(WEB_APP) (proxies /api → mothership $(MOTHERSHIP))"
-	@echo "extension → $(EXT_DIST) (chrome://extensions → Load unpacked; sign in with domain $(PORTAL))"
+	@echo "extension → $(EXT_DIST) (chrome://extensions → Load unpacked)"
+	@echo "extension UI → $(EXT_WEB) (the popup as a plain page, hot-reloading)"
 	@echo "Ctrl-C detaches; stack keeps running"
-	docker compose logs -f react-app elixir chrome-ext
+	docker compose logs -f react-app elixir chrome-ext chrome-web
 
 check-mothership: ## Verify the mothership (MOTHERSHIP_URL) is reachable
 	@echo "==> Mothership (override: MOTHERSHIP=https://<host>)"
@@ -88,8 +91,8 @@ check-mothership: ## Verify the mothership (MOTHERSHIP_URL) is reachable
 	  printf "  %-11s %-34s %s\n" "mothership" "$(MOTHERSHIP)" "$$s"
 
 up: ## Start the full Docker stack (web + portal + cable + extension)
-	@$(STACK_UP) react-app elixir cable chrome-ext
-	@echo "web → $(WEB_APP)   portal → $(PORTAL)   extension → $(EXT_DIST)"
+	@$(STACK_UP) react-app elixir cable chrome-ext chrome-web
+	@echo "web → $(WEB_APP)   portal → $(PORTAL)   extension → $(EXT_DIST)   UI → $(EXT_WEB)"
 
 down: ## Stop all services
 	docker compose --profile cable down --remove-orphans

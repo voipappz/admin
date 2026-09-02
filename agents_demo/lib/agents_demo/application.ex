@@ -13,6 +13,8 @@ defmodule AgentsDemo.Application do
       AgentsDemo.Repo,
       {DNSCluster, query: Application.get_env(:agents_demo, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: AgentsDemo.PubSub},
+      # The portal's own state, in Mnesia — no external database.
+      AgentsDemo.Portal.Store,
       # HTTP pool for outbound channel traffic (`AgentsDemo.Channels`). Named
       # separately from Req's own pool so a stalled WhatsApp send cannot
       # exhaust the connections the agent's web_lookup tool needs.

@@ -17,7 +17,6 @@ import DashboardBuilder from '../DashboardBuilder/DashboardBuilder';
 import { formatWidgetValue, resolveIcon, thresholdColor } from '../DashboardBuilder/widgetPresentation';
 import { getWidgets } from '../../services/dashboardsApi';
 import { useACL } from '../../hooks/useACL';
-import EventWidget from '../DashboardBuilder/EventWidget';
 
 interface LocalWidget {
   uuid: string;
@@ -126,8 +125,6 @@ export default function Dashboard() {
     return { from: new Date(now - 24 * 3_600_000), to: new Date(now + 3_600_000) };
   });
   const { snapshot, status } = useDashboardSnapshot(range);
-  // Dashboard data is DuckDB-only. Calls and Reports remain mothership-owned,
-  // but no mothership result is mixed into this screen.
   const callsPerHour = snapshot.calls_per_hour;
   const { stats } = snapshot;
   const { can } = useACL();
@@ -142,8 +139,8 @@ export default function Dashboard() {
     try { localStorage.setItem('selected-dashboard-id', next); } catch { /* storage disabled */ }
   }, []);
 
-  // User-defined widgets (local DuckDB definitions). When present they replace
-  // the default KPI row; values always come from the same snapshot stats.
+  // User-defined widgets. When present they replace the default KPI row;
+  // values always come from the same snapshot stats.
   const [customWidgets, setCustomWidgets] = useState<LocalWidget[]>([]);
   const loadWidgets = useCallback(() => {
     getWidgets(dashboardId).then(setCustomWidgets).catch(() => setCustomWidgets([]));
@@ -152,11 +149,10 @@ export default function Dashboard() {
 
   // A definition's type decides which snapshot section renders it: counters and
   // gauges/stats read `stats`, charts read `calls_per_hour`, tables read `recent_calls`.
-  const { tiles, charts, tables, eventWidgets } = useMemo(() => ({
+  const { tiles, charts, tables } = useMemo(() => ({
     tiles: customWidgets.filter((w) => !w.type || ['counter', 'gauge', 'stat'].includes(w.type)),
     charts: customWidgets.filter((w) => ['trend', 'line', 'bar', 'pie'].includes(w.type || '')),
     tables: customWidgets.filter((w) => w.type === 'table'),
-    eventWidgets: customWidgets.filter((w) => w.type === 'event_counter' || w.type === 'event_table'),
   }), [customWidgets]);
   const customPanels = charts.length > 0 || tables.length > 0;
 
@@ -244,11 +240,6 @@ export default function Dashboard() {
         )}
       </Box>
 
-      {eventWidgets.length > 0 && (
-        <Box sx={{ display: 'grid', gap: 2, mb: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' } }}>
-          {eventWidgets.map((widget) => <EventWidget key={widget.uuid} widget={widget} />)}
-        </Box>
-      )}
 
       <DashboardWidgets />
     </Box>

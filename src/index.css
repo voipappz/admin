@@ -1,7 +1,4 @@
 /* Tailwind CSS with full preflight */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 /* Protect Material-UI components from Tailwind's reset */
 .MuiButton-root,

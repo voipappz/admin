@@ -35,7 +35,6 @@ export default function WidgetEditor({ open, widget, initialDraft, options, savi
 
   const isGauge = draft.type === 'gauge';
   const isCounter = draft.type === 'counter' || draft.type === 'stat';
-  const isEvent = draft.type === 'event_counter' || draft.type === 'event_table';
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth
@@ -90,25 +89,10 @@ export default function WidgetEditor({ open, widget, initialDraft, options, savi
                 ))}
               </TextField>
             </Stack>
-            {isEvent && (
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <TextField
-                  fullWidth size="small" label={t('dashboardBuilder.events.type', 'Event type')}
-                  value={draft.eventType || ''} onChange={(e) => set('eventType', e.target.value)}
-                  placeholder="call.cdr"
-                />
-                <TextField
-                  fullWidth size="small" label={t('dashboardBuilder.events.action', 'Action')}
-                  value={draft.action || ''} onChange={(e) => set('action', e.target.value)}
-                />
-              </Stack>
-            )}
-            {draft.type !== 'event_counter' && (
-              <FieldSelect
-                widget={draft} options={options}
-                onToggle={(name) => setDraft((prev) => toggleField(prev, name))}
-              />
-            )}
+            <FieldSelect
+              widget={draft} options={options}
+              onToggle={(name) => setDraft((prev) => toggleField(prev, name))}
+            />
           </Stack>
         )}
 

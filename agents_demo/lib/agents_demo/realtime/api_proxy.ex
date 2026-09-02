@@ -141,14 +141,14 @@ defmodule AgentsDemo.Realtime.ApiProxy do
   successful relay of a 401, and the difference is the whole reason the caller
   can fall back on one and must not on the other.
   """
-  def request(method, path, body, content_type, timeout \\ @timeout) do
+  def request(method, path, body, content_type, authorization \\ nil, timeout \\ @timeout) do
     if enabled?() do
       # +1s so the GenServer's own timer is the one that fires: it replies with
       # a named error and cleans `pending` up, where a caller-side exit would
       # leave the entry to be answered into a dead process.
       GenServer.call(
         __MODULE__,
-        {:request, method, path, body, content_type, timeout},
+        {:request, method, path, body, content_type, authorization, timeout},
         timeout + 1_000
       )
     else
@@ -169,7 +169,7 @@ defmodule AgentsDemo.Realtime.ApiProxy do
   @impl true
   def handle_call(:ready?, _from, state), do: {:reply, state.subscribed?, state}
 
-  def handle_call({:request, _m, _p, _b, _ct, _t}, _from, %{subscribed?: false} = state) do
+  def handle_call({:request, _m, _p, _b, _ct, _a, _t}, _from, %{subscribed?: false} = state) do
     # Refusing while the subscription is unconfirmed is deliberate. A frame sent
     # before `confirm_subscription` is routed to a channel that does not exist
     # yet (`connection.cr#message` looks the channel up and returns quietly when
@@ -178,13 +178,18 @@ defmodule AgentsDemo.Realtime.ApiProxy do
     {:reply, {:error, :not_connected}, state}
   end
 
-  def handle_call({:request, method, path, body, content_type, timeout}, from, state) do
+  def handle_call({:request, method, path, body, content_type, authorization, timeout}, from, state) do
     id = Base.url_encode64(:crypto.strong_rand_bytes(12), padding: false)
 
     data =
       %{action: "request", id: id, method: method, path: path}
       |> maybe_put(:body, body)
       |> maybe_put(:content_type, content_type)
+      # The CALLER's credential, relayed unread. The node sets it upstream and
+      # the API judges it exactly as it would over HTTP. Without it every
+      # authenticated read comes back "Missing Authorize token." while the
+      # login beside it succeeds, because a login's credentials are in the body.
+      |> maybe_put(:authorization, authorization)
       |> Jason.encode!()
 
     state = send_frame(state, %{command: "message", identifier: @identifier, data: data})

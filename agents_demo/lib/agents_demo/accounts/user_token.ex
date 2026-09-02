@@ -1,156 +1,68 @@
 defmodule AgentsDemo.Accounts.UserToken do
-  use Ecto.Schema
-  import Ecto.Query
-  alias AgentsDemo.Accounts.UserToken
+  @moduledoc """
+  Session and email tokens — a plain struct plus pure builders/verifiers.
+
+  No Ecto queries: a token is built here, persisted by
+  `AgentsDemo.Accounts.Store`, and verified by looking the raw value up in the
+  store and checking its age against the validity windows below. Session tokens
+  are stored raw; email/magic-link tokens are stored as a SHA-256 hash so a copy
+  of the database cannot be replayed.
+  """
+
+  alias __MODULE__
+
+  defstruct [:id, :token, :context, :sent_to, :user_id, :authenticated_at, :inserted_at]
 
   @hash_algorithm :sha256
   @rand_size 32
 
-  # It is very important to keep the magic link token expiry short,
-  # since someone with access to the email may take over the account.
+  @session_validity_in_days 14
   @magic_link_validity_in_minutes 15
   @change_email_validity_in_days 7
-  @session_validity_in_days 14
 
-  schema "users_tokens" do
-    field :token, :binary
-    field :context, :string
-    field :sent_to, :string
-    field :authenticated_at, :utc_datetime
-    belongs_to :user, AgentsDemo.Accounts.User
-
-    timestamps(type: :utc_datetime, updated_at: false)
-  end
-
-  @doc """
-  Generates a token that will be stored in a signed place,
-  such as session or cookie. As they are signed, those
-  tokens do not need to be hashed.
-
-  The reason why we store session tokens in the database, even
-  though Phoenix already provides a session cookie, is because
-  Phoenix' default session cookies are not persisted, they are
-  simply signed and potentially encrypted. This means they are
-  valid indefinitely, unless you change the signing/encryption
-  salt.
-
-  Therefore, storing them allows individual user
-  sessions to be expired. The token system can also be extended
-  to store additional data, such as the device used for logging in.
-  You could then use this information to display all valid sessions
-  and devices in the UI and allow users to explicitly expire any
-  session they deem invalid.
-  """
+  @doc "A raw session token and the row to store for it."
   def build_session_token(user) do
     token = :crypto.strong_rand_bytes(@rand_size)
-    dt = user.authenticated_at || DateTime.utc_now(:second)
-    {token, %UserToken{token: token, context: "session", user_id: user.id, authenticated_at: dt}}
+    at = user.authenticated_at || DateTime.utc_now(:second)
+    {token, %UserToken{token: token, context: "session", user_id: user.id, authenticated_at: at}}
   end
 
   @doc """
-  Checks if the token is valid and returns its underlying lookup query.
+  An encoded (URL-safe) email token to send, and the hashed row to store.
 
-  The query returns the user found by the token, if any, along with the token's creation time.
-
-  The token is valid if it matches the value in the database and it has
-  not expired (after @session_validity_in_days).
-  """
-  def verify_session_token_query(token) do
-    query =
-      from token in by_token_and_context_query(token, "session"),
-        join: user in assoc(token, :user),
-        where: token.inserted_at > ago(@session_validity_in_days, "day"),
-        select: {%{user | authenticated_at: token.authenticated_at}, token.inserted_at}
-
-    {:ok, query}
-  end
-
-  @doc """
-  Builds a token and its hash to be delivered to the user's email.
-
-  The non-hashed token is sent to the user email while the
-  hashed part is stored in the database. The original token cannot be reconstructed,
-  which means anyone with read-only access to the database cannot directly use
-  the token in the application to gain access. Furthermore, if the user changes
-  their email in the system, the tokens sent to the previous email are no longer
-  valid.
-
-  Users can easily adapt the existing code to provide other types of delivery methods,
-  for example, by phone numbers.
+  The plaintext goes to the user; only its hash is persisted.
   """
   def build_email_token(user, context) do
-    build_hashed_token(user, context, user.email)
-  end
-
-  defp build_hashed_token(user, context, sent_to) do
     token = :crypto.strong_rand_bytes(@rand_size)
-    hashed_token = :crypto.hash(@hash_algorithm, token)
+    hashed = :crypto.hash(@hash_algorithm, token)
 
     {Base.url_encode64(token, padding: false),
-     %UserToken{
-       token: hashed_token,
-       context: context,
-       sent_to: sent_to,
-       user_id: user.id
-     }}
+     %UserToken{token: hashed, context: context, sent_to: user.email, user_id: user.id}}
   end
 
-  @doc """
-  Checks if the token is valid and returns its underlying lookup query.
-
-  If found, the query returns a tuple of the form `{user, token}`.
-
-  The given token is valid if it matches its hashed counterpart in the
-  database. This function also checks if the token is being used within
-  15 minutes. The context of a magic link token is always "login".
-  """
-  def verify_magic_link_token_query(token) do
-    case Base.url_decode64(token, padding: false) do
-      {:ok, decoded_token} ->
-        hashed_token = :crypto.hash(@hash_algorithm, decoded_token)
-
-        query =
-          from token in by_token_and_context_query(hashed_token, "login"),
-            join: user in assoc(token, :user),
-            where: token.inserted_at > ago(^@magic_link_validity_in_minutes, "minute"),
-            where: token.sent_to == user.email,
-            select: {user, token}
-
-        {:ok, query}
-
-      :error ->
-        :error
+  @doc "Hash an encoded email token back to its stored form, or `:error`."
+  def hash_email_token(encoded) do
+    case Base.url_decode64(encoded, padding: false) do
+      {:ok, decoded} -> {:ok, :crypto.hash(@hash_algorithm, decoded)}
+      :error -> :error
     end
   end
 
-  @doc """
-  Checks if the token is valid and returns its underlying lookup query.
+  @doc "Whether a stored token row is still within its validity window."
+  def valid?(%UserToken{context: "session", inserted_at: at}),
+    do: within?(at, @session_validity_in_days, :day)
 
-  The query returns the user_token found by the token, if any.
+  def valid?(%UserToken{context: "login", inserted_at: at}),
+    do: within?(at, @magic_link_validity_in_minutes, :minute)
 
-  This is used to validate requests to change the user
-  email.
-  The given token is valid if it matches its hashed counterpart in the
-  database and if it has not expired (after @change_email_validity_in_days).
-  The context must always start with "change:".
-  """
-  def verify_change_email_token_query(token, "change:" <> _rest = context) do
-    case Base.url_decode64(token, padding: false) do
-      {:ok, decoded_token} ->
-        hashed_token = :crypto.hash(@hash_algorithm, decoded_token)
+  def valid?(%UserToken{context: "change:" <> _, inserted_at: at}),
+    do: within?(at, @change_email_validity_in_days, :day)
 
-        query =
-          from token in by_token_and_context_query(hashed_token, context),
-            where: token.inserted_at > ago(@change_email_validity_in_days, "day")
+  def valid?(_token), do: false
 
-        {:ok, query}
+  defp within?(nil, _n, _unit), do: false
 
-      :error ->
-        :error
-    end
-  end
-
-  defp by_token_and_context_query(token, context) do
-    from UserToken, where: [token: ^token, context: ^context]
+  defp within?(inserted_at, n, unit) do
+    DateTime.after?(inserted_at, DateTime.add(DateTime.utc_now(), -n, unit))
   end
 end

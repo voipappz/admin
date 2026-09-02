@@ -27,7 +27,6 @@ const Layout = ({ children }) => {
     '/reports': 'menu.reports',
     '/notifications': 'menu.notifications',
     '/status': 'menu.status',
-    '/event-explorer': 'menu.events',
   };
   const screenKey = SCREEN_KEY[location.pathname];
   const screenTitle = screenKey ? t(screenKey) : t('header.title');

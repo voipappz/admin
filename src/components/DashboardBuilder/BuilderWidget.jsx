@@ -13,7 +13,7 @@ import { withDefaults } from './widgetTemplates';
 
 const STAT_TYPES = new Set(['counter', 'gauge', 'stat']);
 const CHART_TYPES = new Set(['trend', 'line', 'bar', 'pie']);
-const WIDE_TYPES = new Set([...CHART_TYPES, 'table', 'event_table']);
+const WIDE_TYPES = new Set([...CHART_TYPES, 'table']);
 
 function TrendPreview({ points, fields, type }) {
   const rows = Array.isArray(points) ? points.slice(-18) : [];
@@ -116,17 +116,6 @@ export default function BuilderWidget({ widget: storedWidget, snapshot, saving, 
         )}
         {CHART_TYPES.has(widget.type) && <TrendPreview type={widget.type} points={snapshot?.calls_per_hour} fields={widget.fields} />}
         {widget.type === 'table' && <TablePreview rows={snapshot?.recent_calls} fields={widget.fields} />}
-        {(widget.type === 'event_counter' || widget.type === 'event_table') && (
-          <Stack sx={{ height: '100%' }} justifyContent="center" alignItems="center" spacing={1}>
-            <Icon sx={{ fontSize: 38, color: 'primary.main' }} />
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{t('dashboardBuilder.events.duckdbView', 'DuckDB event view')}</Typography>
-            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" justifyContent="center">
-              {widget.eventType && <Chip size="small" label={widget.eventType} />}
-              {widget.action && <Chip size="small" variant="outlined" label={widget.action} />}
-              {!widget.eventType && !widget.action && <Chip size="small" variant="outlined" label={t('dashboardBuilder.events.allEvents', 'All events')} />}
-            </Stack>
-          </Stack>
-        )}
       </Box>
     </Paper>
   );

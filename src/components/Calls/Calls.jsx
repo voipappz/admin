@@ -25,7 +25,7 @@ import { fmtClock } from './callFormat';
 
 /**
  * End-user Calls page. History and search come from the mature mothership Calls
- * API; DuckDB remains dashboard-only. Friendly filters map to Nimbus's proven
+ * API. Friendly filters map to Nimbus's proven
  * server-side search contract, so they apply to the complete result set.
  *
  * The page owns the query, the filters and the grouping model (callsGrouping.js);
