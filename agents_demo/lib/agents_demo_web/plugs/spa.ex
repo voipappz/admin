@@ -1,8 +1,8 @@
 defmodule AgentsDemoWeb.Plugs.Spa do
   @moduledoc """
-  Serve the React portal (the Vite `dist/`) same-origin — Deno-BFF parity: one
-  process serves the SPA plus the API and the `/ws/events` socket on one port,
-  so the browser never needs a second host or CORS.
+  Serve the React portal (the Vite `dist/`) same-origin: one process serves the
+  SPA plus the forwarded API routes and the `/ws/events` socket on one port, so
+  the browser never needs a second host or CORS.
 
   A port of `ConnectixWeb.SpaStatic` in `connectix.io/phone`, deliberately kept
   the same: these two apps are due to merge, and the SPA is the UI in both now
@@ -32,11 +32,11 @@ defmodule AgentsDemoWeb.Plugs.Spa do
   import Plug.Conn
 
   # Namespaces a browser can navigate to that belong to the server, never the
-  # SPA. Deliberately short: the API paths the SPA fetches (`/events`,
-  # `/calls`, `/dashboard/snapshot`, `/transcript`, `/read`, `/mark-all-read`,
-  # `/rest`, `/mcp`, `/connectors`) are already safe, because fetch does not
-  # ask for `text/html` and so never triggers the index fallback. Listing them
-  # here instead would shadow the SPA's own `/dashboard` and `/calls` pages.
+  # SPA. Deliberately short: a path the SPA *fetches* is already safe, because
+  # fetch does not ask for `text/html` and so never triggers the index
+  # fallback. Listing such a path here instead would shadow the SPA's own page
+  # of the same name — `/dashboard` and `/calls` are both a fetch prefix and a
+  # React route.
   @backend_prefixes ~w(api ws auth health live dev phoenix webhooks)
 
   @mime %{

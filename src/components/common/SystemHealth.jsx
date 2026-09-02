@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 
-import { DENO_API_BASE } from '../../lib/clients/denoApi';
+import { PORTAL_API_BASE } from '../../lib/clients/portalApi';
 const POLL_MS = 15_000;
 const DOT = { healthy: '#16a34a', degraded: '#d97706', down: '#dc2626', checking: '#9ca3af' };
 
@@ -29,7 +29,7 @@ export default function SystemHealth({ compact = false }) {
     let alive = true;
     const poll = async () => {
       try {
-        const response = await fetch(`${DENO_API_BASE}/health`);
+        const response = await fetch(`${PORTAL_API_BASE}/health`);
         const body = await response.json();
         if (alive) { setReport(body); setReachable(true); }
       } catch {

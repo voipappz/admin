@@ -111,6 +111,9 @@ defmodule AgentsDemo.MixProject do
       # names and state-key semantics — and this app subscribes to it
       # server-side so browsers never do.
       {:mint_web_socket, "~> 1.0"},
+      # NATS, for request/reply to the mothership only — never for events.
+      # Events arrive over cable; this is the ASK path (is this token real?).
+      {:gnat, "~> 1.9"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 1.0"},

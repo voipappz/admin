@@ -221,7 +221,7 @@ export const useNotifications = () => {
 
   // Helper function to calculate time ago
   // One fetch for what already exists. There is no interval any more: the
-  // server PUSHES new notifications over the cable (deno subscribes this user's
+  // server PUSHES new notifications over the cable (the portal subscribes this user's
   // `notifications:<user_uuid>` stream on their behalf and relays it here), so
   // polling every 30s only re-fetched a list that had not changed.
   useEffect(() => { fetchNotifications(); }, [fetchNotifications]);

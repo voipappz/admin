@@ -5,7 +5,7 @@
 name: voipappz
 root: <%= ENV["PWD"] %>
 
-# Start the core stack (react-app + deno-api) before any window opens.
+# Start the core stack (react-app + elixir) before any window opens.
 pre_window: docker compose up -d
 
 windows:
@@ -14,8 +14,8 @@ windows:
       panes:
         - vite:
             - docker compose logs -f react-app
-        - deno:
-            - docker compose logs -f deno-api
+        - portal:
+            - docker compose logs -f elixir
 
   - shell:
       layout: even-horizontal

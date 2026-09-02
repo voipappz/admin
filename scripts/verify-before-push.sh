@@ -35,21 +35,16 @@ npm run lint
 echo '==> Frontend unit tests'
 npm run test:run
 
-echo '==> Deno type-check and tests'
-if command -v deno >/dev/null 2>&1; then
-  (
-    cd api
-    deno check --frozen app.ts server.ts
-    deno test --frozen --allow-net --allow-env --allow-read --allow-write --allow-ffi tests/
-  )
-elif command -v docker >/dev/null 2>&1; then
-  docker run --rm -e DENO_DIR=/deno-dir -v voipappz-deno-cache:/deno-dir \
-    -v "$repo_dir:/work" -w /work/api denoland/deno:2.5.3 deno check --frozen app.ts server.ts
-  docker run --rm -e DENO_DIR=/deno-dir -v voipappz-deno-cache:/deno-dir \
-    -v "$repo_dir:/work" -w /work/api denoland/deno:2.5.3 \
-    deno test --frozen --allow-net --allow-env --allow-read --allow-write --allow-ffi tests/
+echo '==> Elixir portal compiles clean'
+# Compile only, not `mix test`: the suite needs a Postgres this script has no
+# business standing up, and CI's `portal` job runs it against a real service
+# container. A warning caught here is the thing a push actually introduces.
+if command -v mix >/dev/null 2>&1; then
+  (cd agents_demo && MIX_ENV=test mix compile --warnings-as-errors)
+elif docker compose ps --status running --services 2>/dev/null | grep -qx elixir; then
+  docker compose exec -T -e MIX_ENV=test elixir mix compile --warnings-as-errors
 else
-  echo 'Deno verification requires either deno or Docker.' >&2
+  echo 'Elixir verification needs either mix on PATH or the elixir container running (make up).' >&2
   exit 1
 fi
 

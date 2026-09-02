@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The real-mothership job installs a whole stack and takes ~30 minutes, so it
+  # is asked for rather than paid for on every push — the same opt-in shape
+  # va-crystal uses for its heavy jobs. `make act` stays runnable because of it.
+  workflow_dispatch:
 
 jobs:
   web:
@@ -27,139 +31,47 @@ jobs:
           npx vitest run --configLoader runner src/services/ciSmokeApi.test.js
           rm -rf src/components/CiSmoke src/services/ciSmokeApi.js src/services/ciSmokeApi.test.js
 
-  api:
-    name: Deno API (check + tests + boot smoke)
+  portal:
+    name: Elixir portal (compile + tests)
     runs-on: ubuntu-latest
+    # The portal verifies tokens and persists conversations, so its tests need
+    # a real Postgres. Same major as production.
     services:
-      # Core NATS only. The app deliberately does not use JetStream.
-      nats:
-        image: nats:2-alpine
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
         ports:
-          - 14222:4222
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    env:
+      MIX_ENV: test
+      PGHOST: localhost
+      PGPORT: 5432
     defaults:
       run:
-        working-directory: api
+        working-directory: agents_demo
     steps:
       - uses: actions/checkout@v4
-      - uses: denoland/setup-deno@v2
+      - uses: erlef/setup-beam@v1
         with:
-          deno-version: v2.x
-      - name: Development MCP token onboarding
-        working-directory: .
-        run: |
-          token_file="$RUNNER_TEMP/voipappz-mcp.env"
-          first_run="$(MCP_TOKEN_FILE="$token_file" bash scripts/dev-mcp-token.sh)"
-          token="$(sed -n 's/^MCP_AUTH_TOKEN=//p' "$token_file")"
-          test "$(stat -c '%a' "$token_file")" = 600
-          [[ "$token" =~ ^[a-fA-F0-9]{64}$ ]]
-          [[ "$first_run" == *"show it again: make mcp-token"* ]]
-          second_run="$(MCP_TOKEN_FILE="$token_file" bash scripts/dev-mcp-token.sh --show)"
-          test "$(sed -n 's/^MCP_AUTH_TOKEN=//p' "$token_file")" = "$token"
-          [[ "$second_run" == *"MCP URL (host):"* ]]
-          [[ "$second_run" == *"Authorization: Bearer $token"* ]]
-      - run: deno check app.ts server.ts
-      - run: deno test --allow-net --allow-env --allow-read --allow-write --allow-ffi tests/
-        env:
-          NATS_TEST_URL: nats://127.0.0.1:14222
-      - name: Current cdr.write.bulk + committed replay → DuckDB → ready
-        run: |
-          export NATS_TEST_URL=nats://127.0.0.1:14222
-          nats_tmp=$(mktemp -d)
-          fixture_ready="$nats_tmp/fixture-ready"
-          NATS_FIXTURE_READY_FILE="$fixture_ready" \
-            deno run --allow-net --allow-env --allow-write tests/fixtures/nats_cdr_service.ts &
-          replay_pid=$!
-          for i in $(seq 1 20); do
-            kill -0 "$replay_pid"
-            test -s "$fixture_ready" && break
-            sleep 0.25
-          done
-          test -s "$fixture_ready"
-          NATS_URL="$NATS_TEST_URL" PORT=14002 EVENT_STORE_PATH="$nats_tmp/events.duckdb" \
-            NATS_CDR_SUBJECTS=events.cdr,cdr.write.bulk EVENT_INSPECTOR_ENABLED=1 \
-            deno run --allow-net --allow-env --allow-read --allow-write --allow-ffi app.ts &
-          server_pid=$!
-          trap 'kill "$server_pid" "$replay_pid" 2>/dev/null || true' EXIT
-          for i in $(seq 1 20); do
-            kill -0 "$server_pid"
-            curl -sf localhost:14002/health/ready > /dev/null 2>&1 && break
-            sleep 1
-          done
-          curl -sf localhost:14002/health/ready | python3 -c 'import json,sys; h=json.load(sys.stdin); assert h["ready"] is True; assert h["status"] == "ok"; assert h["checks"]["nats"]["status"] == "up"; assert h["checks"]["cdr_sync"]["status"] == "up"; assert h["checks"]["cable"]["status"] == "disabled"; assert h["checks"]["event_store"]["retention"] == "forever"; assert h["event_pipeline"]["persisted"] == 1'
-          deno run --allow-net --allow-env tests/fixtures/publish_nats_cdr.ts
-          for i in $(seq 1 20); do
-            curl -sf 'localhost:14002/events?limit=10&call_id=ci-live-cdr-call' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["total"] == 1; assert d["events"][0]["raw_payload"]["metadata"]["Event-Name"] == "CHANNEL_HANGUP_COMPLETE"' && break
-            sleep 0.25
-          done
-          curl -sf 'localhost:14002/events?limit=10' | python3 -c 'import json,sys; d=json.load(sys.stdin); by_call={e["call_id"]: e for e in d["events"]}; assert d["total"] == 2; assert set(by_call) == {"ci-cdr-call", "ci-live-cdr-call"}; live=by_call["ci-live-cdr-call"]; assert live["raw_payload"]["call_uuid"] == "ci-live-cdr-call"; assert live["raw_payload"]["data"]["hangup_cause"] == "NORMAL_CLEARING"'
-          curl -sf 'localhost:14002/dashboard/snapshot?from=1786100000&to=1786200000' | python3 -c 'import json,sys; d=json.load(sys.stdin); calls={c["id"]: c for c in d["recent_calls"]}; assert d["stats"]["total"] == 2; assert d["stats"]["answered"] == 2; assert calls["ci-cdr-call"]["status"] == "completed"; assert calls["ci-cdr-call"]["duration_sec"] == 30; assert calls["ci-live-cdr-call"]["status"] == "completed"; assert calls["ci-live-cdr-call"]["duration_sec"] == 18'
-      - name: Live ActionCable CallEvents → DuckDB → MCP + Dashboard
-        run: |
-          cable_tmp=$(mktemp -d)
-          fixture_ready="$cable_tmp/ready"
-          CABLE_FIXTURE_READY_FILE="$fixture_ready" CABLE_FIXTURE_PORT=14223 \
-            CABLE_FIXTURE_TOKEN=ci-cable-token CABLE_FIXTURE_CALL_ID=ci-cable-call \
-            deno run --allow-net --allow-env --allow-write tests/fixtures/cable_service.ts &
-          fixture_pid=$!
-          for i in $(seq 1 20); do
-            kill -0 "$fixture_pid"
-            test -s "$fixture_ready" && break
-            sleep 0.25
-          done
-          test -s "$fixture_ready"
-          NATS_URL='' CABLE_URL=ws://127.0.0.1:14223/cable CABLE_TOKEN=ci-cable-token \
-            PORT=14003 EVENT_STORE_PATH="$cable_tmp/events.duckdb" EVENT_INSPECTOR_ENABLED=1 \
-            MCP_ENABLED=1 MCP_AUTH_TOKEN=ci-mcp-token EVENTS_STALE_SECONDS=300 \
-            deno run --allow-net --allow-env --allow-read --allow-write --allow-ffi app.ts &
-          server_pid=$!
-          trap 'kill "$server_pid" "$fixture_pid" 2>/dev/null || true' EXIT
-          for i in $(seq 1 40); do
-            kill -0 "$server_pid" "$fixture_pid"
-            if curl -sf localhost:14003/test | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["cable_ready"] is True; assert d["persisted"] == 3' > /dev/null 2>&1; then break; fi
-            sleep 0.25
-          done
-          curl -sf localhost:14003/health/ready | python3 -c 'import json,sys; h=json.load(sys.stdin); p=h["event_pipeline"]; assert h["ready"] is True; assert h["status"] == "ok"; assert h["checks"]["cable"]["status"] == "up"; assert h["checks"]["nats"]["status"] == "disabled"; assert h["checks"]["event_store"]["events"] == 3; assert {k:p[k] for k in ("received","persisted","duplicates","persistence_failures","relayed")} == {"received":3,"persisted":3,"duplicates":0,"persistence_failures":0,"relayed":3}; assert p["websocket_backpressure_drops"] == 0; assert p["websocket_oversized_drops"] == 0'
-          curl -sf 'localhost:14003/events?limit=10&call_id=ci-cable-call' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["total"] == 3; assert {e["event_type"] for e in d["events"]} == {"call.ringing","call.answered","call.completed"}; assert {e["raw_payload"]["action"] for e in d["events"]} == {"number.ringing","number.answer","number.hangup"}; assert all(e["raw_payload"]["type_uuid"] == "ci-cable-call" for e in d["events"])'
-          curl -sf localhost:14003/dashboard/snapshot | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["stats"]["total"] == 1; assert d["stats"]["answered"] == 1; assert d["recent_calls"][0]["id"] == "ci-cable-call"; assert d["recent_calls"][0]["status"] == "completed"; assert d["recent_calls"][0]["duration_sec"] == 60'
-          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST localhost:14003/mcp)" = 401
-          curl -sf localhost:14003/mcp -H 'Authorization: Bearer ci-mcp-token' -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["result"]["protocolVersion"] == "2025-06-18"; assert d["result"]["serverInfo"]["name"] == "voipappz-duckdb"'
-          curl -sf localhost:14003/mcp -H 'Authorization: Bearer ci-mcp-token' -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"duckdb_call_timeline","arguments":{"call_id":"ci-cable-call"}}}' | python3 -c 'import json,sys; d=json.load(sys.stdin)["result"]["structuredContent"]; assert d["source"] == "duckdb"; assert d["total"] == 3; assert [e["raw_payload"]["action"] for e in d["events"]] == ["number.ringing","number.answer","number.hangup"]'
-      # Boot the server with no env at all and prove the health surface is up —
-      # optional deps must report "disabled", never crash the boot.
-      # Permissions must match how the server is ACTUALLY run everywhere else
-      # (compose, api/Dockerfile, Dockerfile.production): the event store's
-      # DuckDB binding is native, so without --allow-ffi the boot dies before
-      # serving anything and the probe below fails with curl's exit 7. This
-      # step varies the CONFIG, not the permission set.
-      - name: Boot smoke (/test + /health with zero config)
-        run: |
-          # Keep this isolated from the Crystal pipeline job, which also uses
-          # the host network under act. Track this exact child so a stale
-          # process can never make the probe pass while this boot failed.
-          ci_port=14001
-          PORT="$ci_port" deno run --allow-net --allow-env --allow-read --allow-write --allow-ffi app.ts &
-          server_pid=$!
-          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          for i in $(seq 1 20); do
-            kill -0 "$server_pid"
-            curl -sf "localhost:$ci_port/test" > /dev/null 2>&1 && break
-            sleep 1
-          done
-          curl -sf "localhost:$ci_port/test"
-          echo
-          curl -sf "localhost:$ci_port/health"
-          echo
-          curl -sf "localhost:$ci_port/health/live"
-          echo
-          curl -sf "localhost:$ci_port/health/ready"
-
-  crystal-pipeline:
-    name: Crystal mock → DuckDB → health/dashboard
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build API image and verify consumed-event pipeline
-        run: npm run test:crystal
+          elixir-version: "1.19.5"
+          otp-version: "27.3.4"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            agents_demo/deps
+            agents_demo/_build
+          key: mix-${{ runner.os }}-${{ hashFiles('agents_demo/mix.lock') }}
+          restore-keys: mix-${{ runner.os }}-
+      - run: mix deps.get
+      # --warnings-as-errors here and not in the app: a warning that reaches
+      # main is a warning nobody reads again.
+      - run: mix compile --warnings-as-errors
+      - run: mix test
 
   e2e:
     name: E2E smoke (mock login → dashboard)
@@ -180,19 +92,111 @@ jobs:
           npx wait-on -t 30000 http://localhost:4200
           PLAYWRIGHT_BASE_URL=http://localhost:4200 npx playwright test tests/smoke.spec.ts
 
+  # The e2e job above builds with VITE_MOCK_LOGIN=1: any email, OTP 123456, no
+  # backend. It cannot catch a changed /auth/login contract, a forwarder that
+  # stops forwarding, or a token this app mints and the API rejects — all of
+  # which ship green today. This job closes that hole the way the mothership
+  # proves the chrome extension: install the real thing with its own PUBLIC
+  # INSTALLER on a clean runner, onboard it, and sign in for real.
+  #
+  # Invocation copied from mothership .github/workflows/ci.yml `health-check`.
+  # Pushes cannot receive the registry secrets on forked PRs, and the install
+  # is slow, so this is workflow_dispatch only.
+  mothership-e2e:
+    name: clean install · real mothership login
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # The stack under test is the mothership's own checkout, exactly as its
+      # health-check job uses ${{ github.workspace }} for its own.
+      - name: Fetch the mothership
+        run: git clone --depth 1 https://github.com/voipappz/mothership /tmp/mothership
+
+      # THE INSTALLER, not a CLI: this is the command an operator runs, driven
+      # THROUGH A REAL TERMINAL by the mothership's own expect script, so a
+      # missing or reworded prompt fails here rather than silently.
+      - name: Install the mothership with the public installer
+        env:
+          VA_STACK_DIR: /tmp/mothership
+          INSTALL_DIR: /opt/voipappz
+          DOMAIN: mothership.ci.example
+          HUB_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          HUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          ADMIN_EMAIL: ci@mothership.ci.example
+          ADMIN_PASSWORD: Vpz-ci-${{ github.run_id }}
+        shell: bash -eo pipefail {0}
+        run: |
+          sudo apt-get install -y -qq expect >/dev/null
+          cd /tmp/mothership
+          expect tests/tty-install.exp installer/install.sh 2>&1 | tee /tmp/install.log
+
+      - name: Every app-profile service is running
+        run: |
+          cd /opt/voipappz
+          expected=$(sh scripts/compose-images.sh app | wc -l)
+          sudo docker compose ps --status running --format '{{.Service}}' | tee /tmp/running
+          test "$(wc -l < /tmp/running)" -ge "$((expected - 2))"   # createbuckets and db-init exit by design
+
+      # Onboarding is idempotent and prints the extension user as RESULT_USER_*.
+      - name: Onboard, and take the credential it prints
+        id: onboard
+        run: |
+          cd /opt/voipappz
+          sudo make onboard | tee /tmp/onboard.log
+          EMAIL=$(sed -n 's/^RESULT_USER_EMAIL=//p' /tmp/onboard.log | head -1)
+          PASS=$(sed -n 's/^RESULT_USER_PASSWORD=//p' /tmp/onboard.log | head -1)
+          test -n "$EMAIL" && test -n "$PASS"
+          echo "::add-mask::$PASS"
+          echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
+          echo "password=$PASS" >> "$GITHUB_OUTPUT"
+
+      # The PRODUCTION image, not `vite preview`: the app reaches the API
+      # same-origin through the portal's forwarder, so previewing the bundle
+      # alone would test a path production never takes.
+      - name: Build and run the production image against that install
+        run: |
+          docker build -f Dockerfile.production -t voipappz-app:ci .
+          docker run -d --name app --network host \
+            -e PORT=4200 -e ENGINE_URL=http://127.0.0.1:5000 voipappz-app:ci
+          npx wait-on -t 60000 http://localhost:4200/health/alive
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Sign in for real
+        env:
+          MOTHERSHIP_E2E_EMAIL: ${{ steps.onboard.outputs.email }}
+          MOTHERSHIP_E2E_PASSWORD: ${{ steps.onboard.outputs.password }}
+        run: PLAYWRIGHT_BASE_URL=http://localhost:4200 npx playwright test tests/mothership-login.spec.ts
+
+      - name: Why it failed (logs from both sides)
+        if: failure()
+        run: |
+          docker logs --tail 100 app || true
+          cd /opt/voipappz 2>/dev/null || exit 0
+          sudo docker compose ps -a || true
+          for s in postgres db-init web; do echo "===== $s"; sudo docker compose logs --no-color --tail 80 "$s" || true; done
+
   prod-image:
     name: Production image (build + boot + surface probes)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # The exact artifact Kamal deploys: Vite build + deno runtime in one image.
+      # The exact artifact Kamal deploys: the Vite build plus the Phoenix
+      # release in one image.
       - name: Build Dockerfile.production
         run: docker build -f Dockerfile.production -t voipappz-app:ci .
       - name: Boot and probe every surface
         run: |
           docker run -d --name app -p 3000:3000 -e PORT=3000 voipappz-app:ci
           for i in $(seq 1 30); do
-            curl -sf localhost:3000/test > /dev/null 2>&1 && break
+            curl -sf localhost:3000/health/alive > /dev/null 2>&1 && break
             sleep 1
           done
           probe() {  # path, expected, extra curl args...
@@ -201,9 +205,10 @@ jobs:
             if [ "$code" = "$expected" ]; then echo "  ✓ $path → $code"
             else echo "  ✗ $path → $code (expected $expected)"; docker logs app | tail -20; exit 1; fi
           }
-          probe /            200
-          probe /test        200
-          probe /health      200
-          probe /rest/v1/x   503                       # postgrest off by default
-          probe /connectors/postgrest/auth/login 400 -X POST -H 'content-type: application/json' -d '{}'
+          probe /              200                    # the SPA index
+          probe /health/alive  200
+          probe /health/ready  200
+          # ENGINE_URL is unset in this container, so the forwarder is inert and
+          # the router owns the path. Proves the plug does not swallow it.
+          probe /auth/user_login 404 -X POST -H 'content-type: application/json' -d '{}'
           docker rm -f app

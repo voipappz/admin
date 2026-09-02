@@ -2,7 +2,7 @@
  * Widget templates — ready-made definitions for the local dashboard.
  *
  * Ported from nimbus-admin's `widgetTemplates.js`, but every metric is re-keyed
- * to what THIS backend actually serves: the deno `/dashboard/snapshot`
+ * to what THIS backend actually serves: the `/dashboard/snapshot`
  * projection (`stats` keys, `calls_per_hour` series, `recent_calls` columns).
  * Nimbus's `agents.*` / `queue.*` / InfluxDB SQL templates are deliberately
  * absent — nothing here produces them.

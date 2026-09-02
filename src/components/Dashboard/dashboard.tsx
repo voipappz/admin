@@ -40,7 +40,7 @@ interface LocalWidget {
  * End-user live dashboard.
  *
  * Two data planes, deliberately separate:
- *  - The local DuckDB projection (deno `/dashboard/snapshot`, polled) powers the
+ *  - The local event projection (`/dashboard/snapshot`, polled) powers the
  *    KPI tiles, the calls-per-hour chart and the recent-calls table.
  *  - The va-crystal Cable stream powers the live queues/agents widgets; that
  *    section renders only once widget frames actually arrive, so an

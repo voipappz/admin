@@ -1,6 +1,6 @@
 // Bucket calls into hourly counts.
 //
-// This used to come from InfluxDB (date_bin, server-side) through deno's
+// This used to come from InfluxDB (date_bin, server-side) through the Deno BFF's
 // /dashboard/calls-per-hour. That endpoint answers 503 whenever INFLUXDB_URL is
 // unset — which it is — so the chart was permanently empty. The mothership is
 // the source of truth for calls and this app already reads it for the Calls

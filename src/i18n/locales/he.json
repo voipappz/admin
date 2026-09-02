@@ -806,7 +806,7 @@
   },
   "eventExplorer": {
     "title": "אירועים גולמיים מ-DuckDB",
-    "subtitle": "אירועי NATS/Cable המקוריים שנשמרו על ידי Deno. בחירת שורה מציגה את ה-JSON הגולמי.",
+    "subtitle": "אירועי NATS/Cable המקוריים שנשמרו. בחירת שורה מציגה את ה-JSON הגולמי.",
     "refresh": "רענון",
     "search": "חיפוש ב-JSON או במזהים",
     "eventType": "סוג אירוע",
@@ -816,12 +816,12 @@
     "occurredAt": "זמן האירוע",
     "apply": "החל",
     "clear": "נקה",
-    "disabled": "מציג DuckDB מושבת. יש להגדיר EVENT_INSPECTOR_ENABLED=1 ב-Deno.",
+    "disabled": "מציג האירועים אינו זמין: הצד השרתי שלו טרם הועבר לפורטל.",
     "error": "לא ניתן לטעון אירועים מ-DuckDB",
     "empty": "לא נמצאו אירועים שמורים התואמים למסננים.",
     "table": "רשומות אירועים מ-DuckDB",
     "rawPayload": "האירוע הגולמי כפי שנשמר",
-    "normalizedPayload": "ההקרנה המנורמלת של Deno",
+    "normalizedPayload": "ההקרנה המנורמלת",
     "copyRaw": "העתקת JSON גולמי",
     "copied": "הועתק"
   },

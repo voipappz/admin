@@ -1,10 +1,9 @@
-# Core services (react-app + deno-api) have NO profile, so a plain
+# Core services (react-app + elixir + chrome-ext) have NO profile, so a plain
 #   docker compose up -d        (or: make up)
 # starts ONLY them. Everything else is behind a profile and is never built or
 # started by a default `up`/`build` — so a heavy/optional build (e.g. the
 # `production` image) failing can never break the core dev stack. Opt in with:
 #   docker compose --profile tools up -d claude
-#   docker compose --profile test  run --rm deno-tests
 #   docker compose --profile prod  build production
 services:
   # Claude AI CLI (dev shell). Opt-in: --profile tools
@@ -51,10 +50,11 @@ services:
     environment:
       NODE_ENV: development
       TERM: xterm
-      # Every same-origin browser request enters deno-api first. Deno forwards
-      # /api, /auth and /tasks to MOTHERSHIP_URL and owns the Cable connection.
-      # deno-api uses host networking, so Vite reaches it via the host gateway.
-      VITE_DENO_API_TARGET: ${VITE_DENO_API_TARGET:-http://host.docker.internal:4001}
+      # Every same-origin browser request enters the Elixir portal. It forwards
+      # /api, /auth and /tasks to MOTHERSHIP_URL, serves /ws/events, and holds
+      # the cable connection. The portal uses host networking, so Vite reaches
+      # it via the host gateway.
+      VITE_PORTAL_TARGET: ${VITE_PORTAL_TARGET:-http://host.docker.internal:4001}
       # Offline mock login passthrough (see CLAUDE.md) — lets `make test` run
       # the E2E suite against the dev stack: VITE_MOCK_LOGIN=1 make up
       VITE_MOCK_LOGIN: ${VITE_MOCK_LOGIN:-}
@@ -92,63 +92,215 @@ services:
         ls -la dist/
       "
 
-  # Deno API server (CORE — thin BFF: auth proxy, cable→/ws relay, engine reads).
-  deno-api:
-    image: denoland/deno:latest
-    security_opt:
-      - "seccomp=unconfined"
-    # Managed lifecycle (Kamal-parity) — survive crashes/reboots instead of an
-    # ad-hoc `deno run`. Prod uses the same process via the Kamal `web` role.
-    restart: unless-stopped
+  # The Chrome extension (chrome/) — the Angular popup plus the MV3 background
+  # worker. CORE, because it is a client of the portal beside it: it posts
+  # /auth/user_login to :4001 and opens its socket on :4001/ws/events, so a
+  # stack without it is missing the thing those two surfaces exist for.
+  #
+  # NOTHING IS SERVED, and that is not an omission. Chrome loads an extension
+  # from a DIRECTORY on disk, never over HTTP, so the artefact is
+  # chrome/angular/dist on the host mount and this container's whole job is to
+  # keep it fresh (`npm run watch` = ng build --watch + webpack -w). Load it
+  # once with "Load unpacked"; after that a popup edit needs nothing and a
+  # background/content-script edit needs the reload button in
+  # chrome://extensions. There is no port to point a browser at.
+  #
+  # NODE 20, NOT the 24 react-app runs. Angular 11 + webpack 4 need
+  # --openssl-legacy-provider (already inside package.json's scripts) and do not
+  # build on current Node even with it.
+  chrome-ext:
+    image: node:20
+    # The invoking user, so angular/dist lands HOST-owned. Everything this
+    # container produces is read by Chrome and rewritten by hand — `npm run
+    # build` on the host, the e2e global-setup, a plain rm — and root-owned
+    # output makes all three fail with EACCES inside a directory the developer
+    # appears to own. UID/GID are not exported by a shell, so the Makefile
+    # passes them; 1000 is the default a Linux desktop user actually has.
+    user: "${UID:-1000}:${GID:-1000}"
     working_dir: /app
     volumes:
-      - ./api:/app
-      - event_store_data:/data
-    # Host networking so localhost:4000 reaches the va-crystal node's Cable
-    # endpoint. Also publishes :4001.
+      - ./chrome:/app
+      # Its own volume. The extension has its OWN package.json and a ~650MB
+      # node_modules that shares node_modules_cache with nothing — the SPA's
+      # tree would overwrite it and neither build would resolve.
+      - chrome_node_modules:/app/node_modules
+    # `npm ci` only on a cold volume: it deletes node_modules first, so running
+    # it on every start would spend two minutes rebuilding an identical tree
+    # before the watcher that is the point of this container ever begins.
+    command: >
+      bash -c "
+        [ -x node_modules/.bin/ng ] || npm ci --legacy-peer-deps --no-audit --no-fund;
+        npm run watch
+      "
+
+  # The Elixir portal — the origin everything else points at. It serves the SPA
+  # and /ws/events, verifies tokens over NATS, holds ONE cable connection and
+  # fans out over PubSub, and forwards the mothership's own routes (/auth,
+  # /api/, /tasks/) upstream so it is a complete origin on its own.
+  #
+  # DEV STAGE, MOUNTED SOURCE. `target: dev` stops at the toolchain and runs
+  # `mix phx.server` over ./agents_demo, so an edit reloads. The release stages
+  # above are what ships; this one is what you type against.
+  elixir:
+    build:
+      context: ./agents_demo
+      target: dev
+    restart: unless-stopped
+    # Host networking because cable (:4100), NATS (:4222) and Postgres (:5432)
+    # are all published on the host's loopback,
+    # and a bridged container cannot see 127.0.0.1.
     network_mode: host
     env_file:
       - path: .env
-        required: false   # template: `make up` works before .env exists
-      - path: .mcp.env
-        required: false   # generated local MCP bearer token; never loaded by Vite
+        required: false
     environment:
-      PORT: 4001
-      # Live ActionCable endpoint. An explicit CABLE_URL enables the client;
-      # protected va-crystal endpoints additionally need SECRET_KEY or a
-      # ready-made CABLE_TOKEN.
-      SECRET_KEY: ${SECRET_KEY:-}
-      CABLE_URL: ${CABLE_URL:-}
-      CABLE_TOKEN: ${CABLE_TOKEN:-}
-      # Engine (voipappz-api, "the brain") — transcripts are read on request from
-      # its event store. Server-side basic-auth creds, NEVER VITE_-prefixed.
-      # MOTHERSHIP_URL is the one tenant knob; ENGINE_URL overrides it when the
-      # engine lives elsewhere. Must be resolved here — this `environment:` entry
-      # would otherwise shadow whatever .env sets via env_file.
-      ENGINE_URL: ${ENGINE_URL:-${MOTHERSHIP_URL:-https://cloud.voipappz.io}}
-      ACCOUNT_EMAIL: ${ACCOUNT_EMAIL:-}
-      ACCOUNT_PASSWORD: ${ACCOUNT_PASSWORD:-}
-      # Event-freshness alarm: seconds the cable can be silent before /health
-      # reports the stream `stale` (degraded, not 503). 0 disables. Default 15min.
-      EVENTS_STALE_SECONDS: ${EVENTS_STALE_SECONDS:-900}
-      EVENT_STORE_PATH: /data/events.duckdb
-      # Development-only read surface used by the in-app Raw events page.
-      # Production remains off unless an operator explicitly enables it.
-      EVENT_INSPECTOR_ENABLED: ${EVENT_INSPECTOR_ENABLED:-1}
-      # Developer-agent access to the same DuckDB rows. Development enables it
-      # for loopback clients; a token is still required beyond localhost.
-      MCP_ENABLED: ${MCP_ENABLED:-1}
-      MCP_ALLOW_LOCALHOST_WITHOUT_TOKEN: ${MCP_ALLOW_LOCALHOST_WITHOUT_TOKEN:-1}
-      # Current-system CDR tap. cdr.write.bulk is the same batch the Ruby API
-      # consumes to insert EventCdr. Selecting events.cdr enables replay.
+      PORT: ${PORTAL_PORT:-4001}
+      # Where the SPA's built assets live. Vite serves them on :4200 during
+      # development; this is the fallback that makes :4001 a complete origin
+      # on its own — the extension logs in against it with no Vite running.
+      SPA_ROOT: /spa
+      # The API. /auth, /api/ and /tasks/ are forwarded here, and it is also
+      # the issuer that answers auth.request.verify over NATS.
+      #
+      # DELIBERATELY NOT `${ENGINE_URL:-${MOTHERSHIP_URL:-...}}`. Compose
+      # interpolates from .env, where MOTHERSHIP_URL is the TENANT knob and is
+      # normally the cloud — so that chain silently pointed this container at
+      # production while the cable and the broker beside it stayed local. The
+      # symptom was a login that failed for a user who exists locally, which
+      # reads as broken auth rather than as the wrong host.
+      #
+      # This stack is only coherent when the API, the cable and the broker are
+      # the same three local processes, so local is the default and one
+      # explicit variable moves it.
+      ENGINE_URL: ${PORTAL_ENGINE_URL:-http://127.0.0.1:5000}
+      # The LISTEN half: one upstream cable connection for the whole app.
+      CABLE_URL: ${PORTAL_CABLE_URL:-ws://127.0.0.1:${CABLE_PORT:-4100}/cable}
+      # Mints the cable credential instead of forwarding the browser's token —
+      # cable is then handed a statement this app makes about an identity NATS
+      # already verified, carrying the uuid and nothing else. Unset, the
+      # caller's own token is forwarded, which also works. `make dev` supplies
+      # this from the API container, the same value the cable verifies with.
+      CABLE_SECRET_KEY: ${SECRET_KEY:-}
+      # The ASK half. Token verification is a NATS request/reply to the API —
+      # this app never verifies a credential it did not have to ask about, and
+      # never reaches the API over HTTP. Unset, every connection is refused.
       NATS_URL: ${NATS_URL:-}
-      NATS_CDR_SUBJECTS: ${NATS_CDR_SUBJECTS:-cdr.write.bulk}
-      NATS_RECONCILE_SECONDS: ${NATS_RECONCILE_SECONDS:-30}
-      # Optional connector; the current Dashboard does not require it.
-      INFLUXDB_URL: ${INFLUXDB_URL:-}
-      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:-}
-      INFLUXDB_DATABASE: ${INFLUXDB_DATABASE:-telegraf}
-    command: deno run --allow-net --allow-env --allow-read --allow-write --allow-ffi --watch app.ts
+    volumes:
+      - ./agents_demo:/app
+      # The built SPA, read-only: the server has no reason to write into it.
+      - ./dist:/spa:ro
+      # Named, so a recreate does not throw away a full compile — and so the
+      # host's own _build/deps (built by a different OTP on a different libc)
+      # never leak into the container.
+      - elixir_build:/app/_build
+      - elixir_deps:/app/deps
+
+  # va-crystal's cable, for local development. Opt-in:
+  #   docker compose --profile cable up -d cable
+  #
+  # WHY THIS IS HERE: the portal is a CLIENT of cable, and developing against it
+  # otherwise meant having a whole installed node on the box — kamailio,
+  # FreeSWITCH, the SIP plane — when what the portal needs is one WebSocket
+  # endpoint. Without one, CABLE_URL points at nothing and every realtime path
+  # quietly does not work.
+  #
+  # THE LEGACY IMAGE ON PURPOSE. `nirlevi/voipappz-crystal:latest` is the cheap
+  # one: its entrypoint is /opt/DockerRun, which starts the node binary and
+  # nothing else. The stack image supervises kamailio and FreeSWITCH beside it
+  # under s6, which is what a real node needs and what a developer does not —
+  # and is why this one can share a box with an installed node instead of
+  # fighting it for 5060/5080/8021.
+  #
+  # PORT 4100, not 4000: an installed node already binds 4000 on a dev box, and
+  # two cables on one port is a confusing way to find that out. Point the portal
+  # at it with CABLE_URL=ws://127.0.0.1:4100/cable.
+  cable:
+    profiles: ["cable"]
+    image: ${VA_CRYSTAL_IMAGE:-nirlevi/voipappz-crystal:latest}
+    restart: unless-stopped
+    # Host networking so it reaches the broker on 127.0.0.1:4222, the same way
+    # the rest of this stack reaches the host.
+    network_mode: host
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: ${CABLE_PORT:-4100}
+      # SECRET_KEY MUST EQUAL THE API'S JWT SIGNING SECRET. Cable verifies user
+      # tokens against it (node/realtime/app.cr) and, when it is empty, refuses
+      # EVERY connection — its own log says so, but nothing else does: the node
+      # starts, answers /health, and authenticates nobody. At each client that
+      # presents as a socket closing before `welcome`, which is indistinguishable
+      # from a dead network. Two nodes inspected on 2026-09-02 had it empty.
+      #
+      # NOT `${SECRET_KEY:?...}`. Compose interpolates the WHOLE file on every
+      # invocation, before it looks at profiles — so a required-variable guard
+      # here is not scoped to this service: it aborts `make dev`, `make down`,
+      # everything, over a service that was never being started. The loud check
+      # lives in `make cable` instead, which is the only thing that starts this.
+      SECRET_KEY: ${SECRET_KEY:-}
+      # The broker carries the event streams cable relays. CREDENTIALS ARE
+      # REQUIRED: va-nats rejects anonymous clients with 'Authorization
+      # Violation', which the node retries ten times and then downgrades to a
+      # warning — it keeps running with realtime state degraded rather than
+      # failing, so an unauthenticated broker looks like a working cable that
+      # never delivers anything. `make cable` lifts the real URL out of the API
+      # container and rewrites the host, so no secret lands in this file.
+      NATS_URL: ${NATS_URL:-nats://127.0.0.1:4222}
+      # The API this cable belongs to. Left unset the node defaults to
+      # https://cloud.voipappz.io — i.e. a local container talking to
+      # production — so it is set explicitly to the local API (va-app on :5000).
+      # Scoped to the cable for the same reason ENGINE_URL is scoped on the
+      # portal: .env's MOTHERSHIP_URL is the tenant Vite proxies to, not the
+      # API this local node belongs to.
+      #
+      # THE NODE DOES NOT AUTHENTICATE HERE. Every call it makes is identified
+      # by NODE_UUID alone (`GET #{API_URL}/switch/api/crystal/...`) — there is
+      # no account, token or basic-auth path anywhere in va-crystal's source.
+      # So this server only answers if NODE_UUID names a node registered on it.
+      API_URL: ${CABLE_API_URL:-https://nimbus-prod.voipappz.io}
+      # A stable dev identity. Not registered with the API — this is a cable
+      # endpoint for a developer, not a node claiming to be a switch.
+      NODE_UUID: ${CABLE_NODE_UUID:-00000000-0000-0000-0000-0000000cab1e}
+      # Debug prints payloads, which carry caller and destination numbers. Fine
+      # locally, and the reason production sets Warn.
+      CABLE_LOG_LEVEL: ${CABLE_LOG_LEVEL:-Debug}
+      # The login pipeline: Chrome -> Elixir -> THIS -> Ruby API. Off by default
+      # in va-crystal because it is a new inbound surface on every node; on here
+      # because fronting the API over cable is the whole point of the local
+      # stack. See CLAUDE.md "The login pipeline".
+      CABLE_API_PROXY: ${CABLE_API_PROXY:-1}
+      # LICENCE, NOT SECURITY. The binary reads both of these at CONST INIT
+      # (license/license.cr:490,502) and raises if either is missing, so the
+      # container crash-loops before it ever binds a port — with a message about
+      # a licence, which reads like an entitlement problem rather than a missing
+      # dev variable. Enforcement itself is opt-in (LICENSE_ENFORCE=1,
+      # node.cr:143) and stays off here, so the VALUES are never checked against
+      # anything: any non-empty string boots. These placeholders are deliberately
+      # not a real node's keys — copying those in would make a developer's
+      # laptop able to mint licences.
+      LICENSE_JWT_SECRET: ${LICENSE_JWT_SECRET:-dev-not-a-secret}
+      LICENSE_ENCRYPTION_KEY: ${LICENSE_ENCRYPTION_KEY:-dev-not-a-secret}
+      # Also read at const init, and also fatal when missing. /opt/va.yaml is
+      # the path every script in va-crystal uses, so keeping it here means a
+      # real node's file can be swapped in by changing the mount alone.
+      VA_PATH: /opt/va.yaml
+      # There is no FreeSWITCH in this image, but the ESL event consumer starts
+      # unconditionally and RAISES when this is unset (event_subscriber.cr:42,
+      # "no default") — killing the process before Kemal binds. The value is
+      # never used: the consumer cannot resolve `freeswitch` either, and logs a
+      # reconnect warning instead of dying. ClueCon is FreeSWITCH's own default,
+      # i.e. deliberately not a secret.
+      FREESWITCH_PASSWORD: ${FREESWITCH_PASSWORD:-ClueCon}
+    volumes:
+      # Read-only: the node has no business rewriting a developer's config, and
+      # a container that mutates a repo file is a confusing thing to debug.
+      - ./config/cable/va.yaml:/opt/va.yaml:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:${CABLE_PORT:-4100}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   # Playwright E2E (browsers preinstalled). Opt-in: --profile test
   # Drives the app on the host network (make up / make dev must be running,
@@ -169,42 +321,35 @@ services:
         npx playwright test
       "
 
-  # Deno API tests. Opt-in: --profile test
-  deno-tests:
-    profiles: ["test"]
-    image: denoland/deno:latest
-    working_dir: /app
-    volumes:
-      - ./api:/app
-    env_file:
-      - path: .env
-        required: false   # template: `make up` works before .env exists
-    command: deno test --allow-net --allow-env --allow-read --allow-write --allow-ffi tests/
-
   # Production image (build + run). Opt-in: --profile prod
-  # Heavy build (Deno + Vite). Behind a profile so a build failure can never
-  # break the core dev stack — it is only built/run when you ask for it.
+  # Heavy build (Vite + an Elixir release). Behind a profile so a build failure
+  # can never break the core dev stack — it is only built/run when you ask.
   production:
     profiles: ["prod"]
     build:
       context: .
       dockerfile: Dockerfile.production
-    # The image serves everything on PORT (deno: dist/ + API) — same process
-    # Kamal runs in prod (config/deploy.yml, app_port 3000).
+    # One process serves everything on PORT: the SPA out of /app/dist, the
+    # forwarded /auth + /api routes, and /ws/events — the same process Kamal
+    # runs in prod (config/deploy.yml, app_port 3000).
     ports:
       - "8000:3000"
     environment:
       PORT: 3000
-      EVENT_STORE_PATH: /data/events.duckdb
+      # The API. Forwarded routes go here, and it is the issuer whose tokens
+      # are verified over NATS.
+      ENGINE_URL: ${ENGINE_URL:-${MOTHERSHIP_URL:-https://cloud.voipappz.io}}
+      CABLE_URL: ${CABLE_URL:-}
+      CABLE_SECRET_KEY: ${SECRET_KEY:-}
       NATS_URL: ${NATS_URL:-}
-      NATS_CDR_SUBJECTS: ${NATS_CDR_SUBJECTS:-cdr.write.bulk}
-      NATS_RECONCILE_SECONDS: ${NATS_RECONCILE_SECONDS:-30}
-    volumes:
-      - event_store_data:/data
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
+      DATABASE_URL: ${DATABASE_URL:-}
     # No container healthcheck: the image has no curl (in prod, kamal-proxy
-    # probes /test externally — config/deploy.yml). Verify locally with:
-    #   curl localhost:8000/test
+    # probes /health/alive externally — config/deploy.yml). Verify locally:
+    #   curl localhost:8000/health/alive
 
 volumes:
+  elixir_build:
+  elixir_deps:
   node_modules_cache:
-  event_store_data:
+  chrome_node_modules:

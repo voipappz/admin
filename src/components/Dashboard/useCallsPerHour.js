@@ -10,7 +10,7 @@ const MAX_CALLS = 500;
 /**
  * Calls-per-hour, derived from the mothership's own call list.
  *
- * It used to come from InfluxDB via deno's `/dashboard/calls-per-hour`, which
+ * It used to come from InfluxDB via the Deno BFF's `/dashboard/calls-per-hour`, which
  * answers 503 unless INFLUXDB_URL is configured — so on every install that had
  * not provisioned a second datastore, the chart was permanently empty. The
  * calls are already in the API this app reads for the Calls page; bucketing

@@ -1,13 +1,14 @@
-import { DENO_API_BASE } from '../lib/clients/denoApi';
+import { PORTAL_API_BASE } from '../lib/clients/portalApi';
 import { getToken } from '../lib/auth';
 
 /**
  * dashboardsApi — CRUD for the LOCAL dashboard widget definitions.
  *
- * The builder writes definitions to deno-api (`/dashboard/widgets`), which
- * stores them in the same DuckDB file as the consumed Crystal events. Widget
- * VALUES always come from the local snapshot projection — a definition only
- * says what to show. No mothership involvement.
+ * The builder writes definitions to the portal (`/dashboard/widgets`), which
+ * stores them in Postgres. Widget VALUES come from the event projection, which
+ * has not moved off the retired Deno BFF yet — so a board saves and reloads
+ * correctly while its widgets render empty. A definition only says what to
+ * show. No mothership involvement.
  *
  * Counter metrics are the DashboardSnapshot.stats keys.
  */
@@ -18,7 +19,7 @@ const dashboardQuery = (dashboardUuid = 'default') =>
 
 async function send(method, path, body) {
   const token = typeof getToken === 'function' ? getToken() : null;
-  const response = await fetch(`${DENO_API_BASE}${path}`, {
+  const response = await fetch(`${PORTAL_API_BASE}${path}`, {
     method,
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

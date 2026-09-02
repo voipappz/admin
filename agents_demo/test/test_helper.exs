@@ -18,6 +18,11 @@ Mimic.copy(Sagents.AgentServer)
 # nothing does. Copied to stand in for a live session.
 Mimic.copy(AgentsDemo.Agents.Coordinator)
 
+# The dashboard routes authenticate with a real user's mothership token, which
+# `TokenAuth` verifies by asking the API over NATS. Copied so a controller test
+# can present an already-verified identity instead of standing up a broker.
+Mimic.copy(AgentsDemo.Realtime.TokenAuth)
+
 ExUnit.start(exclude: [:web_tool, :live_call], capture_log: true)
 # ExUnit.start(exclude: [:web_tool], capture_log: false)
 

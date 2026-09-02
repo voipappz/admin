@@ -29,7 +29,7 @@ export function normalizeUserStatus(row = {}) {
 /**
  * Overlay the live state view onto the polled row.
  *
- * deno-api folds node's state events into a flat view whose field names are
+ * The portal folds node's state events into a flat view whose field names are
  * the ones normalizeUserStatus already reads (`state`, `call_state`,
  * `call_counter`, `talking_to_number`, …), so the view is simply a fresher row.
  *

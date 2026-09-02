@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run the GitHub Actions workflow locally with nektos/act.
 #
-#   scripts/ci-local.sh api    # Deno + Core NATS job
+#   scripts/ci-local.sh portal # Elixir portal job
 #   scripts/ci-local.sh all    # complete workflow
 #   scripts/ci-local.sh -l     # list jobs
 set -euo pipefail

@@ -5,7 +5,7 @@ import {
 } from '../../services/dashboardsApi';
 
 /**
- * useDashboardBuilder — load + mutate the LOCAL widget definitions (deno-api →
+ * useDashboardBuilder — load + mutate the LOCAL widget definitions (the portal →
  * DuckDB). Lazy on `open`; mutations refetch the list (the store is the source
  * of truth — no optimistic state to drift). `onChange` lets the dashboard
  * re-read definitions after any successful mutation.

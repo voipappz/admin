@@ -3,12 +3,12 @@ import { eventsWsProtocols, eventsWsUrl } from '../Calls/useCalls';
 
 /**
  * useUserState — the signed-in user's own live state, streamed from
- * va-crystal's `StateChannel` and bridged by deno-api onto `/ws/events` as
+ * va-crystal's `StateChannel` and bridged by the portal onto `/ws/events` as
  * `user.state` frames.
  *
  * node publishes one NAMED EVENT per transition (`user.ringing`,
  * `user.answer`, `user.hangup` — the mothership's vocabulary) and keeps no
- * totals, so a consumer has to accumulate deltas. deno-api already does that
+ * totals, so a consumer has to accumulate deltas. The portal already does that
  * fold per connection (`api/state_events.ts`) and sends the whole `view`
  * alongside the event name, which is why this hook is a reducer over frames
  * and not over ops: a reconnecting tab gets a complete picture, not the next
@@ -46,7 +46,7 @@ export function useUserState() {
         let msg;
         try { msg = JSON.parse(e.data); } catch { return; }
         if (msg?.type !== 'user.state') return;
-        // An older deno-api relays the raw document with no `view`. Ignore the
+        // An older server relays the raw document with no `view`. Ignore the
         // frame rather than replacing a good picture with undefined.
         if (msg.view && typeof msg.view === 'object') setView(msg.view);
         if (typeof msg.event === 'string') setLastEvent({ event: msg.event, at: msg.at ?? null });

@@ -27,6 +27,8 @@ defmodule AgentsDemo.Realtime.TokenAuth do
 
   require Logger
 
+  alias AgentsDemo.Realtime.Bus
+
   @positive_ttl_ms 30_000
   @negative_ttl_ms 5_000
   @max_entries 500
@@ -76,46 +78,47 @@ defmodule AgentsDemo.Realtime.TokenAuth do
     end
   end
 
-  defp finish(token, true), do: finish(token, claims(token))
-
   # A token check sits on the critical path of every socket open, so this has a
   # short deadline and refuses on timeout rather than hanging: a slow bus must
   # not become a slow login. Repeats are absorbed by the cache above.
-  # The mothership is the issuer, and `GET /api/features` runs its own
-  # `auth_user!` — so this cannot drift from the authentication every other
-  # request on that API gets. It answers yes/no; the identity then comes from
-  # decoding the payload locally, which is safe ONLY because the issuer has
-  # already vouched for the signature.
   #
-  # 401 covers expired, which is the check cable itself never makes
-  # (`VaShared::CableAuth.decode_jwt` verifies the signature and stops). That
-  # is precisely why a browser is not allowed to authenticate against cable
+  # `auth.request.verify` is answered by `Mediators::User::Authorize` — the same
+  # mediator `auth_user!` runs for every HTTP request on that API — so this
+  # cannot drift from the authentication everything else gets. That includes
+  # expiry, which is the check cable itself never makes
+  # (`VaShared::CableAuth.decode_jwt` verifies the signature and stops). It is
+  # precisely why a browser is not allowed to authenticate against cable
   # directly, and why this app verifies here before it opens anything upstream.
   defp ask_issuer(token) do
     result =
-      case engine_url() do
-        "" ->
+      cond do
+        not Bus.configured?() ->
           Logger.error(
-            "realtime: cannot verify tokens — neither NATS_URL nor ENGINE_URL is set, so every connection will be refused"
+            "realtime: cannot verify tokens — NATS_URL is not set, so every connection will be refused"
           )
 
           false
 
-        base ->
-          case Req.get(base <> "/api/features",
-                 headers: [{"authorization", "Basic " <> token}, {"x-va-auth", "user"}],
-                 receive_timeout: 2_000,
-                 retry: false
-               ) do
-            {:ok, %{status: 200}} ->
-              true
+        true ->
+          case Bus.request("auth.request.verify", %{token: token}) do
+            {:ok, %{"ok" => true} = reply} ->
+              %__MODULE__{
+                user_uuid: reply["user_uuid"],
+                account_uuid: reply["account_uuid"],
+                environment_uuid: reply["environment_uuid"],
+                token: token
+              }
 
-            {:ok, %{status: status}} when status in [401, 403] ->
-              Logger.debug("realtime: issuer refused a token (http #{status})")
+            # "expired" and "invalid" are distinguished by the issuer on
+            # purpose — a client can act on the first and cannot act on the
+            # second — so the distinction is kept in the log even though both
+            # answers are the same refusal.
+            {:ok, %{"ok" => false, "error" => error}} ->
+              Logger.debug("realtime: issuer refused a token (#{error})")
               false
 
-            {:ok, %{status: status}} ->
-              Logger.warning("realtime: unexpected verification status #{status}")
+            {:ok, other} ->
+              Logger.warning("realtime: unexpected verification reply #{inspect(other)}")
               false
 
             {:error, reason} ->
@@ -126,28 +129,6 @@ defmodule AgentsDemo.Realtime.TokenAuth do
 
     cache(token, result)
     result
-  end
-
-  defp engine_url,
-    do:
-      (System.get_env("ENGINE_URL") || System.get_env("MOTHERSHIP_URL") || "")
-      |> String.trim_trailing("/")
-
-  # The payload only. Signature verification is the issuer's answer above, and
-  # duplicating it here would reintroduce the shared secret this design avoids.
-  defp claims(token) do
-    with [_header, payload | _] <- String.split(token, "."),
-         {:ok, json} <- Base.url_decode64(payload, padding: false),
-         {:ok, map} <- Jason.decode(json) do
-      %__MODULE__{
-        user_uuid: map["user_uuid"] || map["uuid"],
-        account_uuid: map["account_uuid"] || get_in(map, ["customer", "uuid"]),
-        environment_uuid: map["environment_uuid"],
-        token: token
-      }
-    else
-      _ -> %__MODULE__{}
-    end
   end
 
   defp cached(token) do

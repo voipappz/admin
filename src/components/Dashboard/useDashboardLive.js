@@ -3,7 +3,7 @@ import { eventsWsProtocols, eventsWsUrl } from '../Calls/useCalls';
 
 /**
  * useDashboardLive — the live agents/extensions panel, streamed from the
- * va-crystal `cable` (DashboardLive channel) and bridged by deno-api onto the
+ * va-crystal `cable` (DashboardLive channel) and bridged by the portal onto the
  * `/ws/events` socket as `dashboard.live` frames.
  *
  * The dashboard STRUCTURE (which widgets/columns) is defined in voipappz-api and
@@ -37,7 +37,7 @@ export function useDashboardLive() {
         let msg;
         try { msg = JSON.parse(e.data); } catch { return; }
         if (msg?.type === 'dashboard.live' && msg.payload && typeof msg.payload === 'object') {
-          // Drop the non-widget envelope keys deno may add (e.g. { raw }).
+          // Drop the non-widget envelope keys the server may add (e.g. { raw }).
           const next = {};
           for (const [uuid, w] of Object.entries(msg.payload)) {
             if (w && typeof w === 'object' && Array.isArray(w.table)) next[uuid] = w;

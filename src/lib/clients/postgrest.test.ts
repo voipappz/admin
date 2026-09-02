@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { pgrstList, pgrstGet } from './postgrest';
 
 // The optional PostgREST plane: relative /rest/v1 base (same-origin through the
-// Vite proxy / deno forwarder), exact counts via Content-Range, bearer auth.
+// Vite proxy / the portal's forwarder), exact counts via Content-Range, bearer auth.
 describe('postgrest client', () => {
   const fetchMock = vi.fn();
 

@@ -1,60 +1,132 @@
-# Multistage build: React frontend + Deno backend in a single image.
-# Stage 1 builds the React bundle. Stage 2 runs Deno, which both serves the
-# built assets from /app/dist and dispatches API routes under /apps/*.
+# Multistage build: React frontend + Phoenix (Elixir) backend in a single image.
+#
+# The Elixir server, replacing the Deno one this file used to build. Same shape
+# — stage 1 builds the React bundle, the final stage serves it — but the server
+# is the Phoenix release in agents_demo/ instead of Deno. One process answers the SPA, /auth
+# and /api (forwarded to the mothership), and the /ws/events realtime socket,
+# so the browser needs no second origin and no CORS.
+#
+# Build context is THIS directory (voipappz/app), not agents_demo/: the image
+# needs both trees, the SPA source here and the Elixir app below.
 
-# Stage 1: Build React app
+# Declared BEFORE the first FROM on purpose: an ARG written between stages is
+# scoped to the stage it follows, so the later `FROM debian:${DEBIAN_VERSION}`
+# would expand to an empty version and fail to parse the image reference.
+ARG ELIXIR_VERSION=1.19.5
+ARG OTP_VERSION=27.3.4
+ARG DEBIAN_VERSION=trixie-20260610-slim
+# The RUNNER tracks trixie rather than pinning the same dated snapshot as the
+# builder. Debian's pool rotates: the snapshot's apt index still named
+# libncurses6 6.5+20250216-2, which the mirror now answers 403, so the pinned
+# runner could no longer install its own packages. A runner newer than the
+# builder is safe (same Debian release, so the same glibc major); older is not.
+ARG RUNNER_DEBIAN_VERSION=trixie-slim
+
+# ---------------------------------------------------------------------------
+# Stage 1: the React bundle. Unchanged from the Deno-era image,
+# including its cache ordering — nothing that changes per-build may sit above
+# `npm ci`, or the install layer can never be reused.
+# ---------------------------------------------------------------------------
 FROM node:24-alpine AS frontend-builder
 WORKDIR /build
 
-# NOTHING that changes per-build may sit above `npm ci`. A changed layer
-# invalidates every layer below it, and the install is the expensive one (~525
-# packages). VITE_APP_VERSION is a fresh date+sha on EVERY deploy, so while it
-# lived up here the install could never be reused — a version-only rebuild cost
-# 37s against 43s cold, i.e. the cache bought us nothing.
 COPY package.json package-lock.json ./
-# The download cache persists across builds; node_modules still lands in the
-# layer, so the runtime image is unaffected. sharing=locked because CI can run
-# two builds at once (a push and a PR), and concurrent writers to one package
-# cache is how you corrupt it.
 RUN --mount=type=cache,target=/root/.npm,sharing=locked npm ci
 
 COPY . .
 
-# Per-build values go BELOW the install. Both are baked into the bundle, so a
-# change here has to re-run `npm run build` — but only that.
 ARG VITE_APP_VERSION
 ENV VITE_APP_VERSION=$VITE_APP_VERSION
 
-# VITE_MOTHERSHIP_URL is the DIRECT-mode escape hatch only. Leave it unset
-# (the default): the bundle then uses RELATIVE URLs and all backend traffic
-# rides this container's deno forwarder (ENGINE_URL picks the mothership at
-# runtime). Set it only for static-only hosting builds (e.g. Fireberry embed).
+# Deliberately NOT set: an absolute URL here puts the browser on a different
+# origin than the page, and every call is then blocked by CORS. Unset, the
+# bundle uses relative URLs and Phoenix forwards them server-side.
 ARG VITE_MOTHERSHIP_URL
 ENV VITE_MOTHERSHIP_URL=$VITE_MOTHERSHIP_URL
 
 RUN npm run build
 
-# Stage 2: Deno runtime serving React + API
-FROM denoland/deno:2.5.3
+# ---------------------------------------------------------------------------
+# Stage 2: the Phoenix release.
+# ---------------------------------------------------------------------------
+FROM docker.io/hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION} AS builder
+
+RUN apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=5 update \
+  && apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=5 install -y \
+       --no-install-recommends build-essential git \
+  && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-COPY api/deno.json api/deno.lock ./
-COPY api/*.ts ./
-RUN deno cache app.ts
+RUN mix local.hex --force && mix local.rebar --force
 
-COPY --from=frontend-builder /build/dist ./dist
+ENV MIX_ENV="prod"
 
-ENV STATIC_DIR=/app/dist
-ENV PORT=3000
-ENV EVENT_STORE_PATH=/data/events.duckdb
-EXPOSE 3000
+# Dependencies first, so a source-only change does not re-fetch or re-compile
+# them. Paths are prefixed with agents_demo/ because the context is one level up.
+# Hex's own advice for a constrained network, and it is needed here: the
+# default fans out parallel fetches with a short timeout, and on a link that
+# stalls mid-transfer that surfaces as `Request failed (:timeout)` on a
+# different package every run — indistinguishable from a bad lock entry. One
+# connection with a long timeout is slower and finishes.
+ENV HEX_HTTP_CONCURRENCY=1
+ENV HEX_HTTP_TIMEOUT=120
 
-# Healthcheck handled by kamal-proxy (proxy.healthcheck.path: /test in
-# config/deploy.yml). Avoiding a Dockerfile HEALTHCHECK because Deno 2.5's
-# `deno eval` does not accept --allow-* flags.
+COPY agents_demo/mix.exs agents_demo/mix.lock ./
+RUN mix deps.get --only $MIX_ENV
+RUN mkdir config
 
-RUN mkdir -p /data && chown deno:deno /data
+COPY agents_demo/config/config.exs agents_demo/config/${MIX_ENV}.exs config/
+RUN mix deps.compile
 
-USER deno
+RUN mix assets.setup
 
-CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "--allow-write", "--allow-ffi", "app.ts"]
+COPY agents_demo/priv priv
+COPY agents_demo/lib lib
+
+RUN mix compile
+
+COPY agents_demo/assets assets
+RUN mix assets.deploy
+
+# Changes here don't require recompiling the code.
+COPY agents_demo/config/runtime.exs config/
+
+COPY agents_demo/rel rel
+RUN mix release
+
+# ---------------------------------------------------------------------------
+# Final: the release plus the built SPA.
+# ---------------------------------------------------------------------------
+FROM docker.io/hexpm/erlang:${OTP_VERSION}-debian-${DEBIAN_VERSION} AS final
+
+# No apt in this stage, deliberately. The runner is Erlang's own Debian image,
+# which already carries what a release needs at runtime — libstdc++, ncurses,
+# openssl and ca-certificates (the last matters: Req calls the mothership over
+# https, and without CA certs that fails at TLS verification, not at DNS).
+#
+# Installing them instead made the build depend on reaching deb.debian.org,
+# which answers 403 from this network often enough to fail a build at a
+# different random package each time. Nothing here needs a package manager, so
+# the dependency is removed rather than retried.
+#
+# C.UTF-8 is built into glibc, so it needs no `locales` package or locale-gen.
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+WORKDIR "/app"
+RUN chown nobody /app
+
+ENV MIX_ENV="prod"
+
+COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/agents_demo ./
+
+# The React bundle. SPA_ROOT is what AgentsDemoWeb.Plugs.Spa reads; unset, the
+# app still boots and serves the API, it just has no dashboard — so a missing
+# bundle degrades rather than crashing at start.
+COPY --from=frontend-builder --chown=nobody:root /build/dist /app/dist
+ENV SPA_ROOT=/app/dist
+
+USER nobody
+
+CMD ["/app/bin/server"]

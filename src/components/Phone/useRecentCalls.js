@@ -6,7 +6,7 @@
 // `apiList` drops the session on a 401, so a background enrichment request
 // firing at boot can sign the user out; we've been bitten by that once already.
 //
-// Not the deno /dashboard/snapshot cache: that projection is fed by a cable tap
+// Not the /dashboard/snapshot cache: that projection is fed by a cable tap
 // that isn't configured, so it answers zeros.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getCalls } from '../../services/callsApi';

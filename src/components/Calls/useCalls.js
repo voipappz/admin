@@ -22,13 +22,8 @@ import { getToken } from '../../lib/auth';
 // sortable fields beyond created_at are unverified on this deployment).
 export const SORT_FIELD_MAP = { started_at: 'created_at' };
 
-// HTTP base for the deno-api worker endpoints (transcription / recording).
-// Deno is custom-logic only; the calls list comes from voipappz-api.
-// Prod: '' (same-origin — deno serves the app). Dev: Vite owns the origin, so
-// deno routes (/health, /dashboard/*) must ride the /events-api proxy prefix
-// (a bare '/dashboard' proxy would shadow the SPA route of the same name).
-// WS base for the LiveEvents dashboard widget (deno /ws/events). Same-origin by
-// default so it rides the Vite proxy.
+// WS base for the LiveEvents dashboard widget (the portal's /ws/events).
+// Same-origin by default so it rides the Vite proxy.
 export function eventsWsBase() {
   if (import.meta.env.VITE_EVENTS_WS_URL) return import.meta.env.VITE_EVENTS_WS_URL;
   if (typeof window !== 'undefined' && window.location) {

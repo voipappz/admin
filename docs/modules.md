@@ -16,13 +16,13 @@ Calls is the reference implementation for new list modules.
 | Login | `src/components/Login/`, `src/lib/auth.ts`, `src/lib/clients/mothership.ts` | Mothership | Password login, optional OTP, trusted session and logout. |
 | Calls | `src/components/Calls/`, `src/services/callsApi.js` | Mothership | Server-filtered and paginated call list, details and transcript presentation. |
 | Reports | `src/components/Reports/`, `src/services/reportsApi.js` | Mothership | Mature report definitions, date filtering and charts. |
-| Dashboard | `src/components/Dashboard/`, `src/components/DashboardBuilder/` | Local DuckDB projection | KPIs, calls per hour and recent calls derived only from consumed Crystal events. The recovered Nimbus-style full-screen builder provides dashboard CRUD, an explicit Counter/Table/Pie/Line/Bar/Gauge/Stat chooser, widget editing, and normalized DuckDB event views. |
+| Dashboard | `src/components/Dashboard/`, `src/components/DashboardBuilder/` | **unserved** | KPIs, calls per hour, recent calls, and the full-screen builder (dashboard CRUD, Counter/Table/Pie/Line/Bar/Gauge/Stat widgets). Its backend was the removed Deno BFF's DuckDB projection — `/dashboard/*` 404s until the portal serves it. |
 | Phone | `src/components/Phone/`, `src/lib/sip/` | Authenticated user/PBX | SIP registration, presence, inbound/outbound call lifecycle, audio and call notifications. |
 | Navigation/Layout | `src/components/MainMenu/`, `src/components/Layout/` | Frontend | End-user menu, responsive hamburger behavior and authenticated layout. |
 | Notifications | `src/components/Notifications/` | Frontend | Application notifications and notification state. |
-| System status | `src/components/Status/`, `src/components/common/SystemHealth.jsx` | Local API health | Connector and event-pipeline visibility. |
-| Raw event explorer | `src/components/EventExplorer/`, `src/services/duckdbEventsApi.js` | Local DuckDB | Server-paged/searchable table and untouched raw JSON inspection for custom solutions. |
-| PostgREST table | `src/components/PostgrestTable/`, `src/lib/clients/postgrest.ts` | Optional PostgREST | Reusable server-paged table for tenant-specific data. |
+| System status | `src/components/Status/`, `src/components/common/SystemHealth.jsx` | Portal health | Connector and transport visibility. |
+| Raw event explorer | `src/components/EventExplorer/`, `src/services/duckdbEventsApi.js` | **unserved** | Server-paged/searchable table over the removed DuckDB event store — `/events` 404s. |
+| PostgREST table | `src/components/PostgrestTable/`, `src/lib/clients/postgrest.ts` | **unserved** | Reusable server-paged table for tenant-specific data; the `/rest/v1` forward went with the Deno BFF. |
 
 ## Shared frontend layers
 
@@ -36,24 +36,16 @@ Calls is the reference implementation for new list modules.
 | Access control/features | `src/services/aclService.js`, `src/hooks/` | User permissions and feature flags; inaccessible services degrade safely. |
 | Internationalization | `src/i18n/`, direction context | Hebrew/RTL and English copy/layout. |
 
-## Local API modules
+## Portal modules
 
 | Module | File | Responsibility |
 |---|---|---|
-| Server/BFF | `api/app.ts`, `api/server.ts` | Static production app, same-origin mothership forwarding, local routes and WebSocket clients. |
-| Configuration | `api/config.ts` | Environment decoding; secrets remain server-side. |
-| Core NATS | `api/nats.ts` | One reconnecting connection for current `cdr.write.bulk` input and optional committed EventCdr/replay mode. |
-| Event ingestion | `api/event_ingestion.ts` | Preserves and normalizes real `cdr.write` rows plus optional committed EventCdr envelopes. |
-| CDR reconciliation | `api/cdr_reconciliation.ts` | Ordered replay paging from the last producer event id. |
-| Crystal Cable | `api/cable.ts` | Optional DashboardLive/legacy ActionCable subscription and normalization. |
-| Event store + Dashboard projection | `api/event_store.ts` | Permanent DuckDB persistence, producer-id deduplication, atomic replay checkpoints, Dashboard snapshots, dashboard definitions and dashboard-scoped widgets. |
-| Crystal mock | `api/mock_crystal_events.ts` | Test-only ringing, answered and completed frames matching va-crystal's contract. |
-| Event freshness | `api/health_freshness.ts` | Disabled, idle, current and stale active-source health states. |
-| Event inspector | `GET /events`, `src/components/EventExplorer/` | Opt-in filtered/paginated read-only view of DuckDB rows and raw payloads; enabled in development Compose. |
-| DuckDB MCP | `api/mcp.ts`, `POST /mcp` | Read-only MCP tools/resources over the local event store; loopback-only by default in development, token-protected elsewhere, with no upstream or event-transport access. |
-| Engine connector | `api/engine.ts` | Optional authenticated transcript reads; no local transcript/log duplication. |
-| Influx connector | `api/influx.ts` | Optional tenant analytics retained for later use. |
-| PostgREST connector | API routes plus frontend client | Optional tenant-custom relational data plane. |
+| Origin/forwarder | `agents_demo/lib/agents_demo_web/plugs/engine_proxy.ex` | Forwards `/auth`, `/api/`, `/tasks/` to the mothership; answers preflights and owns the CORS policy on those routes. |
+| SPA server | `agents_demo/lib/agents_demo_web/plugs/spa.ex` | Serves the Vite build with an index fallback, without shadowing backend namespaces. |
+| Realtime socket | `agents_demo/lib/agents_demo_web/realtime_socket.ex` | `/ws/events` — a raw WebSock upgrade speaking the flat JSON frame contract shipped clients already use. |
+| Token verification | `agents_demo/lib/agents_demo/realtime/token_auth.ex`, `bus.ex` | NATS request/reply to the API. Refuses rather than falling back when no bus is configured. |
+| Cable client | `agents_demo/lib/agents_demo/realtime/cable_client.ex`, `cable_token.ex` | One upstream cable connection for the whole app, on a credential the portal mints from the verified identity. |
+| Health probes | `agents_demo/lib/agents_demo_web/controllers/health_controller.ex` | `/health/alive` (liveness, never drain-aware) and `/health/ready` (readiness, 503 from the start of shutdown). |
 
 ## Data ownership
 
@@ -63,9 +55,9 @@ Calls is the reference implementation for new list modules.
 | Calls list and call metadata | Mothership | No. |
 | Reports and report definitions | Mothership | No. |
 | Transcripts/logs | Engine/mothership service | No; read on demand. |
-| CDR events received by this app | Current va-crystal bulk input; optional committed API stream/replay | Yes, permanently in DuckDB with the original raw row. |
-| DashboardLive values | va-crystal via Cable | Runtime relay only. |
-| Dashboard projections, definitions and widgets | Consumed local events + user configuration | Derived and stored in DuckDB. The authenticated builder browses normalized events but never exposes their untouched `raw_payload`. |
+| CDR events received by this app | va-crystal / the mothership | No longer — the DuckDB store left with the Deno BFF. |
+| User state and DashboardLive values | va-crystal via cable | Runtime relay only, fanned out over PubSub. |
+| Dashboard definitions and widgets | User configuration | Was DuckDB; currently nothing persists them. |
 | SIP credentials/settings | Authenticated user payload | Runtime only. |
 
 ## Adding a future module

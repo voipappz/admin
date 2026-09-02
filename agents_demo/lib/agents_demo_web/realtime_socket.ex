@@ -96,10 +96,16 @@ defmodule AgentsDemoWeb.RealtimeSocket do
   def terminate(_reason, _state), do: :ok
 
   @doc false
-  def ensure_cable(%{user_uuid: user_uuid, token: token})
+  def ensure_cable(%{user_uuid: user_uuid, token: token} = claims)
       when is_binary(user_uuid) and is_binary(token) do
     if AgentsDemo.Realtime.CableClient.enabled?() do
-      spec = {AgentsDemo.Realtime.CableClient, user_uuid: user_uuid, token: token}
+      # What cable is given is minted here from the identity NATS already
+      # verified — not the browser's own token passed along unread. Without a
+      # configured secret this returns that token unchanged, so an
+      # unconfigured deployment is untouched. See `Realtime.CableToken`.
+      spec =
+        {AgentsDemo.Realtime.CableClient,
+         user_uuid: user_uuid, token: AgentsDemo.Realtime.CableToken.for(claims)}
 
       case DynamicSupervisor.start_child(AgentsDemo.Realtime.CableSupervisor, spec) do
         {:ok, _pid} ->

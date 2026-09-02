@@ -1,4 +1,4 @@
-.PHONY: help env mcp-env mcp-token dev check-mothership up down build lint unit verify test test-crystal cable-probe act act-api push deploy ship status tmux module prod prod-down
+.PHONY: help env dev check-mothership up down build lint unit verify test test-chrome chrome-build chrome-serve cable cable-down probe act act-portal push status tmux module prod prod-down
 
 # Everything runs in Docker — no host node/npm/ruby required. One-off npm/node
 # commands reuse the react-app service (repo mount + cached node_modules volume).
@@ -15,9 +15,47 @@ MOTHERSHIP ?= $(shell sed -n 's/^VITE_API_TARGET=//p' .env 2>/dev/null | grep . 
 MOTHERSHIP := $(if $(MOTHERSHIP),$(MOTHERSHIP),$(shell sed -n 's/^MOTHERSHIP_URL=//p' .env 2>/dev/null | grep . | head -1 | tr -d '\r"'))
 MOTHERSHIP := $(if $(MOTHERSHIP),$(MOTHERSHIP),https://cloud.voipappz.io)
 
-# Local stack endpoints
-DENO_API ?= http://localhost:4001
+# Local stack endpoints. PORTAL is the origin: the SPA, the Chrome extension
+# and Vite's proxy all point at 4001, and it does not move.
+PORTAL   ?= http://localhost:4001
+# The cable's port and where its signing secret comes from. 4100, not 4000: an
+# installed node already owns 4000 on a dev box, and `SECRET_KEY ?=` lets the
+# environment win so a developer without the API container can still pass one.
+CABLE_PORT ?= 4100
+API_CONTAINER ?= va-app
+
+# Both the cable and the portal need the API's signing secret and its NATS
+# credentials, and NEITHER belongs in this repo — they are read out of the
+# running API container at start time and passed as environment, never as
+# arguments. The NATS host is rewritten because the containers below use host
+# networking, where the API's own `nats:4222` does not resolve. The sed uses
+# `|` as its delimiter, not `#`: make strips `#` and everything after it inside
+# a VARIABLE definition (not inside a recipe), which truncated the line mid
+# quote and failed as "Unterminated quoted string" with nothing pointing here.
+#
+# Refusing to start without the secret is the point: cable would otherwise come
+# up, answer /health, and reject every connection, and the portal would refuse
+# every token — both of which look like a broken network from the client.
+STACK_UP = key=$$(docker exec $(API_CONTAINER) printenv SECRET_KEY 2>/dev/null); \
+	  if [ -z "$$key" ]; then \
+	    echo "no SECRET_KEY from container '$(API_CONTAINER)' — is the API running?"; \
+	    echo "without it cable refuses every connection and the portal refuses every token."; \
+	    echo "start the API, or pass it yourself:  SECRET_KEY=... make <target>"; \
+	    exit 1; \
+	  fi; \
+	  nats=$$(docker exec $(API_CONTAINER) printenv NATS_URL 2>/dev/null \
+	          | sed -E 's|@[^:/]+:|@127.0.0.1:|'); \
+	  SECRET_KEY="$$key" NATS_URL="$$nats" docker compose --profile cable up -d
 WEB_APP  ?= http://localhost:4200
+# The Chrome extension's artefact. Chrome loads an extension from a DIRECTORY,
+# never over HTTP, so this path — not a port — is what `make dev` hands you.
+# `chrome-ext` keeps it rebuilt; you point "Load unpacked" at it once.
+EXT_DIST ?= $(PWD)/chrome/angular/dist
+# chrome-ext writes into the repo mount, so it runs as you rather than as root
+# (compose reads these; a shell does not export UID/GID on its own).
+export UID := $(shell id -u)
+export GID := $(shell id -g)
+TEST_DOMAIN_CHROME ?= $(PORTAL)
 
 # Production URL for `make status` — set PROD_URL in .env (or on the CLI).
 PROD_URL ?= $(shell sed -n 's/^PROD_URL=//p' .env 2>/dev/null | head -1 | tr -d '\r"')
@@ -28,25 +66,20 @@ help: ## Show this help
 	@awk 'BEGIN{FS=":.*## ";printf "\nmake \033[36m<target>\033[0m\n\n"} \
 	      /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n",$$1,$$2}' $(MAKEFILE_LIST)
 
-env: mcp-env ## Create .env and the local MCP token (never overwrites existing files)
+env: ## Create .env (never overwrites an existing one)
 	@if [ -f .env ]; then \
 	  echo ".env exists — leaving it alone. Mothership: $(MOTHERSHIP)"; \
 	else \
 	  cp .env.example .env && echo "wrote .env — set MOTHERSHIP_URL to point at your tenant"; \
 	fi
 
-mcp-env: ## Ensure the git-ignored development MCP token exists
-	@bash scripts/dev-mcp-token.sh
-
-mcp-token: ## Show the development MCP token and client connection details
-	@bash scripts/dev-mcp-token.sh --show
-
-dev: mcp-env check-mothership ## Run the app in Docker (Vite HMR :4200 + deno-api :4001), attached logs
-	docker compose up -d react-app deno-api
-	@echo "deno-api → :4001 · MCP → $(DENO_API)/mcp · Vite → $(WEB_APP) (proxies /api → mothership $(MOTHERSHIP))"
-	@echo "MCP token → make mcp-token (needed outside this host's loopback interface)"
+dev: check-mothership ## Run the whole local stack in Docker (Vite :4200 · portal :4001 · cable :4100 · extension), attached logs
+	@$(STACK_UP) react-app elixir cable chrome-ext
+	@echo "portal → $(PORTAL) · cable → ws://127.0.0.1:$(CABLE_PORT)/cable"
+	@echo "Vite → $(WEB_APP) (proxies /api → mothership $(MOTHERSHIP))"
+	@echo "extension → $(EXT_DIST) (chrome://extensions → Load unpacked; sign in with domain $(PORTAL))"
 	@echo "Ctrl-C detaches; stack keeps running"
-	docker compose logs -f react-app
+	docker compose logs -f react-app elixir chrome-ext
 
 check-mothership: ## Verify the mothership (MOTHERSHIP_URL) is reachable
 	@echo "==> Mothership (override: MOTHERSHIP=https://<host>)"
@@ -54,13 +87,12 @@ check-mothership: ## Verify the mothership (MOTHERSHIP_URL) is reachable
 	  case $$code in [234]*) s="OK ($$code)";; *) s="UNREACHABLE ($$code) — set MOTHERSHIP_URL in .env";; esac; \
 	  printf "  %-11s %-34s %s\n" "mothership" "$(MOTHERSHIP)" "$$s"
 
-up: mcp-env ## Start the full Docker stack (web + deno-api)
-	docker compose up -d react-app deno-api
-	@echo "web → $(WEB_APP)   deno-api → $(DENO_API)   MCP → $(DENO_API)/mcp"
-	@echo "MCP token → make mcp-token (needed outside this host's loopback interface)"
+up: ## Start the full Docker stack (web + portal + cable + extension)
+	@$(STACK_UP) react-app elixir cable chrome-ext
+	@echo "web → $(WEB_APP)   portal → $(PORTAL)   extension → $(EXT_DIST)"
 
 down: ## Stop all services
-	docker compose down --remove-orphans
+	docker compose --profile cable down --remove-orphans
 
 tmux: ## Open the dev cockpit (tmuxinator: stack + logs + shells)
 	@command -v tmuxinator >/dev/null || { echo "tmuxinator not installed (gem install tmuxinator)"; exit 1; }
@@ -87,125 +119,108 @@ unit: ## Vitest unit tests, one-shot (in Docker)
 prod: ## Deploy via docker compose: build + run the production image (:8000)
 	docker compose --profile prod build production
 	docker compose --profile prod up -d production
-	@echo "waiting for boot..."; for i in $$(seq 1 30); do \
-	  curl -sf -o /dev/null localhost:8000/test && break; sleep 1; done
-	@curl -s -o /dev/null -w "  /       → %{http_code}\n" localhost:8000/
-	@curl -s -o /dev/null -w "  /test   → %{http_code}\n" localhost:8000/test
-	@curl -s -o /dev/null -w "  /health → %{http_code}\n" localhost:8000/health
+	@echo "waiting for boot..."; for i in $$(seq 1 60); do \
+	  curl -sf -o /dev/null localhost:8000/health/alive && break; sleep 1; done
+	@curl -s -o /dev/null -w "  /             → %{http_code}\n" localhost:8000/
+	@curl -s -o /dev/null -w "  /health/alive → %{http_code}\n" localhost:8000/health/alive
+	@curl -s -o /dev/null -w "  /health/ready → %{http_code}\n" localhost:8000/health/ready
 	@echo "production → http://localhost:8000  (env from .env; recreate to re-read)"
 
 prod-down: ## Stop the docker compose production container
 	docker compose --profile prod down production
 
-verify: ## Health check: deno-api, web, and the /health dependency report
+verify: ## Health check: the portal's probes and the Vite dev server
 	@echo "==> Services"
-	@printf "  %-9s %-30s " "deno-api" "$(DENO_API)/test"; curl -sf -o /dev/null "$(DENO_API)/test" && echo OK || echo DOWN
-	@printf "  %-9s %-30s " "web/vite" "$(WEB_APP)/";      curl -sf -o /dev/null "$(WEB_APP)/"     && echo OK || echo DOWN
-	@echo "==> Dependencies (reported by $(DENO_API)/health)"
-	@curl -s "$(DENO_API)/health" | python3 -c "import sys,json;d=json.load(sys.stdin);c=d.get('checks',{});[print('  %-9s %-5s %s'%(k,v.get('status','?').upper(),'('+v['detail']+')' if v.get('detail') else '')) for k,v in c.items()];print('  %-9s %s'%('overall',d.get('status','?').upper()))" 2>/dev/null || echo "  health endpoint unreachable"
+	@printf "  %-9s %-30s " "portal" "$(PORTAL)/health/alive"; curl -sf -o /dev/null "$(PORTAL)/health/alive" && echo OK || echo DOWN
+	@printf "  %-9s %-30s " "ready"  "$(PORTAL)/health/ready"; curl -sf -o /dev/null "$(PORTAL)/health/ready" && echo OK || echo "NOT READY"
+	@printf "  %-9s %-30s " "web/vite" "$(WEB_APP)/";          curl -sf -o /dev/null "$(WEB_APP)/"            && echo OK || echo DOWN
+	@printf "  %-9s %-30s " "cable" "ws://127.0.0.1:$(CABLE_PORT)"; curl -sf -o /dev/null "http://127.0.0.1:$(CABLE_PORT)/health" && echo OK || echo DOWN
 
 test: ## Playwright E2E in Docker (needs the app running — make up / make dev)
 	docker compose --profile test run --rm e2e
 
-test-crystal: ## Build API and verify Crystal mock → DuckDB → health/dashboard
-	npm run test:crystal
+# The popup UI as an ORDINARY web page, for iterating on it without the
+# rebuild → chrome://extensions → reload loop. `chrome.*` does not exist there,
+# so `angular/src/app/providers/chrome-shim.ts` stands in for it — see that file
+# for what is faithful and what is not. Sign in with domain $(PORTAL): the
+# portal answers CORS for any origin, so :4300 reaches it same as the extension.
+#
+# NOT a substitute for `make chrome-build`: the background service worker does
+# not run here, so screen-pop notifications do not appear (the realtime socket
+# itself does open — frames go to the console).
+chrome-serve: ## Run the extension's UI as a plain Angular app on :4300
+	@echo "extension UI → http://localhost:4300  (sign in with domain $(PORTAL))"
+	docker compose run --rm --no-deps -p 4300:4300 chrome-ext bash -c \
+	  '[ -x node_modules/.bin/ng ] || npm ci --legacy-peer-deps --no-audit --no-fund; npm run serve'
 
-cable-probe: ## Probe the cable with a real session: make cable-probe AUTH='<localStorage.auth>'
+chrome-build: ## Build the extension once into chrome/angular/dist (in Docker)
+	docker compose run --rm --no-deps chrome-ext bash -c \
+	  '[ -x node_modules/.bin/ng ] || npm ci --legacy-peer-deps --no-audit --no-fund; npm run build'
+	@echo "extension → $(EXT_DIST)"
+
+# The USER front door, which is NOT the portal account's: the extension posts
+# /auth/user_login (users table), and an Account password gets a bare 401 that
+# reads as a broken extension. `make onboard` in ../mothership prints the
+# credential as "Extension login".
+#
+# TEST_DOMAIN defaults to the local portal, so the run exercises the real hop
+# chain — extension → Elixir :4001 → the API — rather than a cloud node.
+# Playwright drives a real Chrome with the unpacked extension loaded, so this
+# runs on the host (the e2e image has no extension support wired up).
+test-chrome: ## Extension login E2E: make test-chrome TEST_USERNAME=... TEST_PASSWORD=...
+	@test -n "$(TEST_USERNAME)" -a -n "$(TEST_PASSWORD)" || { \
+	  echo "usage: make test-chrome TEST_USERNAME=<user email> TEST_PASSWORD=<its password>"; \
+	  echo "  the USER login (users table), not the portal account —"; \
+	  echo "  ../mothership's 'make onboard' prints it as \"Extension login\"."; exit 1; }
+	cd chrome && TEST_DOMAIN="$(TEST_DOMAIN_CHROME)" \
+	  TEST_USERNAME="$(TEST_USERNAME)" TEST_PASSWORD="$(TEST_PASSWORD)" \
+	  npx playwright test user-connect login
+
+cable: ## Start va-crystal's cable locally on :4100 (opt-in; needs va-app running)
+	@$(STACK_UP) cable
+	@echo "cable → ws://127.0.0.1:$(CABLE_PORT)/cable"
+	@echo "logs → docker compose --profile cable logs -f cable"
+
+cable-down: ## Stop the local cable
+	docker compose --profile cable rm -sf cable
+
+# Through the PORTAL, not straight at cable: that is the path the browser and
+# the extension take, and it covers the two hops that fail most often — NATS
+# token verification and the portal's own cable credential.
+probe: ## Probe /ws/events with a real session: make probe AUTH='<localStorage.auth>'
 	@docker run --rm --network host \
 	  -e AUTH='$(AUTH)' -e TOKEN='$(TOKEN)' -e ID='$(ID)' \
-	  -e CABLE_URL='$(CABLE_URL)' -e SECONDS='$(SECONDS)' \
-	  -v "$(PWD)/scripts:/s:ro" denoland/deno:latest \
-	  run --allow-net --allow-env /s/cable-probe.ts
+	  -e PORTAL_URL='$(PORTAL)' -e SECONDS='$(SECONDS)' \
+	  -v "$(PWD)/scripts:/s:ro" node:22-alpine \
+	  node /s/portal-probe.mjs
 
-act-api: ## Run the Deno/Cable/Core-NATS/DuckDB/MCP CI job locally with act
-	ACT_BIN="$(ACT)" ACT_RUNNER_IMAGE="$(ACT_PLATFORM)" scripts/ci-local.sh api
+act-portal: ## Run the Elixir portal CI job locally with act
+	ACT_BIN="$(ACT)" ACT_RUNNER_IMAGE="$(ACT_PLATFORM)" scripts/ci-local.sh portal
 
 act: ## Run the complete GitHub Actions workflow locally (same pattern as ../cli)
 	ACT_BIN="$(ACT)" ACT_RUNNER_IMAGE="$(ACT_PLATFORM)" scripts/ci-local.sh all
 
-# Kamal — ALWAYS via the official Docker image (no native/rvm install): any
-# box with Docker can deploy, and everyone runs the same kamal version.
-# .kamal/secrets is sourced for ERB substitution in config/deploy.yml (Kamal
-# only auto-sources it for the registry password).
-# Attach a TTY when we have one. Without it, any prompt inside the container —
-# an ssh password, a host-key confirmation — dies as
-#   ERROR (Errno::ENOTTY): Exception while executing on host …: Not a tty
-# with no way to answer. Conditional so CI, where stdin is not a terminal,
-# keeps working: `docker run -it` fails outright there.
-KAMAL_TTY := $(shell test -t 0 && echo "-it")
-
-# The portal is a subtree of the mothership repo: .git lives two levels up, so
-# mount the repo root (Kamal derives its version from git) and work from the
-# portal dir. safe.directory because the container's root user isn't the
-# host owner of the checkout.
-KAMAL ?= docker run --rm $(KAMAL_TTY) \
-  -v "$(CURDIR)/../..:/workdir" \
-  -w /workdir/apps/portal \
-  -v "$(HOME)/.ssh:/root/.ssh:ro" \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -e KAMAL_REGISTRY_PASSWORD \
-  -e KAMAL_HEALTHCHECK_URL \
-  -e GIT_CONFIG_COUNT=1 \
-  -e GIT_CONFIG_KEY_0=safe.directory \
-  -e GIT_CONFIG_VALUE_0='*' \
-  ghcr.io/basecamp/kamal:v2.12.0
-
-# Tenant destination → config/deploy.$(DEST).yml. Empty = config/deploy.yml.
-#   make deploy DEST=mtn      # 81.199.146.152, published on :8888
-#   make deploy DEST=pbx20
-DEST ?=
-KAMAL_DEST := $(if $(DEST),-d $(DEST),)
-
-# Where the post-deploy hook aims its smoke checks. Unset ⇒ the hook skips them
-# rather than probing some other tenant's host and failing the deploy.
+# Deploying is NOT done from this repo.
 #
-# NOT set for mtn/pbx20. Those publish on 8888 behind someone else's nginx, and
-# 8888 is firewalled off the public internet — the hook runs on the DEPLOY box,
-# so every probe came back 000 (no response) and failed a deploy that had in
-# fact succeeded:
-#   ✗ GET /health → expected 200, got 000   ... post-deploy exit status: 256
-# Measured against mtnunicom.mtn.com.gh: :443 → 200, :8000 → 200, :8888 → 000,
-# and :443 is the va_portal_1 site (<title>Voipappz | Portal</title>, and
-# /calls/smoke/transcript answers 200 instead of 401), NOT this container. So no
-# externally reachable URL smoke-tests this app; verify on the host instead:
-#   ssh <host> 'curl -sk -o /dev/null -w "%{http_code}\n" https://127.0.0.1:8888/test'
-# Kamal's own container healthcheck still gates the deploy either way.
+# Until 2026-08-31 this Makefile carried the whole Kamal setup, and config/ held
+# deploy.yml plus one override per tenant. Both moved to the mothership repo,
+# under config/portal/ — deciding WHERE the portal lands needs the view of every
+# destination at once, and mothership is the only place that has it.
 #
-# nimbus IS probed: unlike mtn/pbx20 its 8888 answers from outside — measured,
-# not assumed (http 200, /health {"healthy":true}). Skipping it is what let the
-# TLS downgrade ship unnoticed, so it gets the checks the others cannot have.
-NIMBUS_URL ?= https://nimbus-prod.voipappz.io:8888
-
-HEALTHCHECK_URL ?= $(if $(filter nimbus,$(DEST)),$(NIMBUS_URL),$(if $(filter mtn pbx20,$(DEST)),,$(PROD_URL)))
-
-# Destinations that run `proxy: false` on a FIXED host port (mtn, pbx20) cannot
-# have two containers alive at once: the outgoing one still holds 8888, so the
-# incoming one dies with
-#   docker: Bind for 0.0.0.0:8888 failed: port is already allocated  (exit 125)
-# There is no proxy to hand traffic over, so the old container must let go
-# first — a few seconds of downtime is the cost of publishing a fixed port.
-# The default destination fronts with kamal-proxy and hands over cleanly, so
-# stopping there would add an outage for nothing.
+#     cd ../mothership
+#     make portal-deploy               # default destination
+#     make portal-deploy DEST=nimbus   # a tenant, per config/portal/portal-destinations.tsv
+#     make portal-config DEST=nimbus   # render and verify, read-only
 #
-# This can't live in a kamal hook: hooks run INSIDE the kamal image on the
-# DEPLOY box, where `docker` talks to the local daemon and there is no ssh
-# binary to reach the target host. `kamal app stop` uses kamal's own net-ssh.
-STOP_FIRST := $(if $(filter mtn pbx20 nimbus,$(DEST)),1,)
+# mothership links this repo in at apps/portal and mounts it as the build
+# context, so the image is still built from THIS checkout at THIS sha:
+# `make portal-deploy` stamps VITE_APP_VERSION from the commit you have here.
+#
+# What stays here: dev, lint, unit, verify, test, status. Building the app is
+# this repo's job; choosing where it ships is not.
 
 push: ## git push current branch to origin
 	git push
-
-deploy: ## Build image, push to registry, swap container on production — make deploy [DEST=mtn]
-	@test -f .kamal/secrets || { echo "missing .kamal/secrets — cp .kamal/secrets.example .kamal/secrets and fill it in"; exit 1; }
-	@echo "==> kamal deploy $(KAMAL_DEST)  (config/deploy$(if $(DEST),.$(DEST),).yml)"
-ifneq ($(STOP_FIRST),)
-	@echo "==> $(DEST) publishes a fixed port with proxy:false — stopping the old container first (brief downtime)"
-	-@set -a; . .kamal/secrets; set +a; $(KAMAL) app stop $(KAMAL_DEST)
-endif
-	@set -a; . .kamal/secrets; set +a; \
-	  KAMAL_HEALTHCHECK_URL="$(HEALTHCHECK_URL)" $(KAMAL) deploy $(KAMAL_DEST)
-
-ship: push deploy ## git push + deploy in one shot (honours DEST)
 
 status: ## Local git + production health + deployed version
 	@echo "=== Local git ==="

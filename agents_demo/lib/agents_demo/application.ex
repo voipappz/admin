@@ -24,15 +24,23 @@ defmodule AgentsDemo.Application do
         start: {Task, :start_link, [&AgentsDemo.Realtime.TokenAuth.init_cache/0]},
         restart: :transient
       },
-      # The realtime upstream: notifications, agent state and CDRs, all on one
-      # NATS connection. Idle when NATS_URL is unset, so a dev box without a
-      # broker starts normally instead of restart-looping.
+      # The ASK half. Everything this app needs FROM the mothership goes over
+      # NATS request/reply; nothing goes over HTTP. See `Realtime.Bus`.
+      ] ++ AgentsDemo.Realtime.Bus.children() ++ [
       # Cable (va-crystal) held server-side, one connection per signed-in user.
-      # Events arrive over NATS; what these connections add is the model's
-      # registration semantics — a confirmed subscription is what stamps
+      # This is the LISTEN half: events arrive here, and cable's own semantics
+      # come with them — a confirmed subscription is what stamps
       # `user:<uuid>:logged_in_at`. Inert without CABLE_URL.
+      #
+      # `Realtime.ApiProxy` below is a THIRD connection on the same cable and
+      # not a duplicate of these: one for the whole server, carrying `/auth`,
+      # `/api/` and `/tasks/` as request/reply so credentials reach the API
+      # over cable rather than over HTTP. Started after the registry so the
+      # listen path is up first — a login is worth nothing if the events that
+      # follow it have nowhere to arrive.
       {Registry, keys: :unique, name: AgentsDemo.Realtime.CableRegistry},
       {DynamicSupervisor, strategy: :one_for_one, name: AgentsDemo.Realtime.CableSupervisor},
+      ] ++ AgentsDemo.Realtime.ApiProxy.children() ++ [
       # Sagents infrastructure (registry + dynamic supervisors).
       #
       # After Repo/PubSub so agents shut down before them (reverse order),

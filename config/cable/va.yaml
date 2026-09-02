@@ -1,0 +1,29 @@
+# va.yaml for the LOCAL DEVELOPMENT cable only.
+#
+# The node binary reads this at CONST INIT (`CONFIG = ...` in node.cr) and
+# raises if VA_PATH is unset or the file is missing — so the container
+# crash-loops before it binds a port, with a message about VA_PATH rather than
+# about anything a portal developer did.
+#
+# THIS IS NOT A SWITCH. `nodes` and `sip_interfaces` are the two required keys
+# of VAConfig; everything the portal needs from this container is the cable
+# WebSocket on PORT. There is no kamailio and no FreeSWITCH in this image, so
+# the SIP fields below are placeholders that satisfy the parser and are never
+# dialled. Documentation-range addresses (RFC 5737 192.0.2.0/24) on purpose:
+# if something ever does try to use them, it fails obviously instead of
+# reaching a real host on the developer's LAN.
+#
+# The uuid matches CABLE_NODE_UUID in docker-compose.yml. Change one, change
+# both — the node identifies itself by it.
+nodes:
+  - uuid: '00000000-0000-0000-0000-0000000cab1e'
+    name: 'local-dev-cable'
+    roles:
+      - app
+    profile:
+      ip_address_external: '192.0.2.1'
+      ip_address_internal: '192.0.2.1'
+      eventsocket_address: '192.0.2.1'
+
+# Required by the parser, deliberately empty: no SIP profile is served here.
+sip_interfaces: []

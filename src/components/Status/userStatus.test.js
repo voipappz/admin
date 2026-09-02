@@ -44,7 +44,7 @@ describe('mergeLiveUserStatus', () => {
     expect(merged.availability).toBe('Available');
   });
 
-  it('accumulates the counter the deno fold produced', () => {
+  it('accumulates the counter the server fold produced', () => {
     const merged = mergeLiveUserStatus(polled, { state: 'waiting', call_counter: '9' });
     expect(merged.callCount).toBe(9);
   });

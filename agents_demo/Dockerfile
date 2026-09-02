@@ -105,3 +105,33 @@ USER nobody
 # ENTRYPOINT ["/tini", "--"]
 
 CMD ["/app/bin/server"]
+
+# ── Development ────────────────────────────────────────────────────────────
+# NOT part of the release path above. `docker compose up elixir` targets this
+# stage to get a container that runs `mix phx.server` against the MOUNTED
+# source, so a code change reloads instead of requiring an image rebuild.
+#
+# It deliberately stops after the toolchain: no COPY, no compile. The source
+# arrives as a bind mount and `deps`/`_build` as named volumes, which is what
+# makes an edit visible without a rebuild — baking the code in here would
+# produce an image that goes stale the moment anyone types.
+#
+# inotify-tools is the one addition over the builder stage: phoenix_live_reload
+# watches the filesystem, and without it a container silently never reloads —
+# which reads as "my change did nothing" rather than as a missing package.
+FROM ${BUILDER_IMAGE} AS dev
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends build-essential git inotify-tools \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+RUN mix local.hex --force \
+  && mix local.rebar --force
+
+ENV MIX_ENV="dev"
+
+# deps.get on every boot: the mounted mix.exs is the source of truth and a
+# dependency added on the host must not require rebuilding this image.
+CMD ["sh", "-c", "mix deps.get && mix phx.server"]

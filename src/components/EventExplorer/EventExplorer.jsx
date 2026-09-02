@@ -43,7 +43,7 @@ export default function EventExplorer() {
             {t('eventExplorer.title', 'Raw DuckDB events')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {t('eventExplorer.subtitle', 'Original NATS/Cable events persisted by Deno. Select a row to inspect its raw JSON.')}
+            {t('eventExplorer.subtitle', 'Original NATS/Cable events, as persisted. Select a row to inspect its raw JSON.')}
           </Typography>
         </Box>
         <Button onClick={explorer.refresh} startIcon={<RefreshIcon />} disabled={explorer.loading}>
@@ -64,7 +64,7 @@ export default function EventExplorer() {
       </Paper>
 
       {explorer.disabled && (
-        <Alert severity="info">{t('eventExplorer.disabled', 'The DuckDB inspector is disabled. Set EVENT_INSPECTOR_ENABLED=1 on Deno.')}</Alert>
+        <Alert severity="info">{t('eventExplorer.disabled', 'The event inspector is not available: its backend has not been ported to the portal yet.')}</Alert>
       )}
       {explorer.error && <Alert severity="error">{t('eventExplorer.error', 'Could not load DuckDB events')}: {explorer.error}</Alert>}
       {!explorer.disabled && !explorer.error && (

@@ -1,5 +1,5 @@
 // The saved-reports surface exposed by voipappz-api. Browser calls stay relative
-// so Vite/Deno can proxy them to the configured mothership without leaking its
+// so Vite and the portal can proxy them to the mothership without leaking its
 // hostname or credentials into the client bundle.
 import { apiGet } from '../lib/clients/api';
 

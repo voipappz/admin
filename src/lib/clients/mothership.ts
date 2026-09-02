@@ -14,7 +14,7 @@ import { AuthSession, getToken, saveSession } from '../auth';
 
 // All endpoint knobs are env-driven so tenant forks / surfaces repoint without a
 // code change. BASE defaults to RELATIVE (same origin): login rides the Vite
-// proxy in dev and the deno-api mothership forwarder in prod, so no backend
+// proxy in dev and the portal's mothership forwarder in prod, so no backend
 // host is baked into the bundle. Set VITE_MOTHERSHIP_URL only to go direct.
 const BASE = (((import.meta.env.VITE_MOTHERSHIP_URL as string) || '')).replace(/\/$/, '');
 // USER surface (this app is user-facing, like voipappz-app). Verified live on
@@ -24,7 +24,7 @@ const BASE = (((import.meta.env.VITE_MOTHERSHIP_URL as string) || '')).replace(/
 const LOGIN_PATH = ((import.meta.env.VITE_MOTHERSHIP_LOGIN_PATH as string) || '/auth/user_login');
 const OTP_PATH = ((import.meta.env.VITE_MOTHERSHIP_OTP_PATH as string) || '/auth/user/otp/verify');
 // Sign-out surface. Same-origin like the rest, so it rides the Vite proxy (dev)
-// and the deno mothership forwarder (prod) — /auth/* is forwarded verbatim with
+// and the portal's mothership forwarder (prod) — /auth/* is forwarded verbatim with
 // the client's Authorization header, so the server sees the token it issued.
 const LOGOUT_PATH = ((import.meta.env.VITE_MOTHERSHIP_LOGOUT_PATH as string) || '/auth/logout');
 const DEVICE_TOKEN_KEY = 'va_user_device_token';

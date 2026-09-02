@@ -1,7 +1,7 @@
 version: 2.1
 
 # Simple, deterministic pipeline (pattern borrowed from nimbus-admin):
-#   install-deps → test-quality (lint + Vitest) + test-api (deno) → build-docker
+#   install-deps → test-quality (lint + Vitest) + test-portal (ExUnit) → build-docker
 # Playwright is intentionally NOT run here — browser downloads stall on the
 # CI runners and the suite needs a live backend. E2E is run against a live
 # deploy from a feature branch / locally, not in the main pipeline.
@@ -36,17 +36,30 @@ jobs:
           name: Run unit tests (Vitest)
           command: npm run test:run
 
-  test-api:
+  test-portal:
     docker:
-      - image: denoland/deno:2.5.3
+      - image: hexpm/elixir:1.19.5-erlang-27.3.4-debian-trixie-20260610-slim
+      # The portal's suite needs a real Postgres; same major as production.
+      - image: cimg/postgres:16.4
+        environment:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+    environment:
+      MIX_ENV: test
+      PGHOST: localhost
+      PGPORT: 5432
     steps:
       - checkout
       - run:
-          name: Run Deno API tests (cable normalize, event freshness)
-          # Thin BFF: no local store, so no DuckDB perms. Runs the whole tests/
-          # dir so new specs are picked up automatically. @std/assert is in deno.json.
-          command: cd api && deno test --allow-net --allow-env --allow-read --no-check --config deno.json tests/
-          no_output_timeout: 5m
+          name: Run the Elixir portal suite
+          command: |
+            apt-get update && apt-get install -y --no-install-recommends git build-essential
+            mix local.hex --force && mix local.rebar --force
+            cd agents_demo
+            mix deps.get
+            mix compile --warnings-as-errors
+            mix test
+          no_output_timeout: 15m
 
   build-docker:
     docker:
@@ -102,7 +115,7 @@ workflows:
               only:
                 - main
                 - master
-      - test-api:
+      - test-portal:
           filters:
             branches:
               only:
@@ -119,7 +132,7 @@ workflows:
       - build-docker:
           requires:
             - test-quality
-            - test-api
+            - test-portal
           filters:
             branches:
               only:
@@ -138,7 +151,7 @@ workflows:
                 - /^fix.*/
                 - /^dev-.*/
                 - /^va-.*/
-      - test-api:
+      - test-portal:
           filters:
             branches:
               only:
@@ -161,7 +174,7 @@ workflows:
       - build-docker:
           requires:
             - test-quality
-            - test-api
+            - test-portal
           filters:
             branches:
               only:

@@ -785,7 +785,7 @@
   },
   "eventExplorer": {
     "title": "Raw DuckDB events",
-    "subtitle": "Original NATS/Cable events persisted by Deno. Select a row to inspect its raw JSON.",
+    "subtitle": "Original NATS/Cable events, as persisted. Select a row to inspect its raw JSON.",
     "refresh": "Refresh",
     "search": "Search raw JSON or IDs",
     "eventType": "Event type",
@@ -795,12 +795,12 @@
     "occurredAt": "Occurred",
     "apply": "Apply",
     "clear": "Clear",
-    "disabled": "The DuckDB inspector is disabled. Set EVENT_INSPECTOR_ENABLED=1 on Deno.",
+    "disabled": "The event inspector is not available: its backend has not been ported to the portal yet.",
     "error": "Could not load DuckDB events",
     "empty": "No stored events match these filters.",
     "table": "DuckDB event rows",
     "rawPayload": "Raw event as stored",
-    "normalizedPayload": "Normalized Deno projection",
+    "normalizedPayload": "Normalized projection",
     "copyRaw": "Copy raw JSON",
     "copied": "Copied"
   },

@@ -90,7 +90,7 @@ export default function LiveEvents({ from, to }: { from?: Date; to?: Date } = {}
       <Divider sx={{ mb: 1 }} />
       {shown.length === 0 ? (
         <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-          No events yet — make sure the Deno backend is running on :4000.
+          No events yet — make sure the portal is running on :4001.
         </Typography>
       ) : (
         <List dense sx={{ maxHeight: 360, overflow: 'auto', py: 0 }}>

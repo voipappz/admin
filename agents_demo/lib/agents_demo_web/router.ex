@@ -72,6 +72,32 @@ defmodule AgentsDemoWeb.Router do
     end
   end
 
+  # The dashboard builder's storage. `/dashboard/*` rather than `/api/dashboard`
+  # because the shipped client already calls these paths and the point of
+  # moving them here was that nothing outside this repo has to change.
+  #
+  # This is CONFIGURATION only — boards and widget definitions. The values the
+  # widgets show come from the event projection, which has not moved off the
+  # retired Deno BFF yet, so `/dashboard/snapshot` and `/dashboard/events` are
+  # still unserved and 404 here.
+  #
+  # `:api` and not `:browser`: these are fetched with a bearer token, never
+  # navigated to, and a CSRF check on a token-authenticated fetch rejects every
+  # write.
+  scope "/dashboard", AgentsDemoWeb.Portal do
+    pipe_through [:api, AgentsDemoWeb.Plugs.UserTokenAuth]
+
+    get "/dashboards", DashboardController, :index
+    post "/dashboards", DashboardController, :create
+    patch "/dashboards/:uuid", DashboardController, :update
+    delete "/dashboards/:uuid", DashboardController, :delete
+
+    get "/widgets", WidgetController, :index
+    post "/widgets", WidgetController, :create
+    patch "/widgets/:uuid", WidgetController, :update
+    delete "/widgets/:uuid", WidgetController, :delete
+  end
+
   # Platform probes. Deliberately in no pipeline at all: they must not require a
   # session, must not be behind authentication, and must not content-negotiate,
   # because a probe that sends no Accept header would then be answered 406 and
@@ -81,6 +107,7 @@ defmodule AgentsDemoWeb.Router do
   # node whose Sagents supervision tree has already stopped. See
   # `AgentsDemoWeb.HealthController`.
   scope "/health", AgentsDemoWeb do
+    get "/", HealthController, :report
     get "/alive", HealthController, :alive
     get "/ready", HealthController, :ready
   end

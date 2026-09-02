@@ -77,8 +77,8 @@ defmodule AgentsDemoWeb.Endpoint do
   # and a proxy that re-reads it afterwards sends an empty one — which the
   # upstream answers with a puzzled 4xx rather than an error that names the
   # cause. Also before the router, which raises on an unmatched path instead of
-  # falling through. Inert without DENO_URL / ENGINE_URL.
-  plug AgentsDemoWeb.Plugs.DenoProxy
+  # falling through. Inert without ENGINE_URL.
+  plug AgentsDemoWeb.Plugs.EngineProxy
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],

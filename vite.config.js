@@ -23,30 +23,36 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
-    // deno-api now serves everything (calls/events store + app endpoints) on a
-    // single port, so the proxy needs just two upstreams: deno-api and the
-    // external cloud API. The browser only ever talks to Vite; it forwards
-    // internally, so the app works however it's reached and deno-api's port is
-    // never exposed. Override hosts via VITE_DENO_API_TARGET / VITE_API_TARGET.
+    // The Elixir portal is the single upstream: it serves /ws/events and
+    // forwards /api, /auth and /tasks to the mothership server-side. The
+    // browser only ever talks to Vite, which forwards internally, so the app
+    // works however it is reached and the portal's port is never exposed.
+    // Override the host with VITE_PORTAL_TARGET.
     server: {
       host: '0.0.0.0',
       port: 4200,
       https: devHttps,
     proxy: (() => {
-      const DENO = process.env.VITE_DENO_API_TARGET || 'http://localhost:4001';
+      const PORTAL = process.env.VITE_PORTAL_TARGET || 'http://localhost:4001';
       return {
-        // All portal traffic enters the Deno BFF in development, matching the
-        // production topology. Deno owns the Nimbus target and forwards
-        // /api, /auth and /tasks server-side; the browser remains same-origin.
-        '/api':   { target: DENO, changeOrigin: true },
-        '/tasks': { target: DENO, changeOrigin: true },
-        '/auth':  { target: DENO, changeOrigin: true },
-        // Optional PostgREST plane — rides deno (strips /rest/v1, 503 when off).
-        '/connectors/postgrest': { target: DENO, changeOrigin: true },
-        '/rest/v1':      { target: DENO, changeOrigin: true },
-        '/deno-api':     { target: DENO, changeOrigin: true, rewrite: (p) => p.replace(/^\/deno-api/, '') },
-        '/events-api':   { target: DENO, changeOrigin: true, rewrite: (p) => p.replace(/^\/events-api/, '') },
-        '/ws/events':    { target: DENO, changeOrigin: true, ws: true },
+        // All portal traffic enters Elixir in development, matching the
+        // production topology: one process serves the SPA, the socket and the
+        // forwarded routes, so the browser remains same-origin.
+        '/api':   { target: PORTAL, changeOrigin: true },
+        '/tasks': { target: PORTAL, changeOrigin: true },
+        '/auth':  { target: PORTAL, changeOrigin: true },
+        '/ws/events': { target: PORTAL, changeOrigin: true, ws: true },
+        // Everything the portal serves itself, under one dev-only prefix that
+        // is stripped on the way through. The prefix exists because
+        // `/dashboard` and `/calls` are React routes as well as backend paths:
+        // a proxy rule on either name would stop the page from loading.
+        // Production has one origin and no prefix — see `lib/clients/portalApi.js`.
+        '/portal': { target: PORTAL, changeOrigin: true, rewrite: (p) => p.replace(/^\/portal/, '') },
+        // The PostgREST plane, still unserved since the Deno BFF was removed.
+        // Pointed at the portal deliberately: it 404s there, which is legible,
+        // whereas leaving it out makes Vite answer a JSON fetch with the SPA's
+        // index.html and the caller fails on a parse error instead.
+        '/rest/v1': { target: PORTAL, changeOrigin: true },
       };
     })(),
   },

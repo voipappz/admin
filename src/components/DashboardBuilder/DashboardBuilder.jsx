@@ -45,7 +45,7 @@ const TYPE_CHOICES = [
 
 /**
  * Full-screen dashboard workspace recovered from nimbus-admin@1061991^.
- * Nimbus's Cable/Redis/Influx adapters are replaced by the local Deno → DuckDB
+ * Nimbus's Cable/Redis/Influx adapters are replaced by the local
  * snapshot and normalized event view; the builder interaction model remains.
  */
 export default function DashboardBuilder({

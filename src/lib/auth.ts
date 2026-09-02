@@ -4,7 +4,7 @@
 //
 // The signed JWT (role `api_readonly` + user/environment claims) is the single
 // credential: stored in localStorage and sent as the bearer on every request to
-// deno / PostgREST. This replaces Supabase Auth — one user login, one token, one
+// the portal / PostgREST. This replaces Supabase Auth — one user login, one token, one
 // source of truth. A user belongs to one environment (users.environment_uuid),
 // and that `environment_uuid` claim scopes the calls list to that environment.
 

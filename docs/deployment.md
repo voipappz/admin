@@ -1,21 +1,20 @@
 # Deployment
 
 Everything runs through **Docker** — there is no other tooling to install.
-One artifact either way: the image built from `Dockerfile.production` serves
-the React bundle and the deno-api BFF from a single process (`api/app.ts`,
-`STATIC_DIR=/app/dist`). CI builds and boot-probes this exact image on every
-push (the `prod-image` job).
+One artifact either way: the image built from `Dockerfile.production` serves the
+React bundle and the Phoenix release from a single process (`SPA_ROOT=/app/dist`).
+CI builds and boot-probes this exact image on every push (the `prod-image` job).
 
 ## Run production on this box
 
 ```bash
-make prod        # build the production image + run it (:8000), probes /,/test,/health
+make prod        # build the production image + run it (:8000), probes / and /health/alive
 make prod-down   # stop it
 ```
 
 Runtime env comes from `.env` beside the compose file (`ENGINE_URL`, `NATS_URL`,
 `NATS_CDR_SUBJECTS`,
-optional Cable, and the local DuckDB event-store settings—see `.env.example`).
+optional cable, and the NATS bus—see `.env.example`).
 The event inspector is off in production unless `EVENT_INSPECTOR_ENABLED=1` is
 deliberately supplied; when enabled it appears at `/event-explorer`. Compose does not re-read env on
 restart — use `docker compose --profile prod up -d --force-recreate

@@ -61,4 +61,39 @@ defmodule AgentsDemoWeb.HealthController do
     |> put_resp_content_type("text/plain")
     |> send_resp(status, body)
   end
+
+  @doc """
+  The dependency report the SPA's status dot polls.
+
+  Configuration, not probes: it says which transports this deployment has been
+  given, which is the question the dot actually answers ("is anything missing?")
+  and the one that can be answered without a round trip on a 15-second poll.
+  Whether a configured transport is currently passing traffic is `ready/2`'s
+  job.
+
+  Unauthenticated, like the probes above and like the report it replaces — the
+  dot renders before a user is logged in.
+  """
+  def report(conn, _params) do
+    checks = %{
+      bus: check(AgentsDemo.Realtime.Bus.configured?(), "NATS_URL is not set — tokens cannot be verified"),
+      cable: check(AgentsDemo.Realtime.CableClient.enabled?(), "CABLE_URL is not set — no realtime events"),
+      engine: check(engine?(), "ENGINE_URL is not set — /auth and /api are not forwarded")
+    }
+
+    down? = Enum.any?(checks, fn {_name, check} -> check.status == "down" end)
+
+    json(conn, %{
+      status: if(down?, do: "degraded", else: "ok"),
+      ready: not down?,
+      checks: checks
+    })
+  end
+
+  defp check(true, _detail), do: %{status: "ok"}
+  defp check(false, detail), do: %{status: "down", detail: detail}
+
+  defp engine? do
+    (System.get_env("ENGINE_URL") || System.get_env("MOTHERSHIP_URL") || "") != ""
+  end
 end

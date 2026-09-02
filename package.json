@@ -5,9 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "vite --configLoader runner",
-    "dev:native": "concurrently -k -n vite,deno \"vite --configLoader runner\" \"PORT=4001 deno run --watch=api/ -A api/app.ts\"",
-    "serve": "STATIC_DIR=./dist PORT=4200 deno run --watch=api/ -A api/app.ts",
-    "dev:unified": "vite build --configLoader runner && concurrently -k -n vite,deno \"vite build --watch --configLoader runner\" \"npm:serve\"",
     "build": "vite build --configLoader runner",
     "lint": "eslint .",
     "preview": "vite preview --configLoader runner",
@@ -18,7 +15,6 @@
     "test:pw:headed": "playwright test --headed",
     "test:pw:debug": "playwright test --debug",
     "test:pw:report": "playwright show-report",
-    "test:crystal": "bash scripts/test-crystal-pipeline.sh",
     "verify:push": "bash scripts/verify-before-push.sh",
     "prepare": "git config core.hooksPath .githooks || true",
     "security-scan": "npx audit-ci --moderate",

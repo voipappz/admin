@@ -51,9 +51,9 @@ A fork is configured entirely by env — no code changes.
 
 | Var | Default | Meaning |
 |---|---|---|
-| `MOTHERSHIP_URL` | `https://cloud.voipappz.io` | **The one tenant knob.** The tenant's voipappz-api, reached same-origin via the Vite proxy (dev) / deno forwarder (prod). Unprefixed so it can never reach the bundle. (`VITE_API_TARGET` / `ENGINE_URL` override it for one consumer only.) |
+| `MOTHERSHIP_URL` | `https://cloud.voipappz.io` | **The one tenant knob.** The tenant's voipappz-api, reached same-origin via the Vite proxy (dev) / the portal's forwarder (prod). Unprefixed so it can never reach the bundle. (`VITE_API_TARGET` / `ENGINE_URL` override it for one consumer only.) |
 | `VITE_MOTHERSHIP_URL` | — (relative) | Direct-mode escape hatch for static-only hosting (browser calls the mothership cross-origin). Leave unset. |
-| `VITE_AUTH_URL` | `/auth/login` | Where the browser posts credentials (rides the Vite/deno proxy). |
+| `VITE_AUTH_URL` | `/auth/login` | Where the browser posts credentials (rides the Vite proxy → the portal's forwarder). |
 | `VITE_MOCK_LOGIN` | — | `1` = offline login mock (any email → OTP `123456`), for local dev with no backend. |
 
 Leave `VITE_API_BASE_URL` **unset** — setting it makes requests bypass the Vite
@@ -236,8 +236,10 @@ Keep it under ~300 lines; split sub-parts into the same folder.
 
 ## 5b. Optional: the PostgREST data plane
 
-For tenant-custom tables/views beside the mothership. Enable by setting
-`POSTGREST_URL` on deno (unset ⇒ `/rest/v1` answers 503). Building blocks:
+For tenant-custom tables/views beside the mothership. **Currently unserved:**
+the `/rest/v1` forward lived in the Deno BFF and was removed with it, so the
+route 404s until the portal grows one. The client-side building blocks are
+kept, because the need has not gone away:
 
 - `lib/clients/postgrest.ts` — `pgrstList('/my_view?select=*&limit=20')` /
   `pgrstGet` (relative `/rest/v1`, bearer auth, exact counts).
@@ -256,54 +258,50 @@ exactly like §5 — components should not care which plane the data came from.
   boundary; never hit the network.
 - **E2E (Playwright):** `tests/` — Input → Submit → capture response → assert.
 - **Build gate:** `npm run build` must be clean before shipping.
-- **Deno/API:** `docker compose --profile test run --rm deno-tests` exercises
-  normalization, DuckDB, reconciliation, health and routes.
-- **Cable and Core NATS CI locally:** `make act-api`. The job opens a real
-  ActionCable WebSocket against a hermetic va-crystal-compatible fixture,
-  consumes a complete call into DuckDB, publishes the real va-crystal
-  `cdr.write.bulk` shape through Core NATS, and separately proves committed
-  EventCdr replay. The helper installs `act` into
-  `/tmp` when needed and passes an empty env file so tenant secrets from `.env`
-  never enter CI containers.
-- **Complete pre-push gate:** `npm run verify:push` (lint, Vitest, Deno,
-  production build and Playwright smoke).
+- **The portal (ExUnit):** `docker compose exec -e MIX_ENV=test elixir mix test`.
+  Needs a Postgres on the configured `PGPORT`; CI runs the same suite against a
+  service container.
+- **The portal's CI job locally:** `make act-portal`. The helper installs `act`
+  into `/tmp` when needed and passes an empty env file, so tenant secrets from
+  `.env` never enter CI containers.
+- **Complete pre-push gate:** `npm run verify:push` (lint, Vitest, a clean
+  Elixir compile, production build and Playwright smoke).
 
-### Changing the local event pipeline
+### Changing the realtime path
 
-The current Dashboard path is:
+The portal uses two platform transports and no HTTP:
 
 ```text
-va-crystal cdr.write.bulk → Core NATS ┬→ voipappz-api EventCdr insertion
-                                      └→ Deno raw row → DuckDB → Dashboard
-
-optional: voipappz-api events.cdr → Deno; events.cdr.replay closes gaps
+ask    → NATS request/reply → voipappz-api      (is this token real, and whose?)
+listen → one cable connection → va-crystal      (user state, dashboard values)
+             └─ Phoenix.PubSub → one /ws/events socket per browser
 ```
 
-Keep these invariants when changing `api/`:
+Invariants when changing `agents_demo/lib/agents_demo/realtime/`:
 
-- Preserve every `cdr.write`/`cdr.write.bulk` row exactly in `raw_payload`; custom
-  solutions depend on the original `data` and `metadata` fields.
-- Treat Core NATS delivery as a live signal, not durable storage. In optional
-  `events.cdr` mode, reconciliation must page from the last producer `event_id`
-  and atomically persist the page with its checkpoint.
-- Preserve a committed producer `event_id` as the DuckDB idempotency key; raw
-  pre-commit rows use a stable hash of the untouched row.
-- Persist a live event before relaying it to `/ws/events`.
-- Update the Dashboard projection and its regression test whenever the
-  `EventCdr` data contract changes.
-- Keep `/health` liveness-compatible; `/health/ready` requires NATS and requires
-  replay only when `events.cdr` is selected. Stale streams do not restart the app.
+- **Never reach the API over HTTP to verify a credential.** `Realtime.Bus`
+  refuses (`{:error, :no_bus}`) when `NATS_URL` is unset; that refusal is the
+  designed behaviour, not a gap to paper over with a fallback.
+- **Derive streams from the verified token's claims.** A client never names a
+  uuid and the server must never accept one — trusting a client-supplied id is
+  the defect that let any valid token stream another user's events.
+- One upstream cable connection for the whole app, fanned out over PubSub. A
+  connection per browser would multiply node-side subscriptions by user count.
+- The credential the portal presents to cable is **minted** from the verified
+  identity (`Realtime.CableToken`) when a secret is configured — not the
+  browser's token forwarded onward, which cable would honour indefinitely
+  because `CableAuth.decode_jwt` never checks `exp`.
 - Never log `NATS_URL`; it may contain credentials.
 
-For local inspection, development Compose enables the read-only `/events`
-surface used by `/event-explorer`. MCP-capable development tools can use the
-separate read-only `/mcp` surface directly from the host with no extra setup;
-Compose enables it only for loopback TCP peers. Container, LAN, and remote MCP
-clients use the private `.mcp.env` token generated on first `make dev`/`make
-up`; `make mcp-token` displays the connection details. See `docs/mcp.md`.
-Production only exposes
-either surface when an operator opts in; event payloads can contain tenant call
-data.
+### The forwarder owns CORS
+
+`Plugs.EngineProxy` answers preflights itself and **replaces** the upstream's
+`access-control-*` headers rather than copying them. The Chrome extension's
+origin is a `chrome-extension://<id>` that no upstream allowlist can name, so
+the upstream returns no `access-control-allow-origin` and the browser refuses
+the response — reported as a bare network error with no status, which reads as
+"the portal is down". Do not merge the two policies: `*` with
+`allow-credentials: true` is a combination browsers reject outright.
 
 ---
 

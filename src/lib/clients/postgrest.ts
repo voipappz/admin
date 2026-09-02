@@ -1,7 +1,8 @@
 // PostgREST client — the OPTIONAL second data plane (the default one is the
 // mothership via lib/clients/api.ts). Same-origin like everything else: BASE
 // defaults to the relative /rest/v1, which rides the Vite proxy (dev) or the
-// deno-api forwarder (prod, 503 when POSTGREST_URL is unset server-side).
+// portal forwarder — currently unserved: the /rest/v1 forward left with the
+// Deno BFF, so these calls 404 until the portal grows one.
 // Auth is the same login JWT: PostgREST verifies it against its own shared
 // secret (VA_PGRST_JWT_SECRET), so RLS can scope rows by the token's claims.
 import { getToken, logout } from '../auth';

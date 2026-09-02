@@ -1,0 +1,4 @@
+interface:
+  display_name: "Develop VoIPAppz Portal"
+  short_description: "Build and verify the Elixir/Vite portal"
+  default_prompt: "Use $develop-voipappz-portal to implement and verify a change in this repository."

@@ -33,7 +33,7 @@ export default function RawEventDialog({ event, onClose }) {
         <Divider sx={{ my: 2 }} />
         <Box component="details">
           <Box component="summary" sx={{ cursor: 'pointer', fontWeight: 600 }}>
-            {t('eventExplorer.normalizedPayload', 'Normalized Deno projection')}
+            {t('eventExplorer.normalizedPayload', 'Normalized projection')}
           </Box>
           <Box component="pre" sx={{ p: 2, overflow: 'auto', borderRadius: 1, bgcolor: 'action.hover',
             fontSize: '0.78rem', direction: 'ltr', textAlign: 'left' }}>

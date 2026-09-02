@@ -1,5 +1,5 @@
 import { getToken } from '../lib/auth';
-import { DENO_API_BASE } from '../lib/clients/denoApi';
+import { PORTAL_API_BASE } from '../lib/clients/portalApi';
 
 export function buildDuckdbEventsQuery({
   page = 0,
@@ -33,7 +33,7 @@ export function normalizeDuckdbEventPage(payload) {
 /** Read only the raw rows persisted in this app's local DuckDB. */
 export async function getDuckdbEvents(options = {}) {
   const token = getToken();
-  const response = await fetch(`${DENO_API_BASE}/events?${buildDuckdbEventsQuery(options)}`, {
+  const response = await fetch(`${PORTAL_API_BASE}/events?${buildDuckdbEventsQuery(options)}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (response.status === 404) return { rows: [], total: 0, disabled: true };

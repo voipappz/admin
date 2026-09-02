@@ -10,7 +10,7 @@
 // Verified live against MTN (200 unauthenticated, CORS open):
 //   { name, language, logo_url, logo_icon, logo_title, logo_color }
 // `||` not `??` so an empty-string env still falls back to the default.
-// Relative by default — rides the Vite proxy (dev) / deno forwarder (prod).
+// Relative by default — rides the Vite proxy (dev) / the portal's forwarder (prod).
 const BASE = (((import.meta.env.VITE_MOTHERSHIP_URL as string) || '')).replace(/\/$/, '');
 const PORTAL_PATH = ((import.meta.env.VITE_PORTAL_DATA_PATH as string) || '/tasks/customer_portal_data');
 const STORAGE_KEY = 'customerData';
