@@ -236,9 +236,12 @@ services:
   # endpoint. Without one, CABLE_URL points at nothing and every realtime path
   # quietly does not work.
   #
-  # THE LEGACY IMAGE ON PURPOSE. `nirlevi/voipappz-crystal:latest` is the cheap
-  # one: its entrypoint is /opt/DockerRun, which starts the node binary and
-  # nothing else. The stack image supervises kamailio and FreeSWITCH beside it
+  # THE NODE-ONLY IMAGE ON PURPOSE. `va-crystal-cable:latest` is va-crystal's
+  # root Dockerfile built from its source (`make build` there, then tag): its
+  # entrypoint is /opt/DockerRun, which starts the node binary and nothing
+  # else. The published `nirlevi/voipappz-crystal:latest` has the same shape
+  # but trails the source — it predates the ApiProxy `verify` action, without
+  # which no /ws/events upgrade succeeds. The stack image supervises kamailio and FreeSWITCH beside it
   # under s6, which is what a real node needs and what a developer does not —
   # and is why this one can share a box with an installed node instead of
   # fighting it for 5060/5080/8021.
@@ -248,7 +251,7 @@ services:
   # at it with CABLE_URL=ws://127.0.0.1:4100/cable.
   cable:
     profiles: ["cable"]
-    image: ${VA_CRYSTAL_IMAGE:-nirlevi/voipappz-crystal:latest}
+    image: ${VA_CRYSTAL_IMAGE:-va-crystal-cable:latest}
     restart: unless-stopped
     # Host networking so it reaches the broker on 127.0.0.1:4222, the same way
     # the rest of this stack reaches the host.

@@ -194,15 +194,17 @@ jobs:
   # what happens when the node or the portal restarts. Contract and scenario
   # numbers: docs/cable-events-spec.md. Locally: `make act-cable`.
   #
-  # The node image is PRIVATE on Docker Hub, so the login runs only where the
-  # secret exists; `make act-cable` runs with an empty env file and the image
-  # already on the box (or VA_CRYSTAL_IMAGE naming a locally built one).
+  # The node image is `va-crystal-cable:latest`, built from va-crystal's
+  # source. On this runner it has to come from a registry — set the
+  # VA_CRYSTAL_IMAGE repository variable to its registry-qualified name (the
+  # login below runs where the Hub secret exists); `make act-cable` runs with
+  # an empty env file and the image already on the box.
   cable-events:
     name: NATS → va-crystal → Elixir → Chrome (real chain)
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
-      VA_CRYSTAL_IMAGE: ${{ vars.VA_CRYSTAL_IMAGE || 'nirlevi/voipappz-crystal:latest' }}
+      VA_CRYSTAL_IMAGE: ${{ vars.VA_CRYSTAL_IMAGE || 'va-crystal-cable:latest' }}
       COMPOSE: docker compose -f tests/cable-events/docker-compose.yml
     steps:
       - uses: actions/checkout@v4

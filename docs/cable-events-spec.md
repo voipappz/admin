@@ -215,7 +215,9 @@ Observed 2026-09-03 against `va-crystal-cable:screen-pop`, an image built from
    every cable connection and the `verify` payload (token included) are
    logged; the api-proxy spec already flags the request-body case.
 4. **`nirlevi/voipappz-crystal:latest` predates `verify`** — the readiness
-   gate fails by name on it. Publish an image from a commit that has it.
+   gate fails by name on it, which is why the stack works with
+   `va-crystal-cable:latest`, built from va-crystal's source. Publishing that
+   tag to a registry is what lets the GitHub job run it.
 
 ## Out of scope
 

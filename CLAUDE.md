@@ -42,7 +42,7 @@ host.
 |---|---|---|
 | `react-app` | 4200 | Vite HMR. Proxies backend requests to the Elixir portal. |
 | `elixir` | **4001** | The portal — **the origin**. Serves the SPA and `/ws/events`, verifies tokens, holds the cable connection, forwards `/auth` · `/api/` · `/tasks/` to the mothership. |
-| `cable` | 4100 | va-crystal's node, `nirlevi/voipappz-crystal:latest`. The realtime endpoint the portal subscribes to. |
+| `cable` | 4100 | va-crystal's node, `va-crystal-cable:latest` (built from va-crystal's source; `VA_CRYSTAL_IMAGE` overrides). The realtime endpoint the portal subscribes to. |
 
 **4001 is the origin and does not move.** The SPA, the Chrome extension and
 Vite's proxy all point at it, and none of them should ever have to change.
@@ -63,7 +63,7 @@ a `?token=` the node verifies against its own `SECRET_KEY`, and it accepts a
 mothership user token — so the login the browser already did *is* the cable
 credential. `CABLE_TOKEN` exists only for a userless server-side tap.
 
-The image is the legacy `nirlevi/voipappz-crystal:latest`, not the stack image:
+The image is `va-crystal-cable:latest` — va-crystal's node-only root Dockerfile built from source (the published `nirlevi/voipappz-crystal:latest` has the same shape but trails it), not the stack image:
 its entrypoint runs the node binary alone, so it can share a box with an
 installed node instead of fighting it for 5060/5080/8021. Five things are fatal
 at const-init, each with a message that points away from the cause — all are set

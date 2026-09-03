@@ -33,13 +33,14 @@ services:
       timeout: 3s
       retries: 15
 
-  # The published image by default. It must carry the ApiProxy channel WITH
-  # the `verify` action, or no /ws/events upgrade can ever succeed (the portal
-  # asks the node whether a token is real); ready.sh probes for exactly that
-  # and names this variable when it is not. A source-built image is swapped in
-  # here — never by editing this file.
+  # `va-crystal-cable:latest` by default — the node built from va-crystal's
+  # source (`make build` there), which is the image this stack works with. It
+  # must carry the ApiProxy channel WITH the `verify` action, or no /ws/events
+  # upgrade can ever succeed (the portal asks the node whether a token is
+  # real); ready.sh probes for exactly that and names this variable when it is
+  # not. Another image is swapped in here — never by editing this file.
   cable:
-    image: ${VA_CRYSTAL_IMAGE:-nirlevi/voipappz-crystal:latest}
+    image: ${VA_CRYSTAL_IMAGE:-va-crystal-cable:latest}
     pull_policy: missing
     network_mode: host
     depends_on:
