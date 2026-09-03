@@ -27,8 +27,18 @@ defmodule AgentsDemoWeb.RealtimeSocketHeartbeatTest do
   test "a heartbeat pushes a text frame the client can see, and schedules the next" do
     state = %{claims: %{}, topics: MapSet.new()}
 
-    assert {:push, {:text, json}, ^state} = RealtimeSocket.handle_info(:heartbeat, state)
-    assert %{"type" => "ping"} = Jason.decode!(json)
+    assert {:push, frames, ^state} = RealtimeSocket.handle_info(:heartbeat, state)
+
+    # The pong the browser sends back for this is the only INBOUND frame on an
+    # idle socket, and Bandit's timeout measures what it receives. Without it
+    # the socket closed every 63s no matter how often we pushed.
+    assert {:ping, ""} in frames
+
+    # And this one wakes the service worker, which a pong never does.
+    assert Enum.any?(frames, fn
+             {:text, json} -> match?(%{"type" => "ping"}, Jason.decode!(json))
+             _ -> false
+           end)
 
     # Rescheduled onto this process, so the socket keeps pinging for its life.
     assert_receive :heartbeat, RealtimeSocket.heartbeat_ms() + 1_000

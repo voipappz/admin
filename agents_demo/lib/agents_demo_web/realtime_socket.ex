@@ -92,9 +92,26 @@ defmodule AgentsDemoWeb.RealtimeSocket do
   end
 
   # Keeps the idle timer from firing on a connection that is simply quiet.
+  # BOTH frames, every time, and neither is redundant:
+  #
+  #   * the protocol ping is answered by the browser with a pong, and that
+  #     INBOUND frame is what resets Bandit's `timeout:` — which measures data
+  #     RECEIVED, not sent. A message the server pushes cannot reset it, so the
+  #     text frame alone left the socket closing on schedule.
+  #   * the text frame reaches `onmessage`, which is what stops Chrome
+  #     terminating an idle MV3 service worker. A pong never reaches JS, so the
+  #     ping alone let the worker die with the socket still open.
+  #
+  # Measured with the text frame only: registrations at 17:58:46, 17:59:49,
+  # 18:00:52, 18:01:55 — every 63s, the 60s timeout plus a reconnect.
   def handle_info(:heartbeat, state) do
     schedule_heartbeat()
-    {:push, {:text, Jason.encode!(%{type: "ping", ts: DateTime.utc_now() |> DateTime.to_iso8601()})}, state}
+
+    {:push,
+     [
+       {:ping, ""},
+       {:text, Jason.encode!(%{type: "ping", ts: DateTime.utc_now() |> DateTime.to_iso8601()})}
+     ], state}
   end
 
   def handle_info(_other, state), do: {:ok, state}
