@@ -32,12 +32,19 @@ defmodule AgentsDemoWeb.RealtimeSocket do
   # a screen pop, so pops then silently stopped for a user whose extension was
   # still open. It presented as "the pop does not work", never as a disconnect.
   #
-  # A protocol-level ping rather than a text frame: browsers answer it in the
-  # WebSocket layer, so no shipped client needs to know about it, and the pong
-  # resets the idle timer. Well inside the timeout so one missed ping is not a
-  # disconnect, and the timeout is kept as the backstop that still reaps a
-  # client that really has gone.
-  @heartbeat_ms 25_000
+  # A TEXT frame, not a protocol ping, and that distinction is the whole point.
+  #
+  # The client is a Manifest V3 extension, so its background is a service worker
+  # and Chrome terminates one that has been idle for ~30s. A protocol ping is
+  # answered by the browser's network stack without waking the worker's JS, so
+  # it keeps the TCP connection alive and lets Chrome kill the worker anyway —
+  # measured: a session registered at 16:25:49 was gone by 16:26:27, with a
+  # 25s protocol ping running and no error on either side. A MESSAGE reaches
+  # `onmessage`, which is what resets Chrome's idle timer.
+  #
+  # `backgroundPage.ts` switches on `frame.type` and ignores what it does not
+  # know, so this needs no client change. Under 30s with room to miss one.
+  @heartbeat_ms 15_000
 
   @impl true
   def init({claims, topics}) do
@@ -87,7 +94,7 @@ defmodule AgentsDemoWeb.RealtimeSocket do
   # Keeps the idle timer from firing on a connection that is simply quiet.
   def handle_info(:heartbeat, state) do
     schedule_heartbeat()
-    {:push, {:ping, ""}, state}
+    {:push, {:text, Jason.encode!(%{type: "ping", ts: DateTime.utc_now() |> DateTime.to_iso8601()})}, state}
   end
 
   def handle_info(_other, state), do: {:ok, state}

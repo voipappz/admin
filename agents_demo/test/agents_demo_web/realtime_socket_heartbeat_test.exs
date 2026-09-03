@@ -14,16 +14,21 @@ defmodule AgentsDemoWeb.RealtimeSocketHeartbeatTest do
 
   alias AgentsDemoWeb.RealtimeSocket
 
-  test "the interval leaves room for a missed ping inside the idle timeout" do
-    # The timeout `upgrade/1` passes to WebSockAdapter. Two heartbeats must fit,
-    # so losing one is not a disconnect.
+  test "the interval fits inside Chrome's service-worker idle timeout" do
+    # MV3 terminates a background service worker idle for ~30s, and that — not
+    # the 60s socket timeout — is what was killing sessions. Two heartbeats must
+    # fit inside it, so losing one is not a disconnect.
+    assert RealtimeSocket.heartbeat_ms() * 2 <= 30_000
     assert RealtimeSocket.heartbeat_ms() * 2 < 60_000
   end
 
-  test "a heartbeat pushes a protocol ping and schedules the next one" do
+  # A TEXT frame specifically: a protocol ping never wakes the service worker's
+  # JS, so Chrome kills the worker while the socket looks perfectly healthy.
+  test "a heartbeat pushes a text frame the client can see, and schedules the next" do
     state = %{claims: %{}, topics: MapSet.new()}
 
-    assert {:push, {:ping, ""}, ^state} = RealtimeSocket.handle_info(:heartbeat, state)
+    assert {:push, {:text, json}, ^state} = RealtimeSocket.handle_info(:heartbeat, state)
+    assert %{"type" => "ping"} = Jason.decode!(json)
 
     # Rescheduled onto this process, so the socket keeps pinging for its life.
     assert_receive :heartbeat, RealtimeSocket.heartbeat_ms() + 1_000
