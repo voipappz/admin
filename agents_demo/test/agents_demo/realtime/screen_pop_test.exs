@@ -311,6 +311,30 @@ defmodule AgentsDemo.Realtime.ScreenPopTest do
       assert message["url"] =~ "callId=call-abc"
     end
 
+    # THE CASE THAT WAS FAILING IN PRODUCTION. The callcenter names an agent by
+    # `powerlink_token`, not by user uuid: an agent-state-change carrying
+    # `CC-Agent cb1b0a46…` arrived while the browser held user `be5bc5f0…`,
+    # and cb1b0a46… was that user's powerlink_token. Matching on the uuid alone
+    # refused it. With the resolved agent ids it pops.
+    test "matches the user's powerlink_token, which is what CC-Agent carries", %{state: state} do
+      online = fn _uuid -> true end
+      powerlink = "cb1b0a46-77d5-4b3a-92d8-31768fea74e4"
+
+      event =
+        state_event(%{
+          "user_uuid" => powerlink,
+          "meta" => %{"CC-Agent" => powerlink, "CC-Agent-State" => "In a queue call"}
+        })
+
+      # Without the token in the accepted ids: correctly refused (old behaviour).
+      ScreenPop.process_user_event(state, @user_uuid, event, online, [@user_uuid])
+      refute_receive {:realtime, %{type: "notification"}}
+
+      # With it: pops, and to the USER's topic, not the token's.
+      ScreenPop.process_user_event(state, @user_uuid, event, online, [@user_uuid, powerlink])
+      assert_receive {:realtime, %{type: "notification", message: %{"action" => "tab:new"}}}
+    end
+
     test "uses the caller number when the event carries one", %{state: state} do
       online = fn _uuid -> true end
       event = state_event(%{"data" => %{"caller_id_number" => "0501234567"}})

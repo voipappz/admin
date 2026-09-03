@@ -31,6 +31,18 @@ defmodule AgentsDemo.Realtime.CableClientTest do
       # Every stream names the verified uuid and nothing broader.
       assert Enum.all?(ids, &(&1 =~ @user_uuid))
     end
+
+    # The node keys `state.user.<id>` by CC-Agent = powerlink_token, so the
+    # token's stream must be held too, or the callcenter's events for this
+    # user are published where nobody listens.
+    test "also hold the state stream keyed by the user's powerlink_token" do
+      powerlink = "cb1b0a46-77d5-4b3a-92d8-31768fea74e4"
+      ids = CableClient.identifiers_for(@user_uuid, [@user_uuid, powerlink])
+
+      assert Jason.encode!(%{channel: "StateChannel", scope: "user", id: powerlink}) in ids
+      assert @state_channel in ids
+      refute Enum.any?(ids, &(&1 =~ "CallEvents"))
+    end
   end
 
   describe "notification relay" do

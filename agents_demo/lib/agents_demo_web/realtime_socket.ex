@@ -162,11 +162,18 @@ defmodule AgentsDemoWeb.RealtimeSocket do
       # verified — not the browser's own token passed along unread. Without a
       # configured secret this returns that token unchanged, so an
       # unconfigured deployment is untouched. See `Realtime.CableToken`.
+      # Every id the switch may use for this user. The callcenter names an agent
+      # by `powerlink_token`, not by user uuid, and that is also the key of the
+      # state stream the node publishes to — so it must be known before the
+      # cable client subscribes, which is why it is resolved here and not later.
+      agent_ids = AgentsDemo.Realtime.AgentIdentity.resolve(user_uuid, token)
+
       spec =
         {AgentsDemo.Realtime.CableClient,
          user_uuid: user_uuid,
          environment_uuid: claims.environment_uuid,
-         token: AgentsDemo.Realtime.CableToken.for(claims)}
+         token: AgentsDemo.Realtime.CableToken.for(claims),
+         agent_ids: agent_ids}
 
       case DynamicSupervisor.start_child(AgentsDemo.Realtime.CableSupervisor, spec) do
         {:ok, _pid} ->

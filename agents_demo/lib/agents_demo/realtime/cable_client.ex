@@ -49,6 +49,9 @@ defmodule AgentsDemo.Realtime.CableClient do
     :ref,
     :uri,
     :identifiers,
+    # Every id an event may name this user by: the user uuid plus the CRM
+    # agent token. See AgentIdentity.
+    agent_ids: [],
     # The accumulated state picture. `fanout/3` reads AND writes it, so its
     # absence here was a KeyError on the first state message — which killed
     # this GenServer and took the Notifications subscription down with it, so
@@ -91,7 +94,12 @@ defmodule AgentsDemo.Realtime.CableClient do
       user_uuid: Keyword.fetch!(opts, :user_uuid),
       environment_uuid: Keyword.fetch!(opts, :environment_uuid),
       token: Keyword.fetch!(opts, :token),
-      identifiers: identifiers_for(Keyword.fetch!(opts, :user_uuid))
+      agent_ids: Keyword.get(opts, :agent_ids, [Keyword.fetch!(opts, :user_uuid)]),
+      identifiers:
+        identifiers_for(
+          Keyword.fetch!(opts, :user_uuid),
+          Keyword.get(opts, :agent_ids, [Keyword.fetch!(opts, :user_uuid)])
+        )
     }
 
     {:ok, state, {:continue, :connect}}
@@ -266,17 +274,24 @@ defmodule AgentsDemo.Realtime.CableClient do
   # verified token, never from anything a client sent. Nothing node-wide:
   # CallEvents belongs to the singleton application connection.
   @doc false
-  def identifiers_for(user_uuid) do
+  def identifiers_for(user_uuid), do: identifiers_for(user_uuid, [user_uuid])
+
+  @doc false
+  def identifiers_for(user_uuid, agent_ids) do
     [
       Jason.encode!(%{channel: "DashboardUser", user_uuid: user_uuid}),
-      Jason.encode!(%{channel: "Notifications", user_uuid: user_uuid}),
-      # The agent's own state stream (`state.user.<uuid>`), which is where
-      # `agent-state-change` actually lands — it is NOT on CallEvents, so
-      # without this subscription a screen pop for a state change can never
-      # fire, however the rule is written. Still user-scoped: the id is the
-      # verified uuid, so this holds no more than the two above.
-      Jason.encode!(%{channel: "StateChannel", scope: "user", id: user_uuid})
-    ]
+      Jason.encode!(%{channel: "Notifications", user_uuid: user_uuid})
+    ] ++
+      # One state stream per id the switch may know this user by. The node keys
+      # `state.user.<id>` by `CC-Agent`, which is the user's `powerlink_token`,
+      # NOT the portal uuid — a subscription on the uuid alone listens where
+      # nothing is ever published. Measured: an agent-state-change for
+      # `cb1b0a46…` while the browser held `be5bc5f0…`, and `cb1b0a46…` was that
+      # user's powerlink_token. Still user-scoped: every id here was resolved
+      # from the verified token, never taken from a client.
+      Enum.map(Enum.uniq([user_uuid | agent_ids]), fn id ->
+        Jason.encode!(%{channel: "StateChannel", scope: "user", id: id})
+      end)
   end
 
   # Onto the user's own PubSub topic, in the frame shape the extension is
@@ -293,7 +308,7 @@ defmodule AgentsDemo.Realtime.CableClient do
     # browser command, which is why this hands the event over rather than
     # broadcasting a notification of its own.
     if identifier =~ "StateChannel" do
-      ScreenPop.user_event(state.user_uuid, message)
+      ScreenPop.user_event(state.user_uuid, message, state.agent_ids)
     end
 
     if identifier =~ "Notifications" do

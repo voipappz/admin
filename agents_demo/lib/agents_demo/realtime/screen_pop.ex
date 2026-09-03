@@ -80,10 +80,10 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   environment to gate on, and the only question worth asking is whether the
   agent the event is about is the agent who is signed in here.
   """
-  def user_event(server \\ __MODULE__, user_uuid, event)
+  def user_event(server \\ __MODULE__, user_uuid, event, agent_ids \\ nil)
 
-  def user_event(server, user_uuid, event),
-    do: GenServer.cast(server, {:user_event, user_uuid, event})
+  def user_event(server, user_uuid, event, agent_ids),
+    do: GenServer.cast(server, {:user_event, user_uuid, event, agent_ids})
 
   @doc "Whether a verified `/ws/events` process is registered for this user and environment."
   def online?(user_uuid, environment_uuid)
@@ -126,8 +126,8 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   def handle_cast({:event, event}, state),
     do: {:noreply, route_event(state, event)}
 
-  def handle_cast({:user_event, user_uuid, event}, state),
-    do: {:noreply, process_user_event(state, user_uuid, event)}
+  def handle_cast({:user_event, user_uuid, event, agent_ids}, state),
+    do: {:noreply, process_user_event(state, user_uuid, event, &online_user?/1, agent_ids)}
 
   @impl true
   def handle_call({:load_environment, environment_uuid, refresh?}, _from, state),
@@ -202,14 +202,26 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   # The whole rule is: the event is one of the call-shaped state events, the
   # agent it names is the agent signed in here, and that agent has a live
   # socket. No environment gate — see `online_user?/1`.
+  #
+  # `agent_ids` is every id the switch may name this user by. The callcenter
+  # uses the user's `powerlink_token` as `CC-Agent`, not the portal uuid, so
+  # comparing against the uuid alone refused every real event. Defaults to the
+  # uuid so an older caller keeps its old behaviour.
   @doc false
-  def process_user_event(state, user_uuid, event, online? \\ &online_user?/1) do
+  def process_user_event(
+        state,
+        user_uuid,
+        event,
+        online? \\ &online_user?/1,
+        agent_ids \\ nil
+      ) do
     Telemetry.screen_pop_event(:received)
+    accepted = agent_ids || [user_uuid]
 
     with true <- is_map(event),
          name when name in @pop_events <- event_name(event),
          agent when is_binary(agent) <- agent_uuid(event),
-         true <- agent == user_uuid,
+         true <- agent in accepted,
          true <- online?.(user_uuid) do
       dedupe_id = Enum.join(["state-screen-pop", name, agent, call_id(event) || ""], ":")
 
@@ -244,7 +256,8 @@ defmodule AgentsDemo.Realtime.ScreenPop do
               not is_map(event) -> "event is not a map"
               event_name(event) not in @pop_events -> "event #{inspect(event_name(event))} is not one of #{inspect(@pop_events)}"
               is_nil(agent_uuid(event)) -> "event names no agent (no CC-Agent/user_uuid)"
-              agent_uuid(event) != user_uuid -> "event names agent #{agent_uuid(event)}, not this one"
+              agent_uuid(event) not in accepted ->
+                "event names agent #{agent_uuid(event)}, not one of #{inspect(accepted)}"
               true -> "agent has no live /ws/events socket (#{inspect(reason)})"
             end
         end)
