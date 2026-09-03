@@ -225,11 +225,30 @@ defmodule AgentsDemo.Realtime.ScreenPop do
         )
 
         Telemetry.screen_pop_event(:dispatched)
+
+        Logger.info(
+          "screen pop: state pop for #{user_uuid} on #{name} -> tab:new #{pop_url(event)}"
+        )
+
         remember(state, dedupe_id)
       end
     else
-      _ ->
+      reason ->
         Telemetry.screen_pop_event(:rejected)
+
+        # Say WHICH precondition failed. Every one of them is silence otherwise,
+        # and they are the four questions anyone debugging a missing pop asks.
+        Logger.debug(fn ->
+          "screen pop: no state pop for #{user_uuid} — " <>
+            cond do
+              not is_map(event) -> "event is not a map"
+              event_name(event) not in @pop_events -> "event #{inspect(event_name(event))} is not one of #{inspect(@pop_events)}"
+              is_nil(agent_uuid(event)) -> "event names no agent (no CC-Agent/user_uuid)"
+              agent_uuid(event) != user_uuid -> "event names agent #{agent_uuid(event)}, not this one"
+              true -> "agent has no live /ws/events socket (#{inspect(reason)})"
+            end
+        end)
+
         state
     end
   end

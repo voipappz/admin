@@ -137,6 +137,8 @@ defmodule AgentsDemoWeb.RealtimeSocket do
   def register_session(user_uuid, environment_uuid)
       when is_binary(user_uuid) and user_uuid != "" and is_binary(environment_uuid) and
              environment_uuid != "" do
+    Logger.info("session: registered #{user_uuid} in environment #{environment_uuid}")
+
     case Registry.register(AgentsDemo.Realtime.SessionRegistry, user_uuid, environment_uuid) do
       {:ok, _} -> :ok
       {:error, {:already_registered, _pid}} -> :ok
@@ -159,6 +161,8 @@ defmodule AgentsDemoWeb.RealtimeSocket do
   # own stream.
   def register_session(user_uuid, _environment_uuid)
       when is_binary(user_uuid) and user_uuid != "" do
+    Logger.info("session: registered #{user_uuid} with no environment (token carries none)")
+
     case Registry.register(AgentsDemo.Realtime.SessionRegistry, user_uuid, nil) do
       {:ok, _} -> :ok
       {:error, {:already_registered, _pid}} -> :ok
