@@ -19,6 +19,7 @@ export const PORTS = {
   cable: Number(process.env.CABLE_EVENTS_CABLE_PORT || 14100),
   nats: Number(process.env.CABLE_EVENTS_NATS_PORT || 14222),
   natsMon: Number(process.env.CABLE_EVENTS_NATS_MON_PORT || 18222),
+  esl: Number(process.env.CABLE_EVENTS_ESL_CONTROL_PORT || 18022),
 };
 export const PORTAL = `http://127.0.0.1:${PORTS.portal}`;
 export const SECRET = process.env.CABLE_EVENTS_SECRET || 'cable-events-test-secret';
@@ -168,3 +169,87 @@ export function callEvent(id: Identity, over: Record<string, unknown> = {}) {
 }
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// ── the faked switch ──────────────────────────────────────────────────────
+
+/** How many node consumers are authenticated and subscribed on the fake ESL. */
+export async function eslConsumers(): Promise<number> {
+  const res = await fetch(`http://127.0.0.1:${PORTS.esl}/health`);
+  return ((await res.json()) as { authed: number }).authed;
+}
+
+/** Wait until the node has dialed the fake switch (it reconnects with a backoff). */
+export async function waitEslConsumer(ms = 90_000): Promise<void> {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    if ((await eslConsumers().catch(() => 0)) > 0) return;
+    await sleep(1000);
+  }
+  throw new Error(`the node never connected to the fake FreeSWITCH within ${ms}ms`);
+}
+
+/** Push one FreeSWITCH event (its headers) into the node over ESL. */
+export async function emitEsl(event: Record<string, string>): Promise<void> {
+  const res = await fetch(`http://127.0.0.1:${PORTS.esl}/emit`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(event),
+  });
+  if (!res.ok) throw new Error(`fake FreeSWITCH: emit answered ${res.status} ${await res.text()}`);
+}
+
+/**
+ * A callcenter event as mod_callcenter emits it — the headers the node's
+ * SessionEvent reads (mirrors va-crystal's cc_event builder). `action` is the
+ * CC-Action: agent-offering → user.ringing, bridge-agent-start → user.answer.
+ */
+export function callcenterEsl(action: string, id: Identity, callUuid = uuid(), over: Record<string, string> = {}) {
+  return {
+    'Event-Name': 'CUSTOM',
+    'Event-Subclass': 'callcenter::info',
+    'CC-Action': action,
+    'CC-Agent': id.user,
+    'CC-Queue': 'support',
+    'variable_cc_queue': 'support',
+    'CC-Member-CID-Number': '0501234567',
+    'variable_va_call_uuid': callUuid,
+    'variable_va_environment_uuid': id.env,
+    'CC-Member-Session-UUID': `sess-${callUuid}`,
+    'Core-UUID': 'core-cable-events',
+    'Unique-ID': `uid-${callUuid}`,
+    ...over,
+  };
+}
+
+/**
+ * Subscribe to one subject on the broker and resolve with the first message
+ * matching `pred` (or null after `ms`). Raw protocol: INFO → CONNECT → SUB →
+ * MSG frames. This is how a scenario watches what the NODE published, i.e.
+ * proves the crystal hop on its own before the portal is involved.
+ */
+export function subscribeOnce(subject: string, pred: (m: any) => boolean, ms: number): Promise<any | null> {
+  return new Promise((resolve) => {
+    const sock = net.connect({ host: '127.0.0.1', port: PORTS.nats });
+    let buf = '', sent = false, done = false;
+    const finish = (v: any) => { if (done) return; done = true; clearTimeout(timer); sock.destroy(); resolve(v); };
+    const timer = setTimeout(() => finish(null), ms);
+    sock.on('data', (chunk) => {
+      buf += chunk.toString();
+      if (!sent && buf.startsWith('INFO')) {
+        sent = true;
+        buf = '';
+        sock.write(`CONNECT {"verbose":false,"pedantic":false,"name":"cable-events-spec-sub"}\r\nSUB ${subject} 1\r\n`);
+        return;
+      }
+      // MSG <subject> <sid> <bytes>\r\n<payload>\r\n — possibly several per chunk.
+      for (;;) {
+        const m = buf.match(/MSG \S+ \S+ (\d+)\r\n/);
+        if (!m) { if (buf.includes('PING')) { sock.write('PONG\r\n'); buf = buf.replace('PING\r\n', ''); } return; }
+        const start = m.index! + m[0].length, len = Number(m[1]);
+        if (Buffer.byteLength(buf) < start + len + 2) return;
+        const payload = buf.slice(start, start + len);
+        buf = buf.slice(start + len + 2);
+        try { const parsed = JSON.parse(payload); if (pred(parsed)) return finish(parsed); } catch { /* not json */ }
+      }
+    });
+    sock.on('error', () => finish(null));
+  });
+}

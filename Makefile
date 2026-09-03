@@ -197,7 +197,7 @@ test-cable: ## The real chain (NATS → node → portal → extension): make tes
 	  tests/cable-events/ready.sh && \
 	  CABLE_EVENTS=1 NODE_OPTIONS=--experimental-websocket npx playwright test tests/cable-events.spec.ts --workers=1 --output=/tmp/cable-events-pw && \
 	  { [ -f chrome/angular/dist/manifest.json ] || { echo 'build the extension first: make chrome-build'; exit 1; }; } && \
-	  cd chrome && CABLE_EVENTS=1 npx playwright test portal-receive --workers=1
+	  cd chrome && CABLE_EVENTS=1 npx playwright test portal-receive --workers=1 --output=/tmp/cable-events-chrome-pw
 
 act-cable: ## The cable-events CI job locally with act (VA_CRYSTAL_IMAGE is passed through)
 	ACT_BIN="$(ACT)" ACT_RUNNER_IMAGE="$(ACT_PLATFORM)" scripts/ci-local.sh cable-events

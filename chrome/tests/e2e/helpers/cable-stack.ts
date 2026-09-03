@@ -14,6 +14,7 @@ import * as path from 'path';
 export const PORTS = {
   portal: Number(process.env.CABLE_EVENTS_PORTAL_PORT || 14001),
   nats: Number(process.env.CABLE_EVENTS_NATS_PORT || 14222),
+  esl: Number(process.env.CABLE_EVENTS_ESL_CONTROL_PORT || 18022),
 };
 export const PORTAL = `http://127.0.0.1:${PORTS.portal}`;
 export const SECRET = process.env.CABLE_EVENTS_SECRET || 'cable-events-test-secret';
@@ -64,5 +65,24 @@ export function callEvent(id: Identity, over: Record<string, unknown> = {}) {
     user_uuid: id.user, environment_uuid: id.env,
     caller_id_number: '0500000000', occurred_at: new Date().toISOString(),
     ...over,
+  };
+}
+
+/** Push one FreeSWITCH event into the node through the stack's faked switch. */
+export async function emitEsl(event: Record<string, string>): Promise<void> {
+  const res = await fetch(`http://127.0.0.1:${PORTS.esl}/emit`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(event),
+  });
+  if (!res.ok) throw new Error(`fake FreeSWITCH: emit answered ${res.status} ${await res.text()}`);
+}
+
+/** A mod_callcenter event as the node's SessionEvent reads it (mirrors va-crystal's cc_event). */
+export function callcenterEsl(action: string, id: Identity, callUuid = uuid()) {
+  return {
+    'Event-Name': 'CUSTOM', 'Event-Subclass': 'callcenter::info',
+    'CC-Action': action, 'CC-Agent': id.user, 'CC-Queue': 'support', 'variable_cc_queue': 'support',
+    'CC-Member-CID-Number': '0501234567', 'variable_va_call_uuid': callUuid,
+    'variable_va_environment_uuid': id.env, 'CC-Member-Session-UUID': `sess-${callUuid}`,
+    'Core-UUID': 'core-cable-events', 'Unique-ID': `uid-${callUuid}`,
   };
 }

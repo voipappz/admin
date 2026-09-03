@@ -33,6 +33,26 @@ services:
       timeout: 3s
       retries: 15
 
+  # The switch, faked: an ESL server the node dials, with an HTTP door the
+  # spec pushes FreeSWITCH events through (see fake-freeswitch.mjs). Up before
+  # the node, or the node's first ESL connect fails and its reconnect backoff
+  # decides when the first event can be delivered.
+  fake-freeswitch:
+    image: node:22-alpine
+    network_mode: host
+    command: ["node", "/fake/fake-freeswitch.mjs"]
+    environment:
+      ESL_PORT: "18021"
+      HTTP_PORT: "18022"
+      ESL_PASSWORD: ClueCon
+    volumes:
+      - ./fake-freeswitch.mjs:/fake/fake-freeswitch.mjs:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:18022/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
   # `va-crystal-cable:latest` by default — the node built from va-crystal's
   # source (`make build` there), which is the image this stack works with. It
   # must carry the ApiProxy channel WITH the `verify` action, or no /ws/events
@@ -45,6 +65,8 @@ services:
     network_mode: host
     depends_on:
       nats:
+        condition: service_healthy
+      fake-freeswitch:
         condition: service_healthy
     environment:
       PORT: "14100"
@@ -70,6 +92,11 @@ services:
       LICENSE_ENCRYPTION_KEY: test-not-a-secret
       LICENSE_ENFORCE: "0"
       VA_PATH: /opt/va.yaml
+      # The faked switch above. The node dials it, authenticates and subscribes
+      # to every event; a scenario then pushes an event through and follows it
+      # out the far end. ClueCon is FreeSWITCH's own default, not a secret.
+      FREESWITCH_HOST: 127.0.0.1
+      FREESWITCH_PORT: "18021"
       FREESWITCH_PASSWORD: ClueCon
       # Info, not Debug: Debug prints every payload, and this stack's logs are
       # dumped into CI output on failure.

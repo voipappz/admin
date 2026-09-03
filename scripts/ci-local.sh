@@ -31,6 +31,13 @@ echo ">> $($act_bin --version)"
 # GitHub-hosted runners do not have it, so always run against an empty env file.
 empty_env="${TMPDIR:-/tmp}/voipappz-act-empty.env"
 : > "$empty_env" 2>/dev/null || empty_env=/dev/null
+# act-latest currently advertises the deprecated ubuntu20 ImageOS value. Tell
+# setup-beam to select the supported Ubuntu 24 OTP artifact instead; this file
+# contains no tenant credentials and is still isolated from the repository's
+# .env.
+if [[ "$empty_env" != /dev/null ]]; then
+  printf '%s\n' 'ImageOS=ubuntu24' >> "$empty_env"
+fi
 
 cd "$repo_dir"
 if [[ "${1:-all}" == "-l" ]]; then
@@ -58,7 +65,7 @@ fi
 # leftover stack (a killed run, a `make test-cable` still up) would answer the
 # readiness gate in its place and the job would test THAT. Refuse to start.
 if [[ "$mode" == "cable-events" || "$mode" == "all" ]]; then
-  for port in 14001 14100 14222 18222; do
+  for port in 14001 14100 14222 18222 18021 18022; do
     if ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE ":$port\$"; then
       echo "!! port $port is already in use — the cable-events job would test THAT stack, not its own." >&2
       echo "   docker compose -f tests/cable-events/docker-compose.yml down -v, then re-run." >&2

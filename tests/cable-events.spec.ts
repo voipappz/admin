@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import {
   PORTAL, COMPOSE, identity, mint, publish, publishUntil, openEvents, callEvent,
   screenPopMetrics, metricsDelta, brokerClients, uuid, sleep, type Events,
+  waitEslConsumer, emitEsl, callcenterEsl, subscribeOnce,
 } from './cable-events/helpers';
 
 /**
@@ -178,6 +179,108 @@ test.describe('C the screen-pop executor', () => {
   });
 });
 
+// ── D. From the switch: a FreeSWITCH event mimicked into the node ───────────
+//
+// Everything above publishes what the node WOULD publish. These push the
+// FreeSWITCH event itself into the node over ESL (the faked switch in the
+// stack) and watch each hop: first what the node puts on the broker — the
+// crystal component on its own — then what the portal makes of it.
+
+test.describe('D the switch reports, the node normalises, the portal executes', () => {
+  let user: { id: ReturnType<typeof identity>; events: Events };
+
+  test.beforeAll(async () => {
+    await waitEslConsumer();
+    user = await liveUser();
+  });
+  test.afterAll(() => user?.events.close());
+
+  test('D1 crystal: an agent answering becomes a call_events message with its identity on top', async () => {
+    const callUuid = uuid();
+    const seen = subscribeOnce('call_events', (m) => m.type_uuid === callUuid || m.call_uuid === callUuid, 10_000);
+    await sleep(200); // the SUB must be registered before the event is emitted
+    await emitEsl(callcenterEsl('bridge-agent-start', user.id, callUuid));
+    const msg = await seen;
+    expect(msg, 'the node published nothing for the event on call_events').not.toBeNull();
+    // The shape the executor reads: identity at the top level, not only in
+    // metadata (sessions.cr stamp_identity), the mothership's event name,
+    // and a stable id.
+    expect(msg).toMatchObject({
+      type: 'call', action: 'user.answer', type_uuid: callUuid,
+      user_uuid: user.id.user, environment_uuid: user.id.env, call_uuid: callUuid,
+    });
+    expect(typeof msg.node_uuid).toBe('string');
+    expect(typeof msg.occurred_at).toBe('string');
+  });
+
+  test('D2 the whole chain from the switch: bridge-agent-start opens a tab for that agent', async () => {
+    const before = await screenPopMetrics();
+    const callUuid = uuid();
+    // Re-emitting the same call is safe: the node re-publishes it under the
+    // same type_uuid and the executor executes it once — so an event that
+    // raced the subscription is simply pushed again.
+    const f = await (async () => {
+      const deadline = Date.now() + 20_000;
+      while (Date.now() < deadline) {
+        await emitEsl(callcenterEsl('bridge-agent-start', user.id, callUuid));
+        const got = await user.events.next((x) => x.type === 'notification' && x.message?.action === 'tab:new', 1000);
+        if (got) return got;
+      }
+      throw new Error(`no tab:new after ESL bridge-agent-start; frames: ${JSON.stringify(user.events.frames.slice(-5))}`);
+    })();
+    expect(Object.keys(f.message).sort()).toEqual(['action', 'url']);
+    await sleep(500);
+    const d = metricsDelta(before, await screenPopMetrics());
+    expect(d.dispatched, `metrics Δ ${JSON.stringify(d)}`).toBe(1);
+  });
+
+  test('D3 the offer (agent-offering → user.ringing) reaches the portal and is not a pop', async () => {
+    const callUuid = uuid();
+    const seen = subscribeOnce('call_events', (m) => (m.type_uuid === callUuid || m.call_uuid === callUuid), 10_000);
+    await sleep(200);
+    const before = await screenPopMetrics();
+    await emitEsl(callcenterEsl('agent-offering', user.id, callUuid));
+    const msg = await seen;
+    expect(msg, 'the node published nothing for the offer').not.toBeNull();
+    expect(msg.action).toBe('user.ringing');
+    // Then a marker answer on ANOTHER call must arrive — and only it.
+    const marker = uuid();
+    const got = await (async () => {
+      const deadline = Date.now() + 20_000;
+      while (Date.now() < deadline) {
+        await emitEsl(callcenterEsl('bridge-agent-start', user.id, marker));
+        const f = await user.events.next((x) => x.type === 'notification' && x.message?.action === 'tab:new', 1000);
+        if (f) return f;
+      }
+      throw new Error('marker answer never popped');
+    })();
+    expect(got.message.action).toBe('tab:new');
+    await sleep(300);
+    const d = metricsDelta(before, await screenPopMetrics());
+    expect(d.dispatched, `only the marker dispatched; Δ ${JSON.stringify(d)}`).toBe(1);
+    expect(d.rejected, `the offer counted as rejected; Δ ${JSON.stringify(d)}`).toBeGreaterThanOrEqual(1);
+  });
+
+  test('D4 an event for an agent nobody is logged in as pops nothing', async () => {
+    const nobody = identity();
+    const before = await screenPopMetrics();
+    await emitEsl(callcenterEsl('bridge-agent-start', nobody));
+    const marker = uuid();
+    await (async () => {
+      const deadline = Date.now() + 20_000;
+      while (Date.now() < deadline) {
+        await emitEsl(callcenterEsl('bridge-agent-start', user.id, marker));
+        if (await user.events.next((x) => x.type === 'notification' && x.message?.action === 'tab:new', 1000)) return;
+      }
+      throw new Error('marker answer never popped');
+    })();
+    await sleep(300);
+    const d = metricsDelta(before, await screenPopMetrics());
+    expect(d.dispatched, `Δ ${JSON.stringify(d)}`).toBe(1);
+    expect((d.offline || 0) + (d.unloaded || 0), `the stranger's event counted offline/unloaded; Δ ${JSON.stringify(d)}`).toBeGreaterThanOrEqual(1);
+  });
+});
+
 // ── A, continued: recovery. Last, on purpose. ───────────────────────────────
 //
 // Each of these waits on real backoff (the portal reconnects with up to 30s
@@ -203,24 +306,9 @@ test('A4 the node restarts: the portal reconnects, re-subscribes, and delivers a
   expect(browserClosed, 'the portal closed the browser socket during the node restart').toBe(false);
 
   const marker = uuid();
-  try {
-    await publishUntil(events, `notifications:${id.user}`,
-      () => ({ type: 'agent', message: { type: 'ringing', call: { uuid: marker }, screen: { uuid: 'after-node-restart' } } }),
-      (f) => f.type === 'notification' && f.message?.message?.call?.uuid === marker, 60_000);
-  } catch (e) {
-    // KNOWN NODE DEFECT (va-crystal), observed 2026-09-03 with an image built
-    // from ed137-lua-hooks — a race, reproduced twice locally and absent once
-    // under act: subscriptions the node CONFIRMS in its first
-    // seconds after boot — exactly when a reconnecting portal lands — are never
-    // bound to the broker. The relay reports ok, the node logs "Notifications
-    // is streaming from …", and nothing is ever delivered; a client that
-    // subscribes a minute later gets everything. The singleton CallEvents
-    // stream dies the same way, so a node restart silently ends screen pops
-    // until the portal reconnects again. Until the node is fixed this scenario
-    // runs in its own CI step, non-blocking, so the defect stays visible
-    // without hiding a regression elsewhere.
-    throw new Error(`no delivery on a stream the node confirmed after its restart — the known node defect (see this test's comment). ${(e as Error).message}`);
-  }
+  await publishUntil(events, `notifications:${id.user}`,
+    () => ({ type: 'agent', message: { type: 'ringing', call: { uuid: marker }, screen: { uuid: 'after-node-restart' } } }),
+    (f) => f.type === 'notification' && f.message?.message?.call?.uuid === marker, 60_000);
   phase('delivered on the surviving browser socket');
   events.close();
 });

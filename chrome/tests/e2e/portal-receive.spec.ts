@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import { execFileSync } from 'child_process';
 import {
   PORTAL, COMPOSE, identity, mint, publish, callEvent, uuid, sleep, type Identity,
+  emitEsl, callcenterEsl,
 } from './helpers/cable-stack';
 
 /**
@@ -179,4 +180,23 @@ test('B6 a call-state notification lands in chrome.storage as call:ringing', asy
   const parsed = JSON.parse(stored!);
   expect(parsed.event).toBe('call:ringing');
   expect(parsed.call.uuid).toBe(callUuid);
+});
+
+test('B7 from the switch: FreeSWITCH reports this agent answering, and a tab opens', async () => {
+  // The event enters at the very front — mod_callcenter's bridge-agent-start
+  // over ESL into the node — and nothing between there and the tab is faked.
+  await recordFrames();
+  const opened = ctx.waitForEvent('page', { timeout: 30_000 });
+  const callUuid = uuid();
+  const deadline = Date.now() + 30_000;
+  let frame: any;
+  while (Date.now() < deadline && !frame) {
+    await emitEsl(callcenterEsl('bridge-agent-start', me, callUuid));
+    await sleep(700);
+    frame = (await recordedFrames()).find((f) => f.type === 'notification' && f.message?.action === 'tab:new');
+  }
+  expect(frame, 'the worker never received the tab:new for the ESL answer').toBeTruthy();
+  const tab = await opened;
+  await expect.poll(() => tab.url(), { timeout: 10_000 }).toContain(new URL(frame.message.url).host);
+  await tab.close();
 });

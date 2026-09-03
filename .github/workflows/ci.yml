@@ -230,15 +230,8 @@ jobs:
       # image that predates it fails here by name, not forty assertions later.
       - name: Wait until the chain is real
         run: tests/cable-events/ready.sh
-      - name: Elixir → cable, and the screen-pop contract (A, C)
-        run: CABLE_EVENTS=1 npx playwright test tests/cable-events.spec.ts --grep-invert "A4" --workers=1
-      # A4 is a KNOWN NODE DEFECT (see the scenario's comment): after a node
-      # restart the streams the portal re-subscribes are confirmed and never
-      # delivered. Non-blocking until va-crystal fixes it, but still run, so the
-      # day it passes is visible and a regression elsewhere cannot hide in it.
-      - name: A4 node restart recovery (known node defect, non-blocking)
-        continue-on-error: true
-        run: CABLE_EVENTS=1 npx playwright test tests/cable-events.spec.ts --grep "A4" --workers=1
+      - name: Elixir → cable, screen-pop, and restart recovery (A, C, D)
+        run: CABLE_EVENTS=1 npx playwright test tests/cable-events.spec.ts --workers=1
       # The extension: Angular 11 builds on Node 20, so switch for this half.
       - uses: actions/setup-node@v4
         with:
@@ -259,7 +252,7 @@ jobs:
         run: |
           curl -s localhost:14001/health || true; echo
           curl -s localhost:14001/metrics | grep screen_pop || true
-          $COMPOSE logs --no-color --tail 150 cable portal || true
+          $COMPOSE logs --no-color --tail 150 fake-freeswitch cable portal || true
       - name: Tear down
         if: always()
         run: $COMPOSE down -v --remove-orphans || true

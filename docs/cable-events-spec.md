@@ -4,8 +4,7 @@
 `tests/cable-events.spec.ts` (Elixir → cable, and the screen-pop contract) and
 `chrome/tests/e2e/portal-receive.spec.ts` (Chrome → Elixir, with the real
 extension), both driven by the stack in `tests/cable-events/` and run by the
-`cable-events` CI job — `make act-cable` locally. One scenario (A4) is
-intermittent on a known node defect and runs non-blocking; see *Known defects*.
+`cable-events` CI job — `make act-cable` locally.
 
 - **Node:** `va-crystal node/realtime/app.cr` (the channels),
   `state_publisher.cr` (state events), `api_proxy_channel.cr` (`verify`),
@@ -153,7 +152,7 @@ for the CI job under act. Both refuse to start on a port the stack needs.
 | A1 | the node confirmed the portal's `ApiProxy` subscribe | `/health` `cable.ok && api_relay.ok` — green only on a confirmed subscribe |
 | A2 | tokens are verified by the node | right secret → `welcome`; the same claims signed with a wrong secret → refused |
 | A3 | the per-user connection opens and its streams deliver | a `notifications:<uuid>` publish comes back verbatim |
-| A4 | **node restart** — reconnect, re-subscribe, deliver again on the surviving browser socket | relay confirmed again, browser socket never closed, then delivery — **intermittent: known node defect**, non-blocking in CI |
+| A4 | **node restart** — reconnect, re-subscribe, deliver again on the surviving browser socket | relay confirmed again, browser socket never closed, then delivery |
 | A5 | **portal restart** — nothing persisted, a new socket is welcomed and delivered to | relay confirmed, then A3 again |
 | A6 | node down — an upgrade is refused within a bound, never hung | refusal < 15 s with the node stopped |
 | A7 | the portal holds no broker connection | the broker's `/connz` lists no Elixir client |
@@ -188,33 +187,21 @@ a token minted from the stack's secret — there is no mothership to log into.
 
 ## Known defects (need va-crystal)
 
-Observed 2026-09-03 against `va-crystal-cable:screen-pop`, an image built from
-`ed137-lua-hooks` at `168feb5`; each reproduces with the scenarios above.
+A4's post-restart dead subscription was fixed by serializing `Cable.server`
+initialization. Concurrent reconnecting sockets previously constructed separate
+server instances; a subscription could be confirmed on one while NATS callbacks
+dispatched through the other. The blocking A4 scenario now passes in the full
+local gate.
 
-1. **Subscriptions confirmed in the node's first seconds are never bound to
-   the broker (A4).** A race, not a certainty: it reproduced twice in a row on
-   this box and passed once under act. After `restart cable`, the portal
-   reconnects ~5–8 s after the node binds its port; the node logs `Notifications is streaming
-   from notifications:<uuid>` and `CallEvents is streaming from call_events`,
-   confirms both — and neither ever delivers. A client subscribing a minute
-   later is served normally. Because the singleton `CallEvents` subscription
-   dies the same way, **a node restart silently ends screen pops** until the
-   portal's application connection happens to reconnect again. The portal
-   cannot detect a dead-but-confirmed stream. (`Cable::NATSBackend#subscribe`
-   calls `@nats.subscribe` at once; the bind is lost around the node's own
-   NATS bring-up — `NATS sync command handlers started` lands in the same
-   millisecond as the confirmations.)
-2. **Duplicate delivery after reconnects.** The backend keeps one NATS
+1. **Duplicate delivery after reconnects.** The backend keeps one NATS
    subscription per stream *name* and never unsubscribes when the cable
    connection that asked for it terminates, so after N portal reconnects
-   every `call_events` message is transmitted N times to the surviving
-   connection (`Cable::NATSBackend#subscribe channel:call_events` × 3 per
-   publish, with 3 confirmed and 2 terminated connections). The executor's
-   dedupe hides it for pops; `received` counts it.
-3. **Credentials in the node log at INFO.** The full `?token=<jwt>` URL of
+   every `call_events` message can be transmitted N times to the surviving
+   connection. The executor's dedupe hides it for pops; `received` counts it.
+2. **Credentials in the node log at INFO.** The full `?token=<jwt>` URL of
    every cable connection and the `verify` payload (token included) are
    logged; the api-proxy spec already flags the request-body case.
-4. **`nirlevi/voipappz-crystal:latest` predates `verify`** — the readiness
+3. **`nirlevi/voipappz-crystal:latest` predates `verify`** — the readiness
    gate fails by name on it, which is why the stack works with
    `va-crystal-cable:latest`, built from va-crystal's source. Publishing that
    tag to a registry is what lets the GitHub job run it.
