@@ -54,6 +54,25 @@ if [[ "$mode" == "e2e" || "$mode" == "all" ]]; then
   fi
 fi
 
+# The cable-events job starts its own stack on 14001/14100/14222/18222. A
+# leftover stack (a killed run, a `make test-cable` still up) would answer the
+# readiness gate in its place and the job would test THAT. Refuse to start.
+if [[ "$mode" == "cable-events" || "$mode" == "all" ]]; then
+  for port in 14001 14100 14222 18222; do
+    if ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE ":$port\$"; then
+      echo "!! port $port is already in use — the cable-events job would test THAT stack, not its own." >&2
+      echo "   docker compose -f tests/cable-events/docker-compose.yml down -v, then re-run." >&2
+      exit 1
+    fi
+  done
+fi
+
+# The empty env file keeps tenant credentials out; this one variable is the
+# exception, passed explicitly: the published node image may be behind the
+# source, and a locally built one is the only way to run the job then.
+extra_env=()
+if [[ -n "${VA_CRYSTAL_IMAGE:-}" ]]; then extra_env=(--env "VA_CRYSTAL_IMAGE=$VA_CRYSTAL_IMAGE"); fi
+
 echo ">> running workflow: $mode"
 exec "$act_bin" push -W .github/workflows/ci.yml \
   "${job_args[@]}" \
@@ -61,4 +80,5 @@ exec "$act_bin" push -W .github/workflows/ci.yml \
   --container-architecture linux/amd64 \
   --pull=false \
   --bind \
-  --env-file "$empty_env"
+  --env-file "$empty_env" \
+  "${extra_env[@]}"

@@ -11,6 +11,8 @@
 | `make act-portal` | The exact GitHub Actions Elixir portal job, run locally with an empty env file. |
 | `make act` | Complete GitHub Actions workflow locally. |
 | `make prod` | Builds/runs the exact local production artifact on port 8000 and probes `/` and `/health/alive`. |
+| `make test-cable` | The relay direction through the REAL chain — a broker, a va-crystal node and the production portal image on their own ports, then `tests/cable-events.spec.ts` and the extension's `portal-receive.spec.ts`. Contract and scenarios: `docs/cable-events-spec.md`. |
+| `make act-cable` | The same as the `cable-events` GitHub Actions job, under act (`VA_CRYSTAL_IMAGE=…` to use a locally built node). |
 
 The Git pre-push hook runs `npm run verify:push`, so a normal push is rejected
 when the core gate fails.
@@ -46,6 +48,7 @@ docker compose exec -e MIX_ENV=test elixir mix test
 | WebRTC phone | `src/lib/sip/*.test.ts`, resilience context test and integrated phone-panel smoke. |
 | The forwarder + its CORS policy | `agents_demo/test/agents_demo_web/plugs/engine_proxy_test.exs`, plus the production-image surface probes. |
 | Token verification | `agents_demo/test/agents_demo/realtime/token_auth_test.exs`. |
+| The relay direction (node → portal → browser), screen pops, recovery | `tests/cable-events.spec.ts`, `chrome/tests/e2e/portal-receive.spec.ts`, the `cable-events` CI job — see `docs/cable-events-spec.md`. |
 | Screen-pop instruction handling | `agents_demo/test/agents_demo/realtime/instruction_test.exs`, `screen_pop_test.exs`, `api_proxy_test.exs`, `cable_client_test.exs`, and `agents_demo_web/realtime_socket_session_test.exs`. Cable/NATS delivery belongs to va-crystal; Chrome's existing mocked `tab:new` test owns extension behavior. |
 | Screen-pop metrics | `agents_demo/test/agents_demo/telemetry_test.exs` pins bounded events and `agents_demo_web/controllers/metrics_controller_test.exs` verifies the Prometheus `/metrics` surface. |
 | Optional PostgREST | `src/lib/clients/postgrest.test.ts` — client-side only; nothing serves `/rest/v1` since the Deno BFF was removed. |

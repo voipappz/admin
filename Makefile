@@ -1,4 +1,4 @@
-.PHONY: help env dev check-engine check-mothership up down logs build lint unit portal-compile portal-test verify test test-chrome chrome-build chrome-serve cable cable-down probe act act-portal push status module prod prod-down
+.PHONY: help env dev check-engine check-mothership up down logs build lint unit portal-compile portal-test verify test test-cable act-cable test-chrome chrome-build chrome-serve cable cable-down probe act act-portal push status module prod prod-down
 
 # Everything runs in Docker — no host node/npm/ruby required. One-off npm/node
 # commands reuse the react-app service (repo mount + cached node_modules volume).
@@ -180,6 +180,27 @@ verify: ## Health check: the portal's probes and the Vite dev server
 
 test: ## Playwright E2E in Docker (needs the app running — make up / make dev)
 	docker compose --profile test run --rm e2e
+
+# The relay direction through the REAL chain — its own stack on 14xxx (a
+# broker, a va-crystal node, the production portal image) beside whatever
+# `make dev` is running, then the scenarios in tests/cable-events.spec.ts and
+# the extension's portal-receive.spec.ts. Contract: docs/cable-events-spec.md.
+#
+# Runs on the HOST: the restart scenarios drive docker, and the extension half
+# needs a real Chrome with the unpacked extension — neither exists inside the
+# e2e image. Node < 22 has no global WebSocket, hence the flag. Point
+# VA_CRYSTAL_IMAGE at a locally built node when the published one is behind.
+CABLE_EVENTS_COMPOSE = docker compose -f tests/cable-events/docker-compose.yml
+test-cable: ## The real chain (NATS → node → portal → extension): make test-cable [VA_CRYSTAL_IMAGE=…]
+	@trap '$(CABLE_EVENTS_COMPOSE) down -v --remove-orphans >/dev/null 2>&1' EXIT; \
+	  $(CABLE_EVENTS_COMPOSE) up -d --build && \
+	  tests/cable-events/ready.sh && \
+	  CABLE_EVENTS=1 NODE_OPTIONS=--experimental-websocket npx playwright test tests/cable-events.spec.ts --workers=1 --output=/tmp/cable-events-pw && \
+	  { [ -f chrome/angular/dist/manifest.json ] || { echo 'build the extension first: make chrome-build'; exit 1; }; } && \
+	  cd chrome && CABLE_EVENTS=1 npx playwright test portal-receive --workers=1
+
+act-cable: ## The cable-events CI job locally with act (VA_CRYSTAL_IMAGE is passed through)
+	ACT_BIN="$(ACT)" ACT_RUNNER_IMAGE="$(ACT_PLATFORM)" scripts/ci-local.sh cable-events
 
 # The popup UI as an ORDINARY web page, for iterating on it without the
 # rebuild → chrome://extensions → reload loop. `chrome.*` does not exist there,

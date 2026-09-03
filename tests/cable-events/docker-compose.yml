@@ -1,0 +1,112 @@
+# The stack `tests/cable-events.spec.ts` drives: a broker, a REAL va-crystal
+# node and the REAL portal image, wired the way a deployment is — and nothing
+# else. No mothership, no FreeSWITCH: the node serves cable without either
+# (`/health` is static, ESL and API failures are warnings), and the only thing
+# under test is the relay direction: NATS subject → node → portal → /ws/events.
+#
+# Its own project name and its own ports (14xxx), so it can run beside a dev
+# stack on 4001/4100/4222 and `down -v` here can never touch that one — and
+# `make down --remove-orphans` in the main project can never touch this.
+#
+#   docker compose -f tests/cable-events/docker-compose.yml up -d --build
+#   tests/cable-events/ready.sh
+#   CABLE_EVENTS=1 npx playwright test tests/cable-events.spec.ts
+#
+# Everything is `network_mode: host` for the same reason the main compose is:
+# the node reaches the broker on 127.0.0.1, the portal reaches the node on
+# 127.0.0.1, and the test reaches all three from the runner.
+name: cable-events
+
+services:
+  # No auth, on purpose. va-nats rejects anonymous clients and the node retries
+  # bad credentials ten times and then DOWNGRADES TO A WARNING, so a broker
+  # with credentials the node does not have looks like a healthy cable that
+  # delivers nothing. -m opens the monitoring port: the spec reads /connz to
+  # prove which clients are connected — and that the portal is not one.
+  nats:
+    image: nats:2-alpine
+    network_mode: host
+    command: ["-p", "14222", "-m", "18222"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:18222/healthz"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  # The published image by default. It must carry the ApiProxy channel WITH
+  # the `verify` action, or no /ws/events upgrade can ever succeed (the portal
+  # asks the node whether a token is real); ready.sh probes for exactly that
+  # and names this variable when it is not. A source-built image is swapped in
+  # here — never by editing this file.
+  cable:
+    image: ${VA_CRYSTAL_IMAGE:-nirlevi/voipappz-crystal:latest}
+    pull_policy: missing
+    network_mode: host
+    depends_on:
+      nats:
+        condition: service_healthy
+    environment:
+      PORT: "14100"
+      # The signing secret the node verifies user tokens against. The spec
+      # mints its tokens with this value and the portal mints its cable
+      # credential with it too (CABLE_SECRET_KEY below): three parties, one
+      # secret, which is the deployment shape.
+      SECRET_KEY: ${CABLE_EVENTS_SECRET:-cable-events-test-secret}
+      NATS_URL: nats://127.0.0.1:14222
+      # Deliberately unreachable: the request relay is the api-proxy spec's
+      # business, and a login that "worked" here could only have worked by
+      # accident. Every relayed request answers 502, loudly.
+      API_URL: http://127.0.0.1:1
+      NODE_UUID: 00000000-0000-0000-0000-0000000cab1e
+      CABLE_API_PROXY: "1"
+      # The account credential the node admits to CallEvents. Must equal the
+      # portal's CABLE_ACCOUNT_UUID below, or the node rejects the one
+      # subscription every screen pop rides on.
+      CABLE_ACCOUNT_UUID: ${CABLE_EVENTS_ACCOUNT:-00000000-0000-0000-0000-0000000c1e27}
+      # Boot-fatal when missing, each with a message pointing elsewhere — see
+      # the main docker-compose.yml `cable:` service for the story of each.
+      LICENSE_JWT_SECRET: test-not-a-secret
+      LICENSE_ENCRYPTION_KEY: test-not-a-secret
+      LICENSE_ENFORCE: "0"
+      VA_PATH: /opt/va.yaml
+      FREESWITCH_PASSWORD: ClueCon
+      # Info, not Debug: Debug prints every payload, and this stack's logs are
+      # dumped into CI output on failure.
+      CABLE_LOG_LEVEL: Info
+    volumes:
+      - ../../config/cable/va.yaml:/opt/va.yaml:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:14100/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # The artifact that ships (Dockerfile.production), not the dev stage: the
+  # release boots without Postgres and without a mothership, and that is the
+  # binary whose behaviour is worth proving. No healthcheck here — the runtime
+  # image carries neither curl nor wget, so readiness is polled from outside
+  # by ready.sh, which also checks the things a 200 cannot say.
+  portal:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.production
+    image: voipappz-app:cable-events
+    network_mode: host
+    depends_on:
+      cable:
+        condition: service_healthy
+    environment:
+      PORT: "14001"
+      SECRET_KEY_BASE: cable-events-secret-key-base-that-is-long-enough-for-phoenix-to-accept-it
+      CABLE_URL: ws://127.0.0.1:14100/cable
+      CABLE_SECRET_KEY: ${CABLE_EVENTS_SECRET:-cable-events-test-secret}
+      CABLE_ACCOUNT_UUID: ${CABLE_EVENTS_ACCOUNT:-00000000-0000-0000-0000-0000000c1e27}
+      # Its own Erlang node name. The release defaults to agents_demo@<hostname>
+      # and, host-networked, shares epmd with a dev portal on the same box —
+      # which already holds that name, so this one dies at boot with "seems to
+      # be in use by another Erlang node". Distinct name, loopback host.
+      RELEASE_DISTRIBUTION: name
+      RELEASE_NODE: cable_events@127.0.0.1
+      # NO NATS_URL and NO ENGINE_URL. The portal must hold no broker
+      # connection (the spec proves it from the broker's side), and the HTTP
+      # fallback for /auth must stay inert so nothing can pass by it.
