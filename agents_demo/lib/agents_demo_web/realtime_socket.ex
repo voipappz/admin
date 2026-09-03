@@ -23,6 +23,22 @@ defmodule AgentsDemoWeb.RealtimeSocket do
 
   alias AgentsDemo.Realtime.TokenAuth
 
+  # HOW OFTEN THIS SOCKET PINGS ITS CLIENT, and why it must.
+  #
+  # `upgrade/1` sets a 60s idle timeout, and this connection is idle by design:
+  # the portal pushes only when an event happens, and the client sends nothing
+  # after the handshake. So every socket died about a minute after it opened,
+  # taking the user's SessionRegistry entry with it — and presence is what gates
+  # a screen pop, so pops then silently stopped for a user whose extension was
+  # still open. It presented as "the pop does not work", never as a disconnect.
+  #
+  # A protocol-level ping rather than a text frame: browsers answer it in the
+  # WebSocket layer, so no shipped client needs to know about it, and the pong
+  # resets the idle timer. Well inside the timeout so one missed ping is not a
+  # disconnect, and the timeout is kept as the backstop that still reaps a
+  # client that really has gone.
+  @heartbeat_ms 25_000
+
   @impl true
   def init({claims, topics}) do
     # One PubSub subscription per entitlement. The upstream is a single NATS
@@ -57,6 +73,8 @@ defmodule AgentsDemoWeb.RealtimeSocket do
       cable_ready: true
     }
 
+    schedule_heartbeat()
+
     {:push, {:text, Jason.encode!(welcome)}, state}
   end
 
@@ -66,7 +84,18 @@ defmodule AgentsDemoWeb.RealtimeSocket do
     {:push, {:text, Jason.encode!(frame)}, state}
   end
 
+  # Keeps the idle timer from firing on a connection that is simply quiet.
+  def handle_info(:heartbeat, state) do
+    schedule_heartbeat()
+    {:push, {:ping, ""}, state}
+  end
+
   def handle_info(_other, state), do: {:ok, state}
+
+  @doc false
+  def heartbeat_ms, do: @heartbeat_ms
+
+  defp schedule_heartbeat, do: Process.send_after(self(), :heartbeat, @heartbeat_ms)
 
   @impl true
   def handle_in({text, [opcode: :text]}, state) do
