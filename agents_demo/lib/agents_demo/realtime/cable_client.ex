@@ -6,11 +6,11 @@ defmodule AgentsDemo.Realtime.CableClient do
   the vocabulary the platform is written in. This app speaks it here so that
   browsers never have to, which matters for two reasons that are not style:
 
-    * `Notifications#subscribed` streams from a CLIENT-SUPPLIED `user_uuid`
-      (va-crystal `node/realtime/app.cr`), never compared against the verified
-      identity on the connection. A browser holding that subscription could
-      name someone else's stream. Held here, the uuid comes from the token
-      this app already verified.
+    * `Notifications#subscribed` used to stream from a CLIENT-SUPPLIED
+      `user_uuid` (va-crystal `node/realtime/app.cr`), never compared against
+      the verified identity on the connection; the node now derives the stream
+      from the token, but a deployed node may predate that. Held here, the uuid
+      comes from the token this app already verified either way.
     * `VaShared::CableAuth.decode_jwt` verifies the signature and never checks
       `exp`, so cable accepts expired tokens indefinitely. This app verifies
       through the mothership first (`TokenAuth`), which does reject them.
@@ -21,10 +21,10 @@ defmodule AgentsDemo.Realtime.CableClient do
   for a user rather than once for the server — and why a rejected subscription
   is logged loudly rather than retried into silence.
 
-  This is the ONLY event path. Cable's own backend is NATS
-  (`va-shared/src/cable_nats_backend.cr`), so the bus is still underneath — but
-  this app is not told its address and holds no client for it. Cable is the
-  model, and the model is what this app speaks.
+  This is the per-user state/notification path. The node-wide CallEvents stream
+  is held once by `Realtime.ApiProxy` and evaluated by `Realtime.ScreenPop`;
+  adding it here would multiply every PBX event by the number of logged-in
+  users.
   """
 
   use GenServer
@@ -39,9 +39,9 @@ defmodule AgentsDemo.Realtime.CableClient do
   @recv_timeout 60_000
   @reconnect_base 1_000
   @reconnect_max 30_000
-
   defstruct [
     :user_uuid,
+    :environment_uuid,
     :token,
     :conn,
     :websocket,
@@ -88,6 +88,7 @@ defmodule AgentsDemo.Realtime.CableClient do
   def init(opts) do
     state = %__MODULE__{
       user_uuid: Keyword.fetch!(opts, :user_uuid),
+      environment_uuid: Keyword.fetch!(opts, :environment_uuid),
       token: Keyword.fetch!(opts, :token),
       identifiers: identifiers_for(Keyword.fetch!(opts, :user_uuid))
     }
@@ -261,8 +262,10 @@ defmodule AgentsDemo.Realtime.CableClient do
   # ── streams ──────────────────────────────────────────────────────────────
 
   # The subscriptions this app holds for a user. The uuid comes from the
-  # verified token, never from anything a client sent.
-  defp identifiers_for(user_uuid) do
+  # verified token, never from anything a client sent. Nothing node-wide:
+  # CallEvents belongs to the singleton application connection.
+  @doc false
+  def identifiers_for(user_uuid) do
     [
       Jason.encode!(%{channel: "DashboardUser", user_uuid: user_uuid}),
       Jason.encode!(%{channel: "Notifications", user_uuid: user_uuid})

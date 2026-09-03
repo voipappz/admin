@@ -83,7 +83,8 @@ defmodule AgentsDemo.Realtime.ApiProxy do
   alias AgentsDemo.Realtime.CableToken
 
   @subprotocol "actioncable-v1-json"
-  @identifier Jason.encode!(%{channel: "ApiProxy"})
+  @api_identifier Jason.encode!(%{channel: "ApiProxy"})
+  @call_events_identifier Jason.encode!(%{channel: "CallEvents"})
 
   # Matches the node's own default (`CABLE_API_PROXY_TIMEOUT`, 30s) and
   # `engine_proxy.ex`'s `receive_timeout`. A caller that waits longer than the
@@ -109,6 +110,7 @@ defmodule AgentsDemo.Realtime.ApiProxy do
     :ref,
     :uri,
     subscribed?: false,
+    confirmed: MapSet.new(),
     # Each entry is `{from, timer, kind}` — `kind` is `:request` or `:verify`,
     # and says how the reply envelope is turned into an answer.
     pending: %{},
@@ -130,6 +132,14 @@ defmodule AgentsDemo.Realtime.ApiProxy do
   def children do
     if enabled?(), do: [__MODULE__], else: []
   end
+
+  @doc false
+  def identifiers, do: [@api_identifier, @call_events_identifier]
+
+  @doc false
+  def classify(@call_events_identifier, %{} = message), do: {:event, message}
+  def classify(@api_identifier, %{} = message), do: {:reply, message}
+  def classify(_identifier, _message), do: :ignore
 
   @doc """
   True when the node has CONFIRMED the ApiProxy subscription — i.e. a request
@@ -293,7 +303,7 @@ defmodule AgentsDemo.Realtime.ApiProxy do
   # an HTTP-shaped tuple for a request, a verdict for a verify.
   defp dispatch(state, id, data, from, timeout, kind) do
     state =
-      send_frame(state, %{command: "message", identifier: @identifier, data: Jason.encode!(data)})
+      send_frame(state, %{command: "message", identifier: @api_identifier, data: Jason.encode!(data)})
 
     timer = Process.send_after(self(), {:timeout, id}, timeout)
     %{state | pending: Map.put(state.pending, id, {from, timer, kind})}
@@ -429,30 +439,72 @@ defmodule AgentsDemo.Realtime.ApiProxy do
 
   defp handle_cable_message({:ok, %{"type" => "welcome"}}, state) do
     Process.send_after(self(), :subscribe_deadline, @subscribe_timeout)
-    send_frame(state, %{command: "subscribe", identifier: @identifier})
+
+    Enum.reduce(identifiers(), state, fn identifier, acc ->
+      send_frame(acc, %{command: "subscribe", identifier: identifier})
+    end)
   end
 
-  defp handle_cable_message({:ok, %{"type" => "confirm_subscription"}}, state) do
-    Logger.info("api proxy: cable relay ready (#{System.get_env("CABLE_URL")})")
-    %{state | subscribed?: true, attempts: 0}
+  defp handle_cable_message(
+         {:ok, %{"type" => "confirm_subscription", "identifier" => identifier}},
+         state
+       ) do
+    confirmed = MapSet.put(state.confirmed, identifier)
+
+    if identifier == @api_identifier do
+      Logger.info("api proxy: cable relay ready (#{System.get_env("CABLE_URL")})")
+    end
+
+    if identifier == @call_events_identifier do
+      Logger.info("screen pop: singleton CallEvents subscription ready")
+    end
+
+    %{state | subscribed?: MapSet.member?(confirmed, @api_identifier), confirmed: confirmed, attempts: 0}
   end
 
-  defp handle_cable_message({:ok, %{"type" => "reject_subscription"}}, state) do
+  defp handle_cable_message(
+         {:ok, %{"type" => "reject_subscription", "identifier" => identifier}},
+         state
+       ) do
     # The node rejects this channel when CABLE_API_PROXY is not set — the one
     # cause worth naming, because everything else about the connection is fine
     # and the symptom is only that logins quietly take the HTTP path instead.
-    Logger.error(
-      "api proxy: subscription REJECTED — the node has CABLE_API_PROXY unset, " <>
-        "so it is not relaying API requests"
-    )
+    if identifier == @api_identifier do
+      Logger.error(
+        "api proxy: subscription REJECTED — the node has CABLE_API_PROXY unset, " <>
+          "so it is not relaying API requests"
+      )
+    else
+      Logger.error("screen pop: CallEvents subscription REJECTED")
+    end
 
-    %{state | subscribed?: false}
+    confirmed = MapSet.delete(state.confirmed, identifier)
+    %{state | subscribed?: MapSet.member?(confirmed, @api_identifier), confirmed: confirmed}
   end
 
   defp handle_cable_message({:ok, %{"type" => type}}, state) when type in ["ping", "disconnect"],
     do: state
 
-  defp handle_cable_message({:ok, %{"message" => %{"id" => id} = message}}, state) do
+  defp handle_cable_message(
+         {:ok, %{"message" => message, "identifier" => identifier}},
+         state
+       ) do
+    case classify(identifier, message) do
+      {:event, event} ->
+        AgentsDemo.Realtime.ScreenPop.handle_event(event)
+        state
+
+      {:reply, %{"id" => id} = reply} ->
+        answer_pending(state, id, reply)
+
+      _ ->
+        state
+    end
+  end
+
+  defp handle_cable_message(_other, state), do: state
+
+  defp answer_pending(state, id, message) do
     case Map.pop(state.pending, id) do
       {nil, _} ->
         # A reply whose request already timed out, or a duplicate. Dropping it
@@ -468,8 +520,6 @@ defmodule AgentsDemo.Realtime.ApiProxy do
         state
     end
   end
-
-  defp handle_cable_message(_other, state), do: state
 
   defp answer(:request, message, state) do
     {{:ok, message["status"] || 502, message["body"] || "", message["content_type"]}, state}
@@ -544,6 +594,7 @@ defmodule AgentsDemo.Realtime.ApiProxy do
         websocket: nil,
         ref: nil,
         subscribed?: false,
+        confirmed: MapSet.new(),
         pending: %{},
         attempts: attempts,
         verify_unsupported?: false

@@ -46,6 +46,7 @@ docker compose exec -e MIX_ENV=test elixir mix test
 | WebRTC phone | `src/lib/sip/*.test.ts`, resilience context test and integrated phone-panel smoke. |
 | The forwarder + its CORS policy | `agents_demo/test/agents_demo_web/plugs/engine_proxy_test.exs`, plus the production-image surface probes. |
 | Token verification | `agents_demo/test/agents_demo/realtime/token_auth_test.exs`. |
+| Screen-pop instruction handling | `agents_demo/test/agents_demo/realtime/instruction_test.exs`, `screen_pop_test.exs`, `api_proxy_test.exs`, `cable_client_test.exs`, and `agents_demo_web/realtime_socket_session_test.exs`. Cable/NATS delivery belongs to va-crystal; Chrome's existing mocked `tab:new` test owns extension behavior. |
 | Optional PostgREST | `src/lib/clients/postgrest.test.ts` — client-side only; nothing serves `/rest/v1` since the Deno BFF was removed. |
 
 ## The CORS contract
@@ -84,6 +85,9 @@ completed merely because mocks pass:
 
 - a real mothership Calls/Reports query with tenant data;
 - deployed va-crystal authentication/routing and sustained cable reconnect;
+- the complete screen-pop path from a real ESL event through a source-built
+  Crystal node and Ruby instruction load to an opened extension tab; all three
+  services must share one broker for that acceptance test;
 - a real SIP/WSS registration and two-way audio call;
 - external notification delivery behavior controlled by the browser/OS.
 

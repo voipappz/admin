@@ -66,7 +66,7 @@ test.describe('Realtime against a mimicked node', () => {
     expect(bearer!.length).toBeGreaterThan('voipappz-bearer.'.length);
   });
 
-  test('a legacy tab:new notification opens the tab', async () => {
+  test('a tab:new notification opens the tab', async () => {
     const opened = ctx.waitForEvent('page', { timeout: 15_000 });
     node.publish({ type: 'notification',
       message: { action: 'tab:new', url: `${node.origin}/popped` } });

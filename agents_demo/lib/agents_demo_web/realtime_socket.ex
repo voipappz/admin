@@ -36,6 +36,12 @@ defmodule AgentsDemoWeb.RealtimeSocket do
       Phoenix.PubSub.subscribe(AgentsDemo.PubSub, "realtime:account:#{claims.account_uuid}")
     end
 
+    # Registry membership is tied to this WebSocket process and disappears
+    # automatically when it exits. ScreenPop uses it as the no-queue presence
+    # check before broadcasting a browser command.
+    AgentsDemo.Realtime.ScreenPop.load_environment(claims.environment_uuid)
+    register_session(claims.user_uuid, claims.environment_uuid)
+
     # Hold this user's cable connection for as long as a browser of theirs is
     # here. The uuid and token come from the verified claims, never from the
     # client — which is the whole reason this is opened here and not there.
@@ -105,7 +111,9 @@ defmodule AgentsDemoWeb.RealtimeSocket do
       # unconfigured deployment is untouched. See `Realtime.CableToken`.
       spec =
         {AgentsDemo.Realtime.CableClient,
-         user_uuid: user_uuid, token: AgentsDemo.Realtime.CableToken.for(claims)}
+         user_uuid: user_uuid,
+         environment_uuid: claims.environment_uuid,
+         token: AgentsDemo.Realtime.CableToken.for(claims)}
 
       case DynamicSupervisor.start_child(AgentsDemo.Realtime.CableSupervisor, spec) do
         {:ok, _pid} ->
@@ -124,6 +132,18 @@ defmodule AgentsDemoWeb.RealtimeSocket do
   end
 
   def ensure_cable(_claims), do: :ok
+
+  @doc false
+  def register_session(user_uuid, environment_uuid)
+      when is_binary(user_uuid) and user_uuid != "" and is_binary(environment_uuid) and
+             environment_uuid != "" do
+    case Registry.register(AgentsDemo.Realtime.SessionRegistry, user_uuid, environment_uuid) do
+      {:ok, _} -> :ok
+      {:error, {:already_registered, _pid}} -> :ok
+    end
+  end
+
+  def register_session(_user_uuid, _environment_uuid), do: :ok
 
   defp ack(frame, state), do: {:push, {:text, Jason.encode!(frame)}, state}
 

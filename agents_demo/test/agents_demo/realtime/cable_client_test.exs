@@ -1,18 +1,8 @@
 defmodule AgentsDemo.Realtime.CableClientTest do
   @moduledoc """
-  What this app does to a cable message before a client sees it.
-
-  **The relay contract itself is tested in va-crystal**, against a live broker,
-  where the wire is — `node/spec/realtime/screen_pop_relay_spec.cr`. That is the
-  right place for it: the pop is composed by voipappz-api and carried by the
-  node, and neither hop is this app's to assert on.
-
-  What is left here is only what happens on THIS side of the socket, and it is
-  two things:
-
-    * routing — a notification and a state delta arrive on one connection and
-      must not be confused for one another;
-    * the fold — the one place this app is not a pure relay.
+  Per-user CableClient owns only user-scoped registration, notifications, and
+  state. The application-level ApiProxy connection owns the single CallEvents
+  subscription; ScreenPop evaluates that stream independently.
   """
 
   use ExUnit.Case, async: true
@@ -20,68 +10,66 @@ defmodule AgentsDemo.Realtime.CableClientTest do
   alias AgentsDemo.Realtime.CableClient
 
   @user_uuid "11111111-2222-3333-4444-555555555555"
+  @environment_uuid "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
   @topic "realtime:user:#{@user_uuid}"
-
-  # The identifiers cable subscribes with, which is how `fanout/3` tells the two
-  # streams apart.
   @notifications Jason.encode!(%{channel: "Notifications", user_uuid: @user_uuid})
   @dashboard_user Jason.encode!(%{channel: "DashboardUser", user_uuid: @user_uuid})
 
   setup do
     :ok = Phoenix.PubSub.subscribe(AgentsDemo.PubSub, @topic)
-    {:ok, state: %CableClient{user_uuid: @user_uuid}}
+    {:ok, state: %CableClient{user_uuid: @user_uuid, environment_uuid: @environment_uuid}}
   end
 
-  describe "routing between the two streams on one connection" do
-    test "a notification is handed on untouched", %{state: state} do
-      # String keys: it has been through JSON twice by the time it reaches here.
-      pop = %{"action" => "tab:new", "url" => "https://crm.example.com/r?id=42#tab=calls"}
+  describe "the streams held per logged-in user" do
+    test "are user-scoped and never include the broad CallEvents stream" do
+      ids = CableClient.identifiers_for(@user_uuid)
 
-      CableClient.fanout(state, @notifications, pop)
-
-      assert_receive {:realtime, frame}
-      assert frame.type == "notification"
-      # Verbatim, not merely equivalent. The extension matches on
-      # `data.action == "tab:new"` and reads `data.url`; renaming or nesting any
-      # of it breaks a client this app cannot see, and breaks it silently — an
-      # unrecognised notification is stored for the popup rather than raising.
-      assert frame.message == pop
-    end
-
-    test "a state delta never produces a notification frame", %{state: state} do
-      # A tab must open because voipappz-api said so, not because a state delta
-      # happened to carry a field that looks like an instruction.
-      CableClient.fanout(state, @dashboard_user, %{
-        "event" => "user.ringing",
-        "ops" => [%{"op" => "set", "key" => "user:#{@user_uuid}:action", "value" => "tab:new"}]
-      })
-
-      assert_receive {:realtime, frame}
-      assert frame.type == "user.state"
+      assert ids == [@dashboard_user, @notifications]
+      refute Enum.any?(ids, &(&1 =~ "CallEvents"))
     end
   end
 
-  describe "the fold, which is the one thing this app adds" do
-    test "does not crash on the first state message", %{state: state} do
-      # `fanout/3` reads state.view and writes it back. With no `:view` in the
-      # struct that was a KeyError on the FIRST state message, which killed this
-      # GenServer — and took the Notifications subscription down with it, so the
-      # visible symptom was screen pops that simply stopped.
+  describe "notification relay" do
+    test "relays current agent notifications verbatim", %{state: state} do
+      ringing = %{
+        "type" => "agent",
+        "message" => %{"type" => "ringing", "call" => %{"uuid" => "c-1"}, "screen" => %{}}
+      }
+
+      assert CableClient.fanout(state, @notifications, ringing) == state
+      assert_receive {:realtime, %{type: "notification", message: ^ringing}}
+    end
+
+    test "does not execute screen-pop rules on the Notifications stream", %{state: state} do
+      legacy = %{"action" => "tab:new", "url" => "https://crm.example.com/contact/42"}
+
+      assert CableClient.fanout(state, @notifications, legacy) == state
+      assert_receive {:realtime, %{type: "notification", message: ^legacy}}
+    end
+  end
+
+  describe "state folding" do
+    test "a state delta never becomes a screen-pop command", %{state: state} do
       returned =
         CableClient.fanout(state, @dashboard_user, %{
           "event" => "user.answer",
-          "ops" => [%{"op" => "set", "key" => "user:#{@user_uuid}:status", "value" => "busy"}]
+          "ops" => [
+            %{"op" => "set", "key" => "user:#{@user_uuid}:status", "value" => "busy"}
+          ]
         })
 
       assert_receive {:realtime, %{type: "user.state", view: view}}
       assert view == %{"status" => "busy"}
       assert returned.view == %{"status" => "busy"}
+      refute_receive {:realtime, %{type: "notification"}}
     end
 
-    test "accumulates across messages, because the node keeps no totals", %{state: state} do
+    test "accumulates deltas across messages", %{state: state} do
       state =
         CableClient.fanout(state, @dashboard_user, %{
-          "ops" => [%{"op" => "set", "key" => "user:#{@user_uuid}:status", "value" => "busy"}]
+          "ops" => [
+            %{"op" => "set", "key" => "user:#{@user_uuid}:status", "value" => "busy"}
+          ]
         })
 
       state =
@@ -89,7 +77,7 @@ defmodule AgentsDemo.Realtime.CableClientTest do
           "ops" => [%{"op" => "incr", "key" => "user:#{@user_uuid}:calls", "by" => 1}]
         })
 
-      _state =
+      returned =
         CableClient.fanout(state, @dashboard_user, %{
           "ops" => [%{"op" => "incr", "key" => "user:#{@user_uuid}:calls", "by" => 1}]
         })
@@ -97,9 +85,8 @@ defmodule AgentsDemo.Realtime.CableClientTest do
       assert_receive {:realtime, %{type: "user.state"}}
       assert_receive {:realtime, %{type: "user.state"}}
       assert_receive {:realtime, %{type: "user.state", view: view}}
-
-      # `incr` is a DELTA — two of them mean two, not one.
       assert view == %{"status" => "busy", "calls" => 2}
+      assert returned.view == view
     end
   end
 end

@@ -51,7 +51,9 @@ defmodule AgentsDemo.Application do
           # listen path is up first — a login is worth nothing if the events that
           # follow it have nowhere to arrive.
           {Registry, keys: :unique, name: AgentsDemo.Realtime.CableRegistry},
-          {DynamicSupervisor, strategy: :one_for_one, name: AgentsDemo.Realtime.CableSupervisor}
+          {Registry, keys: :duplicate, name: AgentsDemo.Realtime.SessionRegistry},
+          {DynamicSupervisor, strategy: :one_for_one, name: AgentsDemo.Realtime.CableSupervisor},
+          AgentsDemo.Realtime.ScreenPop
         ] ++
         AgentsDemo.Realtime.ApiProxy.children() ++
         [

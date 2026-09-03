@@ -43,15 +43,15 @@ bundle.
 | Mothership (voipappz-api) | external, env-pointed | Accounts + login (`/auth/user_login` + optional per-customer OTP), calls, reports, feature flags, portal branding. The source of truth. |
 | PostgREST | external, **optional** | A second, direct-SQL data plane (`/rest/v1/*`) for tenant-custom tables/views — see below. |
 | Core NATS | external | The **ask** path: token verification is a request/reply to the API. Unset `NATS_URL` and the portal refuses every connection rather than falling back — see `Realtime.Bus`. One connection, no JetStream. |
-| Cable (va-crystal/Nimbus WS) | external, optional | The **listen** path: user state and dashboard events. One connection for the whole app, authenticated with a credential the portal mints (`Realtime.CableToken`), fanned out per user over PubSub. |
+| Cable (va-crystal/Nimbus WS) | external, optional | The **listen** path: per-user state/notifications plus one application-level `CallEvents` subscription. Credentials are minted by `Realtime.CableToken`; Elixir fans accepted events out over PubSub. |
 
 ## Realtime: two transports, two jobs
 
 ```text
 Elixir portal ─┬─ NATS request/reply ──► voipappz-api     ASK:  is this token
                │                                                real, and whose?
-               └─ one cable connection ► va-crystal        LISTEN: user state,
-                        │                                  dashboard values
+               └─ cable connections ─► va-crystal          LISTEN: user state,
+                        │                                  notifications, CallEvents
                         ▼
                  Phoenix.PubSub ──► one /ws/events socket per browser
 ```
@@ -66,6 +66,25 @@ broadcast to authenticate a caller.
 **Which streams a connection receives is derived from the token's claims**, never
 from anything the client names. A client that could name a `user_uuid` could
 stream another user's events; that defect has existed elsewhere in this system.
+
+**A screen pop is a Ruby-defined instruction executed by the portal.** When a
+verified websocket first activates an environment, `Realtime.ScreenPop` asks
+`screen_pop.instructions.load` over NATS and caches the enabled PocketFlow
+screen-pop definitions for that environment. The bounded request runs outside
+the event processor; events for an environment already loading wait in a
+bounded in-memory queue, and an explicit refresh can replace its cache. Ruby
+owns the trigger, graph and configured URL, but it is not in the runtime event
+loop.
+
+At runtime va-crystal enriches ESL events and publishes them to its `CallEvents`
+Cable channel. The singleton application connection in `Realtime.ApiProxy`
+subscribes once and passes them to `Realtime.ScreenPop`; per-user Cable clients
+never subscribe to that node-wide stream. A cached instruction executes only
+when the event supplies a user, environment and stable event/call id, that
+user/environment pair has a live verified `/ws/events` process, the trigger and environment match,
+and the configured URL is `https` with a host. Execution is deduplicated in a
+bounded process-local 60-second cache, then PubSub sends only `{action, url}` to
+the named user's socket. Nothing is persisted or replayed for an offline user.
 
 A Deno BFF used to sit behind the portal maintaining a local DuckDB projection
 of CDR events, and served the Dashboard builder, the `/events` inspector,

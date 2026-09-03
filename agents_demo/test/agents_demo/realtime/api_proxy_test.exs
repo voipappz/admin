@@ -12,6 +12,24 @@ defmodule AgentsDemo.Realtime.ApiProxyTest do
 
   alias AgentsDemo.Realtime.ApiProxy
 
+  @api_identifier Jason.encode!(%{channel: "ApiProxy"})
+  @call_events_identifier Jason.encode!(%{channel: "CallEvents"})
+
+  describe "the singleton cable connection" do
+    test "subscribes to API replies and CallEvents exactly once for the application" do
+      assert ApiProxy.identifiers() == [@api_identifier, @call_events_identifier]
+    end
+
+    test "classifies CallEvents separately from request replies" do
+      event = %{"action" => "user.answer", "user_uuid" => "user-a"}
+      reply = %{"id" => "request-1", "status" => 200}
+
+      assert ApiProxy.classify(@call_events_identifier, event) == {:event, event}
+      assert ApiProxy.classify(@api_identifier, reply) == {:reply, reply}
+      assert ApiProxy.classify("unknown", event) == :ignore
+    end
+  end
+
   describe "decode_verify/2" do
     test "200 ok:true carries the three claims and nothing else" do
       body = ~s({"ok":true,"user_uuid":"u-1","account_uuid":"a-1","environment_uuid":null})
