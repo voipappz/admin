@@ -16,7 +16,8 @@
     "build:production": "npm run build:angular-production && npm run build:chrome-production && npm run pack",
     "watch": "npm run clean && npm-run-all --parallel watch:*",
     "clean": "rimraf angular/dist",
-    "pack": "cd angular/dist && bestzip ../../extension-build.zip *",
+    "stamp": "node scripts/stamp-manifest.mjs",
+    "pack": "npm run stamp && cd angular/dist && bestzip ../../extension-build.zip *",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug"

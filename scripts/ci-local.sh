@@ -31,13 +31,6 @@ echo ">> $($act_bin --version)"
 # GitHub-hosted runners do not have it, so always run against an empty env file.
 empty_env="${TMPDIR:-/tmp}/voipappz-act-empty.env"
 : > "$empty_env" 2>/dev/null || empty_env=/dev/null
-# act-latest currently advertises the deprecated ubuntu20 ImageOS value. Tell
-# setup-beam to select the supported Ubuntu 24 OTP artifact instead; this file
-# contains no tenant credentials and is still isolated from the repository's
-# .env.
-if [[ "$empty_env" != /dev/null ]]; then
-  printf '%s\n' 'ImageOS=ubuntu24' >> "$empty_env"
-fi
 
 cd "$repo_dir"
 if [[ "${1:-all}" == "-l" ]]; then
@@ -84,6 +77,7 @@ echo ">> running workflow: $mode"
 exec "$act_bin" push -W .github/workflows/ci.yml \
   "${job_args[@]}" \
   -P "ubuntu-latest=$runner" \
+  -P "ubuntu-24.04=$runner" \
   --container-architecture linux/amd64 \
   --pull=false \
   --bind \

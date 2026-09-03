@@ -1,4 +1,4 @@
-.PHONY: help env dev check-engine check-mothership up down logs build lint unit portal-compile portal-test verify test test-cable act-cable test-chrome chrome-build chrome-serve cable cable-down probe act act-portal push status module prod prod-down
+.PHONY: help env dev check-engine check-mothership up down logs build lint unit portal-compile portal-test verify test test-cable act-cable test-chrome chrome-build chrome-serve probe act act-portal push status module prod prod-down portal-print portal-deploy
 
 # Everything runs in Docker — no host node/npm/ruby required. One-off npm/node
 # commands reuse the react-app service (repo mount + cached node_modules volume).
@@ -22,45 +22,47 @@ CABLE_API_URL := $(if $(CABLE_API_URL),$(CABLE_API_URL),$(PORTAL_ENGINE_URL))
 # Local stack endpoints. PORTAL is the origin: the SPA, the Chrome extension
 # and Vite's proxy all point at 4001, and it does not move.
 PORTAL   ?= http://localhost:4001
-# The cable's port and where its signing secret comes from. 4100, not 4000: an
-# installed node already owns 4000 on a dev box, and `SECRET_KEY ?=` lets the
-# environment win so a developer without the API container can still pass one.
-CABLE_PORT ?= 4100
+# The cable the portal SUBSCRIBES to. There is no cable in this stack any more:
+# va-crystal was removed from docker-compose.yml, because what the portal needs
+# is one WebSocket endpoint and running a node beside it meant a whole switch on
+# the box. The portal dials a real node instead, and the coherent choice is the
+# node belonging to PORTAL_ENGINE_URL — a cable on one server and an API on
+# another verify with different secrets and fail as "closed before welcome".
+PORTAL_CABLE_URL ?= $(shell sed -n 's/^PORTAL_CABLE_URL=//p' .env 2>/dev/null | grep . | head -1 | tr -d '\r"')
+PORTAL_CABLE_URL := $(if $(PORTAL_CABLE_URL),$(PORTAL_CABLE_URL),ws://127.0.0.1:4100/cable)
+# The cable's /health lives on the same host and port over plain HTTP.
+CABLE_HEALTH := $(shell printf '%s' '$(PORTAL_CABLE_URL)' | sed -E 's|^wss?://|http://|; s|/cable$$|/health|')
 API_CONTAINER ?= va-app
 
-# Both the cable and the portal need the API's signing secret and its NATS
-# credentials, and NEITHER belongs in this repo — they are read out of the
-# running API container at start time and passed as environment, never as
-# arguments. The NATS host is rewritten because the containers below use host
-# networking, where the API's own `nats:4222` does not resolve. The sed uses
-# `|` as its delimiter, not `#`: make strips `#` and everything after it inside
-# a VARIABLE definition (not inside a recipe), which truncated the line mid
-# quote and failed as "Unterminated quoted string" with nothing pointing here.
+# The portal mints its own cable credential, and SECRET_KEY is what it signs
+# with. IT MUST BE THE SIGNING SECRET OF THE SERVER THAT OWNS THE CABLE — the
+# node verifies with its own SECRET_KEY, so a token signed with anything else is
+# refused at connect time, and cable has no frame for "wrong secret": the socket
+# closes before `welcome`, which is indistinguishable from a dead network.
 #
-# Refusing to start without the secret is the point: cable would otherwise come
-# up, answer /health, and reject every connection, and the portal would refuse
-# every token — both of which look like a broken network from the client.
-STACK_UP = key="$${SECRET_KEY:-}"; \
+# .env WINS OVER THE LOCAL API CONTAINER, and that order is the whole point now
+# that the cable is remote. Reading it from a local `va-app` would hand the
+# portal the LOCAL API's secret while it dials someone else's node — every
+# connection refused, for a reason nothing prints. The container is a last
+# resort, for the all-local case where it is the right value.
+SECRET_KEY ?= $(shell sed -n 's/^SECRET_KEY=//p' .env 2>/dev/null | grep . | head -1 | tr -d '\r"')
+
+# NATS is deliberately absent: the portal holds no broker connection (it reads
+# events off the cable), and the only thing in this stack that ever needed
+# credentials was the cable container that no longer exists.
+STACK_UP = key="$${SECRET_KEY:-$(SECRET_KEY)}"; \
 	  if [ -z "$$key" ]; then key=$$(docker exec $(API_CONTAINER) printenv SECRET_KEY 2>/dev/null); fi; \
 	  if [ -z "$$key" ]; then \
-	    echo "no SECRET_KEY from container '$(API_CONTAINER)' — is the API running?"; \
-	    echo "without it cable refuses every connection and the portal refuses every token."; \
-	    echo "start the API, or pass it yourself:  SECRET_KEY=... make <target>"; \
+	    echo "no SECRET_KEY — the portal cannot mint a cable credential without it,"; \
+	    echo "and $(PORTAL_CABLE_URL) will close every connection before welcome."; \
+	    echo "set it in .env (the signing secret of $(PORTAL_ENGINE_URL)),"; \
+	    echo "or pass it yourself:  SECRET_KEY=... make <target>"; \
 	    exit 1; \
 	  fi; \
-	  nats="$${NATS_URL:-}"; \
-	  if [ -z "$$nats" ]; then \
-	    nats=$$(docker exec $(API_CONTAINER) printenv NATS_URL 2>/dev/null \
-	            | sed -E 's|@[^:/]+:|@127.0.0.1:|'); \
-	  fi; \
-	  if [ -z "$$nats" ]; then \
-	    echo "no NATS_URL from container '$(API_CONTAINER)' — token verification and realtime would be disabled."; \
-	    echo "start the API, or pass it yourself:  NATS_URL=... make <target>"; \
-	    exit 1; \
-	  fi; \
-	  SECRET_KEY="$$key" NATS_URL="$$nats" \
+	  SECRET_KEY="$$key" \
 	    PORTAL_ENGINE_URL="$(PORTAL_ENGINE_URL)" CABLE_API_URL="$(CABLE_API_URL)" \
-	    docker compose --profile cable up -d
+	    PORTAL_CABLE_URL="$(PORTAL_CABLE_URL)" \
+	    docker compose up -d
 WEB_APP  ?= http://localhost:4200
 # The Chrome extension's artefact. Chrome loads an extension from a DIRECTORY,
 # never over HTTP, so this path — not a port — is what `make dev` hands you.
@@ -90,14 +92,14 @@ env: ## Create .env (never overwrites an existing one)
 	  cp .env.example .env && echo "wrote .env — set PORTAL_ENGINE_URL if the local API is not on :5000"; \
 	fi
 
-dev: check-engine ## Run the whole local stack in Docker (Vite :4200 · portal :4001 · cable :4100 · extension), attached logs
-	@$(STACK_UP) react-app elixir cable chrome-ext chrome-web
-	@echo "portal → $(PORTAL) · cable → ws://127.0.0.1:$(CABLE_PORT)/cable"
+dev: check-engine ## Run the whole local stack in Docker (Vite :4200 · portal :4001 · extension), attached logs
+	@$(STACK_UP) react-app elixir chrome-ext chrome-web
+	@echo "portal → $(PORTAL) · cable → $(PORTAL_CABLE_URL)"
 	@echo "Vite → $(WEB_APP) → portal → engine $(PORTAL_ENGINE_URL)"
 	@echo "extension → $(EXT_DIST) (chrome://extensions → Load unpacked)"
 	@echo "extension UI → $(EXT_WEB) (the popup as a plain page, hot-reloading)"
 	@echo "Ctrl-C detaches; stack keeps running"
-	docker compose --profile cable logs -f react-app elixir cable chrome-ext chrome-web
+	docker compose logs -f react-app elixir chrome-ext chrome-web
 
 check-engine: ## Verify the local portal's API upstream is reachable
 	@echo "==> Portal engine (override: PORTAL_ENGINE_URL=https://<host>)"
@@ -112,15 +114,15 @@ check-engine: ## Verify the local portal's API upstream is reachable
 # moved behind the portal. It deliberately does not appear in `make help`.
 check-mothership: check-engine
 
-up: ## Start the full Docker stack (web + portal + cable + extension)
-	@$(STACK_UP) react-app elixir cable chrome-ext chrome-web
+up: ## Start the full Docker stack (web + portal + extension)
+	@$(STACK_UP) react-app elixir chrome-ext chrome-web
 	@echo "web → $(WEB_APP)   portal → $(PORTAL)   extension → $(EXT_DIST)   UI → $(EXT_WEB)"
 
 down: ## Stop all services
-	docker compose --profile cable down --remove-orphans
+	docker compose down --remove-orphans
 
 logs: ## Follow logs for every service in the local stack
-	docker compose --profile cable logs -f react-app elixir cable chrome-ext chrome-web
+	docker compose logs -f react-app elixir chrome-ext chrome-web
 
 # --user: the scaffolder writes into the repo mount and the container is root,
 # so without it the new files land root-owned and you need sudo to edit or
@@ -175,7 +177,7 @@ verify: ## Health check: the portal's probes and the Vite dev server
 	  probe portal "$(PORTAL)/health/alive" "$(PORTAL)/health/alive"; \
 	  probe ready "$(PORTAL)/health/ready" "$(PORTAL)/health/ready"; \
 	  probe web/vite "$(WEB_APP)/" "$(WEB_APP)/"; \
-	  probe cable "http://127.0.0.1:$(CABLE_PORT)/health" "ws://127.0.0.1:$(CABLE_PORT)"; \
+	  probe cable "$(CABLE_HEALTH)" "$(PORTAL_CABLE_URL)"; \
 	  exit $$failed
 
 test: ## Playwright E2E in Docker (needs the app running — make up / make dev)
@@ -239,14 +241,6 @@ test-chrome: ## Extension login E2E: make test-chrome TEST_USERNAME=... TEST_PAS
 	  TEST_USERNAME="$(TEST_USERNAME)" TEST_PASSWORD="$(TEST_PASSWORD)" \
 	  npx playwright test user-connect login
 
-cable: ## Start va-crystal's cable locally on :4100 (opt-in; needs va-app running)
-	@$(STACK_UP) cable
-	@echo "cable → ws://127.0.0.1:$(CABLE_PORT)/cable"
-	@echo "logs → docker compose --profile cable logs -f cable"
-
-cable-down: ## Stop the local cable
-	docker compose --profile cable rm -sf cable
-
 # Through the PORTAL, not straight at cable: that is the path the browser and
 # the extension take, and it covers the two hops that fail most often — NATS
 # token verification and the portal's own cable credential.
@@ -263,24 +257,57 @@ act-portal: ## Run the Elixir portal CI job locally with act
 act: ## Run the complete GitHub Actions workflow locally (same pattern as ../cli)
 	ACT_BIN="$(ACT)" ACT_RUNNER_IMAGE="$(ACT_PLATFORM)" scripts/ci-local.sh all
 
-# Deploying is NOT done from this repo.
+# Deploying is INVOKED from here and DECIDED in mothership.
 #
 # Until 2026-08-31 this Makefile carried the whole Kamal setup, and config/ held
 # deploy.yml plus one override per tenant. Both moved to the mothership repo,
 # under config/portal/ — deciding WHERE the portal lands needs the view of every
-# destination at once, and mothership is the only place that has it.
+# destination at once, and mothership is the only place that has it. The policy
+# stays there for a second reason: config/portal/.kamal holds real secrets (the
+# registry PAT, TLS keys), and THIS is the repo a customer forks.
 #
-#     cd ../mothership
+# The targets below are wrappers so you do not have to `cd ../mothership` — the
+# implementation is `voipappz portal deploy`, and there is exactly one copy of
+# it (installer/cli/src/commands/portal.cr). Two things have to be true, and
+# both are what made this fail when run by hand from here:
+#
+#   * VA_PROJECT_DIR — the CLI finds the deploy policy by walking up from $PWD
+#     for docker-compose.yaml. THIS repo's file is docker-compose.yml, so the
+#     walk finds nothing and conf_dir lands on a config/portal that is not here.
+#   * ../mothership/bin/voipappz — NOT the `voipappz` on PATH. That one is an
+#     installed node CLI with no `portal` verb at all, so `voipappz portal
+#     deploy` silently prints top-level help and exits 0.
+#
 #     make portal-deploy               # default destination
 #     make portal-deploy DEST=nimbus   # a tenant, per config/portal/portal-destinations.tsv
-#     make portal-print DEST=nimbus    # print exact Kamal commands, read-only
+#     make portal-print  DEST=nimbus   # print exact Kamal commands, read-only
 #
-# mothership mounts this sibling checkout as Kamal's build context, so the
-# image is still built from THIS checkout at THIS sha:
-# `make portal-deploy` stamps VITE_APP_VERSION from the commit you have here.
+# Kamal mounts this sibling checkout as its build context, so the image is built
+# from THIS checkout at THIS sha: the deploy stamps VITE_APP_VERSION from the
+# commit you have here — including uncommitted work, which is the build context.
 #
-# What stays here: dev, lint, unit, verify, test, status. Building the app is
-# this repo's job; choosing where it ships is not.
+# `make deploy` is deliberately NOT defined: in mothership `deploy` means
+# "provision a remote host over SSH", and the names must not collide.
+
+VA_MOTHERSHIP ?= $(abspath $(CURDIR)/../mothership)
+PORTAL_CLI     = VA_PROJECT_DIR=$(VA_MOTHERSHIP) $(VA_MOTHERSHIP)/bin/voipappz
+
+# The binary is built by mothership's own `make build`; a fresh clone has none.
+define portal_cli_guard
+	@test -d "$(VA_MOTHERSHIP)" || { \
+	  echo "!! no mothership checkout at $(VA_MOTHERSHIP)" >&2; \
+	  echo "   git clone <mothership> $(VA_MOTHERSHIP)   # or set VA_MOTHERSHIP=" >&2; \
+	  exit 1; }
+	@test -x "$(VA_MOTHERSHIP)/bin/voipappz" || $(MAKE) -C "$(VA_MOTHERSHIP)" build
+endef
+
+portal-print: ## Print the exact Kamal commands, change nothing — make portal-print DEST=mtn
+	$(portal_cli_guard)
+	$(PORTAL_CLI) portal deploy --print $(if $(DEST),-d $(DEST))
+
+portal-deploy: ## Build, push and swap the portal container — make portal-deploy DEST=mtn
+	$(portal_cli_guard)
+	$(PORTAL_CLI) portal deploy $(if $(DEST),-d $(DEST))
 
 push: ## git push current branch to origin
 	git push

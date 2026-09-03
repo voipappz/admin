@@ -3,6 +3,12 @@
 // before anything reads `chrome` — the query below is the first such read.
 import './app/providers/chrome-shim';
 
+// SECOND: drops a session belonging to a previous CONFIG.API_ENDPOINT. Must run
+// before the router does, or the auth guard sends a foreign token to the main
+// page and every call on it fails.
+import { healStaleSession } from './app/providers/session';
+healStaleSession();
+
 import { enableProdMode } from '@angular/core';
 import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
 

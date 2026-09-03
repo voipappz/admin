@@ -5,7 +5,7 @@ import { TAB_ID } from 'src/app/providers/tab-id.provider';
 import { Router } from '@angular/router';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import { ShareUserDataService } from 'src/app/providers/user-data.service';
-import { CONFIG } from 'src/app/config';
+import { endpoint, rememberCredentials, rememberedCredentials, rememberSession } from 'src/app/providers/session';
 
 @Component({
     selector: 'app-login',
@@ -41,24 +41,18 @@ export class LoginComponent implements OnInit {
     }
 
     ngOnInit() {
-
+        // Prefilled rather than auto-submitted: a wrong stored password would
+        // otherwise burn a login attempt on every popup open with no way to
+        // correct it.
+        const saved = rememberedCredentials();
+        if (saved.username || saved.password) {
+            this.loginForm.patchValue(saved);
+        }
     }
 
-    /**
-     * Where this extension talks to: the Elixir portal, from CONFIG.
-     *
-     * `_domain` wins when it is set, which is the runtime override — the e2e
-     * specs seed it to aim at a fake node, and it lets a packed build be
-     * pointed elsewhere without a rebuild.
-     *
-     * The scheme is preserved rather than forced to https, because the portal
-     * runs on plain http in development and forcing https there produced a
-     * connection failure that read as a rejected login.
-     */
+    /** Where this extension talks to — see `providers/session.ts`. */
     private endpoint(): string {
-        const raw = (localStorage.getItem('_domain') || CONFIG.API_ENDPOINT || '').trim();
-        const d = raw.replace(/\/+$/, '');
-        return /^https?:\/\//.test(d) ? d : 'https://' + d;
+        return endpoint();
     }
 
     onSubmit() {
@@ -71,10 +65,14 @@ export class LoginComponent implements OnInit {
         ).subscribe({
             next: data => {
                 console.log("login success: data:", data )
+                rememberCredentials(
+                    this.loginForm.controls['username'].value,
+                    this.loginForm.controls['password'].value
+                );
                 var port = chrome.runtime.connect();
                 localStorage.setItem('_token', data.token);
                 localStorage.setItem('_id', data.user.uuid);
-                localStorage.setItem('_domain', domain);
+                rememberSession(domain);
                 data.user_uuid=data.user.uuid;
                 port.postMessage({ event: "login", data, domain });
                 this.userData.setUserData(data.user);

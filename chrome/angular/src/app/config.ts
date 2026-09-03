@@ -8,7 +8,7 @@ export const CONFIG = {
     // overrides it at runtime — that is how the e2e specs point the extension
     // at a fake node, and how you aim a packed build somewhere else without a
     // rebuild.
-    API_ENDPOINT:  "http://localhost:4001",
+    API_ENDPOINT:  "https://nimbus-prod.voipappz.io:10444",
     WEBSOCKETS_URL: "wss://callcenter.nimbusip.com/ws",//"wss://api.voipappz.io/ws",//"wss://900.nimbusip.com/ws",/*"wss://caspi.voipappz.io/ws","wss://dialer.bpotel.com/ws",*///"ws://api-staging.voipappz.io:8080",//wss://api-staging.voipappz.io", //"ws://demo.voipbox.io:8080",
     WEBSOCKETS_DASHBOARD_URL: "wss://900.nimbusip.com/ws",/*"wss://caspi.voipappz.io/ws","wss://dialer.bpotel.com/ws",*///"ws://api-staging.voipappz.io:8085",
     PAGE_TITLE: "Nimbus",

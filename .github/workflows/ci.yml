@@ -33,7 +33,9 @@ jobs:
 
   portal:
     name: Elixir portal (compile + tests)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    # OTP 27 is supported on Ubuntu 24.04 by setup-beam. Pinning the runner
+    # avoids act's stale ubuntu-latest → ubuntu20 mapping.
     # The portal verifies tokens and persists conversations, so its tests need
     # a real Postgres. Same major as production.
     services:

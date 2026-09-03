@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Nimbus07",
+  "name": "Nimbus10",
   "short_name": "nimbus",
-  "version": "0.0.7",
+  "version": "0.0.10",
   "description": "nimbus description",
   "permissions": [
     "tabs",

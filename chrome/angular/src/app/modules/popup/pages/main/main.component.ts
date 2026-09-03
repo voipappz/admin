@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, NgZone, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { interval } from 'rxjs';
 import { takeWhile } from 'rxjs/operators';
@@ -7,6 +7,7 @@ import { CONFIG } from 'src/app/config';
 import { ActionsProvider } from 'src/app/providers/actions.provider';
 import { HandleRequestService } from 'src/app/providers/handleRequest.service';
 import { ShareUserDataService } from 'src/app/providers/user-data.service';
+import { endpoint } from 'src/app/providers/session';
 
 @Component({
     selector: 'app-main',
@@ -19,8 +20,14 @@ export class MainComponent implements OnInit {
     page_title=CONFIG.PAGE_TITLE;
     statuses:any=[];
     user:any={};
+    // The /ws/events light. Written by the background worker, never derived
+    // here — the popup has no socket of its own and guessing from the presence
+    // of a token would show green for a session whose socket is down.
+    realtime:any = { connected: false, cable_ready: false };
+
     constructor(
         public actions:ActionsProvider,
+        private zone:NgZone,
         private auth: AuthService,
         private handleRequest:HandleRequestService,
         public router: Router,
@@ -32,11 +39,21 @@ export class MainComponent implements OnInit {
     ngOnInit(): void {
         this.page_title=CONFIG.PAGE_TITLE
         const port = chrome.runtime.connect({name:"main"});
-        let user_uuid = localStorage.getItem('_id');
-        if (user_uuid) {
+        this.listen(port);
+
+        // Reopen the socket after the worker was torn down (MV3 stops it when
+        // idle). The worker needs the whole session to do that — it has no
+        // storage of its own and cannot read this page's — so the shape here
+        // must match what login posts, `data` and all. Posting a bare
+        // {event,user_uuid} is silently ignored, which is what left the socket
+        // closed after every popup reopen.
+        const user_uuid = localStorage.getItem('_id');
+        const token = localStorage.getItem('_token');
+        if (user_uuid && token) {
             port.postMessage({
                 event: "login",
-                user_uuid
+                data: { user_uuid, token },
+                domain: endpoint(),
             });
         }
         this.userData.getUserData().then(res=>{
@@ -48,20 +65,46 @@ export class MainComponent implements OnInit {
         })
         console.log("oninit")
         
-        this.updateCallStatus();
-        setInterval(()=>{
-            this.updateCallStatus(); 
-           
-        },2000);
-        // port.onMessage.addListener(function (msg) {
-        //     console.log("message recieved", msg);
-        //     this.callStatus = "message rec"
-        // });
         this.handleRequest.get("/api/statuses",{search:{type:'on_break'}}).subscribe(res=>{
             console.log("statuses", res)
             this.statuses=res.body
         })
     }
+    /**
+     * Everything this page shows comes down the port, and nothing is stored.
+     *
+     * The worker holds the socket and the last call in memory and pushes both
+     * on connect, so a popup that opens minutes later is told the truth rather
+     * than reading a cached "connected" for a socket that died with the worker.
+     * Port callbacks are not patched by zone.js, hence zone.run — without it
+     * the dot changes colour only when something else triggers change
+     * detection.
+     */
+    private listen(port:any){
+        port.onMessage.addListener((msg:any)=>{
+            if (!msg || !msg.event) return;
+            this.zone.run(()=>{
+                if (msg.event === 'realtime') {
+                    this.realtime = { connected: !!msg.connected, cable_ready: !!msg.cable_ready };
+                } else if (msg.event === 'call') {
+                    this.applyCall(msg);
+                }
+            });
+        });
+        port.postMessage({ event: "status" });
+    }
+
+    private applyCall(msg:any){
+        if (!msg.call || !msg.call.uuid) return;
+        this.callId = msg.call.uuid;
+        this.callStatus = { 'call:ringing': 'ringing', 'call:answer': 'answer', 'call:hangup': 'hangup' }[msg.status] || this.callStatus;
+    }
+
+    get connTitle(){
+        if (!this.realtime.connected) return 'לא מחובר לשרת';
+        return this.realtime.cable_ready ? 'מחובר לשרת' : 'מחובר, אך הערוץ אינו מוכן';
+    }
+
     statusChanged(event){
         console.log("status changed", event)
         this.user.status = event.value;
@@ -114,26 +157,6 @@ export class MainComponent implements OnInit {
         time_string += (seconds<10)? "0"+seconds.toString() : seconds.toString();
         return time_string;
       }
-    private updateCallStatus() {
-        // chrome.browserAction.setBadgeText({text:CONFIG.PAGE_TITLE})//.setTitle({title:CONFIG.PAGE_TITLE})
-        // chrome.browserAction.setBadgeBackgroundColor({color:"green"})//.setBadgeText({text:CONFIG.PAGE_TITLE})
-
-        let call_status = JSON.parse(localStorage.getItem('call'));
-            console.log(call_status);
-            
-        if(call_status && call_status.call && call_status.call.uuid){
-            this.callId = call_status.call.uuid;
-            if(call_status.event == "call:ringing") {
-                this.callStatus = "ringing";
-                
-            } else if(call_status.event == "call:hangup") {
-                this.callStatus = "hangup";
-            } else if(call_status.event == "call:answer") {
-                this.callStatus = "answer";
-            }
-        }
-    }
-
     hangUp(){
         this.actions.hangUp(this.callId).subscribe({
             next:()=>{
@@ -154,7 +177,6 @@ export class MainComponent implements OnInit {
     }
 
     private destroyCall() {
-        localStorage.removeItem('call');
         this.callId = "";
     }
 

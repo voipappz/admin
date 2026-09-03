@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { CONFIG } from '../config';
+import { endpoint } from './session';
 
 @Injectable({
   providedIn: 'root'
@@ -18,7 +18,7 @@ export class HandleRequestService {
         dataUrl = { ...dataUrl, ...{params: new HttpParams({ fromString:HandleRequestService.serialize(urlParams)})}};
       }
       
-      const apiEndpoint = localStorage.getItem('_domain') || CONFIG.API_ENDPOINT;
+      const apiEndpoint = endpoint();
       return this.http.get<any>(apiEndpoint + url, dataUrl)
     }
     

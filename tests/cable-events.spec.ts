@@ -112,15 +112,29 @@ test.describe('C the screen-pop executor', () => {
   test.beforeAll(async () => { user = await liveUser(); });
   test.afterAll(() => user?.events.close());
 
-  test('C1 a matching user.answer becomes exactly {action, url} for that user', async () => {
+  test('C1 a matching user.answer becomes exactly {action, url} and is audited', async () => {
     const before = await screenPopMetrics();
-    const f = await publishUntil(user.events, 'call_events', () => callEvent(user.id),
+    const event = callEvent(user.id);
+    const f = await publishUntil(user.events, 'call_events', () => event,
       (x) => x.type === 'notification' && x.message?.action === 'tab:new');
     expect(f.message.url).toMatch(/^https:\/\//);
     // Identity stripped: the browser gets a command, not the event.
     expect(Object.keys(f.message).sort()).toEqual(['action', 'url']);
     const d = metricsDelta(before, await screenPopMetrics());
     expect(d.dispatched, `metrics Δ ${JSON.stringify(d)}`).toBeGreaterThanOrEqual(1);
+
+    let audited: any;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const response = await fetch(`${PORTAL}/api/events/search?q=${encodeURIComponent(event.id)}`, {
+        headers: { authorization: `Bearer ${mint(user.id)}` },
+      });
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      audited = body.events?.find((row: any) => row.src === 'CallEvents' && row.raw.includes(event.id));
+      if (audited) break;
+      await sleep(100);
+    }
+    expect(audited, 'the received CallEvents frame was not written to DuckDB').toBeTruthy();
   });
 
   test('C2 the same event id is executed once', async () => {

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { CONFIG } from '../config';
+import { forgetCredentials } from '../providers/session';
 
 @Injectable({
   providedIn: 'root'
@@ -23,6 +23,7 @@ export class AuthService {
     public logout(){
       localStorage.removeItem('_token');
       localStorage.removeItem('_id');
+      forgetCredentials();
     }
     public isAuthenticated(): boolean {
       

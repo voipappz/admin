@@ -27,6 +27,11 @@
  *                   off the port (`main.component.ts` has its listener
  *                   commented out), so forwarding them further would be
  *                   inventing a contract that does not exist.
+ *   port messages   the port pushes {event:"realtime"} the same way the worker
+ *                   does, driven by the same welcome frame — so the connection
+ *                   light is exercised in browser mode rather than sitting
+ *                   permanently grey, which would look like a bug in the very
+ *                   thing being developed. Nothing is stored, here or there.
  */
 
 const BEARER_PREFIX = 'voipappz-bearer.';
@@ -39,18 +44,32 @@ function base64url(value: string): string {
 // that is all this understands.
 function fakePort() {
   let socket: WebSocket | null = null;
+  const listeners: Array<(msg: any) => void> = [];
+  let state = { connected: false, cable_ready: false };
+
+  const emit = (msg: any) => listeners.forEach((fn) => fn(msg));
+
+  const setRealtimeState = (connected: boolean, cable_ready = false) => {
+    state = { connected, cable_ready: connected && cable_ready };
+    emit({ event: 'realtime', ...state });
+  };
 
   const close = () => {
     try { socket?.close(); } catch { /* already gone */ }
     socket = null;
+    setRealtimeState(false);
   };
 
   return {
     name: 'shim',
-    onMessage: { addListener: () => undefined, removeListener: () => undefined },
+    onMessage: {
+      addListener: (fn: (msg: any) => void) => { listeners.push(fn); fn({ event: 'realtime', ...state }); },
+      removeListener: (fn: any) => { const i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); },
+    },
     onDisconnect: { addListener: () => undefined, removeListener: () => undefined },
     disconnect: close,
     postMessage(msg: any) {
+      if (msg?.event === 'status') return emit({ event: 'realtime', ...state });
       if (msg?.event === 'logout') return close();
       if (msg?.event !== 'login') return;
 
@@ -69,8 +88,20 @@ function fakePort() {
       console.log('[chrome-shim] realtime →', url);
       socket = new WebSocket(url, [BEARER_PREFIX + base64url(token)]);
       socket.onopen = () => console.log('[chrome-shim] realtime open');
-      socket.onmessage = (ev) => console.log('[chrome-shim] frame', ev.data);
-      socket.onclose = (ev) => console.log('[chrome-shim] realtime closed', ev.code);
+      socket.onmessage = (ev) => {
+        console.log('[chrome-shim] frame', ev.data);
+        // The welcome frame is what turns the light green, here as in the
+        // worker: an open socket to a portal whose cable is down delivers
+        // nothing.
+        try {
+          const frame = JSON.parse(typeof ev.data === 'string' ? ev.data : '');
+          if (frame && frame.type === 'welcome') setRealtimeState(true, !!frame.cable_ready);
+        } catch { /* not a frame we judge on */ }
+      };
+      socket.onclose = (ev) => {
+        console.log('[chrome-shim] realtime closed', ev.code);
+        setRealtimeState(false);
+      };
     },
   };
 }

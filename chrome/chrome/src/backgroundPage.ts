@@ -27,16 +27,101 @@ let currentToken = "";
 let realtimeUrl = "";
 let reconnectTimer: any = null;
 
+// ── the realtime light ───────────────────────────────────────────────────────
+//
+// NOTHING IS STORED. The worker holds the state in memory and pushes it down
+// the port the popup already opens; a popup that opens later asks for it with
+// {event:"status"} and gets an answer by return. Persisting it would be
+// writing a fact with a shelf life of seconds — MV3 stops the worker and the
+// socket dies with it, so a stored "connected" is wrong the moment it is
+// written, and the popup would render green over a socket that no longer
+// exists.
+//
+// GREEN IS NOT "the socket opened". It is open AND the server said its cable
+// is ready: a portal whose cable is down accepts the socket and then delivers
+// nothing (see the cable notes in CLAUDE.md), and a light that stays green
+// through that is worse than no light at all.
+type RealtimeState = { connected: boolean; cable_ready: boolean };
+let realtimeState: RealtimeState = { connected: false, cable_ready: false };
+
+// Every popup and options page that has connected. A Set because the same page
+// reconnects on every open, and a closed popup's port must not be written to.
+const ports = new Set<any>();
+
+function setRealtimeState(next: { connected: boolean; cable_ready?: boolean }) {
+    realtimeState = {
+        connected: next.connected,
+        cable_ready: next.connected ? !!next.cable_ready : false,
+    };
+    ports.forEach((p) => sendState(p));
+    paintBadge();
+}
+
+function sendState(port: any) {
+    post(port, { event: "realtime", ...realtimeState });
+    // A popup opens long after the call it needs to draw arrived, so the last
+    // one is replayed to it. Held in memory only: it is worth exactly as long
+    // as the worker that saw it.
+    if (lastCall) post(port, callFrame());
+}
+
+function post(port: any, msg: any) {
+    try {
+        port.postMessage(msg);
+    } catch (e) {
+        ports.delete(port);
+    }
+}
+
+function broadcast(msg: any) {
+    ports.forEach((p) => post(p, msg));
+}
+
+let lastCall: { event: string; call: any } | null = null;
+
+function paintBadge() {
+    const action = (chrome as any).action || chrome.browserAction;
+    if (!action) return;
+    const green = realtimeState.connected && realtimeState.cable_ready;
+    const amber = realtimeState.connected && !realtimeState.cable_ready;
+    try {
+        action.setBadgeBackgroundColor({
+            color: green ? "#2e7d32" : amber ? "#ed6c02" : "#9e9e9e",
+        });
+        // No badge at all when signed out — a grey pill there would read as a
+        // fault rather than as "nobody is logged in". The pill only appears
+        // once there is a session whose connection can be judged.
+        action.setBadgeText({ text: currentUuid ? " " : "" });
+        action.setTitle({
+            title: !currentUuid
+                ? CONFIG.PAGE_TITLE
+                : green ? `${CONFIG.PAGE_TITLE} — connected`
+                : amber ? `${CONFIG.PAGE_TITLE} — connected, cable not ready`
+                        : `${CONFIG.PAGE_TITLE} — disconnected`,
+        });
+    } catch (e) { /* action API unavailable in tests */ }
+}
+
 var TAB_ID = 0;
 console.log('background script loaded');
 
 chrome.runtime.onConnect.addListener(onConnect);
 ((chrome as any).action || chrome.browserAction).setTitle({ title: CONFIG.PAGE_TITLE })
+// A restarted worker has no socket yet, whatever the last run wrote.
+setRealtimeState({ connected: false });
 
 function onConnect(port) {
     console.log("Connected .....");
+    ports.add(port);
+    port.onDisconnect.addListener(() => ports.delete(port));
+    // The popup renders before it asks, so answer immediately as well.
+    sendState(port);
 
     port.onMessage.addListener(function (msg) {
+        if (msg && msg.event === "status") {
+            sendState(port);
+            return;
+        }
         console.log("message received", msg);
         if (msg.event == "logout") {
             disconnect();
@@ -86,6 +171,7 @@ function openSocket(port?: any) {
         sock = new WebSocket(realtimeUrl, [BEARER_PREFIX + encoded]);
     } catch (err) {
         console.error("realtime connect failed", realtimeUrl, err);
+        setRealtimeState({ connected: false });
         scheduleReconnect();
         return;
     }
@@ -110,6 +196,7 @@ function openSocket(port?: any) {
         switch (frame.type) {
             case "welcome":
                 console.log("realtime connected", realtimeUrl, "cable_ready:", frame.cable_ready);
+                setRealtimeState({ connected: true, cable_ready: !!frame.cable_ready });
                 try { port && port.postMessage("connected to realtime"); } catch (e) { /* popup closed */ }
                 break;
             case "notification":
@@ -126,7 +213,7 @@ function openSocket(port?: any) {
     };
 
     sock.onclose = () => {
-        if (ws === sock) { ws = null; scheduleReconnect(); }
+        if (ws === sock) { ws = null; setRealtimeState({ connected: false }); scheduleReconnect(); }
     };
     sock.onerror = (err) => {
         console.error("realtime socket error", err);
@@ -146,6 +233,7 @@ function scheduleReconnect() {
 }
 
 function disconnect() {
+    lastCall = null;
     currentUuid = "";
     currentToken = "";
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
@@ -155,6 +243,7 @@ function disconnect() {
     if (sock) {
         try { sock.close(); } catch (e) { /* already closed */ }
     }
+    setRealtimeState({ connected: false });
 }
 
 function handleNotification(data: any) {
@@ -184,18 +273,26 @@ function handleNotification(data: any) {
         return;
     }
 
-    // Anything else (redirect / reminder / error / calls): keep the latest for
-    // the popup to consume.
-    chrome.storage.local.set({ 'notification': JSON.stringify(data) });
+    // Anything else (redirect / reminder / error / calls) goes to whoever is
+    // listening. Nothing read the stored copy this used to write.
+    broadcast({ event: "notification", data });
 }
 
 function setCall(event: string, call: any) {
-    chrome.storage.local.set({ 'call': JSON.stringify({ event, call }) });
+    lastCall = { event, call };
+    broadcast(callFrame());
+}
+
+// The envelope's `event` says what kind of message this is; the call's own
+// ringing/answer/hangup is a separate field. Spreading the one into the other
+// overwrites it.
+function callFrame() {
+    return { event: "call", status: lastCall.event, call: lastCall.call };
 }
 
 // Live agent state from va-crystal (state.user.<uuid>).
 function handleUserState(op: any) {
-    chrome.storage.local.set({ 'state': JSON.stringify(op) });
+    broadcast({ event: "state", op });
 }
 
 function openTab(url: string) {
