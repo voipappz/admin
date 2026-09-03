@@ -31,6 +31,7 @@ defmodule AgentsDemo.Realtime.CableClient do
 
   require Logger
 
+  alias AgentsDemo.Realtime.ScreenPop
   alias AgentsDemo.Realtime.StateView
   alias AgentsDemo.Realtime.TokenAuth
 
@@ -268,7 +269,13 @@ defmodule AgentsDemo.Realtime.CableClient do
   def identifiers_for(user_uuid) do
     [
       Jason.encode!(%{channel: "DashboardUser", user_uuid: user_uuid}),
-      Jason.encode!(%{channel: "Notifications", user_uuid: user_uuid})
+      Jason.encode!(%{channel: "Notifications", user_uuid: user_uuid}),
+      # The agent's own state stream (`state.user.<uuid>`), which is where
+      # `agent-state-change` actually lands — it is NOT on CallEvents, so
+      # without this subscription a screen pop for a state change can never
+      # fire, however the rule is written. Still user-scoped: the id is the
+      # verified uuid, so this holds no more than the two above.
+      Jason.encode!(%{channel: "StateChannel", scope: "user", id: user_uuid})
     ]
   end
 
@@ -281,6 +288,14 @@ defmodule AgentsDemo.Realtime.CableClient do
   # asserting on directly.
   @doc false
   def fanout(state, identifier, message) do
+    # Feed the evaluator, never decide here. This module relays what a client
+    # sees; `ScreenPop` is the only thing allowed to turn an event into a
+    # browser command, which is why this hands the event over rather than
+    # broadcasting a notification of its own.
+    if identifier =~ "StateChannel" do
+      ScreenPop.user_event(state.user_uuid, message)
+    end
+
     if identifier =~ "Notifications" do
       broadcast(state.user_uuid, %{type: "notification", message: message})
       state

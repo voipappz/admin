@@ -11,6 +11,16 @@ defmodule AgentsDemo.Realtime.ScreenPop do
 
   use GenServer
 
+  # The state events that mean "this agent is on a call". Crystal maps
+  # `agent-state-change` to `user.state_change` (sessions.cr), and the ringing
+  # and answer pair come from `agent-offering` / `bridge-agent-start`.
+  @pop_events ["user.state_change", "user.ringing", "user.answer"]
+
+  # Overridable so a deployment points at its own CRM without a rebuild.
+  @pop_url_default "https://pardeshk.moked-binaa.co.il/ims/system/?view=custom&module=moked-add"
+
+  @unknown_caller "0000"
+
   require Logger
 
   alias AgentsDemo.Realtime.Instruction
@@ -60,6 +70,21 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   def loaded?(server \\ __MODULE__, environment_uuid),
     do: GenServer.call(server, {:loaded?, environment_uuid})
 
+  @doc """
+  One event from a single user's own `state.user.<uuid>` stream.
+
+  Separate from `handle_event/2` because the two streams answer different
+  questions. A CallEvents event names an environment and any of its users, so it
+  is matched against that environment's loaded instructions. A user-scoped state
+  event names nobody but the user whose stream it arrived on — so there is no
+  environment to gate on, and the only question worth asking is whether the
+  agent the event is about is the agent who is signed in here.
+  """
+  def user_event(server \\ __MODULE__, user_uuid, event)
+
+  def user_event(server, user_uuid, event),
+    do: GenServer.cast(server, {:user_event, user_uuid, event})
+
   @doc "Whether a verified `/ws/events` process is registered for this user and environment."
   def online?(user_uuid, environment_uuid)
       when is_binary(user_uuid) and user_uuid != "" and is_binary(environment_uuid) and
@@ -75,6 +100,22 @@ defmodule AgentsDemo.Realtime.ScreenPop do
 
   def online?(_user_uuid, _environment_uuid), do: false
 
+  @doc """
+  Whether a verified `/ws/events` process is registered for this user at all.
+
+  `online?/2` also compares the environment, which is right for an event that
+  names one. A `state.user.<uuid>` event does not name an environment, and
+  requiring one would drop every pop for a user whose session registered a
+  different environment than the call happens to belong to.
+  """
+  def online_user?(user_uuid) when is_binary(user_uuid) and user_uuid != "" do
+    Registry.lookup(AgentsDemo.Realtime.SessionRegistry, user_uuid) != []
+  catch
+    :exit, _ -> false
+  end
+
+  def online_user?(_user_uuid), do: false
+
   @impl true
   def init(opts) do
     loader = Keyword.get(opts, :loader, &InstructionLoader.load/1)
@@ -84,6 +125,9 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   @impl true
   def handle_cast({:event, event}, state),
     do: {:noreply, route_event(state, event)}
+
+  def handle_cast({:user_event, user_uuid, event}, state),
+    do: {:noreply, process_user_event(state, user_uuid, event)}
 
   @impl true
   def handle_call({:load_environment, environment_uuid, refresh?}, _from, state),
@@ -151,6 +195,93 @@ defmodule AgentsDemo.Realtime.ScreenPop do
     Telemetry.screen_pop_event(:received)
     Telemetry.screen_pop_event(:rejected)
     state
+  end
+
+  # A pop for the signed-in agent, from that agent's own state stream.
+  #
+  # The whole rule is: the event is one of the call-shaped state events, the
+  # agent it names is the agent signed in here, and that agent has a live
+  # socket. No environment gate — see `online_user?/1`.
+  @doc false
+  def process_user_event(state, user_uuid, event, online? \\ &online_user?/1) do
+    Telemetry.screen_pop_event(:received)
+
+    with true <- is_map(event),
+         name when name in @pop_events <- event_name(event),
+         agent when is_binary(agent) <- agent_uuid(event),
+         true <- agent == user_uuid,
+         true <- online?.(user_uuid) do
+      dedupe_id = Enum.join(["state-screen-pop", name, agent, call_id(event) || ""], ":")
+
+      if seen?(state, dedupe_id) do
+        Telemetry.screen_pop_event(:duplicate)
+        state
+      else
+        Phoenix.PubSub.broadcast(
+          AgentsDemo.PubSub,
+          "realtime:user:#{user_uuid}",
+          {:realtime,
+           %{type: "notification", message: %{"action" => "tab:new", "url" => pop_url(event)}}}
+        )
+
+        Telemetry.screen_pop_event(:dispatched)
+        remember(state, dedupe_id)
+      end
+    else
+      _ ->
+        Telemetry.screen_pop_event(:rejected)
+        state
+    end
+  end
+
+  # StateChannel payloads name the event in "event"; a raw callcenter frame
+  # names it in "action". Both are read so this does not depend on which hop
+  # normalized the frame.
+  defp event_name(%{"event" => name}) when is_binary(name), do: name
+  defp event_name(%{"action" => name}) when is_binary(name), do: name
+  defp event_name(_event), do: nil
+
+  # The agent an event is about. Crystal carries the uuid under more than one
+  # name depending on the frame: `meta["CC-Agent"]` is FreeSWITCH's own
+  # callcenter field, `user_uuid` is the node's normalization of it, and a
+  # folded state frame nests it under "data". All three are read so a pop does
+  # not depend on which shape arrived.
+  defp agent_uuid(%{"meta" => %{"CC-Agent" => uuid}}) when is_binary(uuid) and uuid != "",
+    do: uuid
+
+  defp agent_uuid(%{"user_uuid" => uuid}) when is_binary(uuid) and uuid != "", do: uuid
+
+  defp agent_uuid(%{"data" => %{"user_uuid" => uuid}}) when is_binary(uuid) and uuid != "",
+    do: uuid
+
+  defp agent_uuid(_event), do: nil
+
+  defp call_id(%{"call_uuid" => id}) when is_binary(id) and id != "", do: id
+  defp call_id(%{"data" => %{"call_uuid" => id}}) when is_binary(id) and id != "", do: id
+  defp call_id(%{"id" => id}) when is_binary(id) and id != "", do: id
+  defp call_id(_event), do: nil
+
+  defp caller_number(%{"caller_id_number" => n}) when is_binary(n) and n != "", do: n
+
+  defp caller_number(%{"data" => %{"caller_id_number" => n}}) when is_binary(n) and n != "",
+    do: n
+
+  defp caller_number(_event), do: nil
+
+  # The CRM record to open. `search_phone` and `callId` come from the EVENT, not
+  # from the user's profile — the profile token selects WHICH crm, which is not
+  # modelled yet. The number falls back to @unknown_caller rather than being
+  # omitted, because the CRM opens a blank search on an empty phone and a blank
+  # form is a clearer "no number" than a silent no-pop.
+  defp pop_url(event) do
+    base = System.get_env("SCREEN_POP_URL") || @pop_url_default
+    phone = caller_number(event) || @unknown_caller
+    joiner = if String.contains?(base, "?"), do: "&", else: "?"
+
+    base <>
+      joiner <>
+      "search_phone=" <>
+      URI.encode_www_form(phone) <> "&callId=" <> URI.encode_www_form(call_id(event) || "")
   end
 
   defp begin_load(state, environment_uuid, refresh?)

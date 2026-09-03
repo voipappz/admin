@@ -14,6 +14,7 @@ defmodule AgentsDemo.Realtime.CableClientTest do
   @topic "realtime:user:#{@user_uuid}"
   @notifications Jason.encode!(%{channel: "Notifications", user_uuid: @user_uuid})
   @dashboard_user Jason.encode!(%{channel: "DashboardUser", user_uuid: @user_uuid})
+  @state_channel Jason.encode!(%{channel: "StateChannel", scope: "user", id: @user_uuid})
 
   setup do
     :ok = Phoenix.PubSub.subscribe(AgentsDemo.PubSub, @topic)
@@ -24,8 +25,11 @@ defmodule AgentsDemo.Realtime.CableClientTest do
     test "are user-scoped and never include the broad CallEvents stream" do
       ids = CableClient.identifiers_for(@user_uuid)
 
-      assert ids == [@dashboard_user, @notifications]
+      assert ids == [@dashboard_user, @notifications, @state_channel]
       refute Enum.any?(ids, &(&1 =~ "CallEvents"))
+
+      # Every stream names the verified uuid and nothing broader.
+      assert Enum.all?(ids, &(&1 =~ @user_uuid))
     end
   end
 

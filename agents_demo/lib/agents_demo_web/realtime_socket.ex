@@ -143,6 +143,28 @@ defmodule AgentsDemoWeb.RealtimeSocket do
     end
   end
 
+  # A verified socket whose token carries NO environment still registers, under
+  # the user alone. The mothership's login JWT currently carries `user_uuid` and
+  # nothing else — the environment is in the login RESPONSE, not the token — so
+  # the guarded clause above never matched for a real extension and this
+  # returned :ok having registered nobody. Silently: the socket worked, state
+  # flowed, and only the screen pop was missing, because `online?` had no
+  # session to find.
+  #
+  # `nil` is stored deliberately rather than a placeholder. `ScreenPop.online?/2`
+  # compares the registered environment to the event's and so still says no for
+  # these sessions — correct, because an event naming an environment cannot be
+  # proven to be this user's. `online_user?/1` asks only whether the user has a
+  # socket, which is the right question for an event that arrived on that user's
+  # own stream.
+  def register_session(user_uuid, _environment_uuid)
+      when is_binary(user_uuid) and user_uuid != "" do
+    case Registry.register(AgentsDemo.Realtime.SessionRegistry, user_uuid, nil) do
+      {:ok, _} -> :ok
+      {:error, {:already_registered, _pid}} -> :ok
+    end
+  end
+
   def register_session(_user_uuid, _environment_uuid), do: :ok
 
   defp ack(frame, state), do: {:push, {:text, Jason.encode!(frame)}, state}

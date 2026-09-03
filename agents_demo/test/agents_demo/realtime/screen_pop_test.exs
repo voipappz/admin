@@ -279,4 +279,88 @@ defmodule AgentsDemo.Realtime.ScreenPopTest do
     assert ScreenPop.online?(user_uuid, @environment_uuid)
     refute ScreenPop.online?(user_uuid, "another-environment")
   end
+  describe "a pop from the agent's own state stream" do
+    # No subscribe here: the outer setup already subscribes this process to the
+    # topic, and subscribing twice delivers every broadcast twice — which reads
+    # exactly like a duplicate pop.
+    setup do
+      {:ok, state: %ScreenPop{}}
+    end
+
+    defp state_event(overrides \\ %{}) do
+      Map.merge(
+        %{
+          "event" => "user.state_change",
+          "scope" => "user",
+          "id" => "call-abc",
+          "user_uuid" => @user_uuid,
+          "meta" => %{"CC-Agent" => @user_uuid, "CC-Agent-State" => "In a queue call"}
+        },
+        overrides
+      )
+    end
+
+    test "pops for the signed-in agent named by CC-Agent", %{state: state} do
+      online = fn _uuid -> true end
+
+      ScreenPop.process_user_event(state, @user_uuid, state_event(), online)
+
+      assert_receive {:realtime, %{type: "notification", message: message}}
+      assert message["action"] == "tab:new"
+      assert message["url"] =~ "search_phone="
+      assert message["url"] =~ "callId=call-abc"
+    end
+
+    test "uses the caller number when the event carries one", %{state: state} do
+      online = fn _uuid -> true end
+      event = state_event(%{"data" => %{"caller_id_number" => "0501234567"}})
+
+      ScreenPop.process_user_event(state, @user_uuid, event, online)
+
+      assert_receive {:realtime, %{type: "notification", message: %{"url" => url}}}
+      assert url =~ "search_phone=0501234567"
+    end
+
+    # The whole point of the rule: the agent in the event must be the agent
+    # signed in here. Without this a state event could open a tab in somebody
+    # else's browser.
+    test "never pops for a different agent", %{state: state} do
+      online = fn _uuid -> true end
+      other = "99999999-8888-7777-6666-555555555555"
+
+      ScreenPop.process_user_event(state, @user_uuid, state_event(%{
+        "user_uuid" => other,
+        "meta" => %{"CC-Agent" => other}
+      }), online)
+
+      refute_receive {:realtime, %{type: "notification"}}
+    end
+
+    test "does not pop when the agent has no live socket", %{state: state} do
+      offline = fn _uuid -> false end
+
+      ScreenPop.process_user_event(state, @user_uuid, state_event(), offline)
+
+      refute_receive {:realtime, %{type: "notification"}}
+    end
+
+    test "ignores state events that are not call-shaped", %{state: state} do
+      online = fn _uuid -> true end
+
+      ScreenPop.process_user_event(state, @user_uuid, state_event(%{"event" => "user.logged_in"}), online)
+
+      refute_receive {:realtime, %{type: "notification"}}
+    end
+
+    test "pops once for the same event, not twice", %{state: state} do
+      online = fn _uuid -> true end
+
+      after_first = ScreenPop.process_user_event(state, @user_uuid, state_event(), online)
+      assert_receive {:realtime, %{type: "notification"}}
+
+      ScreenPop.process_user_event(after_first, @user_uuid, state_event(), online)
+      refute_receive {:realtime, %{type: "notification"}}
+    end
+  end
+
 end
