@@ -101,17 +101,14 @@ defmodule AgentsDemo.MixProject do
        depth: 1},
       {:swoosh, "~> 1.16"},
       {:req, "~> 0.5"},
-      # The realtime upstream. One NATS connection carries everything this app
-      # needs — auth (request/reply), notifications, agent state and CDRs — so
-      # NATS_URL is the only address it has to be told.
-      # ActionCable client transport. Cable is the MODEL — its channels, stream
-      # names and state-key semantics — and this app subscribes to it
-      # server-side so browsers never do.
+      # ActionCable client transport. Cable owns authentication, channel names
+      # and event streams; Elixir holds no direct NATS connection.
       {:mint_web_socket, "~> 1.0"},
-      # NATS, for request/reply to the mothership only — never for events.
-      # Events arrive over cable; this is the ASK path (is this token real?).
+      # Kept only for the dormant Realtime.Bus compatibility module. It is not
+      # supervised or used by the static screen-pop path.
       {:gnat, "~> 1.9"},
       {:telemetry_metrics, "~> 1.0"},
+      {:telemetry_metrics_prometheus_core, "~> 1.1"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},

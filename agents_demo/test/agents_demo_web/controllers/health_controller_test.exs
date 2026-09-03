@@ -2,6 +2,15 @@ defmodule AgentsDemoWeb.HealthControllerTest do
   use AgentsDemoWeb.ConnCase, async: false
   use Mimic
 
+  describe "GET /health" do
+    test "does not report a direct Elixir NATS dependency", %{conn: conn} do
+      body = conn |> get(~p"/health") |> json_response(200)
+
+      refute Map.has_key?(body["checks"], "bus")
+      assert Map.has_key?(body["checks"], "cable")
+    end
+  end
+
   describe "GET /health/alive" do
     test "answers 200 without authentication", %{conn: conn} do
       conn = get(conn, ~p"/health/alive")

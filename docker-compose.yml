@@ -379,12 +379,11 @@ services:
       - "8000:3000"
     environment:
       PORT: 3000
-      # The API. Forwarded routes go here, and it is the issuer whose tokens
-      # are verified over NATS.
+      # The API. Forwarded routes go here; Cable verifies user tokens and
+      # carries realtime events, so Elixir holds no direct NATS connection.
       ENGINE_URL: ${ENGINE_URL:-${MOTHERSHIP_URL:-https://cloud.voipappz.io}}
       CABLE_URL: ${CABLE_URL:-}
       CABLE_SECRET_KEY: ${SECRET_KEY:-}
-      NATS_URL: ${NATS_URL:-}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
       DATABASE_URL: ${DATABASE_URL:-}
     # No container healthcheck: the image has no curl (in prod, kamal-proxy

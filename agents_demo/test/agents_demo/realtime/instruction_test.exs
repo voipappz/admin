@@ -2,6 +2,7 @@ defmodule AgentsDemo.Realtime.InstructionTest do
   use ExUnit.Case, async: true
 
   alias AgentsDemo.Realtime.Instruction
+  alias AgentsDemo.Realtime.InstructionLoader
 
   @environment_uuid "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
   @user_uuid "11111111-2222-3333-4444-555555555555"
@@ -35,7 +36,32 @@ defmodule AgentsDemo.Realtime.InstructionTest do
     )
   end
 
-  describe "load-time instructions from Ruby" do
+  describe "the temporary static production instruction" do
+    test "builds user.answer -> Google for every verified environment" do
+      another_environment = "ffffffff-1111-2222-3333-444444444444"
+
+      for environment <- [@environment_uuid, another_environment] do
+        assert {:ok, payload} = InstructionLoader.load(environment)
+        assert [loaded] = Instruction.load(payload, environment)
+        assert loaded["service_uuid"] == InstructionLoader.service_uuid()
+        assert loaded["triggers"] == ["user.answer"]
+        assert loaded["environment_uuid"] == environment
+        assert loaded["profile"]["record_url"] == "https://google.com"
+
+        assert {:ok, _dedupe_id, @user_uuid, command} =
+                 Instruction.match([loaded], event(%{"environment_uuid" => environment}))
+
+        assert command == %{"action" => "tab:new", "url" => "https://google.com"}
+      end
+    end
+
+    test "refuses a missing environment" do
+      assert InstructionLoader.load(nil) == {:error, :missing_environment}
+      assert InstructionLoader.load("") == {:error, :missing_environment}
+    end
+  end
+
+  describe "instruction validation" do
     test "accepts the static user.answer -> tab:new instruction for the requested environment" do
       payload = %{"instructions" => [instruction()]}
 
@@ -56,13 +82,18 @@ defmodule AgentsDemo.Realtime.InstructionTest do
         instruction(%{"steps" => [%{"key" => "close", "node" => "tab_close", "on" => %{}}]}),
         put_in(instruction(), ["profile", "record_url"], "http://crm.example.com/contact/42"),
         put_in(instruction(), ["profile", "record_url"], "javascript:alert(1)"),
-        put_in(instruction(), ["profile", "record_url"], "https://user:secret@crm.example.com/contact/42"),
+        put_in(
+          instruction(),
+          ["profile", "record_url"],
+          "https://user:secret@crm.example.com/contact/42"
+        ),
         "not-a-map"
       ]
 
-      assert Instruction.load(%{"instructions" => invalid ++ [instruction()]}, @environment_uuid) == [
-               instruction()
-             ]
+      assert Instruction.load(%{"instructions" => invalid ++ [instruction()]}, @environment_uuid) ==
+               [
+                 instruction()
+               ]
     end
 
     test "a malformed response loads no executable instructions" do

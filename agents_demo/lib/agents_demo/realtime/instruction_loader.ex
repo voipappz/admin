@@ -1,23 +1,38 @@
 defmodule AgentsDemo.Realtime.InstructionLoader do
   @moduledoc """
-  Loads Ruby-owned screen-pop instructions over the existing NATS ask path.
+  Supplies the temporary production screen-pop instruction locally.
 
-  This runs when a verified user's environment first becomes active, never for
-  each call event. Ruby answers `screen_pop.instructions.load`; Crystal remains
-  the runtime event source.
+  The rule applies to every verified environment: a `user.answer` event executes
+  the allowlisted `screen_pop_pop` node and opens `https://google.com`. No Ruby,
+  HTTP, NATS request, tenant credential, or browser-side configuration is used.
   """
 
-  alias AgentsDemo.Realtime.Bus
+  @service_uuid "static-screen-pop"
+  @url "https://google.com"
 
-  @subject "screen_pop.instructions.load"
-
-  @spec load(String.t()) :: {:ok, map()} | {:error, term()}
+  @spec load(String.t()) :: {:ok, map()} | {:error, :missing_environment}
   def load(environment_uuid) when is_binary(environment_uuid) and environment_uuid != "" do
-    Bus.request(@subject, %{environment_uuid: environment_uuid})
+    {:ok,
+     %{
+       "environment_uuid" => environment_uuid,
+       "instructions" => [
+         %{
+           "service_uuid" => @service_uuid,
+           "service_type" => "screen_pop",
+           "triggers" => ["user.answer"],
+           "environment_uuid" => environment_uuid,
+           "profile" => %{"record_url" => @url, "pop_on" => "answer"},
+           "steps" => [%{"key" => "pop", "node" => "screen_pop_pop", "on" => %{}}]
+         }
+       ]
+     }}
   end
 
   def load(_environment_uuid), do: {:error, :missing_environment}
 
   @doc false
-  def subject, do: @subject
+  def service_uuid, do: @service_uuid
+
+  @doc false
+  def url, do: @url
 end

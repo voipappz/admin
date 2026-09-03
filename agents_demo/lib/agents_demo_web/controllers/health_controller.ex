@@ -76,8 +76,11 @@ defmodule AgentsDemoWeb.HealthController do
   """
   def report(conn, _params) do
     checks = %{
-      bus: check(AgentsDemo.Realtime.Bus.configured?(), "NATS_URL is not set — tokens cannot be verified"),
-      cable: check(AgentsDemo.Realtime.CableClient.enabled?(), "CABLE_URL is not set — no realtime events"),
+      cable:
+        check(
+          AgentsDemo.Realtime.CableClient.enabled?(),
+          "CABLE_URL is not set — no realtime events"
+        ),
       # The exception to "configuration, not probes", and deliberately so.
       # Configured-but-not-confirmed is this relay's actual failure mode: an
       # older node accepts the connection and never answers the subscribe, and

@@ -173,9 +173,10 @@ Two runtime pieces:
 
 2. **The Elixir portal** (`agents_demo/`, :4001) — the origin. A `WebSock`
    handler at `/ws/events` (not a Phoenix Channel: the contract is a plain JSON
-   frame protocol), one upstream cable connection fanned out over
-   `Phoenix.PubSub`, and token verification as a **NATS request/reply** to the
-   API — never over HTTP. `AgentsDemoWeb.Plugs.EngineProxy` forwards the
+   frame protocol), one application Cable connection plus per-user Cable
+   connections fanned out over `Phoenix.PubSub`, and token verification through
+   the node's `ApiProxy` channel. Elixir holds no direct NATS connection.
+   `AgentsDemoWeb.Plugs.EngineProxy` forwards the
    mothership's own routes (`/auth`, `/api/`, `/tasks/`) upstream, and **owns
    the CORS policy on them**: the extension's origin is a
    `chrome-extension://<id>` no upstream allowlist can name, so the upstream's

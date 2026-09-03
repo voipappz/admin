@@ -1,11 +1,10 @@
 defmodule AgentsDemo.Realtime.Instruction do
   @moduledoc """
-  Validates Ruby-owned screen-pop instructions and matches them to Crystal
-  runtime events.
+  Validates screen-pop instructions and matches them to Crystal runtime events.
 
-  Ruby defines the rule once. This module never invents business behavior: it
-  accepts the loaded `event`, `action`, URL, and environment, then uses the
-  runtime event only for identity and deduplication.
+  `InstructionLoader` supplies the rule. This module accepts only the loaded
+  event, action, URL and environment, then uses the runtime event for identity
+  and deduplication.
   """
 
   @screen_pop_node "screen_pop_pop"
@@ -26,9 +25,10 @@ defmodule AgentsDemo.Realtime.Instruction do
 
   def load(_payload, _environment_uuid), do: []
 
-  @doc "Match one normalized Crystal event to one cached Ruby instruction."
+  @doc "Match one normalized Crystal event to one cached instruction."
   @spec match([map()], term()) ::
-          {:ok, String.t(), String.t(), map()} | {:error, :malformed | :missing_identity | :missing_id | :no_instruction}
+          {:ok, String.t(), String.t(), map()}
+          | {:error, :malformed | :missing_identity | :missing_id | :no_instruction}
   def match(instructions, %{} = event) when is_list(instructions) do
     with {:ok, user_uuid} <- present(event["user_uuid"]),
          {:ok, environment_uuid} <- present(event["environment_uuid"]),

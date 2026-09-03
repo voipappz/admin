@@ -1,6 +1,6 @@
 defmodule AgentsDemo.Realtime.ScreenPop do
   @moduledoc """
-  Executes Ruby-defined screen-pop instructions against Crystal call events.
+  Executes validated screen-pop instructions against Crystal call events.
 
   One supervised process owns the instruction cache and dedupe set for the
   whole portal. It receives the node-wide `CallEvents` stream once through the
@@ -15,6 +15,7 @@ defmodule AgentsDemo.Realtime.ScreenPop do
 
   alias AgentsDemo.Realtime.Instruction
   alias AgentsDemo.Realtime.InstructionLoader
+  alias AgentsDemo.Telemetry
 
   @seen_max 256
   @seen_ttl_ms 60_000
@@ -100,32 +101,57 @@ defmodule AgentsDemo.Realtime.ScreenPop do
     environment_uuid = if is_map(event), do: event["environment_uuid"], else: nil
     instructions = Map.get(state.instructions, environment_uuid, [])
 
-    with {:ok, dedupe_id, user_uuid, command} <- Instruction.match(instructions, event),
-         false <- seen?(state, dedupe_id),
-         true <- online?.(user_uuid, environment_uuid) do
-      Phoenix.PubSub.broadcast(
-        AgentsDemo.PubSub,
-        "realtime:user:#{user_uuid}",
-        {:realtime, %{type: "notification", message: command}}
-      )
+    case Instruction.match(instructions, event) do
+      {:ok, dedupe_id, user_uuid, command} ->
+        cond do
+          seen?(state, dedupe_id) ->
+            Telemetry.screen_pop_event(:duplicate)
+            state
 
-      remember(state, dedupe_id)
-    else
-      _ -> state
+          not online?.(user_uuid, environment_uuid) ->
+            Telemetry.screen_pop_event(:offline)
+            state
+
+          true ->
+            Phoenix.PubSub.broadcast(
+              AgentsDemo.PubSub,
+              "realtime:user:#{user_uuid}",
+              {:realtime, %{type: "notification", message: command}}
+            )
+
+            Telemetry.screen_pop_event(:dispatched)
+            remember(state, dedupe_id)
+        end
+
+      {:error, _reason} ->
+        Telemetry.screen_pop_event(:rejected)
+        state
     end
   end
 
   defp route_event(state, event) when is_map(event) do
     environment_uuid = event["environment_uuid"]
+    Telemetry.screen_pop_event(:received)
 
     cond do
-      MapSet.member?(state.loaded, environment_uuid) -> process_event(state, event)
-      MapSet.member?(state.loading, environment_uuid) -> enqueue(state, environment_uuid, event)
-      true -> state
+      MapSet.member?(state.loaded, environment_uuid) ->
+        process_event(state, event)
+
+      MapSet.member?(state.loading, environment_uuid) ->
+        Telemetry.screen_pop_event(:queued)
+        enqueue(state, environment_uuid, event)
+
+      true ->
+        Telemetry.screen_pop_event(:unloaded)
+        state
     end
   end
 
-  defp route_event(state, _event), do: state
+  defp route_event(state, _event) do
+    Telemetry.screen_pop_event(:received)
+    Telemetry.screen_pop_event(:rejected)
+    state
+  end
 
   defp begin_load(state, environment_uuid, refresh?)
        when is_binary(environment_uuid) and environment_uuid != "" do
@@ -149,6 +175,7 @@ defmodule AgentsDemo.Realtime.ScreenPop do
         send(owner, {:instructions_loaded, environment_uuid, result})
       end)
 
+      Telemetry.instruction_load(:started)
       %{state | loading: MapSet.put(state.loading, environment_uuid)}
     end
   end
@@ -156,6 +183,7 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   defp begin_load(state, _environment_uuid, _refresh?), do: state
 
   defp finish_load(state, environment_uuid, {:ok, payload}) do
+    Telemetry.instruction_load(:loaded)
     instructions = Instruction.load(payload, environment_uuid)
     events = state.pending |> Map.get(environment_uuid, []) |> Enum.reverse()
 
@@ -171,6 +199,8 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   end
 
   defp finish_load(state, environment_uuid, {:error, reason}) do
+    Telemetry.instruction_load(:failed)
+
     Logger.warning(
       "screen pop: instruction load failed for environment #{environment_uuid} — #{inspect(reason)}"
     )

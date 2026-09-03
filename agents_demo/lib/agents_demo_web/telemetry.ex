@@ -11,9 +11,8 @@ defmodule AgentsDemoWeb.Telemetry do
     children = [
       # Telemetry poller will execute the given period measurements
       # every 10_000ms. Learn more here: https://hexdocs.pm/telemetry_metrics
-      {:telemetry_poller, measurements: periodic_measurements(), period: 10_000}
-      # Add reporters as children of your supervision tree.
-      # {Telemetry.Metrics.ConsoleReporter, metrics: metrics()}
+      {:telemetry_poller, measurements: periodic_measurements(), period: 10_000},
+      {TelemetryMetricsPrometheus.Core, metrics: prometheus_metrics(), name: :agents_demo_metrics}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
@@ -74,6 +73,16 @@ defmodule AgentsDemoWeb.Telemetry do
         description:
           "The time the connection spent waiting before being checked out for the query"
       ),
+      counter("agents_demo.screen_pop.events.count",
+        event_name: [:agents_demo, :screen_pop, :event],
+        tags: [:result],
+        description: "Screen-pop events by processing outcome"
+      ),
+      counter("agents_demo.screen_pop.instruction_loads.count",
+        event_name: [:agents_demo, :screen_pop, :instruction_load],
+        tags: [:result],
+        description: "Screen-pop instruction loads by outcome"
+      ),
 
       # VM Metrics
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
@@ -81,6 +90,12 @@ defmodule AgentsDemoWeb.Telemetry do
       summary("vm.total_run_queue_lengths.cpu"),
       summary("vm.total_run_queue_lengths.io")
     ]
+  end
+
+  def prometheus_metrics do
+    Enum.filter(metrics(), fn metric ->
+      match?([:agents_demo, :screen_pop | _rest], metric.name)
+    end)
   end
 
   defp periodic_measurements do

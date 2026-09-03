@@ -244,6 +244,33 @@ defmodule AgentsDemo.Realtime.ScreenPopTest do
     end
   end
 
+  test "emits received and dispatched metrics through the real GenServer path" do
+    owner = self()
+    handler = "screen-pop-process-#{System.unique_integer([:positive])}"
+
+    :telemetry.attach(
+      handler,
+      [:agents_demo, :screen_pop, :event],
+      fn _event, _measurements, metadata, _config -> send(owner, {:outcome, metadata.result}) end,
+      nil
+    )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+    Registry.register(AgentsDemo.Realtime.SessionRegistry, @user_uuid, @environment_uuid)
+
+    pid =
+      start_supervised!(
+        {ScreenPop, name: nil, loader: fn _ -> {:ok, %{"instructions" => [instruction()]}} end}
+      )
+
+    ScreenPop.load_environment(pid, @environment_uuid)
+    assert eventually(fn -> ScreenPop.loaded?(pid, @environment_uuid) end)
+    ScreenPop.handle_event(pid, event())
+
+    assert_receive {:outcome, :received}
+    assert_receive {:outcome, :dispatched}
+  end
+
   test "the real session registry requires the verified user and environment pair" do
     user_uuid = "online-#{System.unique_integer([:positive])}"
     refute ScreenPop.online?(user_uuid, @environment_uuid)

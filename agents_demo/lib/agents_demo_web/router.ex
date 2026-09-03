@@ -121,6 +121,10 @@ defmodule AgentsDemoWeb.Router do
     get "/ready", HealthController, :ready
   end
 
+  scope "/", AgentsDemoWeb do
+    get "/metrics", MetricsController, :index
+  end
+
   # Inbound WhatsApp. No pipeline: Meta sends neither a session nor a CSRF
   # token, and `Anu.Webhook.Plug` does its own work — the verify-token
   # challenge on GET, HMAC signature validation on POST — before handing the

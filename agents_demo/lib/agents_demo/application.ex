@@ -33,12 +33,7 @@ defmodule AgentsDemo.Application do
             id: :realtime_token_cache,
             start: {Task, :start_link, [&AgentsDemo.Realtime.TokenAuth.init_cache/0]},
             restart: :transient
-          }
-          # The ASK half. Everything this app needs FROM the mothership goes over
-          # NATS request/reply; nothing goes over HTTP. See `Realtime.Bus`.
-        ] ++
-        AgentsDemo.Realtime.Bus.children() ++
-        [
+          },
           # Cable (va-crystal) held server-side, one connection per signed-in user.
           # This is the LISTEN half: events arrive here, and cable's own semantics
           # come with them — a confirmed subscription is what stamps
