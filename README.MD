@@ -81,15 +81,15 @@ reaches the API over HTTP to verify a credential. See
 ## Surfaces the Deno BFF used to serve
 
 A Deno BFF used to sit behind the portal with a local DuckDB projection of call
-events. It served the Dashboard builder (`/dashboard/*`), the Raw events screen
-(`/events`), transcript reads, an optional PostgREST plane (`/rest/v1`) and a
-read-only MCP server over the same DuckDB rows.
+events. It was deleted when Elixir took over the origin. A smaller audit-only
+DuckDB store now records the Cable frames this portal actually receives and
+serves authenticated `/api/events`, `/api/events/timeline`,
+`/api/events/search`, and `/api/events/stats` reads.
 
-It was **deleted** when the Elixir portal took over the origin, rather than kept
-as a second backend nobody would finish migrating. Those screens 404 until each
-route lands in Elixir; the git history holds the Deno implementation. Everything
-else the SPA calls is `/api/*`, which goes to the mothership and never went
-through Deno.
+The old Dashboard projection, Raw events screen adapter, transcript reads,
+optional PostgREST plane and read-only MCP surface remain unserved until each
+lands deliberately in Elixir. Everything else the SPA calls is `/api/*`, which
+goes to the mothership and never went through Deno.
 
 ## Configuration
 

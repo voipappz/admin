@@ -303,6 +303,10 @@ defmodule AgentsDemo.Realtime.CableClient do
   # asserting on directly.
   @doc false
   def fanout(state, identifier, message) do
+    # Everything this user's streams deliver, stored before it is interpreted —
+    # so what arrived is answerable later without re-reading a log.
+    AgentsDemo.Events.record(stream_name(identifier), message)
+
     # Feed the evaluator, never decide here. This module relays what a client
     # sees; `ScreenPop` is the only thing allowed to turn an event into a
     # browser command, which is why this hands the event over rather than
@@ -333,6 +337,17 @@ defmodule AgentsDemo.Realtime.CableClient do
       %{state | view: view}
     end
   end
+
+  # "DashboardUser" / "Notifications" / "StateChannel" out of the identifier,
+  # for the `source` column.
+  defp stream_name(identifier) when is_binary(identifier) do
+    case Jason.decode(identifier) do
+      {:ok, %{"channel" => channel}} -> channel
+      _ -> "unknown"
+    end
+  end
+
+  defp stream_name(_identifier), do: "unknown"
 
   defp broadcast(user_uuid, frame),
     do:

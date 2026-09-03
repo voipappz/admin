@@ -44,7 +44,20 @@ defmodule AgentsDemoWeb.Plugs.EngineProxy do
   # never heard of — a 404 that reads as a missing route in this app, or a 502
   # when no upstream is reachable. It cannot be caught by a test that leaves
   # both transports unconfigured, because the plug is inert there.
-  @own_prefixes ["/api/bots", "/api/conversations", "/api/skills", "/api/openapi", "/api/docs"]
+  #
+  # `/api/events` is here as a prefix rather than in `@portal_owned` above
+  # because there is nothing upstream it could ever collide with: these are the
+  # frames THIS portal saw off the cable (`AgentsDemo.Events`), and no
+  # mothership has them. Without the carve-out every one of its four routes was
+  # relayed and answered 401.
+  @own_prefixes [
+    "/api/bots",
+    "/api/conversations",
+    "/api/skills",
+    "/api/openapi",
+    "/api/docs",
+    "/api/events"
+  ]
 
   @hop_by_hop ~w(connection keep-alive transfer-encoding upgrade te trailer proxy-authorization)
 

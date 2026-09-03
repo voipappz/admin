@@ -174,6 +174,7 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   defp route_event(state, event) when is_map(event) do
     environment_uuid = event["environment_uuid"]
     Telemetry.screen_pop_event(:received)
+    AgentsDemo.Events.record("CallEvents", event)
 
     cond do
       MapSet.member?(state.loaded, environment_uuid) ->
@@ -214,6 +215,7 @@ defmodule AgentsDemo.Realtime.ScreenPop do
         agent_ids \\ nil
       ) do
     Telemetry.screen_pop_event(:received)
+    AgentsDemo.Events.record("StateChannel", event)
     accepted = agent_ids || [user_uuid]
 
     with true <- is_map(event),

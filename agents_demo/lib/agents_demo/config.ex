@@ -256,6 +256,28 @@ defmodule AgentsDemo.Config do
   @spec mnesia_dir() :: String.t()
   def mnesia_dir, do: env("MNESIA_DIR") || Path.join(data_dir(), "mnesia")
 
+  @doc """
+  Directory holding the DuckDB file of received cable events (`EVENTS_DIR`).
+
+  Defaults to `events/` under `AGENTS_DEMO_DATA_DIR`, for the same reason
+  `mnesia_dir/0` does: a deploy replaces the release directory wholesale.
+  Overridden wholesale by `events_db/0` when that names a file directly.
+  """
+  @spec events_dir() :: String.t()
+  def events_dir, do: env("EVENTS_DIR") || Path.join(data_dir(), "events")
+
+  @doc """
+  The event store's DuckDB file (`EVENTS_DB`), or `nil` for
+  `<events_dir/0>/events.duckdb`.
+
+  Set it to point at a mounted volume. NOTE: unset, on a box with no persistent
+  volume, the default path is inside the container and every deploy starts an
+  empty file — `AgentsDemo.Events` is then a cache of what this instance has
+  seen, not a record.
+  """
+  @spec events_db() :: String.t() | nil
+  def events_db, do: env("EVENTS_DB")
+
   defp default_data_dir do
     case @compiled_env do
       :test ->
@@ -290,6 +312,8 @@ defmodule AgentsDemo.Config do
       {"AGENTS_DEMO_API_USER_EMAIL", api_user_email() || "not set"},
       {"AGENTS_DEMO_DATA_DIR", data_dir()},
       {"MNESIA_DIR", mnesia_dir()},
+      {"EVENTS_DIR", events_dir()},
+      {"EVENTS_DB", events_db() || "not set"},
       {"WHATSAPP_ACCESS_TOKEN", presence(whatsapp_access_token())},
       {"WHATSAPP_PHONE_NUMBER_ID", presence(whatsapp_phone_number_id())},
       {"WHATSAPP_APP_SECRET", presence(whatsapp_app_secret())},

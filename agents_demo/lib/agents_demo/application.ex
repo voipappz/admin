@@ -18,7 +18,11 @@ defmodule AgentsDemo.Application do
       ] ++
         AgentsDemo.Logging.Influx.children() ++
         [
-          # Mnesia-backed stores — the app's only database.
+          # Every event received off the cable, appended to DuckDB. Starts even
+          # when the file cannot be opened — it then stores nothing rather than
+          # taking the realtime path down. See AgentsDemo.Events.
+          AgentsDemo.Events,
+          # Mnesia-backed stores.
           AgentsDemo.Portal.Store,
           AgentsDemo.Accounts.Store,
           AgentsDemo.Bots.Store,

@@ -90,6 +90,17 @@ defmodule AgentsDemoWeb.Router do
     get "/statuses", StatusController, :index
   end
 
+  scope "/api", AgentsDemoWeb.Portal do
+    pipe_through [:api, AgentsDemoWeb.Plugs.UserTokenAuth]
+
+    # The frames THIS portal received off the cable. Served here, not forwarded:
+    # no mothership has them. See AgentsDemo.Events.
+    get "/events", EventController, :index
+    get "/events/timeline", EventController, :timeline
+    get "/events/search", EventController, :search
+    get "/events/stats", EventController, :stats
+  end
+
   # `:api` and not `:browser`: these are fetched with a bearer token, never
   # navigated to, and a CSRF check on a token-authenticated fetch rejects every
   # write.
