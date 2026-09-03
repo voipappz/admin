@@ -11,20 +11,15 @@ defmodule AgentsDemo.Realtime.ScreenPop do
 
   use GenServer
 
-  # The state events that mean "this agent is on a call". Crystal maps
-  # `agent-state-change` to `user.state_change` (sessions.cr), and the ringing
-  # and answer pair come from `agent-offering` / `bridge-agent-start`.
-  @pop_events ["user.state_change", "user.ringing", "user.answer"]
-
-  # Overridable so a deployment points at its own CRM without a rebuild.
-  @pop_url_default "https://pardeshk.moked-binaa.co.il/ims/system/?view=custom&module=moked-add"
-
-  @unknown_caller "0000"
+  # Triggers, agent states, agent fields and the URL all come from
+  # priv/pocketflow/screen_pop.yaml — see PopRule. Nothing about WHICH events
+  # pop is compiled in any more; what a rule may DO still is.
 
   require Logger
 
   alias AgentsDemo.Realtime.Instruction
   alias AgentsDemo.Realtime.InstructionLoader
+  alias AgentsDemo.Realtime.PopRule
   alias AgentsDemo.Telemetry
 
   @seen_max 256
@@ -80,10 +75,13 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   environment to gate on, and the only question worth asking is whether the
   agent the event is about is the agent who is signed in here.
   """
-  def user_event(server \\ __MODULE__, user_uuid, event, agent_ids \\ nil)
-
-  def user_event(server, user_uuid, event, agent_ids),
-    do: GenServer.cast(server, {:user_event, user_uuid, event, agent_ids})
+  # NO server parameter, deliberately. With both a leading `server \\ __MODULE__`
+  # and a trailing `agent_ids \\ nil` the 3-arity call is ambiguous, and Elixir
+  # binds it to (server, user_uuid, event) — so `CableClient`'s
+  # `user_event(user_uuid, message, agent_ids)` passed the message as a uuid and
+  # the ids as the event. It raised inside the cast, where nothing surfaced it.
+  def user_event(user_uuid, event, agent_ids \\ nil),
+    do: GenServer.cast(__MODULE__, {:user_event, user_uuid, event, agent_ids})
 
   @doc "Whether a verified `/ws/events` process is registered for this user and environment."
   def online?(user_uuid, environment_uuid)
@@ -219,7 +217,9 @@ defmodule AgentsDemo.Realtime.ScreenPop do
     accepted = agent_ids || [user_uuid]
 
     with true <- is_map(event),
-         name when name in @pop_events <- event_name(event),
+         name when is_binary(name) <- event_name(event),
+         true <- name in PopRule.triggers(),
+         true <- state_allowed?(event),
          agent when is_binary(agent) <- agent_uuid(event),
          true <- agent in accepted,
          true <- online?.(user_uuid) do
@@ -254,7 +254,8 @@ defmodule AgentsDemo.Realtime.ScreenPop do
           "screen pop: no state pop for #{user_uuid} — " <>
             cond do
               not is_map(event) -> "event is not a map"
-              event_name(event) not in @pop_events -> "event #{inspect(event_name(event))} is not one of #{inspect(@pop_events)}"
+              not state_allowed?(event) -> "agent state #{inspect(PopRule.dig(event, "user_state"))} is not one that pops"
+              event_name(event) not in PopRule.triggers() -> "event #{inspect(event_name(event))} is not one of #{inspect(PopRule.triggers())}"
               is_nil(agent_uuid(event)) -> "event names no agent (no CC-Agent/user_uuid)"
               agent_uuid(event) not in accepted ->
                 "event names agent #{agent_uuid(event)}, not one of #{inspect(accepted)}"
@@ -278,15 +279,27 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   # callcenter field, `user_uuid` is the node's normalization of it, and a
   # folded state frame nests it under "data". All three are read so a pop does
   # not depend on which shape arrived.
-  defp agent_uuid(%{"meta" => %{"CC-Agent" => uuid}}) when is_binary(uuid) and uuid != "",
-    do: uuid
-
-  defp agent_uuid(%{"user_uuid" => uuid}) when is_binary(uuid) and uuid != "", do: uuid
-
-  defp agent_uuid(%{"data" => %{"user_uuid" => uuid}}) when is_binary(uuid) and uuid != "",
-    do: uuid
+  defp agent_uuid(event) when is_map(event) do
+    Enum.find_value(PopRule.agent_fields(), fn path -> PopRule.dig(event, path) end)
+  end
 
   defp agent_uuid(_event), do: nil
+
+  # An `agent-state-change` says which state it moved to, and only some of them
+  # mean "on a call" — without this, going Idle pops a CRM tab. An empty list in
+  # the rule means every state passes.
+  defp state_allowed?(event) do
+    case PopRule.agent_states() do
+      [] ->
+        true
+
+      allowed ->
+        case PopRule.dig(event, "user_state") || PopRule.dig(event, "meta.CC-Agent-State") do
+          nil -> true
+          state -> state in allowed
+        end
+    end
+  end
 
   defp call_id(%{"call_uuid" => id}) when is_binary(id) and id != "", do: id
   defp call_id(%{"data" => %{"call_uuid" => id}}) when is_binary(id) and id != "", do: id
@@ -306,14 +319,11 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   # omitted, because the CRM opens a blank search on an empty phone and a blank
   # form is a clearer "no number" than a silent no-pop.
   defp pop_url(event) do
-    base = System.get_env("SCREEN_POP_URL") || @pop_url_default
-    phone = caller_number(event) || @unknown_caller
-    joiner = if String.contains?(base, "?"), do: "&", else: "?"
+    phone = caller_number(event) || PopRule.unknown_caller()
 
-    base <>
-      joiner <>
-      "search_phone=" <>
-      URI.encode_www_form(phone) <> "&callId=" <> URI.encode_www_form(call_id(event) || "")
+    PopRule.record_url()
+    |> String.replace("{phone}", URI.encode_www_form(phone))
+    |> String.replace("{call_id}", URI.encode_www_form(call_id(event) || ""))
   end
 
   defp begin_load(state, environment_uuid, refresh?)

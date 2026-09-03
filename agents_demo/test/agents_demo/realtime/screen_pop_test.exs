@@ -335,6 +335,36 @@ defmodule AgentsDemo.Realtime.ScreenPopTest do
       assert_receive {:realtime, %{type: "notification", message: %{"action" => "tab:new"}}}
     end
 
+    # THE FRAME THE NODE ACTUALLY PUSHES, copied verbatim from its log. Note
+    # `action` (not `event`), the raw callcenter name (not the mapped
+    # `user.state_change`), and CC-Agent = the user's powerlink_token. Each of
+    # those three refused the pop on its own at some point.
+    test "pops for the raw agent-state-change frame the node pushes" do
+      online = fn _uuid -> true end
+      powerlink = "cb1b0a46-77d5-4b3a-92d8-31768fea74e4"
+
+      raw = %{
+        "id" => "agent-state-change_53beb321-4c10-454b-8e49-1ca449c94c3d_53beb321-4c10-454b-8e49-1ca449c94c3d",
+        "uuid" => "53beb321-4c10-454b-8e49-1ca449c94c3d",
+        "action" => "agent-state-change",
+        "type" => "callcenter",
+        "user_uuid" => powerlink,
+        "user_state" => "In a queue call",
+        "meta" => %{
+          "CC-Agent" => powerlink,
+          "CC-Action" => "agent-state-change",
+          "CC-Agent-State" => "In a queue call"
+        }
+      }
+
+      ScreenPop.process_user_event(%ScreenPop{}, @user_uuid, raw, online, [@user_uuid, powerlink])
+
+      assert_receive {:realtime, %{type: "notification", message: message}}
+      assert message["action"] == "tab:new"
+      # Dispatched to the USER's topic even though the event named the token.
+      assert message["url"] =~ "callId="
+    end
+
     test "uses the caller number when the event carries one", %{state: state} do
       online = fn _uuid -> true end
       event = state_event(%{"data" => %{"caller_id_number" => "0501234567"}})

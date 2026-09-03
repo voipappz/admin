@@ -1,0 +1,64 @@
+# The screen-pop rule, as data.
+#
+# PocketFlow's vocabulary — a service with triggers and a graph of steps — but
+# only the nodes Elixir has a deliberate executor for may appear. That is the
+# whole safety property: a rule file cannot make the portal do something new,
+# only decide when to do the one thing it already knows how to do. Adding an
+# action means adding an executor in instruction.ex, on purpose.
+#
+# Override the path with SCREEN_POP_RULE=/some/other.yaml.
+
+service_uuid: callcenter-screen-pop
+service_type: screen_pop
+
+# WHICH EVENTS POP, in both spellings the wire uses.
+#
+# sessions.cr maps FreeSWITCH's callcenter actions to `user.*` names before it
+# publishes a folded state frame, but a relayed raw frame keeps the original
+# action. Accepting only the mapped names refused this, which the node pushes
+# verbatim:
+#
+#   {"action":"agent-state-change","user_uuid":"cb1b0a46…",
+#    "user_state":"In a queue call",
+#    "meta":{"CC-Agent":"cb1b0a46…","CC-Agent-State":"In a queue call"}}
+#
+triggers:
+  - agent-state-change
+  - agent-offering
+  - bridge-agent-start
+  - user.state_change
+  - user.ringing
+  - user.answer
+
+# WHICH AGENT STATES COUNT AS "on a call".
+#
+# Empty means every state passes. Listed, an `agent-state-change` only pops
+# when `user_state` (or meta CC-Agent-State) is one of these — so going Idle
+# does not open a CRM tab.
+agent_states:
+  - In a queue call
+  - Receiving
+
+# HOW AN EVENT NAMES THE AGENT, in priority order.
+#
+# The callcenter identifies an agent by the user's `profile.powerlink_token`,
+# NOT by the portal user uuid — the node copies it into `user_uuid` and keys
+# `state.user.<id>` by it. Whichever of these is present is compared against
+# the ids resolved for the signed-in user at connect (AgentIdentity).
+agent_fields:
+  - meta.CC-Agent
+  - user_uuid
+  - data.user_uuid
+
+profile:
+  # `{phone}` and `{call_id}` are filled from the event; an absent number
+  # becomes `unknown_caller` rather than being dropped, because the CRM opens a
+  # blank search on an empty phone and a blank form beats a silent no-pop.
+  record_url: "https://pardeshk.moked-binaa.co.il/ims/system/?view=custom&module=moked-add&search_phone={phone}&callId={call_id}"
+  unknown_caller: "0000"
+  pop_on: answer
+
+steps:
+  - key: pop
+    node: screen_pop_pop
+    on: {}

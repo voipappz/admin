@@ -112,6 +112,8 @@ defmodule AgentsDemo.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
+      # The screen-pop rule is data, not code — see priv/pocketflow/screen_pop.yaml.
+      {:yaml_elixir, "~> 2.9"},
       {:dns_cluster, "~> 0.2.0"},
       {:horde, "~> 0.10.0"},
       {:bandit, "~> 1.5"},
