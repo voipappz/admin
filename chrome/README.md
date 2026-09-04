@@ -3,6 +3,7 @@
 Screen pops, call state and agent availability, live in the browser.
 
 ## Install
+#
 
 ```mermaid
 flowchart TD
