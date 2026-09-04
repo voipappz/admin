@@ -186,8 +186,7 @@ jobs:
         run: PLAYWRIGHT_BASE_URL=http://localhost:4200 npx playwright test tests/mothership-login.spec.ts
 
       - name: Why it failed (logs from both sides)
-        if: steps.mothership.outcome == 'success'
-        if: failure()
+        if: failure() && steps.mothership.outcome == 'success'
         run: |
           docker logs --tail 100 app || true
           cd /opt/voipappz 2>/dev/null || exit 0
@@ -273,34 +272,29 @@ jobs:
         with:
           node-version: 20
       - name: Build the extension
-        if: steps.node_image.outcome == 'success'
-        if: steps.extension.outcome == 'success'
+        if: steps.node_image.outcome == 'success' && steps.extension.outcome == 'success'
         working-directory: extension
         run: |
           npm ci --legacy-peer-deps --no-audit --no-fund
           NODE_OPTIONS=--openssl-legacy-provider npm run build
       - name: Install Chromium for the extension suite
-        if: steps.node_image.outcome == 'success'
-        if: steps.extension.outcome == 'success'
+        if: steps.node_image.outcome == 'success' && steps.extension.outcome == 'success'
         working-directory: extension
         run: npx playwright install --with-deps chromium
       - name: Chrome → Elixir with the real extension (B)
-        if: steps.node_image.outcome == 'success'
-        if: steps.extension.outcome == 'success'
+        if: steps.node_image.outcome == 'success' && steps.extension.outcome == 'success'
         working-directory: extension
         run: CABLE_EVENTS=1 npx playwright test portal-receive --workers=1
       - name: Say so when the extension half did not run
         if: steps.extension.outcome != 'success'
         run: echo "::warning::extension not checked out — scenario B skipped (set EXTENSION_REPO_TOKEN)"
       - name: Why it failed (both sides of the cable)
-        if: steps.node_image.outcome == 'success'
-        if: failure()
+        if: failure() && steps.node_image.outcome == 'success'
         run: |
           curl -s localhost:14001/health || true; echo
           curl -s localhost:14001/metrics | grep screen_pop || true
           $COMPOSE logs --no-color --tail 150 fake-freeswitch cable portal || true
       - name: Tear down
-        if: steps.node_image.outcome == 'success'
         if: always()
         run: $COMPOSE down -v --remove-orphans || true
 
