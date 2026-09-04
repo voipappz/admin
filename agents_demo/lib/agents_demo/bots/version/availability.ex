@@ -1,6 +1,6 @@
-defmodule AgentsDemo.Bots.Version.Availability do
+defmodule Connectix.Bots.Version.Availability do
   @moduledoc "When the bot counts as \"in hours\": a time zone plus open windows. No windows = always open."
-  alias AgentsDemo.Bots.Version.Availability.Window
+  alias Connectix.Bots.Version.Availability.Window
   @derive Jason.Encoder
   defstruct time_zone: "UTC", windows: []
 

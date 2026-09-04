@@ -1,11 +1,11 @@
 if Mix.env() == :test do
-  defmodule AgentsDemo.Channels.WhatsApp.TestAdapter do
+  defmodule Connectix.Channels.WhatsApp.TestAdapter do
     @moduledoc """
     An `Anu` adapter for tests: instead of calling Meta, it forwards the
     message it would have sent to a process the test registers.
 
     `Anu.Adapters.Test` sends to `self()`, which is the wrong mailbox here —
-    delivery runs inside the `Task` that `AgentsDemo.Channels.deliver/2`
+    delivery runs inside the `Task` that `Connectix.Channels.deliver/2`
     starts. Tests call `receive_here/0` in their setup and then
     `assert_receive {:whatsapp, %Anu.Message{}}`.
     """

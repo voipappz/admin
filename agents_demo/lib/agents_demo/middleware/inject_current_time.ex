@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Middleware.InjectCurrentTime do
+defmodule Connectix.Middleware.InjectCurrentTime do
   @moduledoc """
   Middleware that injects the current date and user timezone into the system prompt,
   and stores the timezone in state metadata for tool access.
@@ -15,7 +15,7 @@ defmodule AgentsDemo.Middleware.InjectCurrentTime do
   ## Example
 
       middleware = [
-        {AgentsDemo.Middleware.InjectCurrentTime, [timezone: "America/Denver"]},
+        {Connectix.Middleware.InjectCurrentTime, [timezone: "America/Denver"]},
         # ... other middleware
       ]
   """

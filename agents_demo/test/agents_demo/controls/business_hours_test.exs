@@ -1,8 +1,8 @@
-defmodule AgentsDemo.Controls.BusinessHoursTest do
+defmodule Connectix.Controls.BusinessHoursTest do
   use ExUnit.Case, async: true
 
-  alias AgentsDemo.Bots.Version.Availability
-  alias AgentsDemo.Controls.BusinessHours
+  alias Connectix.Bots.Version.Availability
+  alias Connectix.Controls.BusinessHours
 
   # Nimbus Telecom's published hours: Sun–Thu 09:00–18:00, Fri 09:00–14:00.
   defp nimbus do

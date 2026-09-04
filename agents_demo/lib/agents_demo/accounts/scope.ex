@@ -1,8 +1,8 @@
-defmodule AgentsDemo.Accounts.Scope do
+defmodule Connectix.Accounts.Scope do
   @moduledoc """
   Defines the scope of the caller to be used throughout the app.
 
-  The `AgentsDemo.Accounts.Scope` allows public interfaces to receive
+  The `Connectix.Accounts.Scope` allows public interfaces to receive
   information about the caller, such as if the call is initiated from an
   end-user, and if so, which user. Additionally, such a scope can carry fields
   such as "super user" or other privileges for use as authorization, or to
@@ -16,7 +16,7 @@ defmodule AgentsDemo.Accounts.Scope do
   growing application requirements.
   """
 
-  alias AgentsDemo.Accounts.User
+  alias Connectix.Accounts.User
 
   defstruct user: nil
 

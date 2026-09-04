@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Turns do
+defmodule Connectix.Turns do
   @moduledoc """
   The one way a user turn enters the system.
 
@@ -23,12 +23,12 @@ defmodule AgentsDemo.Turns do
   human holds the conversation, or `{:error, reason}`.
   """
 
-  alias AgentsDemo.Accounts.Scope
-  alias AgentsDemo.Agents.Coordinator
-  alias AgentsDemo.Bots.Runtime
-  alias AgentsDemo.Controls.SessionTimeout
-  alias AgentsDemo.Conversations
-  alias AgentsDemo.Conversations.Conversation
+  alias Connectix.Accounts.Scope
+  alias Connectix.Agents.Coordinator
+  alias Connectix.Bots.Runtime
+  alias Connectix.Controls.SessionTimeout
+  alias Connectix.Conversations
+  alias Connectix.Conversations.Conversation
   alias LangChain.Message
   alias Sagents.AgentServer
 

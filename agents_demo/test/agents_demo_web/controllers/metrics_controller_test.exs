@@ -1,9 +1,9 @@
-defmodule AgentsDemoWeb.MetricsControllerTest do
-  use AgentsDemoWeb.ConnCase, async: false
+defmodule ConnectixWeb.MetricsControllerTest do
+  use ConnectixWeb.ConnCase, async: false
 
   test "GET /metrics exposes screen-pop counters without authentication", %{conn: conn} do
-    AgentsDemo.Telemetry.screen_pop_event(:dispatched)
-    AgentsDemo.Telemetry.instruction_load(:loaded)
+    Connectix.Telemetry.screen_pop_event(:dispatched)
+    Connectix.Telemetry.instruction_load(:loaded)
     Process.sleep(50)
 
     conn = get(conn, ~p"/metrics")

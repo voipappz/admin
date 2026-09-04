@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Conversations.Conversation do
+defmodule Connectix.Conversations.Conversation do
   @moduledoc """
   A conversation between a user and an agent — a plain struct, one Mnesia row,
   pinned to a bot version. Loaded associations (`bot`, `bot_version`,

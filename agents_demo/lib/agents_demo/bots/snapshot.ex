@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Bots.Snapshot do
+defmodule Connectix.Bots.Snapshot do
   @moduledoc """
   The canonical content of a version, and its fingerprint.
 
@@ -12,7 +12,7 @@ defmodule AgentsDemo.Bots.Snapshot do
   makes a deployment reproducible.
   """
 
-  alias AgentsDemo.Bots.BotVersion
+  alias Connectix.Bots.BotVersion
 
   @schema_version 1
 

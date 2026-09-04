@@ -1,7 +1,7 @@
-defmodule AgentsDemo.Realtime.ScreenPopTest do
+defmodule Connectix.Realtime.ScreenPopTest do
   use ExUnit.Case, async: false
 
-  alias AgentsDemo.Realtime.ScreenPop
+  alias Connectix.Realtime.ScreenPop
 
   @environment_uuid "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
   @user_uuid "11111111-2222-3333-4444-555555555555"
@@ -52,7 +52,7 @@ defmodule AgentsDemo.Realtime.ScreenPopTest do
   end
 
   setup do
-    Phoenix.PubSub.subscribe(AgentsDemo.PubSub, @topic)
+    Phoenix.PubSub.subscribe(Connectix.PubSub, @topic)
     :ok
   end
 
@@ -228,7 +228,7 @@ defmodule AgentsDemo.Realtime.ScreenPopTest do
       end
 
       pid = start_supervised!({ScreenPop, name: nil, loader: loader})
-      Registry.register(AgentsDemo.Realtime.SessionRegistry, @user_uuid, @environment_uuid)
+      Registry.register(Connectix.Realtime.SessionRegistry, @user_uuid, @environment_uuid)
 
       assert :ok = ScreenPop.load_environment(pid, @environment_uuid)
       assert_receive {:load_started, loader_pid}
@@ -256,7 +256,7 @@ defmodule AgentsDemo.Realtime.ScreenPopTest do
     )
 
     on_exit(fn -> :telemetry.detach(handler) end)
-    Registry.register(AgentsDemo.Realtime.SessionRegistry, @user_uuid, @environment_uuid)
+    Registry.register(Connectix.Realtime.SessionRegistry, @user_uuid, @environment_uuid)
 
     pid =
       start_supervised!(
@@ -275,7 +275,7 @@ defmodule AgentsDemo.Realtime.ScreenPopTest do
     user_uuid = "online-#{System.unique_integer([:positive])}"
     refute ScreenPop.online?(user_uuid, @environment_uuid)
 
-    Registry.register(AgentsDemo.Realtime.SessionRegistry, user_uuid, @environment_uuid)
+    Registry.register(Connectix.Realtime.SessionRegistry, user_uuid, @environment_uuid)
     assert ScreenPop.online?(user_uuid, @environment_uuid)
     refute ScreenPop.online?(user_uuid, "another-environment")
   end
@@ -436,15 +436,15 @@ defmodule AgentsDemo.Realtime.ScreenPopTest do
 
     defp connect_agent(agent_id) do
       user = "user-#{System.unique_integer([:positive])}"
-      Registry.register(AgentsDemo.Realtime.SessionRegistry, user, nil)
+      Registry.register(Connectix.Realtime.SessionRegistry, user, nil)
 
       Registry.register(
-        AgentsDemo.Realtime.SessionRegistry,
+        Connectix.Realtime.SessionRegistry,
         {:agent, agent_id},
         {user, [user, agent_id]}
       )
 
-      Phoenix.PubSub.subscribe(AgentsDemo.PubSub, "realtime:user:#{user}")
+      Phoenix.PubSub.subscribe(Connectix.PubSub, "realtime:user:#{user}")
       user
     end
 
@@ -512,7 +512,7 @@ defmodule AgentsDemo.Realtime.ScreenPopTest do
       task =
         Task.async(fn ->
           Registry.register(
-            AgentsDemo.Realtime.SessionRegistry,
+            Connectix.Realtime.SessionRegistry,
             {:agent, agent},
             {user, [user, agent]}
           )

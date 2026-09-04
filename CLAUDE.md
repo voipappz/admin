@@ -31,18 +31,33 @@ the Elixir portal's forwarder in prod). A customer deployment (fork) changes
 | `make prod` / `make prod-down` | Run the production image on this box via docker compose (:8000) |
 | `cd ../mothership && make portal-deploy DEST=nimbus` | Deploy Nimbus through the mothership-owned Kamal policy |
 
+**Never deploy.** Building, testing and probing a production image locally is
+fine; `portal-deploy`, `kamal deploy`, pushing an image tag anything reads as
+`:latest`, and recreating a container on a live host are the operator's calls,
+not an agent's. Say what the command is and let a human run it.
+
+`DEST` is required for exactly this reason: without it kamal falls back to
+`config/portal/deploy.yml`, which is a **different live host** with a
+**different image** from every named destination. A dropped `DEST=` does not
+fail — it deploys somewhere else, and the first symptom is a timeout against a
+host nobody meant to touch. The Makefile now refuses rather than guessing.
+
 ## The local stack
 
-`make dev` starts the web, portal, cable and extension containers. They only work as a set, because the portal
-verifies tokens against the API and listens on the cable — point any one of them
+`make dev` starts the web and the portal. They only work as a set, because the
+portal verifies tokens against the API and listens on the cable — point either
 somewhere else and the failures look like broken auth rather than a mismatched
 host.
+
+The cable is NOT one of them: the portal dials a real va-crystal node
+(`PORTAL_CABLE_URL`). Neither is the Chrome extension, which lives in
+`../chrome` with its own Makefile — `make -C ../chrome build`, then load
+`../chrome/angular/dist` unpacked.
 
 | Service | Port | What it is |
 |---|---|---|
 | `react-app` | 4200 | Vite HMR. Proxies backend requests to the Elixir portal. |
 | `elixir` | **4001** | The portal — **the origin**. Serves the SPA and `/ws/events`, verifies tokens, holds the cable connection, forwards `/auth` · `/api/` · `/tasks/` to the mothership. |
-| `cable` | 4100 | va-crystal's node, `va-crystal-cable:latest` (built from va-crystal's source; `VA_CRYSTAL_IMAGE` overrides). The realtime endpoint the portal subscribes to. |
 
 **4001 is the origin and does not move.** The SPA, the Chrome extension and
 Vite's proxy all point at it, and none of them should ever have to change.
@@ -176,7 +191,7 @@ Two runtime pieces:
    frame protocol), one application Cable connection plus per-user Cable
    connections fanned out over `Phoenix.PubSub`, and token verification through
    the node's `ApiProxy` channel. Elixir holds no direct NATS connection.
-   `AgentsDemoWeb.Plugs.EngineProxy` forwards the
+   `ConnectixWeb.Plugs.EngineProxy` forwards the
    mothership's own routes (`/auth`, `/api/`, `/tasks/`) upstream, and **owns
    the CORS policy on them**: the extension's origin is a
    `chrome-extension://<id>` no upstream allowlist can name, so the upstream's

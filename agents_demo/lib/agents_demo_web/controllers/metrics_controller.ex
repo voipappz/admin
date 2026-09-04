@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.MetricsController do
+defmodule ConnectixWeb.MetricsController do
   @moduledoc """
   Prometheus scrape endpoint for portal runtime metrics.
   """

@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Agents.Coordinator do
+defmodule Connectix.Agents.Coordinator do
   @moduledoc """
   Thin bridge between this app and `Sagents.Session`.
 
@@ -20,7 +20,7 @@ defmodule AgentsDemo.Agents.Coordinator do
       subs =
         Sagents.Subscriber.subscribe_to_agent(
           subs,
-          AgentsDemo.Agents.Coordinator.conversation_agent_id(conversation_id)
+          Connectix.Agents.Coordinator.conversation_agent_id(conversation_id)
         )
 
   ### Action path (factory config required)
@@ -32,13 +32,13 @@ defmodule AgentsDemo.Agents.Coordinator do
   broadcasts, and upgrades the local subs map to `:subscribed`.
 
       # LiveView
-      case AgentsDemo.Agents.Coordinator.ensure_agent_session_running(socket.assigns) do
+      case Connectix.Agents.Coordinator.ensure_agent_session_running(socket.assigns) do
         {:ok, changes} -> assign(socket, changes)
         {:error, reason} -> ...
       end
 
       # GenServer
-      case AgentsDemo.Agents.Coordinator.ensure_agent_session_running(state) do
+      case Connectix.Agents.Coordinator.ensure_agent_session_running(state) do
         {:ok, changes} -> {:noreply, Map.merge(state, changes)}
         {:error, reason} -> ...
       end
@@ -62,14 +62,14 @@ defmodule AgentsDemo.Agents.Coordinator do
   through this same arg — no magic state-map keys.
   """
 
-  @presence_module AgentsDemoWeb.Presence
+  @presence_module ConnectixWeb.Presence
 
   @config %{
-    factory_router: AgentsDemo.Agents.FactoryRouter,
-    agent_persistence: AgentsDemo.Agents.AgentPersistence,
-    display_message_persistence: AgentsDemo.Agents.DisplayMessagePersistence,
-    pubsub: {Phoenix.PubSub, AgentsDemo.PubSub},
-    presence_module: AgentsDemoWeb.Presence,
+    factory_router: Connectix.Agents.FactoryRouter,
+    agent_persistence: Connectix.Agents.AgentPersistence,
+    display_message_persistence: Connectix.Agents.DisplayMessagePersistence,
+    pubsub: {Phoenix.PubSub, Connectix.PubSub},
+    presence_module: ConnectixWeb.Presence,
     inactivity_timeout: :timer.minutes(10),
     agent_id_fun: &__MODULE__.conversation_agent_id/1
   }
@@ -93,7 +93,7 @@ defmodule AgentsDemo.Agents.Coordinator do
   `request_opts` keyword list, not the state map. See
   `Sagents.Session.ensure_running/3`.
 
-      AgentsDemo.Agents.Coordinator.ensure_agent_session_running(socket.assigns,
+      Connectix.Agents.Coordinator.ensure_agent_session_running(socket.assigns,
         timezone: socket.assigns.timezone
       )
   """
@@ -112,7 +112,7 @@ defmodule AgentsDemo.Agents.Coordinator do
   bookkeeping from the wake), or `{:error, reason}`. See
   `Sagents.Session.resume/4`.
 
-      AgentsDemo.Agents.Coordinator.resume_agent_session(socket.assigns, response,
+      Connectix.Agents.Coordinator.resume_agent_session(socket.assigns, response,
         timezone: socket.assigns.timezone
       )
   """
@@ -133,7 +133,7 @@ defmodule AgentsDemo.Agents.Coordinator do
   bookkeeping from the wake), or `{:error, reason}`. See
   `Sagents.Session.dismiss/3`.
 
-      AgentsDemo.Agents.Coordinator.dismiss_agent_session(socket.assigns,
+      Connectix.Agents.Coordinator.dismiss_agent_session(socket.assigns,
         timezone: socket.assigns.timezone
       )
   """

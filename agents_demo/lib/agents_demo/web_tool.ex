@@ -1,4 +1,4 @@
-defmodule AgentsDemo.WebTool do
+defmodule Connectix.WebTool do
   @moduledoc """
   Provides web interaction tools for agents.
 
@@ -31,10 +31,10 @@ defmodule AgentsDemo.WebTool do
 
   ## Examples
 
-      AgentsDemo.WebTool.fetch_webpage("https://example.com")
+      Connectix.WebTool.fetch_webpage("https://example.com")
       # => {:ok, "# Example Domain\\n\\nThis domain is..."}
 
-      AgentsDemo.WebTool.fetch_webpage("invalid-url")
+      Connectix.WebTool.fetch_webpage("invalid-url")
       # => {:error, "Failed to fetch: ..."}
   """
   @spec fetch_webpage(String.t()) :: {:ok, String.t()} | {:error, String.t()}
@@ -82,7 +82,7 @@ defmodule AgentsDemo.WebTool do
 
   ## Examples
 
-      AgentsDemo.WebTool.fetch_search_results("Elixir programming")
+      Connectix.WebTool.fetch_search_results("Elixir programming")
       # => {:ok, %{
       #      status: :success,
       #      message: "Found 10 results for query: 'Elixir programming'",
@@ -92,7 +92,7 @@ defmodule AgentsDemo.WebTool do
       #      ]
       #    }}
 
-      AgentsDemo.WebTool.fetch_search_results("test; rm -rf /")
+      Connectix.WebTool.fetch_search_results("test; rm -rf /")
       # => {:ok, %{
       #      status: :success,
       #      message: "Found N results for query: 'test rm  rf '",

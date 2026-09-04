@@ -258,9 +258,15 @@ portal-print: ## Print the exact Kamal commands, change nothing — make portal-
 	$(portal_cli_guard)
 	$(PORTAL_CLI) portal deploy --print $(if $(DEST),-d $(DEST))
 
-portal-deploy: ## Build, push and swap the portal container — make portal-deploy DEST=mtn
+# DEST IS REQUIRED, and the guard is not pedantry. Without `-d`, kamal uses
+# config/portal/deploy.yml — a DIFFERENT live host (212.199.160.156) with a
+# DIFFERENT image (nirlevi/bots) from every named destination. A dropped
+# `DEST=` therefore does not fail; it deploys, somewhere else, and the first
+# sign is a timeout against a host you did not mean to touch.
+portal-deploy: ## Build, push and swap the portal container — make portal-deploy DEST=nimbus
+	@test -n "$(DEST)" || { 	  echo "!! DEST is required — a bare deploy targets the DEFAULT host, not yours." >&2; 	  echo "   make portal-deploy DEST=<$(shell ls $(VA_MOTHERSHIP)/config/portal/deploy.*.yml 2>/dev/null | sed 's|.*deploy\.||;s|\.yml||' | paste -sd'|')>" >&2; 	  exit 1; }
 	$(portal_cli_guard)
-	$(PORTAL_CLI) portal deploy $(if $(DEST),-d $(DEST))
+	$(PORTAL_CLI) portal deploy -d $(DEST)
 
 push: ## git push current branch to origin
 	git push

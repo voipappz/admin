@@ -1,10 +1,10 @@
-defmodule AgentsDemo.Fakes.EchoCapability do
+defmodule Connectix.Fakes.EchoCapability do
   @moduledoc "A capability for tests: echoes its argument, or misbehaves on request."
-  @behaviour AgentsDemo.Capabilities.Capability
+  @behaviour Connectix.Capabilities.Capability
 
   defmodule Args do
     @moduledoc false
-    use AgentsDemo.Capabilities.Args,
+    use Connectix.Capabilities.Args,
       fields: [text: :string, mode: {:string, default: "echo"}],
       required: [:text]
 
@@ -33,7 +33,7 @@ defmodule AgentsDemo.Fakes.EchoCapability do
 
   def capability(overrides \\ %{}) do
     struct(
-      %AgentsDemo.Skills.Capability{
+      %Connectix.Skills.Capability{
         id: "echo",
         module: __MODULE__,
         description: "Echoes text",

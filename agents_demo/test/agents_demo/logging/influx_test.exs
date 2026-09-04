@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Logging.InfluxTest do
+defmodule Connectix.Logging.InfluxTest do
   @moduledoc """
   The shipper's contract: what one event becomes on the wire, that the
   writer batches instead of posting per line, that it stays quiet while
@@ -11,8 +11,8 @@ defmodule AgentsDemo.Logging.InfluxTest do
 
   import ExUnit.CaptureLog
 
-  alias AgentsDemo.Logging.Influx
-  alias AgentsDemo.Logging.Influx.Writer
+  alias Connectix.Logging.Influx
+  alias Connectix.Logging.Influx.Writer
 
   # ── HTTP stub ───────────────────────────────────────────────────────────────
 
@@ -103,10 +103,10 @@ defmodule AgentsDemo.Logging.InfluxTest do
     test "module, function and request_id are fields when the metadata has them" do
       line =
         Influx.to_line(
-          event("hi", %{mfa: {AgentsDemoWeb.Endpoint, :call, 2}, request_id: "abc123"})
+          event("hi", %{mfa: {ConnectixWeb.Endpoint, :call, 2}, request_id: "abc123"})
         )
 
-      assert line =~ ~s(,module="AgentsDemoWeb.Endpoint")
+      assert line =~ ~s(,module="ConnectixWeb.Endpoint")
       assert line =~ ~s(,function="call/2")
       assert line =~ ~s(,request_id="abc123")
     end

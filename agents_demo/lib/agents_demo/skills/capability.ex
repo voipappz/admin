@@ -1,9 +1,9 @@
-defmodule AgentsDemo.Skills.Capability do
+defmodule Connectix.Skills.Capability do
   @moduledoc """
   One code-owned operation the model may call, with its policy attached.
 
   A capability names the module that implements it
-  (`AgentsDemo.Capabilities.Capability`) and declares what a control needs to
+  (`Connectix.Capabilities.Capability`) and declares what a control needs to
   know without reading code: its risk, whether a human must approve it,
   whether it is idempotent, how long it may run, and which result keys are
   sensitive. `to_function/2` turns it into the `LangChain.Function` the agent
@@ -17,7 +17,7 @@ defmodule AgentsDemo.Skills.Capability do
   - a raised error becomes a bounded, redacted tool error rather than a crash.
   """
 
-  alias AgentsDemo.Capabilities.Capability, as: Impl
+  alias Connectix.Capabilities.Capability, as: Impl
   alias LangChain.Function
 
   @enforce_keys [:id, :module, :description]

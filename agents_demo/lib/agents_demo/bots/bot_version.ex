@@ -1,15 +1,15 @@
-defmodule AgentsDemo.Bots.BotVersion do
+defmodule Connectix.Bots.BotVersion do
   @moduledoc """
   The complete definition of a bot at one point in time — a plain struct.
 
   Mutable only while a draft; publishing freezes it (enforced in
-  `AgentsDemo.Bots`, not a database trigger) and stamps a fingerprint. Every
-  configuration area is a typed struct under `AgentsDemo.Bots.Version.*`;
+  `Connectix.Bots`, not a database trigger) and stamps a fingerprint. Every
+  configuration area is a typed struct under `Connectix.Bots.Version.*`;
   `skills` is a list of `BotVersionSkill`. Stored whole as one Mnesia row.
   """
 
-  alias AgentsDemo.Bots.BotVersionSkill
-  alias AgentsDemo.Bots.Version
+  alias Connectix.Bots.BotVersionSkill
+  alias Connectix.Bots.Version
 
   @areas ~w(behavior model safety knowledge memory output handoff voice limits availability audiences)a
 

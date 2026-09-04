@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.Portal.EventControllerTest do
+defmodule ConnectixWeb.Portal.EventControllerTest do
   @moduledoc """
   The four `/api/events` routes, driven through the Endpoint.
 
@@ -13,8 +13,8 @@ defmodule AgentsDemoWeb.Portal.EventControllerTest do
   all: it only happens for a store that failed to open, which the supervised
   one had better never be. `async: false` because that setting is global.
 
-  Writes are casts, so every test calls `AgentsDemo.Events.stats/1` — a call
-  behind the same mailbox — before making a request. See `AgentsDemo.EventsTest`.
+  Writes are casts, so every test calls `Connectix.Events.stats/1` — a call
+  behind the same mailbox — before making a request. See `Connectix.EventsTest`.
   """
 
   use ExUnit.Case, async: false
@@ -22,10 +22,10 @@ defmodule AgentsDemoWeb.Portal.EventControllerTest do
 
   import Phoenix.ConnTest
 
-  alias AgentsDemo.Events
-  alias AgentsDemo.Realtime.TokenAuth
+  alias Connectix.Events
+  alias Connectix.Realtime.TokenAuth
 
-  @endpoint AgentsDemoWeb.Endpoint
+  @endpoint ConnectixWeb.Endpoint
 
   setup do
     path =

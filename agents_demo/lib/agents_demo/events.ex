@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Events do
+defmodule Connectix.Events do
   @moduledoc """
   Every event this portal receives off the cable, appended to DuckDB.
 
@@ -174,7 +174,7 @@ defmodule AgentsDemo.Events do
   What this store is doing: `:open?`, `:count`, `:written`, `:errors`, `:path`.
 
   Also the one synchronous point in the API, so tests use it to wait for casts
-  they just made — see `AgentsDemo.EventsTest`.
+  they just made — see `Connectix.EventsTest`.
   """
   @spec stats() :: map()
   def stats, do: stats(__MODULE__)
@@ -483,7 +483,7 @@ defmodule AgentsDemo.Events do
   end
 
   defp default_path do
-    dir = AgentsDemo.Config.events_dir()
-    AgentsDemo.Config.events_db() || Path.join(dir, "events.duckdb")
+    dir = Connectix.Config.events_dir()
+    Connectix.Config.events_db() || Path.join(dir, "events.duckdb")
   end
 end

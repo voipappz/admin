@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Portal.Store do
+defmodule Connectix.Portal.Store do
   @moduledoc """
   The portal's own persistent state, in Mnesia — no Ecto, no external database.
 
@@ -26,7 +26,7 @@ defmodule AgentsDemo.Portal.Store do
 
   use GenServer
 
-  alias AgentsDemo.Mnesia
+  alias Connectix.Mnesia
 
   require Logger
 
@@ -258,12 +258,12 @@ defmodule AgentsDemo.Portal.Store do
 
   # ── Struct shaping ─────────────────────────────────────────────────────────
 
-  defp to_dashboard(%AgentsDemo.Dashboards.Dashboard{} = d), do: d
+  defp to_dashboard(%Connectix.Dashboards.Dashboard{} = d), do: d
   defp to_dashboard(row) when is_tuple(row), do: to_dashboard(row_to_map(row, @dashboard_fields))
-  defp to_dashboard(%{} = m), do: struct(AgentsDemo.Dashboards.Dashboard, m)
+  defp to_dashboard(%{} = m), do: struct(Connectix.Dashboards.Dashboard, m)
 
   defp to_widget(row, fields) when is_tuple(row), do: to_widget_struct(row_to_map(row, fields))
-  defp to_widget_struct(%{} = m), do: struct(AgentsDemo.Dashboards.Widget, m)
+  defp to_widget_struct(%{} = m), do: struct(Connectix.Dashboards.Widget, m)
 
   # ── Value helpers ──────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
-defmodule AgentsDemo.Bots.Version.Audiences do
+defmodule Connectix.Bots.Version.Audiences do
   @moduledoc "Who the bot is talking to, decided from the sender's phone; unmatched senders get `default_id`."
-  alias AgentsDemo.Bots.Version.Audiences.Entry
+  alias Connectix.Bots.Version.Audiences.Entry
   @derive Jason.Encoder
   defstruct default_id: "customer", entries: []
 

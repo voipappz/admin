@@ -1,10 +1,10 @@
-defmodule AgentsDemoWeb.Portal.FallbackController do
+defmodule ConnectixWeb.Portal.FallbackController do
   @moduledoc """
   Turns the portal controllers' error tuples into the JSON bodies the shipped
   builder already understands.
   """
 
-  use AgentsDemoWeb, :controller
+  use ConnectixWeb, :controller
 
   def call(conn, {:error, :name_required}),
     do: send_error(conn, :bad_request, "dashboard name is required")

@@ -1,4 +1,4 @@
-defmodule AgentsDemo.MixProject do
+defmodule Connectix.MixProject do
   use Mix.Project
 
   def project do
@@ -49,7 +49,7 @@ defmodule AgentsDemo.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {AgentsDemo.Application, []},
+      mod: {Connectix.Application, []},
       extra_applications: [:logger, :runtime_tools, :mnesia]
     ]
   end
@@ -114,7 +114,7 @@ defmodule AgentsDemo.MixProject do
       {:jason, "~> 1.2"},
       # The event store. DuckDB directly, no SQL server and no Postgres driver:
       # events are appended to one embedded file this node owns. Optional at
-      # runtime — see AgentsDemo.Events.
+      # runtime — see Connectix.Events.
       {:duckdbex, "~> 0.3"},
       # The screen-pop rule is data, not code — see priv/pocketflow/screen_pop.yaml.
       {:yaml_elixir, "~> 2.9"},

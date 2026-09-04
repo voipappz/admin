@@ -1,11 +1,11 @@
-defmodule AgentsDemo.AccountsFixtures do
+defmodule Connectix.AccountsFixtures do
   @moduledoc """
   This module defines test helpers for creating
-  entities via the `AgentsDemo.Accounts` context.
+  entities via the `Connectix.Accounts` context.
   """
 
-  alias AgentsDemo.Accounts
-  alias AgentsDemo.Accounts.{Scope, Store}
+  alias Connectix.Accounts
+  alias Connectix.Accounts.{Scope, Store}
 
   def unique_user_email, do: "user#{System.unique_integer()}@example.com"
   def valid_user_password, do: "hello world!"

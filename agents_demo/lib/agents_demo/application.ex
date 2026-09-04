@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Application do
+defmodule Connectix.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
@@ -10,32 +10,32 @@ defmodule AgentsDemo.Application do
   def start(_type, _args) do
     children =
       [
-        AgentsDemoWeb.Telemetry,
+        ConnectixWeb.Telemetry,
         {DNSCluster, query: Application.get_env(:agents_demo, :dns_cluster_query) || :ignore},
-        {Phoenix.PubSub, name: AgentsDemo.PubSub}
+        {Phoenix.PubSub, name: Connectix.PubSub}
         # Log shipping to InfluxDB, beside the console — never instead of it.
         # Empty unless VA_MONITOR_TOKEN is set. See `Logging.Influx`.
       ] ++
-        AgentsDemo.Logging.Influx.children() ++
+        Connectix.Logging.Influx.children() ++
         [
           # Every event received off the cable, appended to DuckDB. Starts even
           # when the file cannot be opened — it then stores nothing rather than
-          # taking the realtime path down. See AgentsDemo.Events.
-          AgentsDemo.Events,
+          # taking the realtime path down. See Connectix.Events.
+          Connectix.Events,
           # Mnesia-backed stores.
-          AgentsDemo.Portal.Store,
-          AgentsDemo.Accounts.Store,
-          AgentsDemo.Bots.Store,
-          AgentsDemo.Conversations.Store,
-          # HTTP pool for outbound channel traffic (`AgentsDemo.Channels`). Named
+          Connectix.Portal.Store,
+          Connectix.Accounts.Store,
+          Connectix.Bots.Store,
+          Connectix.Conversations.Store,
+          # HTTP pool for outbound channel traffic (`Connectix.Channels`). Named
           # separately from Req's own pool so a stalled WhatsApp send cannot
           # exhaust the connections the agent's web_lookup tool needs.
-          {Finch, name: AgentsDemo.Finch},
-          AgentsDemoWeb.Presence,
+          {Finch, name: Connectix.Finch},
+          ConnectixWeb.Presence,
           # Realtime token cache (ETS). Started before anything can authenticate.
           %{
             id: :realtime_token_cache,
-            start: {Task, :start_link, [&AgentsDemo.Realtime.TokenAuth.init_cache/0]},
+            start: {Task, :start_link, [&Connectix.Realtime.TokenAuth.init_cache/0]},
             restart: :transient
           },
           # Cable (va-crystal) held server-side, one connection per signed-in user.
@@ -49,12 +49,12 @@ defmodule AgentsDemo.Application do
           # over cable rather than over HTTP. Started after the registry so the
           # listen path is up first — a login is worth nothing if the events that
           # follow it have nowhere to arrive.
-          {Registry, keys: :unique, name: AgentsDemo.Realtime.CableRegistry},
-          {Registry, keys: :duplicate, name: AgentsDemo.Realtime.SessionRegistry},
-          {DynamicSupervisor, strategy: :one_for_one, name: AgentsDemo.Realtime.CableSupervisor},
-          AgentsDemo.Realtime.ScreenPop
+          {Registry, keys: :unique, name: Connectix.Realtime.CableRegistry},
+          {Registry, keys: :duplicate, name: Connectix.Realtime.SessionRegistry},
+          {DynamicSupervisor, strategy: :one_for_one, name: Connectix.Realtime.CableSupervisor},
+          Connectix.Realtime.ScreenPop
         ] ++
-        AgentsDemo.Realtime.ApiProxy.children() ++
+        Connectix.Realtime.ApiProxy.children() ++
         [
           # Sagents infrastructure (registry + dynamic supervisors).
           #
@@ -69,17 +69,17 @@ defmodule AgentsDemo.Application do
           Sagents.Supervisor,
           # Serves requests. After Sagents.Supervisor so OTP stops the listener
           # first and the registry is still alive for whatever is in flight.
-          AgentsDemoWeb.Endpoint,
+          ConnectixWeb.Endpoint,
           # Last, so OTP stops it FIRST: its terminate/2 flips readiness to false
           # and waits, while the Endpoint above is still up to report it. Any
           # earlier position and the wait happens behind a stopped listener, where
           # the load balancer cannot observe it.
-          {AgentsDemo.Drain, delay: drain_delay()}
+          {Connectix.Drain, delay: drain_delay()}
         ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: AgentsDemo.Supervisor]
+    opts = [strategy: :one_for_one, name: Connectix.Supervisor]
     Supervisor.start_link(children, opts)
   end
 
@@ -93,7 +93,7 @@ defmodule AgentsDemo.Application do
   # whenever the application is updated.
   @impl true
   def config_change(changed, _new, removed) do
-    AgentsDemoWeb.Endpoint.config_change(changed, removed)
+    ConnectixWeb.Endpoint.config_change(changed, removed)
     :ok
   end
 end

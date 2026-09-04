@@ -1,7 +1,7 @@
-defmodule AgentsDemo.Middleware.WebToolMiddlewareTest do
+defmodule Connectix.Middleware.WebToolMiddlewareTest do
   use ExUnit.Case, async: true
 
-  alias AgentsDemo.Middleware.WebToolMiddleware
+  alias Connectix.Middleware.WebToolMiddleware
   alias Sagents.Agent
   alias LangChain.ChatModels.ChatAnthropic
 
@@ -489,7 +489,7 @@ defmodule AgentsDemo.Middleware.WebToolMiddlewareTest do
 
     test "tool function accepts args with query key" do
       tool = WebToolMiddleware.search_web_tool()
-      # Note: This would require mocking AgentsDemo.WebTool.fetch_search_results/1
+      # Note: This would require mocking Connectix.WebTool.fetch_search_results/1
       # For now, we just verify the tool structure
       assert is_function(tool.function, 2)
     end
@@ -509,7 +509,7 @@ defmodule AgentsDemo.Middleware.WebToolMiddlewareTest do
 
     test "tool function accepts args with url key" do
       tool = WebToolMiddleware.fetch_page_tool()
-      # Note: This would require mocking AgentsDemo.WebTool.fetch_webpage/1
+      # Note: This would require mocking Connectix.WebTool.fetch_webpage/1
       # For now, we just verify the tool structure
       assert is_function(tool.function, 2)
     end

@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.RealtimeSocketHeartbeatTest do
+defmodule ConnectixWeb.RealtimeSocketHeartbeatTest do
   @moduledoc """
   The socket pings its own client.
 
@@ -12,7 +12,7 @@ defmodule AgentsDemoWeb.RealtimeSocketHeartbeatTest do
 
   use ExUnit.Case, async: true
 
-  alias AgentsDemoWeb.RealtimeSocket
+  alias ConnectixWeb.RealtimeSocket
 
   test "the interval fits inside Chrome's service-worker idle timeout" do
     # MV3 terminates a background service worker idle for ~30s, and that — not

@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Drain do
+defmodule Connectix.Drain do
   @moduledoc """
   Holds shutdown open long enough for the load balancer to observe readiness
   going false and stop routing here.
@@ -18,7 +18,7 @@ defmodule AgentsDemo.Drain do
   ## Why it is listed last
 
   OTP stops children in reverse order, so last means `terminate/2` runs first,
-  while `AgentsDemoWeb.Endpoint` is still serving and can still answer
+  while `ConnectixWeb.Endpoint` is still serving and can still answer
   `/health/ready`. Any earlier position and the sleep happens behind a stopped
   listener, where nothing can observe the flag it just set.
 

@@ -1,8 +1,8 @@
-defmodule AgentsDemo.Realtime.InstructionTest do
+defmodule Connectix.Realtime.InstructionTest do
   use ExUnit.Case, async: true
 
-  alias AgentsDemo.Realtime.Instruction
-  alias AgentsDemo.Realtime.InstructionLoader
+  alias Connectix.Realtime.Instruction
+  alias Connectix.Realtime.InstructionLoader
 
   @environment_uuid "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
   @user_uuid "11111111-2222-3333-4444-555555555555"

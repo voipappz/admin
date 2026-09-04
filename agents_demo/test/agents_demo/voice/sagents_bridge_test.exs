@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Voice.SagentsBridgeTest do
+defmodule Connectix.Voice.SagentsBridgeTest do
   @moduledoc """
   The bridge is a `Feline.Processor`, which is a plain callback module — no
   pipeline is needed to drive it. Every test here calls a callback directly and
@@ -12,10 +12,10 @@ defmodule AgentsDemo.Voice.SagentsBridgeTest do
   use ExUnit.Case, async: true
   use Mimic
 
-  alias AgentsDemo.Voice.SagentsBridge
+  alias Connectix.Voice.SagentsBridge
 
   defmodule TestTurns do
-    def submit(_scope, _conversation_id, %AgentsDemo.Turns.Input{text: text}, _opts) do
+    def submit(_scope, _conversation_id, %Connectix.Turns.Input{text: text}, _opts) do
       send(self(), {:submitted, text})
       {:ok, :accepted}
     end

@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.Endpoint do
+defmodule ConnectixWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :agents_demo
 
   # The session will be stored in the cookie and signed,
@@ -20,7 +20,7 @@ defmodule AgentsDemoWeb.Endpoint do
   plug :realtime_events
 
   defp realtime_events(%Plug.Conn{request_path: "/ws/events"} = conn, _opts) do
-    AgentsDemoWeb.RealtimeSocket.upgrade(Plug.Conn.fetch_query_params(conn))
+    ConnectixWeb.RealtimeSocket.upgrade(Plug.Conn.fetch_query_params(conn))
   end
 
   defp realtime_events(conn, _opts), do: conn
@@ -43,7 +43,7 @@ defmodule AgentsDemoWeb.Endpoint do
     at: "/",
     from: :agents_demo,
     gzip: not code_reloading?,
-    only: AgentsDemoWeb.static_paths()
+    only: ConnectixWeb.static_paths()
 
   if Code.ensure_loaded?(Tidewave) do
     plug Tidewave
@@ -76,7 +76,7 @@ defmodule AgentsDemoWeb.Endpoint do
   # upstream answers with a puzzled 4xx rather than an error that names the
   # cause. Also before the router, which raises on an unmatched path instead of
   # falling through. Inert without ENGINE_URL.
-  plug AgentsDemoWeb.Plugs.EngineProxy
+  plug ConnectixWeb.Plugs.EngineProxy
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
@@ -88,11 +88,11 @@ defmodule AgentsDemoWeb.Endpoint do
   plug Plug.Session, @session_options
   # The Vite/React dashboard, served from this app. After the proxy and the
   # router so real routes win, and inert unless SPA_ROOT is set.
-  plug AgentsDemoWeb.Plugs.Spa
+  plug ConnectixWeb.Plugs.Spa
 
-  plug AgentsDemoWeb.Router
+  plug ConnectixWeb.Router
 
-  @whatsapp_webhook_opts Anu.Webhook.Plug.init(handler: AgentsDemo.Channels.WhatsApp.Handler)
+  @whatsapp_webhook_opts Anu.Webhook.Plug.init(handler: Connectix.Channels.WhatsApp.Handler)
 
   defp whatsapp_webhook(%Plug.Conn{path_info: ["webhooks", "whatsapp"]} = conn, _opts),
     do: Anu.Webhook.Plug.call(conn, @whatsapp_webhook_opts)

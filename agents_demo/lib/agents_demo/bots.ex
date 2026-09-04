@@ -1,8 +1,8 @@
-defmodule AgentsDemo.Bots do
+defmodule Connectix.Bots do
   @moduledoc """
   Bots and their versions: create, edit a draft, publish, pin — on Mnesia.
 
-  Every function takes an `AgentsDemo.Accounts.Scope` first and filters on it, so
+  Every function takes an `Connectix.Accounts.Scope` first and filters on it, so
   one owner's bots are invisible to another (`pinned_version/1` is the exception,
   running inside an already-scoped agent process).
 
@@ -15,10 +15,10 @@ defmodule AgentsDemo.Bots do
   immutability check lives in `BotVersion.apply_draft/2`.
   """
 
-  alias AgentsDemo.Accounts.Scope
-  alias AgentsDemo.Bots.{Bot, BotVersion, Store, Snapshot, Validator}
-  alias AgentsDemo.Conversations
-  alias AgentsDemo.Mnesia
+  alias Connectix.Accounts.Scope
+  alias Connectix.Bots.{Bot, BotVersion, Store, Snapshot, Validator}
+  alias Connectix.Conversations
+  alias Connectix.Mnesia
 
   @default_slug "default"
 
@@ -149,8 +149,8 @@ defmodule AgentsDemo.Bots do
     with {:ok, bot} <- get_bot(scope, bot_id),
          %BotVersion{} = version <- draft_or_current(bot) || {:error, :no_draft} do
       compiled =
-        case AgentsDemo.Bots.Compiler.compile(version) do
-          {:ok, spec} -> AgentsDemo.Bots.CompiledSpec.redacted(spec)
+        case Connectix.Bots.Compiler.compile(version) do
+          {:ok, spec} -> Connectix.Bots.CompiledSpec.redacted(spec)
           {:error, _} -> nil
         end
 

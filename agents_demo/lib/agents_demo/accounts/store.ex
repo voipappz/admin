@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Accounts.Store do
+defmodule Connectix.Accounts.Store do
   @moduledoc """
   Users and their tokens, in Mnesia.
 
@@ -9,7 +9,7 @@ defmodule AgentsDemo.Accounts.Store do
   ## Distribution
 
   Tables are `disc_copies` on the local node and **replicated to every other
-  connected node** at boot (`AgentsDemo.Mnesia.replicate/1`), so a cluster of
+  connected node** at boot (`Connectix.Mnesia.replicate/1`), so a cluster of
   BEAM nodes shares one consistent user set with no external database. On a
   single node it is simply local disc storage.
 
@@ -23,8 +23,8 @@ defmodule AgentsDemo.Accounts.Store do
 
   use GenServer
 
-  alias AgentsDemo.Accounts.{User, UserToken}
-  alias AgentsDemo.Mnesia
+  alias Connectix.Accounts.{User, UserToken}
+  alias Connectix.Mnesia
 
   @users :users
   @user_fields [

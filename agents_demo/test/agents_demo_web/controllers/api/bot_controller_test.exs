@@ -1,7 +1,7 @@
-defmodule AgentsDemoWeb.Api.BotControllerTest do
-  use AgentsDemoWeb.ConnCase, async: false
+defmodule ConnectixWeb.Api.BotControllerTest do
+  use ConnectixWeb.ConnCase, async: false
 
-  import AgentsDemo.BotsFixtures
+  import Connectix.BotsFixtures
 
   setup :api_conn
 
@@ -130,7 +130,7 @@ defmodule AgentsDemoWeb.Api.BotControllerTest do
   end
 
   test "another owner's bot is 404", %{conn: conn} do
-    other = AgentsDemo.AccountsFixtures.user_scope_fixture()
+    other = Connectix.AccountsFixtures.user_scope_fixture()
     bot = published_bot_fixture(other)
     assert json_response(get(conn, ~p"/api/bots/#{bot.id}"), 404)
     assert json_response(post(conn, ~p"/api/bots/#{bot.id}/publish"), 404)

@@ -1,14 +1,14 @@
-defmodule AgentsDemo.Accounts do
+defmodule Connectix.Accounts do
   @moduledoc """
   The Accounts context — users, sessions, and email tokens, on Mnesia.
 
-  No Ecto, no Postgres: persistence is `AgentsDemo.Accounts.Store`, validation is
-  `AgentsDemo.Accounts.User`. Functions return `{:ok, %User{}}` or
+  No Ecto, no Postgres: persistence is `Connectix.Accounts.Store`, validation is
+  `Connectix.Accounts.User`. Functions return `{:ok, %User{}}` or
   `{:error, %{field => [messages]}}`.
   """
 
-  alias AgentsDemo.Accounts.{Store, User, UserToken, UserNotifier, Scope}
-  alias AgentsDemo.Mnesia
+  alias Connectix.Accounts.{Store, User, UserToken, UserNotifier, Scope}
+  alias Connectix.Mnesia
 
   ## Getters
 
@@ -30,14 +30,14 @@ defmodule AgentsDemo.Accounts do
 
   @doc """
   Register a user and their default bot in one Mnesia transaction, so no account
-  ever exists without a bot to pin (`AgentsDemo.Bots.ensure_default_bot/1`).
+  ever exists without a bot to pin (`Connectix.Bots.ensure_default_bot/1`).
   """
   def register_user(attrs) do
     with {:ok, user} <- User.validate_email(%User{}, attrs) do
       Mnesia.transaction(fn ->
         stored = Store.insert_user(user)
 
-        case AgentsDemo.Bots.ensure_default_bot(Scope.for_user(stored)) do
+        case Connectix.Bots.ensure_default_bot(Scope.for_user(stored)) do
           {:ok, _bot} -> stored
           {:error, reason} -> :mnesia.abort(reason)
         end

@@ -1,13 +1,13 @@
-defmodule AgentsDemo.Channels.WhatsApp.HandlerTest do
-  use AgentsDemo.DataCase, async: false
+defmodule Connectix.Channels.WhatsApp.HandlerTest do
+  use Connectix.DataCase, async: false
   use Mimic
 
-  import AgentsDemo.AccountsFixtures
-  import AgentsDemo.BotsFixtures
+  import Connectix.AccountsFixtures
+  import Connectix.BotsFixtures
 
-  alias AgentsDemo.Agents.Coordinator
-  alias AgentsDemo.Channels.WhatsApp.Handler
-  alias AgentsDemo.Conversations
+  alias Connectix.Agents.Coordinator
+  alias Connectix.Channels.WhatsApp.Handler
+  alias Connectix.Conversations
   alias Sagents.AgentServer
 
   setup :set_mimic_global
@@ -28,7 +28,7 @@ defmodule AgentsDemo.Channels.WhatsApp.HandlerTest do
     System.put_env("WHATSAPP_OWNER_EMAIL", user.email)
     on_exit(fn -> System.delete_env("WHATSAPP_OWNER_EMAIL") end)
 
-    %{user: user, scope: AgentsDemo.Accounts.Scope.for_user(user)}
+    %{user: user, scope: Connectix.Accounts.Scope.for_user(user)}
   end
 
   defp inbound(attrs), do: struct(%Anu.Event.Message{from: "972501234567"}, attrs)
@@ -141,10 +141,10 @@ defmodule AgentsDemo.Channels.WhatsApp.HandlerTest do
   end
 
   defp whatsapp_conversations do
-    AgentsDemo.Accounts.Store.list_users()
+    Connectix.Accounts.Store.list_users()
     |> Enum.flat_map(fn user ->
       user
-      |> AgentsDemo.Accounts.Scope.for_user()
+      |> Connectix.Accounts.Scope.for_user()
       |> Conversations.list_conversations(limit: 10_000)
     end)
     |> Enum.filter(&(&1.source == "whatsapp"))

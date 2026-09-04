@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Middleware.WebToolMiddleware do
+defmodule Connectix.Middleware.WebToolMiddleware do
   @moduledoc """
   Middleware that provides web lookup capabilities to agents.
 
@@ -11,7 +11,7 @@ defmodule AgentsDemo.Middleware.WebToolMiddleware do
 
       {:ok, agent} = Agent.new(%{
         model: model,
-        middleware: [AgentsDemo.Middleware.WebToolMiddleware]
+        middleware: [Connectix.Middleware.WebToolMiddleware]
       })
 
   The agent will automatically have access to the `web_lookup` tool.
@@ -338,7 +338,7 @@ defmodule AgentsDemo.Middleware.WebToolMiddleware do
   @doc false
   def search_web_tool do
     # This tool will be provided to the sub-agent
-    # It wraps AgentsDemo.WebTool.fetch_search_results/1
+    # It wraps Connectix.WebTool.fetch_search_results/1
     Function.new!(%{
       name: "search_web",
       description: "Search DuckDuckGo and return structured results with links",
@@ -358,7 +358,7 @@ defmodule AgentsDemo.Middleware.WebToolMiddleware do
 
         # fetch_search_results always returns {:ok, results}
         # The status field inside results indicates success/error
-        {:ok, results} = AgentsDemo.WebTool.fetch_search_results(query)
+        {:ok, results} = Connectix.WebTool.fetch_search_results(query)
         {:ok, Jason.encode!(results)}
       end
     })
@@ -367,7 +367,7 @@ defmodule AgentsDemo.Middleware.WebToolMiddleware do
   @doc false
   def fetch_page_tool do
     # This tool will be provided to the sub-agent
-    # It wraps AgentsDemo.WebTool.fetch_webpage/1
+    # It wraps Connectix.WebTool.fetch_webpage/1
     Function.new!(%{
       name: "fetch_page",
       description: "Fetch a webpage and return its content as markdown",
@@ -385,7 +385,7 @@ defmodule AgentsDemo.Middleware.WebToolMiddleware do
       function: fn args, _context ->
         url = get_arg(args, "url")
 
-        case AgentsDemo.WebTool.fetch_webpage(url) do
+        case Connectix.WebTool.fetch_webpage(url) do
           {:ok, markdown} ->
             {:ok, markdown}
 

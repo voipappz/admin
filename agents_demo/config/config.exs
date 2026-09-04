@@ -13,25 +13,25 @@ config :elixir, :time_zone_database, Tzdata.TimeZoneDatabase
 config :agents_demo, :scopes,
   user: [
     default: true,
-    module: AgentsDemo.Accounts.Scope,
+    module: Connectix.Accounts.Scope,
     assign_key: :current_scope,
     access_path: [:user, :id],
     schema_key: :user_id,
     schema_type: :id,
     schema_table: :users,
-    test_data_fixture: AgentsDemo.AccountsFixtures,
+    test_data_fixture: Connectix.AccountsFixtures,
     test_setup_helper: :register_and_log_in_user
   ]
 
 # Configures the endpoint
-config :agents_demo, AgentsDemoWeb.Endpoint,
+config :agents_demo, ConnectixWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: AgentsDemoWeb.ErrorHTML, json: AgentsDemoWeb.ErrorJSON],
+    formats: [html: ConnectixWeb.ErrorHTML, json: ConnectixWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: AgentsDemo.PubSub,
+  pubsub_server: Connectix.PubSub,
   live_view: [signing_salt: "c/6Ru4XK"]
 
 # Markdown syntax highlighting
@@ -44,13 +44,13 @@ config :mdex_native, syntax_highlighter: :lumis
 #
 # For production it's recommended to configure a different adapter
 # at the `config/runtime.exs`.
-config :agents_demo, AgentsDemo.Mailer, adapter: Swoosh.Adapters.Local
+config :agents_demo, Connectix.Mailer, adapter: Swoosh.Adapters.Local
 
 # Channels that can deliver agent replies outside the app. Each module
-# implements `AgentsDemo.Channels.Channel` and claims one conversation
+# implements `Connectix.Channels.Channel` and claims one conversation
 # `source`. Adding a channel is this line plus the module — see
-# `AgentsDemo.Channels`.
-config :agents_demo, :channels, [AgentsDemo.Channels.WhatsApp]
+# `Connectix.Channels`.
+config :agents_demo, :channels, [Connectix.Channels.WhatsApp]
 
 # Configure esbuild (the version is required)
 config :esbuild,

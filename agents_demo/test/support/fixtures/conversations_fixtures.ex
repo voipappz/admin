@@ -1,14 +1,14 @@
-defmodule AgentsDemo.ConversationsFixtures do
+defmodule Connectix.ConversationsFixtures do
   @moduledoc """
   This module defines test helpers for creating
-  entities via the `AgentsDemo.Conversations` context.
+  entities via the `Connectix.Conversations` context.
 
   All fixtures take `scope` as their first argument — matching the
-  scope-first contract enforced by `AgentsDemo.Conversations`.
+  scope-first contract enforced by `Connectix.Conversations`.
   """
 
-  alias AgentsDemo.Conversations
-  alias AgentsDemo.AccountsFixtures
+  alias Connectix.Conversations
+  alias Connectix.AccountsFixtures
 
   @doc """
   Generate a conversation with a user scope.

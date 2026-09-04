@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.Portal.WidgetController do
+defmodule ConnectixWeb.Portal.WidgetController do
   @moduledoc """
   `/dashboard/widgets` — widget definitions on a board.
 
@@ -7,11 +7,11 @@ defmodule AgentsDemoWeb.Portal.WidgetController do
   `PATCH`. It defaults to `default`, the seeded board.
   """
 
-  use AgentsDemoWeb, :controller
+  use ConnectixWeb, :controller
 
-  alias AgentsDemo.Dashboards
+  alias Connectix.Dashboards
 
-  action_fallback AgentsDemoWeb.Portal.FallbackController
+  action_fallback ConnectixWeb.Portal.FallbackController
 
   def index(conn, params) do
     widgets =

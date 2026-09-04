@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.RealtimeSocket do
+defmodule ConnectixWeb.RealtimeSocket do
   @moduledoc """
   `/ws/events` — the browser's realtime feed.
 
@@ -21,7 +21,7 @@ defmodule AgentsDemoWeb.RealtimeSocket do
 
   require Logger
 
-  alias AgentsDemo.Realtime.TokenAuth
+  alias Connectix.Realtime.TokenAuth
 
   # HOW OFTEN THIS SOCKET PINGS ITS CLIENT, and why it must.
   #
@@ -52,23 +52,23 @@ defmodule AgentsDemoWeb.RealtimeSocket do
     # connection with wildcard subscriptions, fanned out here — no per-user and
     # certainly no per-tab upstream connection.
     if claims.user_uuid do
-      Phoenix.PubSub.subscribe(AgentsDemo.PubSub, "realtime:user:#{claims.user_uuid}")
+      Phoenix.PubSub.subscribe(Connectix.PubSub, "realtime:user:#{claims.user_uuid}")
     end
 
     if claims.account_uuid do
-      Phoenix.PubSub.subscribe(AgentsDemo.PubSub, "realtime:account:#{claims.account_uuid}")
+      Phoenix.PubSub.subscribe(Connectix.PubSub, "realtime:account:#{claims.account_uuid}")
     end
 
     # Registry membership is tied to this WebSocket process and disappears
     # automatically when it exits. ScreenPop uses it as the no-queue presence
     # check before broadcasting a browser command.
-    AgentsDemo.Realtime.ScreenPop.load_environment(claims.environment_uuid)
+    Connectix.Realtime.ScreenPop.load_environment(claims.environment_uuid)
     register_session(claims.user_uuid, claims.environment_uuid)
 
     # Hold this user's cable connection for as long as a browser of theirs is
     # here. The uuid and token come from the verified claims, never from the
     # client — which is the whole reason this is opened here and not there.
-    AgentsDemoWeb.RealtimeSocket.ensure_cable(claims)
+    ConnectixWeb.RealtimeSocket.ensure_cable(claims)
 
     state = %{claims: claims, topics: MapSet.new(topics)}
 
@@ -157,7 +157,7 @@ defmodule AgentsDemoWeb.RealtimeSocket do
   @doc false
   def ensure_cable(%{user_uuid: user_uuid, token: token} = claims)
       when is_binary(user_uuid) and is_binary(token) do
-    if AgentsDemo.Realtime.CableClient.enabled?() do
+    if Connectix.Realtime.CableClient.enabled?() do
       # What cable is given is minted here from the identity NATS already
       # verified — not the browser's own token passed along unread. Without a
       # configured secret this returns that token unchanged, so an
@@ -166,7 +166,7 @@ defmodule AgentsDemoWeb.RealtimeSocket do
       # by `powerlink_token`, not by user uuid, and that is also the key of the
       # state stream the node publishes to — so it must be known before the
       # cable client subscribes, which is why it is resolved here and not later.
-      agent_ids = AgentsDemo.Realtime.AgentIdentity.resolve(user_uuid, token)
+      agent_ids = Connectix.Realtime.AgentIdentity.resolve(user_uuid, token)
 
       # Registered so a NODE-WIDE CallEvents frame can be attributed. Such a
       # frame names an agent and no environment, and until it could be traced
@@ -180,13 +180,13 @@ defmodule AgentsDemoWeb.RealtimeSocket do
       register_agent_ids(user_uuid, agent_ids)
 
       spec =
-        {AgentsDemo.Realtime.CableClient,
+        {Connectix.Realtime.CableClient,
          user_uuid: user_uuid,
          environment_uuid: claims.environment_uuid,
-         token: AgentsDemo.Realtime.CableToken.for(claims),
+         token: Connectix.Realtime.CableToken.for(claims),
          agent_ids: agent_ids}
 
-      case DynamicSupervisor.start_child(AgentsDemo.Realtime.CableSupervisor, spec) do
+      case DynamicSupervisor.start_child(Connectix.Realtime.CableSupervisor, spec) do
         {:ok, _pid} ->
           :ok
 
@@ -210,7 +210,7 @@ defmodule AgentsDemoWeb.RealtimeSocket do
              environment_uuid != "" do
     Logger.info("session: registered #{user_uuid} in environment #{environment_uuid}")
 
-    case Registry.register(AgentsDemo.Realtime.SessionRegistry, user_uuid, environment_uuid) do
+    case Registry.register(Connectix.Realtime.SessionRegistry, user_uuid, environment_uuid) do
       {:ok, _} -> :ok
       {:error, {:already_registered, _pid}} -> :ok
     end
@@ -234,7 +234,7 @@ defmodule AgentsDemoWeb.RealtimeSocket do
       when is_binary(user_uuid) and user_uuid != "" do
     Logger.info("session: registered #{user_uuid} with no environment (token carries none)")
 
-    case Registry.register(AgentsDemo.Realtime.SessionRegistry, user_uuid, nil) do
+    case Registry.register(Connectix.Realtime.SessionRegistry, user_uuid, nil) do
       {:ok, _} -> :ok
       {:error, {:already_registered, _pid}} -> :ok
     end
@@ -264,7 +264,7 @@ defmodule AgentsDemoWeb.RealtimeSocket do
       |> Enum.uniq()
       |> Enum.filter(fn agent_id ->
         case Registry.register(
-               AgentsDemo.Realtime.SessionRegistry,
+               Connectix.Realtime.SessionRegistry,
                {:agent, agent_id},
                {user_uuid, agent_ids}
              ) do

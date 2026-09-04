@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Integrations.Fireberry do
+defmodule Connectix.Integrations.Fireberry do
   @moduledoc """
   The customer CRM, read-only: find an account by its business line.
 
@@ -13,7 +13,7 @@ defmodule AgentsDemo.Integrations.Fireberry do
   Tests point `config :agents_demo, :fireberry_req_options` at `Req.Test`.
   """
 
-  alias AgentsDemo.Config
+  alias Connectix.Config
 
   @url "https://api.fireberry.com/api/query/"
   @fields "telephone1,pcfsystemfield179,pcfsystemfield166"

@@ -1,8 +1,8 @@
-defmodule AgentsDemo.WebToolTest do
+defmodule Connectix.WebToolTest do
   use ExUnit.Case, async: true
-  doctest AgentsDemo.WebTool
+  doctest Connectix.WebTool
 
-  alias AgentsDemo.WebTool
+  alias Connectix.WebTool
 
   describe "fetch_webpage/1" do
     @tag :web_tool

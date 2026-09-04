@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.ApiProxyTest do
+defmodule Connectix.Realtime.ApiProxyTest do
   @moduledoc """
   The `verify` reply contract with the node, pinned without a socket.
 
@@ -12,7 +12,7 @@ defmodule AgentsDemo.Realtime.ApiProxyTest do
   # call time, and setting a variable is process-global.
   use ExUnit.Case, async: false
 
-  alias AgentsDemo.Realtime.ApiProxy
+  alias Connectix.Realtime.ApiProxy
 
   @api_identifier Jason.encode!(%{channel: "ApiProxy"})
   @call_events_identifier Jason.encode!(%{channel: "CallEvents"})

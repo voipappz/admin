@@ -1,17 +1,17 @@
-defmodule AgentsDemo.Bots.CompiledSpec do
+defmodule Connectix.Bots.CompiledSpec do
   @moduledoc """
   A bot version, resolved: every catalog reference turned into code, every
   setting typed, the prompt assembled, the policy flattened into what the
-  runtime enforces. Produced by `AgentsDemo.Bots.Compiler`, consumed by
-  `AgentsDemo.Agents.Factory`, shown (redacted) by the API's preflight and
+  runtime enforces. Produced by `Connectix.Bots.Compiler`, consumed by
+  `Connectix.Agents.Factory`, shown (redacted) by the API's preflight and
   the Studio's compiled-prompt preview.
 
   Nothing here is looked up again at run time: the Factory reads this struct
   and the request, and that is all.
   """
 
-  alias AgentsDemo.Bots.Version
-  alias AgentsDemo.Skills.Capability
+  alias Connectix.Bots.Version
+  alias Connectix.Skills.Capability
 
   @enforce_keys [:bot_version_id, :prompt]
   defstruct bot_version_id: nil,

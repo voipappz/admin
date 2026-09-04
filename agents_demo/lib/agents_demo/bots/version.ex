@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Bots.Version do
+defmodule Connectix.Bots.Version do
   @moduledoc """
   Shared helpers for the version-config area structs (`Version.Behavior`,
   `Version.Model`, …).

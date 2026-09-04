@@ -1,12 +1,12 @@
-defmodule AgentsDemo.Skills.MemoryFiles do
+defmodule Connectix.Skills.MemoryFiles do
   @moduledoc """
   A per-owner file store the bot can read and write — persistent memory
   across conversations. Wraps `Sagents.Middleware.FileSystem`.
   """
 
-  @behaviour AgentsDemo.Skills.Skill
+  @behaviour Connectix.Skills.Skill
 
-  alias AgentsDemo.Skills.Context
+  alias Connectix.Skills.Context
 
   defmodule Settings do
     @moduledoc false
@@ -21,7 +21,7 @@ defmodule AgentsDemo.Skills.MemoryFiles do
     @doc "Build from attrs, returning `{:ok, struct}` or `{:error, %{field => [msg]}}`."
     def new(attrs \\ %{}) do
       %{enabled_tools: tools} =
-        AgentsDemo.Bots.Version.take(attrs, %__MODULE__{}, [:enabled_tools])
+        Connectix.Bots.Version.take(attrs, %__MODULE__{}, [:enabled_tools])
 
       errors =
         cond do
@@ -31,7 +31,7 @@ defmodule AgentsDemo.Skills.MemoryFiles do
           true -> %{}
         end
 
-      AgentsDemo.Bots.Version.done(errors, %__MODULE__{enabled_tools: tools})
+      Connectix.Bots.Version.done(errors, %__MODULE__{enabled_tools: tools})
     end
   end
 

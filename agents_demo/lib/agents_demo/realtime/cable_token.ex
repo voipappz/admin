@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.CableToken do
+defmodule Connectix.Realtime.CableToken do
   @moduledoc """
   Mints the credential this app presents to cable.
 

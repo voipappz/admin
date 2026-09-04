@@ -1,11 +1,11 @@
-defmodule AgentsDemo.Logging.Influx do
+defmodule Connectix.Logging.Influx do
   @moduledoc """
   Ships this portal's log lines to InfluxDB 3, the way va-crystal's node ships
   its metrics (`node/influx/writer.cr`): same environment variables, same
   `/api/v3/write_lp` endpoint with a Bearer token, same best-effort contract.
 
   This is an Erlang `:logger` handler (`:logger.add_handler/3`), installed by
-  `AgentsDemo.Logging.Influx.Writer` at boot and ONLY when `VA_MONITOR_TOKEN`
+  `Connectix.Logging.Influx.Writer` at boot and ONLY when `VA_MONITOR_TOKEN`
   is set — the node's `Influx.configured?` gate. Unset, nothing here runs:
   `children/0` is empty and no handler exists, so a deployment that has never
   heard of InfluxDB boots exactly as it did before this module existed.
@@ -34,8 +34,8 @@ defmodule AgentsDemo.Logging.Influx do
   request at a time.
   """
 
-  alias AgentsDemo.Config
-  alias AgentsDemo.Logging.Influx.Writer
+  alias Connectix.Config
+  alias Connectix.Logging.Influx.Writer
 
   require Logger
 

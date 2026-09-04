@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.CableClient do
+defmodule Connectix.Realtime.CableClient do
   @moduledoc """
   ActionCable client — one connection per user, held SERVER-SIDE.
 
@@ -31,9 +31,9 @@ defmodule AgentsDemo.Realtime.CableClient do
 
   require Logger
 
-  alias AgentsDemo.Realtime.ScreenPop
-  alias AgentsDemo.Realtime.StateView
-  alias AgentsDemo.Realtime.TokenAuth
+  alias Connectix.Realtime.ScreenPop
+  alias Connectix.Realtime.StateView
+  alias Connectix.Realtime.TokenAuth
 
   @subprotocol "actioncable-v1-json"
   # Cable pings on its own schedule; this only bounds a dead socket.
@@ -69,11 +69,11 @@ defmodule AgentsDemo.Realtime.CableClient do
     GenServer.start_link(__MODULE__, opts, name: via(user_uuid))
   end
 
-  def via(user_uuid), do: {:via, Registry, {AgentsDemo.Realtime.CableRegistry, user_uuid}}
+  def via(user_uuid), do: {:via, Registry, {Connectix.Realtime.CableRegistry, user_uuid}}
 
   @doc "Whether this user's cable subscriptions are confirmed (i.e. registered)."
   def registered?(user_uuid) do
-    case Registry.lookup(AgentsDemo.Realtime.CableRegistry, user_uuid) do
+    case Registry.lookup(Connectix.Realtime.CableRegistry, user_uuid) do
       [{pid, _}] -> GenServer.call(pid, :registered?, 5_000)
       [] -> false
     end
@@ -305,7 +305,7 @@ defmodule AgentsDemo.Realtime.CableClient do
   def fanout(state, identifier, message) do
     # Everything this user's streams deliver, stored before it is interpreted —
     # so what arrived is answerable later without re-reading a log.
-    AgentsDemo.Events.record(stream_name(identifier), message)
+    Connectix.Events.record(stream_name(identifier), message)
 
     # Feed the evaluator, never decide here. This module relays what a client
     # sees; `ScreenPop` is the only thing allowed to turn an event into a
@@ -352,7 +352,7 @@ defmodule AgentsDemo.Realtime.CableClient do
   defp broadcast(user_uuid, frame),
     do:
       Phoenix.PubSub.broadcast(
-        AgentsDemo.PubSub,
+        Connectix.PubSub,
         "realtime:user:#{user_uuid}",
         {:realtime, frame}
       )

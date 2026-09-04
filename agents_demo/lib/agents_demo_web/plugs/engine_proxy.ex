@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.Plugs.EngineProxy do
+defmodule ConnectixWeb.Plugs.EngineProxy do
   @moduledoc """
   Forwards the mothership's own routes — `/auth`, `/api/`, `/tasks/` — upstream,
   so this app is a complete origin on its own.
@@ -22,7 +22,7 @@ defmodule AgentsDemoWeb.Plugs.EngineProxy do
 
   require Logger
 
-  alias AgentsDemo.Realtime.ApiProxy
+  alias Connectix.Realtime.ApiProxy
 
   # The three prefixes the mothership owns. `/tasks/` is easy to miss and the
   # SPA calls it on every login (`/tasks/customer_portal_data`); left out, it
@@ -47,7 +47,7 @@ defmodule AgentsDemoWeb.Plugs.EngineProxy do
   #
   # `/api/events` is here as a prefix rather than in `@portal_owned` above
   # because there is nothing upstream it could ever collide with: these are the
-  # frames THIS portal saw off the cable (`AgentsDemo.Events`), and no
+  # frames THIS portal saw off the cable (`Connectix.Events`), and no
   # mothership has them. Without the carve-out every one of its four routes was
   # relayed and answered 401.
   @own_prefixes [

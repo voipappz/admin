@@ -1,7 +1,7 @@
-defmodule AgentsDemo.Middleware.InjectCurrentTimeTest do
+defmodule Connectix.Middleware.InjectCurrentTimeTest do
   use ExUnit.Case, async: true
 
-  alias AgentsDemo.Middleware.InjectCurrentTime
+  alias Connectix.Middleware.InjectCurrentTime
   alias Sagents.State
 
   describe "init/1" do

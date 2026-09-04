@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.PopRule do
+defmodule Connectix.Realtime.PopRule do
   @moduledoc """
   The screen-pop rule, loaded from `priv/pocketflow/screen_pop.yaml`.
 

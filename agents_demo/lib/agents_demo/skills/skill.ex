@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Skills.Skill do
+defmodule Connectix.Skills.Skill do
   @moduledoc """
   A Skill: a curated, reusable behaviour bundle a bot version can select.
 
@@ -7,15 +7,15 @@ defmodule AgentsDemo.Skills.Skill do
   it), the capabilities it exposes to the model, the instructions
   it contributes to the prompt, and the Sagents middleware it needs at run
   time. A bot version stores only `{id, version, settings}`; the registry in
-  `AgentsDemo.Skills` maps the id to the module.
+  `Connectix.Skills` maps the id to the module.
 
-  `middleware/2` receives a `AgentsDemo.Skills.Context` because middleware
+  `middleware/2` receives a `Connectix.Skills.Context` because middleware
   needs run-time facts the compiler must not know — the agent id, the built
   model, the owner's filesystem — while everything else here is pure.
   """
 
-  alias AgentsDemo.Skills.Capability
-  alias AgentsDemo.Skills.Context
+  alias Connectix.Skills.Capability
+  alias Connectix.Skills.Context
 
   @callback id() :: String.t()
   @callback version() :: String.t()

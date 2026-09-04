@@ -1,10 +1,10 @@
-defmodule AgentsDemo.Agents.FactoryConfigTest do
+defmodule Connectix.Agents.FactoryConfigTest do
   use ExUnit.Case, async: true
 
-  alias AgentsDemo.Agents.FactoryConfig
-  alias AgentsDemo.Bots.CompiledSpec
+  alias Connectix.Agents.FactoryConfig
+  alias Connectix.Bots.CompiledSpec
 
-  @scope %AgentsDemo.Accounts.Scope{user: %AgentsDemo.Accounts.User{id: 1}}
+  @scope %Connectix.Accounts.Scope{user: %Connectix.Accounts.User{id: 1}}
   @compiled %CompiledSpec{
     bot_version_id: "v1",
     prompt: "Hello",

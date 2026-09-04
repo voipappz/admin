@@ -1,14 +1,14 @@
-defmodule AgentsDemo.Bots.CompilerTest do
-  use AgentsDemo.DataCase, async: false
+defmodule Connectix.Bots.CompilerTest do
+  use Connectix.DataCase, async: false
 
-  import AgentsDemo.AccountsFixtures
-  import AgentsDemo.BotsFixtures
+  import Connectix.AccountsFixtures
+  import Connectix.BotsFixtures
 
-  alias AgentsDemo.Bots
-  alias AgentsDemo.Bots.BotVersion
-  alias AgentsDemo.Bots.CompiledSpec
-  alias AgentsDemo.Bots.Compiler
-  alias AgentsDemo.Bots.Validator.Report
+  alias Connectix.Bots
+  alias Connectix.Bots.BotVersion
+  alias Connectix.Bots.CompiledSpec
+  alias Connectix.Bots.Compiler
+  alias Connectix.Bots.Validator.Report
 
   setup do
     %{scope: user_scope_fixture()}
@@ -32,7 +32,7 @@ defmodule AgentsDemo.Bots.CompilerTest do
     assert {:ok, %CompiledSpec{} = spec} = Compiler.compile(v)
     assert spec.prompt == "Be brief."
     assert Enum.map(spec.skills, & &1.id) == ["web_lookup", "todo"]
-    assert %AgentsDemo.Skills.WebLookup.Settings{timeout_ms: 120_000} = hd(spec.skills).settings
+    assert %Connectix.Skills.WebLookup.Settings{timeout_ms: 120_000} = hd(spec.skills).settings
     assert spec.capabilities == []
     assert spec.interrupt_on == %{}
     assert spec.limits.max_runs == 10
@@ -62,13 +62,13 @@ defmodule AgentsDemo.Bots.CompilerTest do
     broken = %{
       v
       | skills: [
-          %AgentsDemo.Bots.BotVersionSkill{
+          %Connectix.Bots.BotVersionSkill{
             skill_id: "web_lookup",
             skill_version: "1.0.0",
             settings: %{"timeout_ms" => 1},
             position: 0
           },
-          %AgentsDemo.Bots.BotVersionSkill{
+          %Connectix.Bots.BotVersionSkill{
             skill_id: "ghost",
             skill_version: "1.0.0",
             settings: %{},
@@ -102,10 +102,10 @@ defmodule AgentsDemo.Bots.CompilerTest do
     bot = published_bot_fixture(scope)
     version = bot.current_version
 
-    assert {:ok, spec} = AgentsDemo.Bots.Runtime.spec_for(version)
+    assert {:ok, spec} = Connectix.Bots.Runtime.spec_for(version)
     assert spec.fingerprint == version.fingerprint
-    assert {:ok, ^spec} = AgentsDemo.Bots.Runtime.spec_for(version)
-    AgentsDemo.Bots.Runtime.forget(version)
+    assert {:ok, ^spec} = Connectix.Bots.Runtime.spec_for(version)
+    Connectix.Bots.Runtime.forget(version)
   end
 
   test "redacted/1 has no modules, only ids and plain data", %{scope: scope} do

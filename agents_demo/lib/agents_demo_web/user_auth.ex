@@ -1,12 +1,12 @@
-defmodule AgentsDemoWeb.UserAuth do
+defmodule ConnectixWeb.UserAuth do
   @moduledoc false
-  use AgentsDemoWeb, :verified_routes
+  use ConnectixWeb, :verified_routes
 
   import Plug.Conn
   import Phoenix.Controller
 
-  alias AgentsDemo.Accounts
-  alias AgentsDemo.Accounts.Scope
+  alias Connectix.Accounts
+  alias Connectix.Accounts.Scope
 
   # Make the remember me cookie valid for 14 days. This should match
   # the session validity setting in UserToken.
@@ -142,7 +142,7 @@ defmodule AgentsDemoWeb.UserAuth do
   """
   def disconnect_sessions(tokens) do
     Enum.each(tokens, fn %{token: token} ->
-      AgentsDemoWeb.Endpoint.broadcast(user_session_topic(token), "disconnect", %{})
+      ConnectixWeb.Endpoint.broadcast(user_session_topic(token), "disconnect", %{})
     end)
   end
 

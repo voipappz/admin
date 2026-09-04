@@ -1,16 +1,16 @@
-defmodule AgentsDemo.Conversations do
+defmodule Connectix.Conversations do
   @moduledoc """
   Conversations, their display messages, and their agent state — on Mnesia.
 
-  Every function takes an `AgentsDemo.Accounts.Scope` and filters on its owner.
-  Persistence is `AgentsDemo.Conversations.Store`; no Ecto, no Postgres. The
+  Every function takes an `Connectix.Accounts.Scope` and filters on its owner.
+  Persistence is `Connectix.Conversations.Store`; no Ecto, no Postgres. The
   tool-call lifecycle, agent-state upsert, and message ordering are all plain
   Elixir over Mnesia rows.
   """
 
-  alias AgentsDemo.Conversations.{Store, Conversation, DisplayMessage, AgentState, FlowState}
-  alias AgentsDemo.Accounts.Scope
-  alias AgentsDemo.Mnesia
+  alias Connectix.Conversations.{Store, Conversation, DisplayMessage, AgentState, FlowState}
+  alias Connectix.Accounts.Scope
+  alias Connectix.Mnesia
   alias Sagents.Todo
 
   ## Bot-lifecycle helpers
@@ -35,7 +35,7 @@ defmodule AgentsDemo.Conversations do
 
   def create_conversation(%Scope{} = scope, attrs) do
     Mnesia.transaction(fn ->
-      with {:ok, pin} <- AgentsDemo.Bots.resolve_pin(scope, attrs),
+      with {:ok, pin} <- Connectix.Bots.resolve_pin(scope, attrs),
            {:ok, conv} <- Conversation.validate_new(owner_id(scope), attrs, pin) do
         Store.put(conv)
       else
@@ -47,7 +47,7 @@ defmodule AgentsDemo.Conversations do
   @doc "A conversation with its bot and pinned version (skills included) attached."
   def get_conversation_with_version(%Scope{} = scope, id) do
     with {:ok, conv} <- get_conversation(scope, id) do
-      {:ok, %{conv | bot: AgentsDemo.Bots.Store.get_bot(conv.bot_id), bot_version: AgentsDemo.Bots.Store.get_version(conv.bot_version_id)}}
+      {:ok, %{conv | bot: Connectix.Bots.Store.get_bot(conv.bot_id), bot_version: Connectix.Bots.Store.get_version(conv.bot_version_id)}}
     end
   end
 
@@ -104,14 +104,14 @@ defmodule AgentsDemo.Conversations do
 
     with {:ok, message} <- append_display_message(scope, conversation_id, attrs),
          {:ok, conv} <- get_conversation(scope, conversation_id) do
-      AgentsDemo.Channels.deliver(message, conv)
+      Connectix.Channels.deliver(message, conv)
       broadcast(conversation_id, {:display_message_saved, message})
       {:ok, message}
     end
   end
 
   defp broadcast(conversation_id, event),
-    do: Phoenix.PubSub.broadcast(AgentsDemo.PubSub, topic(conversation_id), {:conversation, event})
+    do: Phoenix.PubSub.broadcast(Connectix.PubSub, topic(conversation_id), {:conversation, event})
 
   def get_conversation!(%Scope{} = scope, id) do
     case get_conversation(scope, id) do

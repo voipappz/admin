@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.Portal.DashboardTest do
+defmodule ConnectixWeb.Portal.DashboardTest do
   @moduledoc """
   The dashboard builder's storage, ported here from the retired Deno BFF.
 
@@ -7,11 +7,11 @@ defmodule AgentsDemoWeb.Portal.DashboardTest do
   the browser already sends and parses.
   """
 
-  use AgentsDemoWeb.ConnCase, async: false
+  use ConnectixWeb.ConnCase, async: false
   use Mimic
 
-  alias AgentsDemo.Dashboards
-  alias AgentsDemo.Realtime.TokenAuth
+  alias Connectix.Dashboards
+  alias Connectix.Realtime.TokenAuth
 
   setup %{conn: conn} do
     claims = %TokenAuth{

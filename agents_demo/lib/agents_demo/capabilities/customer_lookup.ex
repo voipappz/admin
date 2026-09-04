@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Capabilities.CustomerLookup do
+defmodule Connectix.Capabilities.CustomerLookup do
   @moduledoc """
   Find the customer account behind a business line number.
 
@@ -9,17 +9,17 @@ defmodule AgentsDemo.Capabilities.CustomerLookup do
   an error. Logs carry the line masked to its last four digits.
   """
 
-  @behaviour AgentsDemo.Capabilities.Capability
+  @behaviour Connectix.Capabilities.Capability
 
-  alias AgentsDemo.Integrations.Fireberry
-  alias AgentsDemo.Phone
-  alias AgentsDemo.Skills.Capability
+  alias Connectix.Integrations.Fireberry
+  alias Connectix.Phone
+  alias Connectix.Skills.Capability
 
   require Logger
 
   defmodule Args do
     @moduledoc false
-    use AgentsDemo.Capabilities.Args, fields: [line_number: :string], required: [:line_number]
+    use Connectix.Capabilities.Args, fields: [line_number: :string], required: [:line_number]
 
     def validate(%__MODULE__{} = args) do
       %{} |> max_len(:line_number, args.line_number, 32) |> done(args)

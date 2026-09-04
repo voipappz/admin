@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.AgentIdentity do
+defmodule Connectix.Realtime.AgentIdentity do
   @moduledoc """
   The ids under which the switch knows a signed-in user.
 
@@ -23,7 +23,7 @@ defmodule AgentsDemo.Realtime.AgentIdentity do
 
   require Logger
 
-  alias AgentsDemo.Realtime.ApiProxy
+  alias Connectix.Realtime.ApiProxy
 
   @doc """
   Every id an event may use to name this user: the portal uuid, plus the

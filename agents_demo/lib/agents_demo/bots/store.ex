@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Bots.Store do
+defmodule Connectix.Bots.Store do
   @moduledoc """
   Bots and their versions, in Mnesia.
 
@@ -13,8 +13,8 @@ defmodule AgentsDemo.Bots.Store do
 
   use GenServer
 
-  alias AgentsDemo.Bots.{Bot, BotVersion}
-  alias AgentsDemo.Mnesia
+  alias Connectix.Bots.{Bot, BotVersion}
+  alias Connectix.Mnesia
 
   @bots :bots
   @bot_fields [:id, :user_id, :name, :slug, :description, :current_version_id,

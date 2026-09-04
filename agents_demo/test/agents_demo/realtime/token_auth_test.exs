@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.TokenAuthTest do
+defmodule Connectix.Realtime.TokenAuthTest do
   @moduledoc """
   What happens *after* the issuer answers, because that is where an
   implementation hands out someone else's events.
@@ -20,7 +20,7 @@ defmodule AgentsDemo.Realtime.TokenAuthTest do
 
   import ExUnit.CaptureLog
 
-  alias AgentsDemo.Realtime.TokenAuth
+  alias Connectix.Realtime.TokenAuth
 
   # Answers whatever the test put in its process dictionary, and reports each
   # call so a test can prove the cache absorbed a repeat. `TokenAuth.verify/1`

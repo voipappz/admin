@@ -1,11 +1,11 @@
-defmodule AgentsDemo.Bots.Compiler do
+defmodule Connectix.Bots.Compiler do
   @moduledoc """
   Turns a `BotVersion` into a `CompiledSpec`: deterministic, side-effect free,
   and the only place bot data meets code.
 
   Order of work, each step able to fail with a report the author can act on:
 
-  1. resolve every selected Skill through the catalog (`AgentsDemo.Skills`)
+  1. resolve every selected Skill through the catalog (`Connectix.Skills`)
      and validate its settings against the Skill's schema;
   2. collect the capabilities those Skills expose — an id offered twice is an
      error, not a silent override;
@@ -21,12 +21,12 @@ defmodule AgentsDemo.Bots.Compiler do
   relies on that to cache by fingerprint.
   """
 
-  alias AgentsDemo.Bots.BotVersion
-  alias AgentsDemo.Bots.CompiledSpec
-  alias AgentsDemo.Bots.Validator.Report
-  alias AgentsDemo.Skills
-  alias AgentsDemo.Skills.Capability
-  alias AgentsDemo.Skills.Skill
+  alias Connectix.Bots.BotVersion
+  alias Connectix.Bots.CompiledSpec
+  alias Connectix.Bots.Validator.Report
+  alias Connectix.Skills
+  alias Connectix.Skills.Capability
+  alias Connectix.Skills.Skill
 
   @separator "\n\n"
 
@@ -50,12 +50,12 @@ defmodule AgentsDemo.Bots.Compiler do
          capabilities: capabilities,
          interrupt_on: interrupt_on(version.safety, capabilities),
          forbidden_tools: forbidden,
-         limits: version.limits || struct(AgentsDemo.Bots.Version.Limits),
-         availability: version.availability || struct(AgentsDemo.Bots.Version.Availability),
-         audiences: version.audiences || struct(AgentsDemo.Bots.Version.Audiences),
-         handoff: version.handoff || struct(AgentsDemo.Bots.Version.Handoff),
-         memory: version.memory || struct(AgentsDemo.Bots.Version.Memory),
-         output: version.output || struct(AgentsDemo.Bots.Version.Output)
+         limits: version.limits || struct(Connectix.Bots.Version.Limits),
+         availability: version.availability || struct(Connectix.Bots.Version.Availability),
+         audiences: version.audiences || struct(Connectix.Bots.Version.Audiences),
+         handoff: version.handoff || struct(Connectix.Bots.Version.Handoff),
+         memory: version.memory || struct(Connectix.Bots.Version.Memory),
+         output: version.output || struct(Connectix.Bots.Version.Output)
        }}
     else
       {:error, issues} when is_list(issues) -> {:error, %Report{valid?: false, errors: issues}}

@@ -1,8 +1,8 @@
-defmodule AgentsDemo.Dashboards do
+defmodule Connectix.Dashboards do
   @moduledoc """
   Boards and their widget definitions — the dashboard builder's storage.
 
-  Backed by Mnesia (`AgentsDemo.Portal.Store`), not a database: the portal keeps
+  Backed by Mnesia (`Connectix.Portal.Store`), not a database: the portal keeps
   its own state inside the BEAM, so there is no Postgres and nothing to run
   beside the app. This module is the context the controllers call; the store is
   where the transactions live.
@@ -12,7 +12,7 @@ defmodule AgentsDemo.Dashboards do
   concern. So a board can be built and saved here while its widgets render empty.
   """
 
-  alias AgentsDemo.Portal.Store
+  alias Connectix.Portal.Store
 
   defdelegate list_dashboards(), to: Store
   defdelegate get_dashboard(uuid), to: Store

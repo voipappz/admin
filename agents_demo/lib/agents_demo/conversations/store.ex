@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Conversations.Store do
+defmodule Connectix.Conversations.Store do
   @moduledoc """
   Conversations, their display messages, and their agent state — in Mnesia.
 
@@ -11,8 +11,8 @@ defmodule AgentsDemo.Conversations.Store do
 
   use GenServer
 
-  alias AgentsDemo.Conversations.{Conversation, DisplayMessage, AgentState}
-  alias AgentsDemo.Mnesia
+  alias Connectix.Conversations.{Conversation, DisplayMessage, AgentState}
+  alias Connectix.Mnesia
 
   @conversations :sagents_conversations
   @conv_fields [:id, :user_id, :bot_id, :bot_version_id, :title, :version, :metadata,

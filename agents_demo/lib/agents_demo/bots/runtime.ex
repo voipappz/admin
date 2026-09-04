@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Bots.Runtime do
+defmodule Connectix.Bots.Runtime do
   @moduledoc """
   Compiled specs for the runtime, cached by fingerprint.
 
@@ -8,10 +8,10 @@ defmodule AgentsDemo.Bots.Runtime do
   compile every time — they change.
   """
 
-  alias AgentsDemo.Bots.BotVersion
-  alias AgentsDemo.Bots.Compiler
+  alias Connectix.Bots.BotVersion
+  alias Connectix.Bots.Compiler
 
-  @spec spec_for(BotVersion.t()) :: {:ok, AgentsDemo.Bots.CompiledSpec.t()} | {:error, term()}
+  @spec spec_for(BotVersion.t()) :: {:ok, Connectix.Bots.CompiledSpec.t()} | {:error, term()}
   def spec_for(%BotVersion{fingerprint: nil} = version), do: Compiler.compile(version)
 
   def spec_for(%BotVersion{fingerprint: fingerprint} = version) do

@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.InstructionLoader do
+defmodule Connectix.Realtime.InstructionLoader do
   @moduledoc """
   Supplies the temporary production screen-pop instruction locally.
 

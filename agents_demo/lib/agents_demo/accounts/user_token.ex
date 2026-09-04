@@ -1,9 +1,9 @@
-defmodule AgentsDemo.Accounts.UserToken do
+defmodule Connectix.Accounts.UserToken do
   @moduledoc """
   Session and email tokens — a plain struct plus pure builders/verifiers.
 
   No Ecto queries: a token is built here, persisted by
-  `AgentsDemo.Accounts.Store`, and verified by looking the raw value up in the
+  `Connectix.Accounts.Store`, and verified by looking the raw value up in the
   store and checking its age against the validity windows below. Session tokens
   are stored raw; email/magic-link tokens are stored as a SHA-256 hash so a copy
   of the database cannot be replayed.

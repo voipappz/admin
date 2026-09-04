@@ -1,10 +1,10 @@
-defmodule AgentsDemo.Accounts.User do
+defmodule Connectix.Accounts.User do
   @moduledoc """
   A user — a plain struct now, no Ecto.
 
   Validation lives in this module as functions returning
   `{:ok, struct} | {:error, errors}` where `errors` is `%{field => [messages]}`.
-  The store (`AgentsDemo.Accounts.Store`) owns persistence in Mnesia; this owns
+  The store (`Connectix.Accounts.Store`) owns persistence in Mnesia; this owns
   shape and rules. Password hashing stays `Bcrypt` — never Ecto's concern.
   """
 
@@ -67,7 +67,7 @@ defmodule AgentsDemo.Accounts.User do
       is_nil(email) ->
         errors
 
-      AgentsDemo.Accounts.Store.email_taken?(email, user.id) ->
+      Connectix.Accounts.Store.email_taken?(email, user.id) ->
         Map.update(errors, :email, ["has already been taken"], &["has already been taken" | &1])
 
       true ->

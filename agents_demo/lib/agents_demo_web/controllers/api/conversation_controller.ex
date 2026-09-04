@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.Api.ConversationController do
+defmodule ConnectixWeb.Api.ConversationController do
   @moduledoc """
   The public API: create a conversation, send it a message, read the transcript.
 
@@ -9,15 +9,15 @@ defmodule AgentsDemoWeb.Api.ConversationController do
   conversation and time out on anything interesting.
   """
 
-  use AgentsDemoWeb, :controller
+  use ConnectixWeb, :controller
   use OpenApiSpex.ControllerSpecs
 
-  alias AgentsDemo.Conversations
-  alias AgentsDemo.Conversations.Conversation
-  alias AgentsDemo.Turns
-  alias AgentsDemoWeb.Api.Schemas
+  alias Connectix.Conversations
+  alias Connectix.Conversations.Conversation
+  alias Connectix.Turns
+  alias ConnectixWeb.Api.Schemas
 
-  action_fallback AgentsDemoWeb.Api.FallbackController
+  action_fallback ConnectixWeb.Api.FallbackController
 
   tags(["conversations"])
 

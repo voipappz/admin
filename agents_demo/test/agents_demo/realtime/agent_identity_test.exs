@@ -1,7 +1,7 @@
-defmodule AgentsDemo.Realtime.AgentIdentityTest do
+defmodule Connectix.Realtime.AgentIdentityTest do
   use ExUnit.Case, async: true
 
-  alias AgentsDemo.Realtime.AgentIdentity
+  alias Connectix.Realtime.AgentIdentity
 
   # The two shapes the API hands back: the login body wraps the user, the
   # record endpoint does not. Both carry the token in the same place.

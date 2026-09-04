@@ -1,9 +1,9 @@
-defmodule AgentsDemo.Agents.AgentPersistence do
+defmodule Connectix.Agents.AgentPersistence do
   @moduledoc """
   Implements `Sagents.AgentPersistence` for state snapshots.
 
   Persists full agent state (messages, todos, metadata) to Mnesia
-  via `AgentsDemo.Conversations.save_agent_state/3`, and mirrors the
+  via `Connectix.Conversations.save_agent_state/3`, and mirrors the
   durable interrupt flag onto `conversation.metadata["interrupted"]` via
   `set_interrupted/3` (called by sagents only on actual transitions).
   """
@@ -16,7 +16,7 @@ defmodule AgentsDemo.Agents.AgentPersistence do
   def persist_state(scope, state_data, context) do
     conversation_id = extract_conversation_id(context.agent_id)
 
-    case AgentsDemo.Conversations.save_agent_state(scope, conversation_id, state_data) do
+    case Connectix.Conversations.save_agent_state(scope, conversation_id, state_data) do
       {:ok, _agent_state} ->
         Logger.debug("Persisted agent state for #{context.agent_id} (#{context.lifecycle})")
         :ok
@@ -38,14 +38,14 @@ defmodule AgentsDemo.Agents.AgentPersistence do
   @impl true
   def load_state(scope, context) do
     conversation_id = extract_conversation_id(context.agent_id)
-    AgentsDemo.Conversations.load_agent_state(scope, conversation_id)
+    Connectix.Conversations.load_agent_state(scope, conversation_id)
   end
 
   @impl true
   def set_interrupted(scope, context, interrupted?) do
     conversation_id = extract_conversation_id(context.agent_id)
 
-    case AgentsDemo.Conversations.set_interrupt_status(scope, conversation_id, interrupted?) do
+    case Connectix.Conversations.set_interrupt_status(scope, conversation_id, interrupted?) do
       {:ok, _conversation} ->
         :ok
 

@@ -1,8 +1,8 @@
-defmodule AgentsDemoWeb.Api.BotController do
+defmodule ConnectixWeb.Api.BotController do
   @moduledoc """
   Bots over HTTP: identity, drafts, publication, versions.
 
-  The API calls the same `AgentsDemo.Bots` functions the UI does, so it has
+  The API calls the same `Connectix.Bots` functions the UI does, so it has
   exactly the same validation, authorization and versioning semantics.
   Creating a bot creates its first draft; `PATCH` edits the draft (creating
   one from the current version if needed); publishing is an explicit action
@@ -10,17 +10,17 @@ defmodule AgentsDemoWeb.Api.BotController do
   version is never modified in place.
   """
 
-  use AgentsDemoWeb, :controller
+  use ConnectixWeb, :controller
   use OpenApiSpex.ControllerSpecs
 
-  alias AgentsDemo.Bots
-  alias AgentsDemo.Bots.Bot
-  alias AgentsDemo.Bots.BotVersion
-  alias AgentsDemo.Bots.Snapshot
-  alias AgentsDemo.Bots.Validator
-  alias AgentsDemoWeb.Api.Schemas
+  alias Connectix.Bots
+  alias Connectix.Bots.Bot
+  alias Connectix.Bots.BotVersion
+  alias Connectix.Bots.Snapshot
+  alias Connectix.Bots.Validator
+  alias ConnectixWeb.Api.Schemas
 
-  action_fallback AgentsDemoWeb.Api.FallbackController
+  action_fallback ConnectixWeb.Api.FallbackController
 
   tags(["bots"])
 

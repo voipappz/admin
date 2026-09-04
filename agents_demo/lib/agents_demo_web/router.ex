@@ -1,13 +1,13 @@
-defmodule AgentsDemoWeb.Router do
-  use AgentsDemoWeb, :router
+defmodule ConnectixWeb.Router do
+  use ConnectixWeb, :router
 
-  import AgentsDemoWeb.UserAuth
+  import ConnectixWeb.UserAuth
 
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
     plug :fetch_live_flash
-    plug :put_root_layout, html: {AgentsDemoWeb.Layouts, :root}
+    plug :put_root_layout, html: {ConnectixWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :fetch_current_scope_for_user
@@ -15,7 +15,7 @@ defmodule AgentsDemoWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
-    plug OpenApiSpex.Plug.PutApiSpec, module: AgentsDemoWeb.ApiSpec
+    plug OpenApiSpex.Plug.PutApiSpec, module: ConnectixWeb.ApiSpec
   end
 
   # The spec and its UI are unauthenticated on purpose: they describe the API
@@ -28,8 +28,8 @@ defmodule AgentsDemoWeb.Router do
     get "/docs", OpenApiSpex.Plug.SwaggerUI, path: "/api/openapi"
   end
 
-  scope "/api", AgentsDemoWeb.Api do
-    pipe_through [:api, AgentsDemoWeb.Plugs.ApiAuth]
+  scope "/api", ConnectixWeb.Api do
+    pipe_through [:api, ConnectixWeb.Plugs.ApiAuth]
 
     post "/conversations", ConversationController, :create
     post "/conversations/:id/messages", ConversationController, :create_message
@@ -54,7 +54,7 @@ defmodule AgentsDemoWeb.Router do
   end
 
   # There is no LiveView UI. The React portal (Vite build, served by
-  # `AgentsDemoWeb.Plugs.Spa`) is the only one — same call as
+  # `ConnectixWeb.Plugs.Spa`) is the only one — same call as
   # `connectix.io/phone`, which runs headless for the same reason. Two ways to
   # build a screen in one app is how both grow.
   #
@@ -63,7 +63,7 @@ defmodule AgentsDemoWeb.Router do
   # on, and ~4,900 lines were compiled and tested for a surface no request ever
   # reached — so the gate was the cost, not the insurance.
   #
-  # `:browser` and `AgentsDemoWeb.UserAuth` stay: the `/dev` tools below
+  # `:browser` and `ConnectixWeb.UserAuth` stay: the `/dev` tools below
   # (LiveDashboard, the mailbox preview, the agent debugger) run through that
   # pipeline and need its root layout and scope plug.
 
@@ -79,17 +79,17 @@ defmodule AgentsDemoWeb.Router do
   # Served here rather than forwarded — see Portal.StatusController for why the
   # relay currently cannot carry it, and why a static list is the right
   # stand-in until it can. `Plugs.EngineProxy` knows to let this one through.
-  scope "/api", AgentsDemoWeb.Portal do
+  scope "/api", ConnectixWeb.Portal do
     pipe_through :api
 
     get "/statuses", StatusController, :index
   end
 
-  scope "/api", AgentsDemoWeb.Portal do
-    pipe_through [:api, AgentsDemoWeb.Plugs.UserTokenAuth]
+  scope "/api", ConnectixWeb.Portal do
+    pipe_through [:api, ConnectixWeb.Plugs.UserTokenAuth]
 
     # The frames THIS portal received off the cable. Served here, not forwarded:
-    # no mothership has them. See AgentsDemo.Events.
+    # no mothership has them. See Connectix.Events.
     get "/events", EventController, :index
     get "/events/timeline", EventController, :timeline
     get "/events/search", EventController, :search
@@ -99,8 +99,8 @@ defmodule AgentsDemoWeb.Router do
   # `:api` and not `:browser`: these are fetched with a bearer token, never
   # navigated to, and a CSRF check on a token-authenticated fetch rejects every
   # write.
-  scope "/dashboard", AgentsDemoWeb.Portal do
-    pipe_through [:api, AgentsDemoWeb.Plugs.UserTokenAuth]
+  scope "/dashboard", ConnectixWeb.Portal do
+    pipe_through [:api, ConnectixWeb.Plugs.UserTokenAuth]
 
     get "/dashboards", DashboardController, :index
     post "/dashboards", DashboardController, :create
@@ -120,14 +120,14 @@ defmodule AgentsDemoWeb.Router do
   #
   # `/health/ready` is the signal that keeps the load balancer from routing to a
   # node whose Sagents supervision tree has already stopped. See
-  # `AgentsDemoWeb.HealthController`.
-  scope "/health", AgentsDemoWeb do
+  # `ConnectixWeb.HealthController`.
+  scope "/health", ConnectixWeb do
     get "/", HealthController, :report
     get "/alive", HealthController, :alive
     get "/ready", HealthController, :ready
   end
 
-  scope "/", AgentsDemoWeb do
+  scope "/", ConnectixWeb do
     get "/metrics", MetricsController, :index
   end
 
@@ -135,12 +135,12 @@ defmodule AgentsDemoWeb.Router do
   # token, and `Anu.Webhook.Plug` does its own work — the verify-token
   # challenge on GET, HMAC signature validation on POST — before handing the
   # parsed event to the handler.
-  # /webhooks/whatsapp is handled in AgentsDemoWeb.Endpoint, ahead of
+  # /webhooks/whatsapp is handled in ConnectixWeb.Endpoint, ahead of
   # Plug.Parsers, because Meta signs the raw request body. See the comment
   # there.
 
   # Other scopes may use custom stacks.
-  # scope "/api", AgentsDemoWeb do
+  # scope "/api", ConnectixWeb do
   #   pipe_through :api
   # end
 
@@ -157,13 +157,13 @@ defmodule AgentsDemoWeb.Router do
     scope "/dev" do
       pipe_through :browser
 
-      live_dashboard "/dashboard", metrics: AgentsDemoWeb.Telemetry
+      live_dashboard "/dashboard", metrics: ConnectixWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
 
       sagents_live_debugger("/debug/agents",
-        coordinator: AgentsDemo.Agents.Coordinator,
-        pubsub: AgentsDemo.PubSub,
-        presence_module: AgentsDemoWeb.Presence
+        coordinator: Connectix.Agents.Coordinator,
+        pubsub: Connectix.PubSub,
+        presence_module: ConnectixWeb.Presence
       )
     end
   end

@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Capabilities.Capability do
+defmodule Connectix.Capabilities.Capability do
   @moduledoc """
   The contract every capability implementation fulfils.
 
@@ -20,10 +20,10 @@ defmodule AgentsDemo.Capabilities.Capability do
     defstruct [:scope, :conversation_id, :agent_id, :capability]
 
     @type t :: %__MODULE__{
-            scope: AgentsDemo.Accounts.Scope.t(),
+            scope: Connectix.Accounts.Scope.t(),
             conversation_id: term(),
             agent_id: String.t() | nil,
-            capability: AgentsDemo.Skills.Capability.t() | nil
+            capability: Connectix.Skills.Capability.t() | nil
           }
   end
 

@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.Plugs.Spa do
+defmodule ConnectixWeb.Plugs.Spa do
   @moduledoc """
   Serve the React portal (the Vite `dist/`) same-origin: one process serves the
   SPA plus the forwarded API routes and the `/ws/events` socket on one port, so

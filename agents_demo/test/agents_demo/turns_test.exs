@@ -1,14 +1,14 @@
-defmodule AgentsDemo.TurnsTest do
-  use AgentsDemo.DataCase, async: false
+defmodule Connectix.TurnsTest do
+  use Connectix.DataCase, async: false
   use Mimic
 
-  import AgentsDemo.AccountsFixtures
-  import AgentsDemo.BotsFixtures
-  import AgentsDemo.ConversationsFixtures
+  import Connectix.AccountsFixtures
+  import Connectix.BotsFixtures
+  import Connectix.ConversationsFixtures
 
-  alias AgentsDemo.Agents.Coordinator
-  alias AgentsDemo.Conversations
-  alias AgentsDemo.Turns
+  alias Connectix.Agents.Coordinator
+  alias Connectix.Conversations
+  alias Connectix.Turns
   alias Sagents.AgentServer
 
   setup :set_mimic_global

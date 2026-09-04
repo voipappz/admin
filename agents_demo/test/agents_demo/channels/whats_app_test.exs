@@ -1,11 +1,11 @@
-defmodule AgentsDemo.Channels.WhatsAppTest do
-  use AgentsDemo.DataCase, async: false
+defmodule Connectix.Channels.WhatsAppTest do
+  use Connectix.DataCase, async: false
 
-  import AgentsDemo.AccountsFixtures
-  import AgentsDemo.ConversationsFixtures
+  import Connectix.AccountsFixtures
+  import Connectix.ConversationsFixtures
 
-  alias AgentsDemo.Channels.WhatsApp.TestAdapter
-  alias AgentsDemo.Conversations
+  alias Connectix.Channels.WhatsApp.TestAdapter
+  alias Connectix.Conversations
 
   setup do
     TestAdapter.receive_here()

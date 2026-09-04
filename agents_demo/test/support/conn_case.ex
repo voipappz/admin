@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.ConnCase do
+defmodule ConnectixWeb.ConnCase do
   @moduledoc """
   This module defines the test case to be used by
   tests that require setting up a connection.
@@ -16,20 +16,20 @@ defmodule AgentsDemoWeb.ConnCase do
   using do
     quote do
       # The default endpoint for testing
-      @endpoint AgentsDemoWeb.Endpoint
+      @endpoint ConnectixWeb.Endpoint
 
-      use AgentsDemoWeb, :verified_routes
+      use ConnectixWeb, :verified_routes
 
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
-      import AgentsDemoWeb.ConnCase
+      import ConnectixWeb.ConnCase
     end
   end
 
   setup _tags do
-    AgentsDemo.Mnesia.reset_domain_for_test!()
-    AgentsDemo.Portal.Store.reset_for_test!()
+    Connectix.Mnesia.reset_domain_for_test!()
+    Connectix.Portal.Store.reset_for_test!()
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 
@@ -42,8 +42,8 @@ defmodule AgentsDemoWeb.ConnCase do
   test context.
   """
   def register_and_log_in_user(%{conn: conn} = context) do
-    user = AgentsDemo.AccountsFixtures.user_fixture()
-    scope = AgentsDemo.Accounts.Scope.for_user(user)
+    user = Connectix.AccountsFixtures.user_fixture()
+    scope = Connectix.Accounts.Scope.for_user(user)
 
     opts =
       context
@@ -59,7 +59,7 @@ defmodule AgentsDemoWeb.ConnCase do
   It returns an updated `conn`.
   """
   def log_in_user(conn, user, opts \\ []) do
-    token = AgentsDemo.Accounts.generate_user_session_token(user)
+    token = Connectix.Accounts.generate_user_session_token(user)
 
     maybe_set_token_authenticated_at(token, opts[:token_authenticated_at])
 
@@ -79,7 +79,7 @@ defmodule AgentsDemoWeb.ConnCase do
   process-global, so tests using this must not be `async`.
   """
   def api_conn(%{conn: conn}) do
-    user = AgentsDemo.AccountsFixtures.user_fixture()
+    user = Connectix.AccountsFixtures.user_fixture()
     key = "test-api-key-#{System.unique_integer([:positive])}-0123456789"
 
     previous =
@@ -99,12 +99,12 @@ defmodule AgentsDemoWeb.ConnCase do
       |> Plug.Conn.put_req_header("authorization", "Bearer " <> key)
       |> Plug.Conn.put_req_header("accept", "application/json")
 
-    %{conn: conn, user: user, scope: AgentsDemo.Accounts.Scope.for_user(user)}
+    %{conn: conn, user: user, scope: Connectix.Accounts.Scope.for_user(user)}
   end
 
   defp maybe_set_token_authenticated_at(_token, nil), do: nil
 
   defp maybe_set_token_authenticated_at(token, authenticated_at) do
-    AgentsDemo.AccountsFixtures.override_token_authenticated_at(token, authenticated_at)
+    Connectix.AccountsFixtures.override_token_authenticated_at(token, authenticated_at)
   end
 end

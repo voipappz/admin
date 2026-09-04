@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.PopRuleTest do
+defmodule Connectix.Realtime.PopRuleTest do
   @moduledoc """
   The shipped rule file has to keep matching the frames the switch really
   sends. These assert against `priv/pocketflow/screen_pop.yaml` as deployed,
@@ -7,7 +7,7 @@ defmodule AgentsDemo.Realtime.PopRuleTest do
 
   use ExUnit.Case, async: false
 
-  alias AgentsDemo.Realtime.PopRule
+  alias Connectix.Realtime.PopRule
 
   setup do
     PopRule.reload()

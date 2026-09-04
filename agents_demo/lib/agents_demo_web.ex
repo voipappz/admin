@@ -1,12 +1,12 @@
-defmodule AgentsDemoWeb do
+defmodule ConnectixWeb do
   @moduledoc """
   The entrypoint for defining your web interface, such
   as controllers, components, channels, and so on.
 
   This can be used in your application as:
 
-      use AgentsDemoWeb, :controller
-      use AgentsDemoWeb, :html
+      use ConnectixWeb, :controller
+      use ConnectixWeb, :html
 
   The definitions below will be executed for every controller,
   component, etc, so keep them short and clean, focused
@@ -40,7 +40,7 @@ defmodule AgentsDemoWeb do
     quote do
       use Phoenix.Controller, formats: [:html, :json]
 
-      use Gettext, backend: AgentsDemoWeb.Gettext
+      use Gettext, backend: ConnectixWeb.Gettext
 
       import Plug.Conn
 
@@ -80,16 +80,16 @@ defmodule AgentsDemoWeb do
   defp html_helpers do
     quote do
       # Translation
-      use Gettext, backend: AgentsDemoWeb.Gettext
+      use Gettext, backend: ConnectixWeb.Gettext
 
       # HTML escaping functionality
       import Phoenix.HTML
       # Core UI components
-      import AgentsDemoWeb.CoreComponents
+      import ConnectixWeb.CoreComponents
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS
-      alias AgentsDemoWeb.Layouts
+      alias ConnectixWeb.Layouts
 
       # Routes generation with the ~p sigil
       unquote(verified_routes())
@@ -99,9 +99,9 @@ defmodule AgentsDemoWeb do
   def verified_routes do
     quote do
       use Phoenix.VerifiedRoutes,
-        endpoint: AgentsDemoWeb.Endpoint,
-        router: AgentsDemoWeb.Router,
-        statics: AgentsDemoWeb.static_paths()
+        endpoint: ConnectixWeb.Endpoint,
+        router: ConnectixWeb.Router,
+        statics: ConnectixWeb.static_paths()
     end
   end
 

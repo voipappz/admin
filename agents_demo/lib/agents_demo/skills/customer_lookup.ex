@@ -1,7 +1,7 @@
-defmodule AgentsDemo.Skills.CustomerLookup do
+defmodule Connectix.Skills.CustomerLookup do
   @moduledoc "Look customers up in the CRM by business line. Exposes `customer_lookup`."
 
-  @behaviour AgentsDemo.Skills.Skill
+  @behaviour Connectix.Skills.Skill
 
   @impl true
   def id, do: "customer_lookup"
@@ -18,7 +18,7 @@ defmodule AgentsDemo.Skills.CustomerLookup do
   def settings_schema, do: nil
 
   @impl true
-  def capabilities(_settings), do: [AgentsDemo.Capabilities.CustomerLookup.capability()]
+  def capabilities(_settings), do: [Connectix.Capabilities.CustomerLookup.capability()]
 
   @impl true
   def instructions(_settings) do

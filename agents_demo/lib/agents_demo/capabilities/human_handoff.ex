@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Capabilities.HumanHandoff do
+defmodule Connectix.Capabilities.HumanHandoff do
   @moduledoc """
   Hand the conversation to a person and stand down.
 
@@ -14,15 +14,15 @@ defmodule AgentsDemo.Capabilities.HumanHandoff do
   flow) composed.
   """
 
-  @behaviour AgentsDemo.Capabilities.Capability
+  @behaviour Connectix.Capabilities.Capability
 
-  alias AgentsDemo.Bots.Version.Handoff
-  alias AgentsDemo.Conversations
-  alias AgentsDemo.Skills.Capability
+  alias Connectix.Bots.Version.Handoff
+  alias Connectix.Conversations
+  alias Connectix.Skills.Capability
 
   defmodule Args do
     @moduledoc false
-    use AgentsDemo.Capabilities.Args,
+    use Connectix.Capabilities.Args,
       fields: [summary: :string, topic: :string],
       required: [:summary]
 

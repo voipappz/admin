@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.Portal.StatusControllerTest do
+defmodule ConnectixWeb.Portal.StatusControllerTest do
   @moduledoc """
   `/api/statuses` is answered here, not forwarded.
 
@@ -17,7 +17,7 @@ defmodule AgentsDemoWeb.Portal.StatusControllerTest do
 
   import Plug.Test
 
-  alias AgentsDemoWeb.Router
+  alias ConnectixWeb.Router
 
   # `fetch_query_params/1` explicitly: the Endpoint's plug chain does it in a
   # real request, and calling the Router alone skips it — which silently hands

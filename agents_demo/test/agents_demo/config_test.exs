@@ -1,4 +1,4 @@
-defmodule AgentsDemo.ConfigTest do
+defmodule Connectix.ConfigTest do
   @moduledoc """
   The rules every accessor inherits, tested once on the primitives, plus the
   handful of accessors whose behaviour is more than "read this variable".
@@ -6,7 +6,7 @@ defmodule AgentsDemo.ConfigTest do
 
   use ExUnit.Case, async: false
 
-  alias AgentsDemo.Config
+  alias Connectix.Config
 
   # Resolution happens at call time, so a test can set a variable and read it
   # back without reloading config — which is the property these tests rely on.

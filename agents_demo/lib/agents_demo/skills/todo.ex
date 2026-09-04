@@ -1,12 +1,12 @@
-defmodule AgentsDemo.Skills.Todo do
+defmodule Connectix.Skills.Todo do
   @moduledoc """
   A task list the bot keeps for multi-step work, shown inline in the chat.
   Wraps `Sagents.Middleware.TodoList`.
   """
 
-  @behaviour AgentsDemo.Skills.Skill
+  @behaviour Connectix.Skills.Skill
 
-  alias AgentsDemo.Skills.Context
+  alias Connectix.Skills.Context
 
   defmodule Settings do
     @moduledoc false
@@ -14,7 +14,7 @@ defmodule AgentsDemo.Skills.Todo do
 
     @doc "Build from attrs, returning `{:ok, struct}` or `{:error, %{field => [msg]}}`."
     def new(attrs \\ %{}) do
-      %{inline: inline} = AgentsDemo.Bots.Version.take(attrs, %__MODULE__{}, [:inline])
+      %{inline: inline} = Connectix.Bots.Version.take(attrs, %__MODULE__{}, [:inline])
 
       if is_boolean(inline),
         do: {:ok, %__MODULE__{inline: inline}},

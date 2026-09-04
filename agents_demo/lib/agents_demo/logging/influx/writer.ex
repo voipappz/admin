@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Logging.Influx.Writer do
+defmodule Connectix.Logging.Influx.Writer do
   @moduledoc """
   Buffers log lines and POSTs them to InfluxDB in batches — the portal's
   equivalent of the node's single drain fiber in `node/influx/writer.cr`.
@@ -7,7 +7,7 @@ defmodule AgentsDemo.Logging.Influx.Writer do
   stopping it removes the handler again, so "the writer is up" and "log lines
   are being captured" are one fact rather than two that can drift: a handler
   with no writer behind it would cast into the void, and a writer with no
-  handler would flush nothing forever. Only `AgentsDemo.Logging.Influx.children/0`
+  handler would flush nothing forever. Only `Connectix.Logging.Influx.children/0`
   puts it in the tree, and only when `VA_MONITOR_TOKEN` is set.
 
   A batch goes out every `flush_ms` (2 s) or at `max_lines` (500), whichever
@@ -26,8 +26,8 @@ defmodule AgentsDemo.Logging.Influx.Writer do
 
   use GenServer
 
-  alias AgentsDemo.Config
-  alias AgentsDemo.Logging.Influx
+  alias Connectix.Config
+  alias Connectix.Logging.Influx
 
   require Logger
 

@@ -1,7 +1,7 @@
-defmodule AgentsDemoWeb.UserForm do
+defmodule ConnectixWeb.UserForm do
   @moduledoc false
 
-  alias AgentsDemo.Accounts.User
+  alias Connectix.Accounts.User
 
   @fields ~w(first_name email password password_confirmation)
 

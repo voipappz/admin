@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Agents.AgentSubscriberSession do
+defmodule Connectix.Agents.AgentSubscriberSession do
   @moduledoc """
   Subscriber-side session state model for a conversation's agent.
 
@@ -38,8 +38,8 @@ defmodule AgentsDemo.Agents.AgentSubscriberSession do
   See `handle_hitl_decision/3` and `handle_question_response/2`.
   """
 
-  alias AgentsDemo.Conversations
-  alias AgentsDemo.Agents.Coordinator
+  alias Connectix.Conversations
+  alias Connectix.Agents.Coordinator
   alias Sagents.AgentUtils
   alias Sagents.StreamingSession
   alias Sagents.Subscriber

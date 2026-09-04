@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.CableClientTest do
+defmodule Connectix.Realtime.CableClientTest do
   @moduledoc """
   Per-user CableClient owns only user-scoped registration, notifications, and
   state. The application-level ApiProxy connection owns the single CallEvents
@@ -7,7 +7,7 @@ defmodule AgentsDemo.Realtime.CableClientTest do
 
   use ExUnit.Case, async: true
 
-  alias AgentsDemo.Realtime.CableClient
+  alias Connectix.Realtime.CableClient
 
   @user_uuid "11111111-2222-3333-4444-555555555555"
   @environment_uuid "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
@@ -17,7 +17,7 @@ defmodule AgentsDemo.Realtime.CableClientTest do
   @state_channel Jason.encode!(%{channel: "StateChannel", scope: "user", id: @user_uuid})
 
   setup do
-    :ok = Phoenix.PubSub.subscribe(AgentsDemo.PubSub, @topic)
+    :ok = Phoenix.PubSub.subscribe(Connectix.PubSub, @topic)
     {:ok, state: %CableClient{user_uuid: @user_uuid, environment_uuid: @environment_uuid}}
   end
 

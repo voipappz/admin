@@ -1,10 +1,10 @@
-defmodule AgentsDemo.Mnesia do
+defmodule Connectix.Mnesia do
   @moduledoc """
   The one place Mnesia is set up and talked to — the replacement for Ecto/Repo.
 
   Everything the app persists lives in Mnesia now: no Postgres, no external
   database, no ORM. This module is the shared machinery the per-table stores
-  (`AgentsDemo.Accounts.Store`, `Bots.Store`, …) build on, so transaction
+  (`Connectix.Accounts.Store`, `Bots.Store`, …) build on, so transaction
   boilerplate, table creation, and the record⇄map conversion are written once.
 
   ## Records are `{table, v1, v2, …}` in `attributes` order
@@ -238,7 +238,7 @@ defmodule AgentsDemo.Mnesia do
   end
 
   defp set_dir do
-    dir = AgentsDemo.Config.mnesia_dir()
+    dir = Connectix.Config.mnesia_dir()
     File.mkdir_p!(dir)
     Application.put_env(:mnesia, :dir, String.to_charlist(dir))
   end

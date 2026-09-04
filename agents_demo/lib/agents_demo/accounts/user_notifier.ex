@@ -1,16 +1,16 @@
-defmodule AgentsDemo.Accounts.UserNotifier do
+defmodule Connectix.Accounts.UserNotifier do
   @moduledoc false
   import Swoosh.Email
 
-  alias AgentsDemo.Mailer
-  alias AgentsDemo.Accounts.User
+  alias Connectix.Mailer
+  alias Connectix.Accounts.User
 
   # Delivers the email using the application mailer.
   defp deliver(recipient, subject, body) do
     email =
       new()
       |> to(recipient)
-      |> from({"AgentsDemo", "contact@example.com"})
+      |> from({"Connectix", "contact@example.com"})
       |> subject(subject)
       |> text_body(body)
 

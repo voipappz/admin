@@ -1,8 +1,8 @@
-defmodule AgentsDemoWeb.ApiSpecTest do
+defmodule ConnectixWeb.ApiSpecTest do
   use ExUnit.Case, async: true
 
   test "the OpenAPI spec builds and covers every bot and conversation route" do
-    spec = AgentsDemoWeb.ApiSpec.spec()
+    spec = ConnectixWeb.ApiSpec.spec()
 
     paths = Map.keys(spec.paths)
 

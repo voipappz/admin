@@ -1,4 +1,4 @@
-defmodule AgentsDemo.TelemetryTest do
+defmodule Connectix.TelemetryTest do
   use ExUnit.Case, async: false
 
   setup %{test: test} do
@@ -7,7 +7,7 @@ defmodule AgentsDemo.TelemetryTest do
 
     :telemetry.attach_many(
       handler,
-      AgentsDemo.Telemetry.events(),
+      Connectix.Telemetry.events(),
       fn event, measurements, metadata, _config ->
         send(owner, {:telemetry, event, measurements, metadata})
       end,
@@ -19,8 +19,8 @@ defmodule AgentsDemo.TelemetryTest do
   end
 
   test "emits bounded screen-pop processing outcomes" do
-    AgentsDemo.Telemetry.screen_pop_event(:received)
-    AgentsDemo.Telemetry.screen_pop_event(:dispatched)
+    Connectix.Telemetry.screen_pop_event(:received)
+    Connectix.Telemetry.screen_pop_event(:dispatched)
 
     assert_receive {:telemetry, [:agents_demo, :screen_pop, :event], %{count: 1},
                     %{result: :received}}
@@ -30,7 +30,7 @@ defmodule AgentsDemo.TelemetryTest do
   end
 
   test "emits instruction-load outcomes" do
-    AgentsDemo.Telemetry.instruction_load(:loaded)
+    Connectix.Telemetry.instruction_load(:loaded)
 
     assert_receive {:telemetry, [:agents_demo, :screen_pop, :instruction_load], %{count: 1},
                     %{result: :loaded}}

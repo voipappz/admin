@@ -1,9 +1,9 @@
-defmodule AgentsDemo.EventsTest do
+defmodule Connectix.EventsTest do
   @moduledoc """
   The event store's contract, exercised against a real DuckDB file.
 
   Each test gets its OWN store — `start_link(name: ..., path: ...)` on a temp
-  file — rather than the supervised `AgentsDemo.Events`. Two reasons: the
+  file — rather than the supervised `Connectix.Events`. Two reasons: the
   supervised one writes to the box's data directory, and a test that asserted
   counts there would fail the moment the portal had ever received a frame.
 
@@ -18,7 +18,7 @@ defmodule AgentsDemo.EventsTest do
 
   use ExUnit.Case, async: true
 
-  alias AgentsDemo.Events
+  alias Connectix.Events
 
   # The frame that motivated the dedupe, copied from production: one
   # `agent-state-change` off the StateChannel, carrying a user but no call.
@@ -269,7 +269,7 @@ defmodule AgentsDemo.EventsTest do
   describe "a store that could not open" do
     setup do
       name = :"events_closed_#{System.unique_integer([:positive])}"
-      store = start_supervised!({AgentsDemo.Events, name: name, path: "/proc/nope/events.duckdb"})
+      store = start_supervised!({Connectix.Events, name: name, path: "/proc/nope/events.duckdb"})
       %{closed: store}
     end
 

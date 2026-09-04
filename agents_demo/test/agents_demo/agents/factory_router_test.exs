@@ -1,14 +1,14 @@
-defmodule AgentsDemo.Agents.FactoryRouterTest do
-  use AgentsDemo.DataCase
+defmodule Connectix.Agents.FactoryRouterTest do
+  use Connectix.DataCase
 
-  import AgentsDemo.AccountsFixtures
-  import AgentsDemo.BotsFixtures
-  import AgentsDemo.ConversationsFixtures
+  import Connectix.AccountsFixtures
+  import Connectix.BotsFixtures
+  import Connectix.ConversationsFixtures
 
-  alias AgentsDemo.Agents.Factory
-  alias AgentsDemo.Agents.FactoryConfig
-  alias AgentsDemo.Agents.FactoryRouter
-  alias AgentsDemo.Bots
+  alias Connectix.Agents.Factory
+  alias Connectix.Agents.FactoryConfig
+  alias Connectix.Agents.FactoryRouter
+  alias Connectix.Bots
 
   test "resolves the pinned version through the caller's scope" do
     scope = user_scope_fixture()

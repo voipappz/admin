@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.Presence do
+defmodule ConnectixWeb.Presence do
   @moduledoc """
   Phoenix Presence for tracking users viewing conversations.
 
@@ -7,5 +7,5 @@ defmodule AgentsDemoWeb.Presence do
   """
   use Phoenix.Presence,
     otp_app: :agents_demo,
-    pubsub_server: AgentsDemo.PubSub
+    pubsub_server: Connectix.PubSub
 end

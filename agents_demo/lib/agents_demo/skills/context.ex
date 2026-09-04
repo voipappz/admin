@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Skills.Context do
+defmodule Connectix.Skills.Context do
   @moduledoc """
   Run-time facts handed to a Skill when its middleware is built: things the
   compiler deliberately does not know. `scope` is the identity boundary;
@@ -10,7 +10,7 @@ defmodule AgentsDemo.Skills.Context do
   defstruct [:scope, :agent_id, :model, :filesystem_scope, timezone: "UTC"]
 
   @type t :: %__MODULE__{
-          scope: AgentsDemo.Accounts.Scope.t(),
+          scope: Connectix.Accounts.Scope.t(),
           agent_id: String.t(),
           model: struct(),
           filesystem_scope: term() | nil,

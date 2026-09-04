@@ -1,11 +1,11 @@
-defmodule AgentsDemo.Bots.BotVersionSkill do
+defmodule Connectix.Bots.BotVersionSkill do
   @moduledoc """
   One Skill selected by a version: a catalog id, the Skill version it was
   written against, and validated settings. A plain struct; validated against the
-  trusted `AgentsDemo.Skills` catalog by `new/1`.
+  trusted `Connectix.Skills` catalog by `new/1`.
   """
 
-  alias AgentsDemo.Skills
+  alias Connectix.Skills
 
   @derive Jason.Encoder
   defstruct [:skill_id, :skill_version, position: 0, settings: %{}]

@@ -17,11 +17,11 @@ source!([
 # any compile-time configuration in here, as it won't be applied.
 # The block below contains prod specific runtime configuration.
 
-# Everything below reads the environment. `AgentsDemo.Config` documents each
+# Everything below reads the environment. `Connectix.Config` documents each
 # variable, and is what application code calls; this file exists for the
 # settings that have to be *application config* because a library reads them —
 # the Endpoint, :langchain, :anu, :sagents. It cannot call
-# AgentsDemo.Config itself: config is evaluated before that module is loaded.
+# Connectix.Config itself: config is evaluated before that module is loaded.
 #
 # An unset variable and one set to "" mean the same thing — absent — because
 # deployment tooling writes `FOO=` for a value it does not have.
@@ -95,13 +95,13 @@ config :sagents, :horde, members: :auto
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
 if System.get_env("PHX_SERVER") do
-  config :agents_demo, AgentsDemoWeb.Endpoint, server: true
+  config :agents_demo, ConnectixWeb.Endpoint, server: true
 end
 
 # PHX_PORT is the dev server's port, read here so `.env` is enough for a plain
 # `mix phx.server`; PORT is honoured too so a release-style environment works.
 if config_env() == :dev do
-  config :agents_demo, AgentsDemoWeb.Endpoint,
+  config :agents_demo, ConnectixWeb.Endpoint,
     http: [ip: {0, 0, 0, 0}, port: int_env.("PHX_PORT", int_env.("PORT", 4000))]
 end
 
@@ -167,7 +167,7 @@ if config_env() == :prod do
     end
 
   config :agents_demo,
-         AgentsDemoWeb.Endpoint,
+         ConnectixWeb.Endpoint,
          [
            url: [host: host, port: 443, scheme: "https"],
            secret_key_base: secret_key_base
@@ -178,7 +178,7 @@ if config_env() == :prod do
   # To get SSL working, you will need to add the `https` key
   # to your endpoint configuration:
   #
-  #     config :agents_demo, AgentsDemoWeb.Endpoint,
+  #     config :agents_demo, ConnectixWeb.Endpoint,
   #       https: [
   #         ...,
   #         port: 443,
@@ -200,7 +200,7 @@ if config_env() == :prod do
   # We also recommend setting `force_ssl` in your config/prod.exs,
   # ensuring no data is ever sent via http, always redirecting to https:
   #
-  #     config :agents_demo, AgentsDemoWeb.Endpoint,
+  #     config :agents_demo, ConnectixWeb.Endpoint,
   #       force_ssl: [hsts: true]
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
@@ -210,7 +210,7 @@ if config_env() == :prod do
   # In production you need to configure the mailer to use a different adapter.
   # Here is an example configuration for Mailgun:
   #
-  #     config :agents_demo, AgentsDemo.Mailer,
+  #     config :agents_demo, Connectix.Mailer,
   #       adapter: Swoosh.Adapters.Mailgun,
   #       api_key: System.get_env("MAILGUN_API_KEY"),
   #       domain: System.get_env("MAILGUN_DOMAIN")

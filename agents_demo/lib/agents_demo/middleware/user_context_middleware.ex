@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Middleware.UserContextMiddleware do
+defmodule Connectix.Middleware.UserContextMiddleware do
   @moduledoc """
   Middleware that injects the user's first name into the first user message.
 
@@ -17,7 +17,7 @@ defmodule AgentsDemo.Middleware.UserContextMiddleware do
   ## Example
 
       middleware = [
-        {AgentsDemo.Middleware.UserContextMiddleware, [scope: current_scope]},
+        {Connectix.Middleware.UserContextMiddleware, [scope: current_scope]},
         # ... other middleware
       ]
   """

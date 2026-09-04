@@ -13,16 +13,16 @@ Mimic.copy(Sagents)
 # Copied so the bridge can be tested as a unit, without a live agent.
 Mimic.copy(Sagents.AgentServer)
 
-# `AgentsDemo.Turns` is the one entry point every surface uses, so its tests
+# `Connectix.Turns` is the one entry point every surface uses, so its tests
 # assert what reaches the agent — and, for a handed-off conversation, that
 # nothing does. Copied to stand in for a live session.
-Mimic.copy(AgentsDemo.Agents.Coordinator)
-Mimic.copy(AgentsDemo.Turns)
+Mimic.copy(Connectix.Agents.Coordinator)
+Mimic.copy(Connectix.Turns)
 
 # The dashboard routes authenticate with a real user's mothership token, which
 # `TokenAuth` verifies by asking the API over NATS. Copied so a controller test
 # can present an already-verified identity instead of standing up a broker.
-Mimic.copy(AgentsDemo.Realtime.TokenAuth)
+Mimic.copy(Connectix.Realtime.TokenAuth)
 
 ExUnit.start(exclude: [:web_tool, :live_call], capture_log: true)
 # ExUnit.start(exclude: [:web_tool], capture_log: false)

@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.CoreComponents do
+defmodule ConnectixWeb.CoreComponents do
   @moduledoc """
   Provides core UI components.
 
@@ -27,7 +27,7 @@ defmodule AgentsDemoWeb.CoreComponents do
 
   """
   use Phoenix.Component
-  use Gettext, backend: AgentsDemoWeb.Gettext
+  use Gettext, backend: ConnectixWeb.Gettext
 
   alias Phoenix.LiveView.JS
 
@@ -458,9 +458,9 @@ defmodule AgentsDemoWeb.CoreComponents do
     # with our gettext backend as first argument. Translations are
     # available in the errors.po file (as we use the "errors" domain).
     if count = opts[:count] do
-      Gettext.dngettext(AgentsDemoWeb.Gettext, "errors", msg, msg, count, opts)
+      Gettext.dngettext(ConnectixWeb.Gettext, "errors", msg, msg, count, opts)
     else
-      Gettext.dgettext(AgentsDemoWeb.Gettext, "errors", msg, opts)
+      Gettext.dgettext(ConnectixWeb.Gettext, "errors", msg, opts)
     end
   end
 

@@ -1,10 +1,10 @@
-defmodule AgentsDemo.Skills.CapabilityTest do
+defmodule Connectix.Skills.CapabilityTest do
   use ExUnit.Case, async: true
 
-  alias AgentsDemo.Fakes.EchoCapability
-  alias AgentsDemo.Skills.Capability
+  alias Connectix.Fakes.EchoCapability
+  alias Connectix.Skills.Capability
 
-  @scope %AgentsDemo.Accounts.Scope{user: %AgentsDemo.Accounts.User{id: 7}}
+  @scope %Connectix.Accounts.Scope{user: %Connectix.Accounts.User{id: 7}}
 
   defp function(overrides \\ %{}),
     do: overrides |> EchoCapability.capability() |> Capability.to_function()

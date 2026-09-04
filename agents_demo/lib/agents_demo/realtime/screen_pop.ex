@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.ScreenPop do
+defmodule Connectix.Realtime.ScreenPop do
   @moduledoc """
   Executes validated screen-pop instructions against Crystal call events.
 
@@ -17,10 +17,10 @@ defmodule AgentsDemo.Realtime.ScreenPop do
 
   require Logger
 
-  alias AgentsDemo.Realtime.Instruction
-  alias AgentsDemo.Realtime.InstructionLoader
-  alias AgentsDemo.Realtime.PopRule
-  alias AgentsDemo.Telemetry
+  alias Connectix.Realtime.Instruction
+  alias Connectix.Realtime.InstructionLoader
+  alias Connectix.Realtime.PopRule
+  alias Connectix.Telemetry
 
   @seen_max 256
   @seen_ttl_ms 60_000
@@ -87,7 +87,7 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   def online?(user_uuid, environment_uuid)
       when is_binary(user_uuid) and user_uuid != "" and is_binary(environment_uuid) and
              environment_uuid != "" do
-    AgentsDemo.Realtime.SessionRegistry
+    Connectix.Realtime.SessionRegistry
     |> Registry.lookup(user_uuid)
     |> Enum.any?(fn {_pid, registered_environment} ->
       registered_environment == environment_uuid
@@ -107,7 +107,7 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   different environment than the call happens to belong to.
   """
   def online_user?(user_uuid) when is_binary(user_uuid) and user_uuid != "" do
-    Registry.lookup(AgentsDemo.Realtime.SessionRegistry, user_uuid) != []
+    Registry.lookup(Connectix.Realtime.SessionRegistry, user_uuid) != []
   catch
     :exit, _ -> false
   end
@@ -156,7 +156,7 @@ defmodule AgentsDemo.Realtime.ScreenPop do
 
           true ->
             Phoenix.PubSub.broadcast(
-              AgentsDemo.PubSub,
+              Connectix.PubSub,
               "realtime:user:#{user_uuid}",
               {:realtime, %{type: "notification", message: command}}
             )
@@ -179,7 +179,7 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   def route_event(state, event) when is_map(event) do
     environment_uuid = event["environment_uuid"]
     Telemetry.screen_pop_event(:received)
-    AgentsDemo.Events.record("CallEvents", event)
+    Connectix.Events.record("CallEvents", event)
 
     cond do
       MapSet.member?(state.loaded, environment_uuid) ->
@@ -262,7 +262,7 @@ defmodule AgentsDemo.Realtime.ScreenPop do
   """
   @spec user_for_agent(String.t()) :: {String.t(), [String.t()]} | nil
   def user_for_agent(agent_id) when is_binary(agent_id) and agent_id != "" do
-    case Registry.lookup(AgentsDemo.Realtime.SessionRegistry, {:agent, agent_id}) do
+    case Registry.lookup(Connectix.Realtime.SessionRegistry, {:agent, agent_id}) do
       [{_pid, {user_uuid, agent_ids}} | _rest] -> {user_uuid, agent_ids}
       [] -> nil
     end
@@ -291,7 +291,7 @@ defmodule AgentsDemo.Realtime.ScreenPop do
         agent_ids \\ nil
       ) do
     Telemetry.screen_pop_event(:received)
-    AgentsDemo.Events.record("StateChannel", event)
+    Connectix.Events.record("StateChannel", event)
     pop_for_user(state, user_uuid, event, online?, agent_ids)
   end
 
@@ -320,7 +320,7 @@ defmodule AgentsDemo.Realtime.ScreenPop do
         state
       else
         Phoenix.PubSub.broadcast(
-          AgentsDemo.PubSub,
+          Connectix.PubSub,
           "realtime:user:#{user_uuid}",
           {:realtime,
            %{type: "notification", message: %{"action" => "tab:new", "url" => pop_url(event)}}}

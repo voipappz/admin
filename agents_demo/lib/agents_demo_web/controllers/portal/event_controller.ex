@@ -1,8 +1,8 @@
-defmodule AgentsDemoWeb.Portal.EventController do
+defmodule ConnectixWeb.Portal.EventController do
   @moduledoc """
   Browse the events this portal has received off the cable.
 
-  Four routes, mirroring `AgentsDemo.Events`' four reads:
+  Four routes, mirroring `Connectix.Events`' four reads:
 
     * `GET /api/events` — newest first; `limit`, `src`
     * `GET /api/events/timeline?sid=…` — one call's frames, oldest first
@@ -14,13 +14,13 @@ defmodule AgentsDemoWeb.Portal.EventController do
   router already matches through, the same way `/api/statuses` is handled.
 
   A closed store answers **503**, never `{"events": []}` — see
-  `AgentsDemo.Events`: "nothing is stored here" and "nothing happened" are
+  `Connectix.Events`: "nothing is stored here" and "nothing happened" are
   different answers.
   """
 
-  use AgentsDemoWeb, :controller
+  use ConnectixWeb, :controller
 
-  alias AgentsDemo.Events
+  alias Connectix.Events
 
   # Which store to read. The supervised one, unless a test has stood up its own
   # — the 503 branch is only reachable against a store that failed to open, and

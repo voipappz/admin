@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.HealthController do
+defmodule ConnectixWeb.HealthController do
   @moduledoc """
   Liveness and readiness probes for the platform running this app.
 
@@ -12,7 +12,7 @@ defmodule AgentsDemoWeb.HealthController do
   `ready/2` asks whether this node should receive traffic, and reads **two**
   sources:
 
-    * `AgentsDemo.Drain.draining?/0` flips at the very start of shutdown, which
+    * `Connectix.Drain.draining?/0` flips at the very start of shutdown, which
       is when the load balancer needs to know.
     * `Sagents.ready?/0` covers every other way the tree can be down: still
       booting, crashed, restarting.
@@ -25,12 +25,12 @@ defmodule AgentsDemoWeb.HealthController do
   failing requests at the same instant it starts reporting unhealthy, which is
   worse than nothing because it looks finished.
 
-  See `AgentsDemo.Drain` and the Sagents `docs/deployment.md` guide for the full
+  See `Connectix.Drain` and the Sagents `docs/deployment.md` guide for the full
   shutdown sequence.
   """
-  use AgentsDemoWeb, :controller
+  use ConnectixWeb, :controller
 
-  alias AgentsDemo.Drain
+  alias Connectix.Drain
 
   @doc """
   Liveness. 200 for as long as the BEAM answers at all.
@@ -78,7 +78,7 @@ defmodule AgentsDemoWeb.HealthController do
     checks = %{
       cable:
         check(
-          AgentsDemo.Realtime.CableClient.enabled?(),
+          Connectix.Realtime.CableClient.enabled?(),
           "CABLE_URL is not set — no realtime events"
         ),
       # The exception to "configuration, not probes", and deliberately so.
@@ -89,7 +89,7 @@ defmodule AgentsDemoWeb.HealthController do
       # the state worth seeing.
       api_relay:
         check(
-          not AgentsDemo.Realtime.ApiProxy.enabled?() or AgentsDemo.Realtime.ApiProxy.ready?(),
+          not Connectix.Realtime.ApiProxy.enabled?() or Connectix.Realtime.ApiProxy.ready?(),
           "the node has not confirmed the ApiProxy channel — /auth is falling back to HTTP"
         ),
       engine: check(engine?(), "ENGINE_URL is not set — /auth and /api are not forwarded")

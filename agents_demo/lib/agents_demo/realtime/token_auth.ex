@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.TokenAuth do
+defmodule Connectix.Realtime.TokenAuth do
   @moduledoc """
   Authenticates a realtime client by the token it already holds.
 
@@ -34,7 +34,7 @@ defmodule AgentsDemo.Realtime.TokenAuth do
 
   require Logger
 
-  alias AgentsDemo.Realtime.ApiProxy
+  alias Connectix.Realtime.ApiProxy
 
   @positive_ttl_ms 30_000
   @negative_ttl_ms 5_000

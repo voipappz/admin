@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Logging.Influx.HTTP do
+defmodule Connectix.Logging.Influx.HTTP do
   @moduledoc """
   The one place the log shipper touches the network — a thin `Req` wrapper the
   writer reaches through `Application.get_env(:agents_demo, :influx_http)`, so

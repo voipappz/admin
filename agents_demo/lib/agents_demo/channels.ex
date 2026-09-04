@@ -1,11 +1,11 @@
-defmodule AgentsDemo.Channels do
+defmodule Connectix.Channels do
   @moduledoc """
   Delivery of agent replies to the channel a conversation arrived on.
 
   Adding a channel is two steps: write a module implementing
-  `AgentsDemo.Channels.Channel`, and list it in config.
+  `Connectix.Channels.Channel`, and list it in config.
 
-      config :agents_demo, :channels, [AgentsDemo.Channels.WhatsApp]
+      config :agents_demo, :channels, [Connectix.Channels.WhatsApp]
 
   There is deliberately one dispatch point. Papercups, which this borrows
   from, instead pipes a message through a hardcoded `notify(:slack)`,
@@ -19,7 +19,7 @@ defmodule AgentsDemo.Channels do
 
   require Logger
 
-  alias AgentsDemo.Conversations.Conversation
+  alias Connectix.Conversations.Conversation
 
   @doc """
   Hand `message` to whichever channel owns `conversation`.

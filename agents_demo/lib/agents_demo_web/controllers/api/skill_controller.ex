@@ -1,14 +1,14 @@
-defmodule AgentsDemoWeb.Api.SkillController do
+defmodule ConnectixWeb.Api.SkillController do
   @moduledoc """
   The Skill catalog, read-only: what a bot version may select, with each
   Skill's capabilities and policy badges. The catalog is code
-  (`AgentsDemo.Skills`), so this is the same list for every caller.
+  (`Connectix.Skills`), so this is the same list for every caller.
   """
 
-  use AgentsDemoWeb, :controller
+  use ConnectixWeb, :controller
   use OpenApiSpex.ControllerSpecs
 
-  alias AgentsDemoWeb.Api.Schemas
+  alias ConnectixWeb.Api.Schemas
 
   tags(["skills"])
 
@@ -21,6 +21,6 @@ defmodule AgentsDemoWeb.Api.SkillController do
   )
 
   def index(conn, _params) do
-    json(conn, %{data: AgentsDemo.Skills.catalog()})
+    json(conn, %{data: Connectix.Skills.catalog()})
   end
 end

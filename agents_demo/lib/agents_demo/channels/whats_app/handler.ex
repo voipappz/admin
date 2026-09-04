@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Channels.WhatsApp.Handler do
+defmodule Connectix.Channels.WhatsApp.Handler do
   @moduledoc """
   Turns an inbound WhatsApp message into an agent turn.
 
@@ -9,29 +9,29 @@ defmodule AgentsDemo.Channels.WhatsApp.Handler do
   ## Why a sender gets a user
 
   Everything downstream of `Sagents.Session` — scope queries, the per-owner
-  filesystem, state persistence — is keyed on `AgentsDemo.Accounts.Scope`, and
+  filesystem, state persistence — is keyed on `Connectix.Accounts.Scope`, and
   a scope is a user. Rather than teach all of that about a second kind of
   owner, a phone number gets a user of its own, created on first contact and
   reused after. Each sender then has their own history and their own files, and
   no scoping code has to change.
 
   These users cannot sign in: they are registered without a password, so
-  `AgentsDemo.Accounts.get_user_by_email_and_password/2` can never return them.
+  `Connectix.Accounts.get_user_by_email_and_password/2` can never return them.
   """
 
   @behaviour Anu.Webhook.Handler
 
   require Logger
 
-  alias AgentsDemo.Accounts
-  alias AgentsDemo.Accounts.Scope
-  alias AgentsDemo.Accounts.User
-  alias AgentsDemo.Bots
-  alias AgentsDemo.Config
-  alias AgentsDemo.Agents.DemoSetup
-  alias AgentsDemo.Conversations
-  alias AgentsDemo.Turns
-  alias AgentsDemo.Turns.Input
+  alias Connectix.Accounts
+  alias Connectix.Accounts.Scope
+  alias Connectix.Accounts.User
+  alias Connectix.Bots
+  alias Connectix.Config
+  alias Connectix.Agents.DemoSetup
+  alias Connectix.Conversations
+  alias Connectix.Turns
+  alias Connectix.Turns.Input
 
   @impl true
   def handle_event(:message_received, %Anu.Event.Message{from: phone, text: text})
@@ -116,7 +116,7 @@ defmodule AgentsDemo.Channels.WhatsApp.Handler do
   # the same conversation.
   defp find_or_create_conversation(scope, phone) do
     case Conversations.latest_by_source_metadata(scope, "whatsapp", "phone", phone) do
-      %AgentsDemo.Conversations.Conversation{} = conversation ->
+      %Connectix.Conversations.Conversation{} = conversation ->
         {:ok, conversation}
 
       nil ->

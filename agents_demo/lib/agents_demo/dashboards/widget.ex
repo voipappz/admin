@@ -1,8 +1,8 @@
-defmodule AgentsDemo.Dashboards.Widget do
+defmodule Connectix.Dashboards.Widget do
   @moduledoc """
   One widget definition on a board.
 
-  A plain struct over the Mnesia row (`AgentsDemo.Portal.Store`). Everything but
+  A plain struct over the Mnesia row (`Connectix.Portal.Store`). Everything but
   the ordered/indexed fields lives in `definition`, a map — a widget gains fields
   as the builder grows chart types, and the store keeps them without a schema
   change. A definition says only WHAT to show; the values come from the event

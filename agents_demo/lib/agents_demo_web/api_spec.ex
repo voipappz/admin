@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.ApiSpec do
+defmodule ConnectixWeb.ApiSpec do
   @moduledoc """
   The OpenAPI 3 description of the public API.
 
@@ -20,7 +20,7 @@ defmodule AgentsDemoWeb.ApiSpec do
   @impl OpenApi
   def spec do
     %OpenApi{
-      servers: [Server.from_endpoint(AgentsDemoWeb.Endpoint)],
+      servers: [Server.from_endpoint(ConnectixWeb.Endpoint)],
       info: %Info{
         title: "Agents Demo API",
         version: "1.0.0",
@@ -36,7 +36,7 @@ defmodule AgentsDemoWeb.ApiSpec do
         Authenticate with `Authorization: Bearer <AGENTS_DEMO_API_KEY>`.
         """
       },
-      paths: Paths.from_router(AgentsDemoWeb.Router),
+      paths: Paths.from_router(ConnectixWeb.Router),
       components: %Components{
         securitySchemes: %{
           "bearer" => %SecurityScheme{

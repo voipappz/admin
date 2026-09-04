@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Agents.FactoryRouter do
+defmodule Connectix.Agents.FactoryRouter do
   @moduledoc """
   Resolves a conversation to the factory and config that build its agent.
 
@@ -8,17 +8,17 @@ defmodule AgentsDemo.Agents.FactoryRouter do
 
   The load is scoped: the conversation is fetched through the caller's
   `current_scope`, and only then is its pinned version compiled
-  (`AgentsDemo.Bots.Runtime`). The Factory receives the compiled spec and
+  (`Connectix.Bots.Runtime`). The Factory receives the compiled spec and
   makes no queries of its own. One factory serves every bot; a second one
   would only be warranted by a genuinely different execution architecture.
   """
 
   @behaviour Sagents.FactoryRouter
 
-  alias AgentsDemo.Agents.Factory
-  alias AgentsDemo.Agents.FactoryConfig
-  alias AgentsDemo.Bots.Runtime
-  alias AgentsDemo.Conversations
+  alias Connectix.Agents.Factory
+  alias Connectix.Agents.FactoryConfig
+  alias Connectix.Bots.Runtime
+  alias Connectix.Conversations
 
   @impl true
   def resolve(scope, conversation_id, request_opts) do

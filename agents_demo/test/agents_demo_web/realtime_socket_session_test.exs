@@ -1,8 +1,8 @@
-defmodule AgentsDemoWeb.RealtimeSocketSessionTest do
+defmodule ConnectixWeb.RealtimeSocketSessionTest do
   use ExUnit.Case, async: false
 
-  alias AgentsDemo.Realtime.ScreenPop
-  alias AgentsDemoWeb.RealtimeSocket
+  alias Connectix.Realtime.ScreenPop
+  alias ConnectixWeb.RealtimeSocket
 
   @environment_uuid "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 

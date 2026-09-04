@@ -1,18 +1,18 @@
-defmodule AgentsDemoWeb.Plugs.ApiAuth do
+defmodule ConnectixWeb.Plugs.ApiAuth do
   @moduledoc """
   Bearer-token auth for the public API.
 
-  The key and the user it acts as come from `AgentsDemo.Config` — see
-  `AgentsDemo.Config.api_key/0` and `AgentsDemo.Config.api_user_email/0` for
+  The key and the user it acts as come from `Connectix.Config` — see
+  `Connectix.Config.api_key/0` and `Connectix.Config.api_user_email/0` for
   what they are and what happens when either is missing.
   """
 
   import Plug.Conn
 
-  alias AgentsDemo.Accounts
-  alias AgentsDemo.Accounts.Scope
-  alias AgentsDemo.Accounts.User
-  alias AgentsDemo.Config
+  alias Connectix.Accounts
+  alias Connectix.Accounts.Scope
+  alias Connectix.Accounts.User
+  alias Connectix.Config
 
   def init(opts), do: opts
 

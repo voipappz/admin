@@ -1,9 +1,9 @@
-defmodule AgentsDemo.BotsFixtures do
+defmodule Connectix.BotsFixtures do
   @moduledoc """
-  Test helpers for `AgentsDemo.Bots`. All take the owner's scope first.
+  Test helpers for `Connectix.Bots`. All take the owner's scope first.
   """
 
-  alias AgentsDemo.Bots
+  alias Connectix.Bots
 
   @doc "Draft configuration that validates and publishes."
   def valid_version_attrs(attrs \\ %{}) do

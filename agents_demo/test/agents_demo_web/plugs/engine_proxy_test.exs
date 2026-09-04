@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.Plugs.EngineProxyTest do
+defmodule ConnectixWeb.Plugs.EngineProxyTest do
   @moduledoc """
   The origin's CORS contract.
 
@@ -14,7 +14,7 @@ defmodule AgentsDemoWeb.Plugs.EngineProxyTest do
   import Plug.Conn
   import Plug.Test
 
-  alias AgentsDemoWeb.Plugs.EngineProxy
+  alias ConnectixWeb.Plugs.EngineProxy
 
   @extension "chrome-extension://kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
 

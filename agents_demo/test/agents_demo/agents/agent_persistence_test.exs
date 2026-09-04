@@ -1,12 +1,12 @@
-defmodule AgentsDemo.Agents.AgentPersistenceTest do
-  use AgentsDemo.DataCase
+defmodule Connectix.Agents.AgentPersistenceTest do
+  use Connectix.DataCase
 
-  import AgentsDemo.AccountsFixtures
-  import AgentsDemo.ConversationsFixtures
+  import Connectix.AccountsFixtures
+  import Connectix.ConversationsFixtures
   import ExUnit.CaptureLog
 
-  alias AgentsDemo.Agents.AgentPersistence
-  alias AgentsDemo.Conversations
+  alias Connectix.Agents.AgentPersistence
+  alias Connectix.Conversations
 
   describe "persist_state/3" do
     test "persists state for an existing conversation" do

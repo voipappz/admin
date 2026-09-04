@@ -1,5 +1,5 @@
-defmodule AgentsDemoWeb.HealthControllerTest do
-  use AgentsDemoWeb.ConnCase, async: false
+defmodule ConnectixWeb.HealthControllerTest do
+  use ConnectixWeb.ConnCase, async: false
   use Mimic
 
   describe "GET /health" do

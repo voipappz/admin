@@ -1,11 +1,11 @@
-defmodule AgentsDemo.Agents.Factory do
+defmodule Connectix.Agents.Factory do
   @behaviour Sagents.Factory
 
   @moduledoc """
   Builds a `%Sagents.Agent{}` from a compiled bot version.
 
   Everything the agent *is* comes from `config.spec`, a
-  `AgentsDemo.Bots.CompiledSpec` produced from the version the conversation
+  `Connectix.Bots.CompiledSpec` produced from the version the conversation
   pins: the prompt is the spec's prompt, the model is the spec's model, the
   tools are the spec's capabilities, the middleware is the platform stack plus
   whatever the selected Skills add, and approval and limits are the spec's
@@ -19,14 +19,14 @@ defmodule AgentsDemo.Agents.Factory do
   because Sagents requires it to be; `Haltable` lets a capability end a run.
   """
 
-  alias AgentsDemo.Agents.DemoSetup
-  alias AgentsDemo.Agents.FactoryConfig
-  alias AgentsDemo.Bots.CompiledSpec
-  alias AgentsDemo.Config
-  alias AgentsDemo.Middleware.InjectCurrentTime
-  alias AgentsDemo.Skills.Capability
-  alias AgentsDemo.Skills.Context
-  alias AgentsDemo.Skills.Skill
+  alias Connectix.Agents.DemoSetup
+  alias Connectix.Agents.FactoryConfig
+  alias Connectix.Bots.CompiledSpec
+  alias Connectix.Config
+  alias Connectix.Middleware.InjectCurrentTime
+  alias Connectix.Skills.Capability
+  alias Connectix.Skills.Context
+  alias Connectix.Skills.Skill
   alias LangChain.ChatModels.ChatAnthropic
   alias Sagents.Agent
   alias Sagents.Middleware.ConversationTitle
@@ -138,15 +138,15 @@ defmodule AgentsDemo.Agents.Factory do
       {Sagents.Middleware.SubAgent,
        [
          block_middleware: [
-           AgentsDemo.Middleware.WebToolMiddleware,
-           AgentsDemo.Middleware.InjectCurrentTime,
-           AgentsDemo.Middleware.UserContextMiddleware,
+           Connectix.Middleware.WebToolMiddleware,
+           Connectix.Middleware.InjectCurrentTime,
+           Connectix.Middleware.UserContextMiddleware,
            Sagents.Middleware.Summarization,
            Sagents.Middleware.ConversationTitle,
            Sagents.Middleware.AskUserQuestion
          ]
        ]},
-      {AgentsDemo.Middleware.UserContextMiddleware, [scope: c.scope]},
+      {Connectix.Middleware.UserContextMiddleware, [scope: c.scope]},
       {InjectCurrentTime, [timezone: c.timezone]}
     ]
 

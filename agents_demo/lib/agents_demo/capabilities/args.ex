@@ -1,12 +1,12 @@
-defmodule AgentsDemo.Capabilities.Args do
+defmodule Connectix.Capabilities.Args do
   @moduledoc """
-  `use AgentsDemo.Capabilities.Args` declares a capability's argument struct
+  `use Connectix.Capabilities.Args` declares a capability's argument struct
   and gives it the two functions a capability needs: `json_schema/0`, derived
   from the fields for the model, and `cast/1`, which types the model's map
   and runs the module's own `validate/1`.
 
       defmodule Args do
-        use AgentsDemo.Capabilities.Args,
+        use Connectix.Capabilities.Args,
           fields: [line_number: :string, mode: {:string, default: "echo"}],
           required: [:line_number]
 
@@ -38,8 +38,8 @@ defmodule AgentsDemo.Capabilities.Args do
     required = Keyword.get(opts, :required, [])
 
     quote do
-      @behaviour AgentsDemo.Capabilities.Args
-      import AgentsDemo.Capabilities.Args, only: [max_len: 4, inclusion: 4, done: 2]
+      @behaviour Connectix.Capabilities.Args
+      import Connectix.Capabilities.Args, only: [max_len: 4, inclusion: 4, done: 2]
 
       defstruct unquote(Macro.escape(struct_fields))
 
@@ -47,10 +47,10 @@ defmodule AgentsDemo.Capabilities.Args do
       def __args__, do: %{types: unquote(Macro.escape(types)), required: unquote(required)}
 
       @doc false
-      def cast(attrs) when is_map(attrs), do: AgentsDemo.Capabilities.Args.cast(__MODULE__, attrs)
+      def cast(attrs) when is_map(attrs), do: Connectix.Capabilities.Args.cast(__MODULE__, attrs)
 
       @doc false
-      def json_schema, do: AgentsDemo.Capabilities.Args.json_schema(__MODULE__)
+      def json_schema, do: Connectix.Capabilities.Args.json_schema(__MODULE__)
 
       @doc false
       def descriptions, do: %{}

@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Conversations.FlowState do
+defmodule Connectix.Conversations.FlowState do
   @moduledoc "Deterministic flow position for a conversation (plain struct, no Ecto)."
   @derive Jason.Encoder
   defstruct [:state, :entered_at, vars: %{}]

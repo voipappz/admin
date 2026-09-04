@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Skills do
+defmodule Connectix.Skills do
   @moduledoc """
   The trusted catalog of Skills a bot may select.
 
@@ -8,14 +8,14 @@ defmodule AgentsDemo.Skills do
   review. `String.to_atom/1` and `Module.concat/1` never touch bot data.
   """
 
-  alias AgentsDemo.Skills.Skill
+  alias Connectix.Skills.Skill
 
   @registry %{
-    "memory_files" => AgentsDemo.Skills.MemoryFiles,
-    "web_lookup" => AgentsDemo.Skills.WebLookup,
-    "todo" => AgentsDemo.Skills.Todo,
-    "customer_lookup" => AgentsDemo.Skills.CustomerLookup,
-    "human_handoff" => AgentsDemo.Skills.HumanHandoff
+    "memory_files" => Connectix.Skills.MemoryFiles,
+    "web_lookup" => Connectix.Skills.WebLookup,
+    "todo" => Connectix.Skills.Todo,
+    "customer_lookup" => Connectix.Skills.CustomerLookup,
+    "human_handoff" => Connectix.Skills.HumanHandoff
   }
 
   @doc "Every Skill id the catalog knows."

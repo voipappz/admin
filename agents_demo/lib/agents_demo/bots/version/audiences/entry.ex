@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Bots.Version.Audiences.Entry do
+defmodule Connectix.Bots.Version.Audiences.Entry do
   @moduledoc false
   @derive Jason.Encoder
   defstruct [:phone, :audience_id, :name]
@@ -7,7 +7,7 @@ defmodule AgentsDemo.Bots.Version.Audiences.Entry do
   @id ~r/^[a-z][a-z0-9_]*$/
 
   def new(attrs) do
-    m = AgentsDemo.Bots.Version.take(attrs, %__MODULE__{}, [:phone, :audience_id, :name])
+    m = Connectix.Bots.Version.take(attrs, %__MODULE__{}, [:phone, :audience_id, :name])
 
     errors =
       %{}
@@ -16,7 +16,7 @@ defmodule AgentsDemo.Bots.Version.Audiences.Entry do
       |> fmt(:phone, m.phone, @phone, "must be a phone number")
       |> fmt(:audience_id, m.audience_id, @id, "is invalid")
 
-    AgentsDemo.Bots.Version.done(errors, struct(__MODULE__, m))
+    Connectix.Bots.Version.done(errors, struct(__MODULE__, m))
   end
 
   defp req(errors, field, value) when value in [nil, ""], do: Map.put(errors, field, ["can't be blank"])

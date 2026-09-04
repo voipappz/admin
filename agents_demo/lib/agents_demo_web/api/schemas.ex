@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.Api.Schemas do
+defmodule ConnectixWeb.Api.Schemas do
   @moduledoc """
   Request and response shapes for the public API.
 

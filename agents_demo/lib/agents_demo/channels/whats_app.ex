@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Channels.WhatsApp do
+defmodule Connectix.Channels.WhatsApp do
   @moduledoc """
   Delivers agent replies over the WhatsApp Business Cloud API.
 
@@ -12,7 +12,7 @@ defmodule AgentsDemo.Channels.WhatsApp do
   Three content types go out: `text`, `image`, and `interactive` (reply
   buttons or a list), which is how a deterministic flow offers choices. Their
   limits are enforced when the message is written
-  (`AgentsDemo.Conversations.DisplayMessage`), because `:anu` validates
+  (`Connectix.Conversations.DisplayMessage`), because `:anu` validates
   nothing and Meta's complaint arrives only after delivery.
 
   Only *assistant* messages are candidates, which is also the echo guard: a
@@ -21,13 +21,13 @@ defmodule AgentsDemo.Channels.WhatsApp do
   conversation over is an assistant message and does go out.
   """
 
-  @behaviour AgentsDemo.Channels.Channel
+  @behaviour Connectix.Channels.Channel
 
   require Logger
 
-  alias AgentsDemo.Config
-  alias AgentsDemo.Conversations.Conversation
-  alias AgentsDemo.Conversations.DisplayMessage
+  alias Connectix.Config
+  alias Connectix.Conversations.Conversation
+  alias Connectix.Conversations.DisplayMessage
 
   @impl true
   def source, do: "whatsapp"
@@ -110,7 +110,7 @@ defmodule AgentsDemo.Channels.WhatsApp do
   # without a Meta account; production keeps `Anu.Adapters.Meta`.
   defp client do
     Anu.Client.new(
-      finch: AgentsDemo.Finch,
+      finch: Connectix.Finch,
       adapter: Application.get_env(:agents_demo, :whatsapp_adapter, Anu.Adapters.Meta),
       access_token: fetch!(Config.whatsapp_access_token(), "WHATSAPP_ACCESS_TOKEN"),
       phone_number_id: fetch!(Config.whatsapp_phone_number_id(), "WHATSAPP_PHONE_NUMBER_ID")

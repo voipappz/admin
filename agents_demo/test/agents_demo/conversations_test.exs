@@ -1,12 +1,12 @@
-defmodule AgentsDemo.ConversationsTest do
-  use AgentsDemo.DataCase
+defmodule Connectix.ConversationsTest do
+  use Connectix.DataCase
 
-  alias AgentsDemo.Conversations
-  alias AgentsDemo.Conversations.{Conversation, AgentState, DisplayMessage}
+  alias Connectix.Conversations
+  alias Connectix.Conversations.{Conversation, AgentState, DisplayMessage}
 
-  import AgentsDemo.AccountsFixtures
-  import AgentsDemo.BotsFixtures
-  import AgentsDemo.ConversationsFixtures
+  import Connectix.AccountsFixtures
+  import Connectix.BotsFixtures
+  import Connectix.ConversationsFixtures
 
   describe "create_conversation/2" do
     test "creates a conversation with valid attributes" do
@@ -52,7 +52,7 @@ defmodule AgentsDemo.ConversationsTest do
       scope = user_scope_fixture()
 
       assert_raise KeyError, fn ->
-        Conversations.get_conversation!(scope, AgentsDemo.Mnesia.uuid())
+        Conversations.get_conversation!(scope, Connectix.Mnesia.uuid())
       end
     end
 
@@ -843,7 +843,7 @@ defmodule AgentsDemo.ConversationsTest do
   describe "bot version pinning" do
     test "a conversation pins the default bot's published version by default" do
       scope = user_scope_fixture()
-      {:ok, default} = AgentsDemo.Bots.get_bot_by_slug(scope, "default")
+      {:ok, default} = Connectix.Bots.get_bot_by_slug(scope, "default")
 
       {:ok, conversation} = Conversations.create_conversation(scope, %{title: "Hi"})
       assert conversation.bot_id == default.id
@@ -874,8 +874,8 @@ defmodule AgentsDemo.ConversationsTest do
       assert {:error, :no_published_version} =
                Conversations.create_conversation(scope, %{bot_id: bot.id})
 
-      {:ok, bot} = AgentsDemo.Bots.publish_draft(scope, bot.id)
-      {:ok, _archived} = AgentsDemo.Bots.archive_bot(scope, bot.id)
+      {:ok, bot} = Connectix.Bots.publish_draft(scope, bot.id)
+      {:ok, _archived} = Connectix.Bots.archive_bot(scope, bot.id)
       assert {:error, :bot_archived} = Conversations.create_conversation(scope, %{bot_id: bot.id})
     end
 
@@ -886,9 +886,9 @@ defmodule AgentsDemo.ConversationsTest do
       v1 = bot.current_version_id
 
       {:ok, _draft} =
-        AgentsDemo.Bots.update_draft(scope, bot.id, %{"behavior" => %{"instructions" => "Two."}})
+        Connectix.Bots.update_draft(scope, bot.id, %{"behavior" => %{"instructions" => "Two."}})
 
-      {:ok, bot} = AgentsDemo.Bots.publish_draft(scope, bot.id)
+      {:ok, bot} = Connectix.Bots.publish_draft(scope, bot.id)
       refute bot.current_version_id == v1
 
       {:ok, reloaded} = Conversations.get_conversation_with_version(scope, conversation.id)

@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.StateView do
+defmodule Connectix.Realtime.StateView do
   @moduledoc """
   Folds the node's state stream into a current picture.
 

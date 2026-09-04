@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Phone do
+defmodule Connectix.Phone do
   @moduledoc """
   Phone numbers as the CRM stores them: Israeli local format, digits only.
 

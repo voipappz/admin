@@ -1,7 +1,7 @@
-defmodule AgentsDemo.PhoneTest do
+defmodule Connectix.PhoneTest do
   use ExUnit.Case, async: true
 
-  alias AgentsDemo.Phone
+  alias Connectix.Phone
 
   test "normalises Israeli numbers to local digits" do
     assert Phone.normalise("+972-3-1234567") == {:ok, "031234567"}

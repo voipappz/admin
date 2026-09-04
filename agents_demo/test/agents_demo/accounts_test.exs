@@ -1,10 +1,10 @@
-defmodule AgentsDemo.AccountsTest do
-  use AgentsDemo.DataCase
+defmodule Connectix.AccountsTest do
+  use Connectix.DataCase
 
-  alias AgentsDemo.Accounts
-  alias AgentsDemo.Accounts.{Store, User, UserToken}
+  alias Connectix.Accounts
+  alias Connectix.Accounts.{Store, User, UserToken}
 
-  import AgentsDemo.AccountsFixtures
+  import Connectix.AccountsFixtures
 
   describe "registration and lookup" do
     test "registers a passwordless user with a published default bot" do
@@ -13,10 +13,10 @@ defmodule AgentsDemo.AccountsTest do
       assert {:ok, %User{email: ^email, hashed_password: nil, confirmed_at: nil} = user} =
                Accounts.register_user(%{email: email})
 
-      scope = AgentsDemo.Accounts.Scope.for_user(user)
+      scope = Connectix.Accounts.Scope.for_user(user)
 
       assert {:ok, %{slug: "default", current_version_id: id}} =
-               AgentsDemo.Bots.get_bot_by_slug(scope, "default")
+               Connectix.Bots.get_bot_by_slug(scope, "default")
 
       assert is_binary(id)
       assert Accounts.get_user!(user.id).id == user.id

@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.Api.FallbackController do
+defmodule ConnectixWeb.Api.FallbackController do
   @moduledoc """
   Turns the error tuples the API controllers return into JSON responses.
 
@@ -7,7 +7,7 @@ defmodule AgentsDemoWeb.Api.FallbackController do
   API never confirms the existence of another tenant's data.
   """
 
-  use AgentsDemoWeb, :controller
+  use ConnectixWeb, :controller
 
   def call(conn, {:error, :not_found}), do: send_error(conn, :not_found, "not found")
 
@@ -16,7 +16,7 @@ defmodule AgentsDemoWeb.Api.FallbackController do
 
   # A draft that is not fit to publish: the whole report, so the client can
   # fix every problem in one round rather than one per request.
-  def call(conn, {:error, %AgentsDemo.Bots.Validator.Report{} = report}) do
+  def call(conn, {:error, %Connectix.Bots.Validator.Report{} = report}) do
     conn
     |> put_status(:unprocessable_entity)
     |> json(%{

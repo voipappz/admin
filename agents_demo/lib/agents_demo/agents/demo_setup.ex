@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Agents.DemoSetup do
+defmodule Connectix.Agents.DemoSetup do
   @moduledoc """
   Demo-specific setup and configuration.
 
@@ -11,7 +11,7 @@ defmodule AgentsDemo.Agents.DemoSetup do
   according to your application's needs.
   """
 
-  alias AgentsDemo.Config
+  alias Connectix.Config
   alias Sagents.FileSystem
   alias Sagents.FileSystem.FileSystemConfig
   alias Sagents.FileSystem.Persistence.Disk
@@ -43,7 +43,7 @@ defmodule AgentsDemo.Agents.DemoSetup do
       # => {:ok, {:user, 123}}
 
   Note: callers don't pass this scope into `start_conversation_session/2`.
-  `AgentsDemo.Agents.Factory.create_agent/2` derives the same key from
+  `Connectix.Agents.Factory.create_agent/2` derives the same key from
   the FactoryConfig's `:scope` and ensures the filesystem is up before
   wiring the FileSystem middleware.
   """
@@ -101,7 +101,7 @@ defmodule AgentsDemo.Agents.DemoSetup do
   # Private helper to setup user directory and return storage path
   defp setup_user_directory(user_id) do
     # AGENTS_DEMO_DATA_DIR, or a per-environment default. See
-    # `AgentsDemo.Config.data_dir/0` — in particular why this cannot ask
+    # `Connectix.Config.data_dir/0` — in particular why this cannot ask
     # `Mix.env()`, which does not exist in a release.
     base_path = Config.data_dir()
     storage_path = Path.join([base_path, to_string(user_id), "memories"])

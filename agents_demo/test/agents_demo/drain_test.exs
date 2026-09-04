@@ -1,4 +1,4 @@
-defmodule AgentsDemo.DrainTest do
+defmodule Connectix.DrainTest do
   @moduledoc """
   Cover for the mechanism that keeps a load balancer from routing to a node
   whose Sagents tree is about to stop.
@@ -9,9 +9,9 @@ defmodule AgentsDemo.DrainTest do
   matter. None of them produce an error, and all of them mean the drain does
   not happen.
   """
-  use AgentsDemoWeb.ConnCase, async: false
+  use ConnectixWeb.ConnCase, async: false
 
-  alias AgentsDemo.Drain
+  alias Connectix.Drain
 
   @delay 500
 

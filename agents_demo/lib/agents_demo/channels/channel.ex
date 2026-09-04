@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Channels.Channel do
+defmodule Connectix.Channels.Channel do
   @moduledoc """
   What a channel has to provide.
 
@@ -8,7 +8,7 @@ defmodule AgentsDemo.Channels.Channel do
   only contract there is that it ends in a persisted message.
   """
 
-  alias AgentsDemo.Conversations.Conversation
+  alias Connectix.Conversations.Conversation
 
   @doc """
   The `sagents_conversations.source` value this channel is responsible for.

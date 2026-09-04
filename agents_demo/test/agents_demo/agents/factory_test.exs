@@ -1,12 +1,12 @@
-defmodule AgentsDemo.Agents.FactoryTest do
-  use AgentsDemo.DataCase
+defmodule Connectix.Agents.FactoryTest do
+  use Connectix.DataCase
 
-  import AgentsDemo.AccountsFixtures
-  import AgentsDemo.BotsFixtures
-  import AgentsDemo.ConversationsFixtures
+  import Connectix.AccountsFixtures
+  import Connectix.BotsFixtures
+  import Connectix.ConversationsFixtures
 
-  alias AgentsDemo.Agents.Factory
-  alias AgentsDemo.Agents.FactoryRouter
+  alias Connectix.Agents.Factory
+  alias Connectix.Agents.FactoryRouter
 
   setup do
     previous = System.get_env("ANTHROPIC_API_KEY")
@@ -55,7 +55,7 @@ defmodule AgentsDemo.Agents.FactoryTest do
     modules = middleware_modules(agent)
     assert Sagents.Middleware.FileSystem in modules
     assert Sagents.Middleware.TodoList in modules
-    refute AgentsDemo.Middleware.WebToolMiddleware in modules
+    refute Connectix.Middleware.WebToolMiddleware in modules
     assert List.last(modules) == Sagents.Middleware.HumanInTheLoop
     assert Sagents.Middleware.Haltable in modules
   end
@@ -67,7 +67,7 @@ defmodule AgentsDemo.Agents.FactoryTest do
 
     assert agent.base_system_prompt =~ "/Memories"
     modules = middleware_modules(agent)
-    assert AgentsDemo.Middleware.WebToolMiddleware in modules
+    assert Connectix.Middleware.WebToolMiddleware in modules
     assert Sagents.Middleware.FileSystem in modules
     assert agent.max_runs == 50
     refute Sagents.Middleware.HumanInTheLoop in modules

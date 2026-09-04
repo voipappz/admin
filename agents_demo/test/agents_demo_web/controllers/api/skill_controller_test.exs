@@ -1,5 +1,5 @@
-defmodule AgentsDemoWeb.Api.SkillControllerTest do
-  use AgentsDemoWeb.ConnCase, async: false
+defmodule ConnectixWeb.Api.SkillControllerTest do
+  use ConnectixWeb.ConnCase, async: false
 
   setup :api_conn
 

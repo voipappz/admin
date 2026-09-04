@@ -5,13 +5,13 @@ config :bcrypt_elixir, :log_rounds, 1
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
-config :agents_demo, AgentsDemoWeb.Endpoint,
+config :agents_demo, ConnectixWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "1ucpgggKD06EdyuAUcqtPYRrzXO4o+RZ8J+S/n9nfFo12rKiJW1nH06RIzmi8BQj",
   server: false
 
 # In test we don't send emails
-config :agents_demo, AgentsDemo.Mailer, adapter: Swoosh.Adapters.Test
+config :agents_demo, Connectix.Mailer, adapter: Swoosh.Adapters.Test
 
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
@@ -38,7 +38,7 @@ config :langchain,
 # to a registered process, so a test can assert what a caller would have
 # received without a Meta account. Delivery happens inside a Task, so the
 # receiver is configured rather than `self()`.
-config :agents_demo, :whatsapp_adapter, AgentsDemo.Channels.WhatsApp.TestAdapter
+config :agents_demo, :whatsapp_adapter, Connectix.Channels.WhatsApp.TestAdapter
 
 # No cable relay in the suite. `EngineProxy` prefers cable over HTTP, and
 # `ApiProxy.enabled?/0` reads CABLE_URL from the environment — which the dev

@@ -1,13 +1,13 @@
-defmodule AgentsDemo.Skills.WebLookup do
+defmodule Connectix.Skills.WebLookup do
   @moduledoc """
   Search the web and read the best source. Wraps
-  `AgentsDemo.Middleware.WebToolMiddleware`, which runs the lookup as a
+  `Connectix.Middleware.WebToolMiddleware`, which runs the lookup as a
   bounded sub-agent.
   """
 
-  @behaviour AgentsDemo.Skills.Skill
+  @behaviour Connectix.Skills.Skill
 
-  alias AgentsDemo.Skills.Context
+  alias Connectix.Skills.Context
 
   defmodule Settings do
     @moduledoc false
@@ -15,14 +15,14 @@ defmodule AgentsDemo.Skills.WebLookup do
 
     @doc "Build from attrs, returning `{:ok, struct}` or `{:error, %{field => [msg]}}`."
     def new(attrs \\ %{}) do
-      %{timeout_ms: timeout} = AgentsDemo.Bots.Version.take(attrs, %__MODULE__{}, [:timeout_ms])
+      %{timeout_ms: timeout} = Connectix.Bots.Version.take(attrs, %__MODULE__{}, [:timeout_ms])
 
       errors =
         if is_integer(timeout),
-          do: AgentsDemo.Bots.Version.range(%{}, :timeout_ms, timeout, gt: 1_000, lte: 600_000),
+          do: Connectix.Bots.Version.range(%{}, :timeout_ms, timeout, gt: 1_000, lte: 600_000),
           else: %{timeout_ms: ["is invalid"]}
 
-      AgentsDemo.Bots.Version.done(errors, %__MODULE__{timeout_ms: timeout})
+      Connectix.Bots.Version.done(errors, %__MODULE__{timeout_ms: timeout})
     end
   end
 
@@ -40,7 +40,7 @@ defmodule AgentsDemo.Skills.WebLookup do
   @impl true
   def middleware(%Settings{} = settings, %Context{} = context) do
     [
-      {AgentsDemo.Middleware.WebToolMiddleware,
+      {Connectix.Middleware.WebToolMiddleware,
        [agent_id: context.agent_id, model: context.model, timeout: settings.timeout_ms]}
     ]
   end

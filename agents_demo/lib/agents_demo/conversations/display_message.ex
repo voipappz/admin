@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Conversations.DisplayMessage do
+defmodule Connectix.Conversations.DisplayMessage do
   @moduledoc """
   A user-facing message for the UI — a plain struct, one Mnesia row.
 

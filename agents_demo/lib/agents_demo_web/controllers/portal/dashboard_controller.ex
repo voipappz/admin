@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.Portal.DashboardController do
+defmodule ConnectixWeb.Portal.DashboardController do
   @moduledoc """
   `/dashboard/dashboards` — the builder's board collection.
 
@@ -7,11 +7,11 @@ defmodule AgentsDemoWeb.Portal.DashboardController do
   `409` for the permanent default board, `404` for an unknown uuid.
   """
 
-  use AgentsDemoWeb, :controller
+  use ConnectixWeb, :controller
 
-  alias AgentsDemo.Dashboards
+  alias Connectix.Dashboards
 
-  action_fallback AgentsDemoWeb.Portal.FallbackController
+  action_fallback ConnectixWeb.Portal.FallbackController
 
   def index(conn, _params) do
     json(conn, %{dashboards: Dashboards.list_dashboards()})

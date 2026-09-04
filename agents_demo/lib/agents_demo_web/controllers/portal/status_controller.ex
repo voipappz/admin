@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.Portal.StatusController do
+defmodule ConnectixWeb.Portal.StatusController do
   @moduledoc """
   The agent break-status vocabulary, served by this app.
 
@@ -32,7 +32,7 @@ defmodule AgentsDemoWeb.Portal.StatusController do
   the answer depends on who is asking. It does not today.
   """
 
-  use AgentsDemoWeb, :controller
+  use ConnectixWeb, :controller
 
   # `type: "on_break"` because that is what the extension asks for
   # (`main.component.ts` — `get("/api/statuses", {search: {type: 'on_break'}})`)

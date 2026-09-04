@@ -1,7 +1,7 @@
-defmodule AgentsDemo.Capabilities.CustomerLookupTest do
+defmodule Connectix.Capabilities.CustomerLookupTest do
   use ExUnit.Case, async: true
 
-  alias AgentsDemo.Capabilities.CustomerLookup
+  alias Connectix.Capabilities.CustomerLookup
 
   @token "fireberry-token-should-never-appear"
 

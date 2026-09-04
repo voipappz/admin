@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Bots.Validator do
+defmodule Connectix.Bots.Validator do
   @moduledoc """
   Whether a version is fit to publish.
 
@@ -11,7 +11,7 @@ defmodule AgentsDemo.Bots.Validator do
   that span areas ("handoff is enabled but no handoff Skill is selected").
   """
 
-  alias AgentsDemo.Bots.BotVersion
+  alias Connectix.Bots.BotVersion
 
   defmodule Report do
     @moduledoc "The outcome of validating a version."
@@ -110,7 +110,7 @@ defmodule AgentsDemo.Bots.Validator do
   # The compiler is the authority on whether the catalog references resolve
   # and the settings are valid; its report folds into this one.
   defp compiles(issues, version) do
-    case AgentsDemo.Bots.Compiler.compile(version) do
+    case Connectix.Bots.Compiler.compile(version) do
       {:ok, _spec} -> issues
       {:error, %Report{errors: errors}} -> Enum.map(errors, &{:error, &1}) ++ issues
     end

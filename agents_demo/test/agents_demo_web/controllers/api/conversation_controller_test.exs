@@ -1,12 +1,12 @@
-defmodule AgentsDemoWeb.Api.ConversationControllerTest do
-  use AgentsDemoWeb.ConnCase, async: false
+defmodule ConnectixWeb.Api.ConversationControllerTest do
+  use ConnectixWeb.ConnCase, async: false
 
-  import AgentsDemo.BotsFixtures
+  import Connectix.BotsFixtures
 
   setup :api_conn
 
   test "a new conversation pins the default bot", %{conn: conn, scope: scope} do
-    {:ok, default} = AgentsDemo.Bots.get_bot_by_slug(scope, "default")
+    {:ok, default} = Connectix.Bots.get_bot_by_slug(scope, "default")
 
     data = conn |> post(~p"/api/conversations", %{}) |> json_response(201) |> Map.fetch!("data")
     assert data["source"] == "api"
@@ -42,7 +42,7 @@ defmodule AgentsDemoWeb.Api.ConversationControllerTest do
     assert %{"error" => "the bot has no published version yet"} =
              conn |> post(~p"/api/conversations", %{"bot_id" => bot.id}) |> json_response(422)
 
-    other = published_bot_fixture(AgentsDemo.AccountsFixtures.user_scope_fixture())
+    other = published_bot_fixture(Connectix.AccountsFixtures.user_scope_fixture())
     assert json_response(post(conn, ~p"/api/conversations", %{"bot_id" => other.id}), 404)
   end
 end

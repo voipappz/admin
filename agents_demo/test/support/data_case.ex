@@ -1,4 +1,4 @@
-defmodule AgentsDemo.DataCase do
+defmodule Connectix.DataCase do
   @moduledoc """
   This module defines the setup for tests requiring
   access to the application's data layer.
@@ -14,12 +14,12 @@ defmodule AgentsDemo.DataCase do
 
   using do
     quote do
-      import AgentsDemo.DataCase
+      import Connectix.DataCase
     end
   end
 
   setup _tags do
-    AgentsDemo.Mnesia.reset_domain_for_test!()
+    Connectix.Mnesia.reset_domain_for_test!()
     :ok
   end
 

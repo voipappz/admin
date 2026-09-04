@@ -1,8 +1,8 @@
-defmodule AgentsDemoWeb.Plugs.UserTokenAuth do
+defmodule ConnectixWeb.Plugs.UserTokenAuth do
   @moduledoc """
   Bearer auth for the portal's own user-facing routes, verified the same way
   the realtime socket verifies its handshake: a NATS request/reply to the API
-  (`AgentsDemo.Realtime.TokenAuth`).
+  (`Connectix.Realtime.TokenAuth`).
 
   One verifier, not two. The alternative is this app deciding for itself
   whether a mothership token is good, which is how a portal ends up honouring a
@@ -17,7 +17,7 @@ defmodule AgentsDemoWeb.Plugs.UserTokenAuth do
 
   import Plug.Conn
 
-  alias AgentsDemo.Realtime.TokenAuth
+  alias Connectix.Realtime.TokenAuth
 
   def init(opts), do: opts
 

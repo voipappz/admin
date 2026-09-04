@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.Bus do
+defmodule Connectix.Realtime.Bus do
   @moduledoc """
   The one connection this app holds to the mothership: NATS request/reply.
 
@@ -9,7 +9,7 @@ defmodule AgentsDemo.Realtime.Bus do
   service that already answers here.
 
   **It is not the event path.** Events arrive over cable
-  (`AgentsDemo.Realtime.CableClient`), which is itself backed by NATS on the
+  (`Connectix.Realtime.CableClient`), which is itself backed by NATS on the
   crystal side. So this app subscribes to no subject at all: cable owns the
   stream semantics — channel names, stream identifiers, and the
   `logged_in_at` registration that a confirmed subscription performs — and
@@ -18,7 +18,7 @@ defmodule AgentsDemo.Realtime.Bus do
   Two transports, two jobs: *ask* on NATS, *listen* on cable.
 
   Unset `NATS_URL` and this does not start. Callers get `{:error, :no_bus}`,
-  which is a refusal, not a fallback — see `AgentsDemo.Realtime.TokenAuth` for
+  which is a refusal, not a fallback — see `Connectix.Realtime.TokenAuth` for
   why authenticating without the bus is the worse failure.
   """
 

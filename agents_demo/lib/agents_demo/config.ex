@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Config do
+defmodule Connectix.Config do
   @moduledoc """
   Every setting this application reads from the environment, in one place.
 
@@ -60,7 +60,7 @@ defmodule AgentsDemo.Config do
 
   @doc """
   OpenAI API key (`OPENAI_KEY`), or `nil`. Unused by the default factory and
-  present so switching `AgentsDemo.Agents.Factory` to `ChatOpenAI` needs no
+  present so switching `Connectix.Agents.Factory` to `ChatOpenAI` needs no
   config change. Read here rather than in `config/config.exs`, where the
   LangChain install instructions put a `fn -> ... end` that cannot be written
   into a release's `sys.config`.
@@ -182,7 +182,7 @@ defmodule AgentsDemo.Config do
   @doc """
   API token for the Fireberry CRM (`FIREBERRY_TOKEN`), or `nil`.
 
-  Read at call time by `AgentsDemo.Integrations.Fireberry`; never stored in
+  Read at call time by `Connectix.Integrations.Fireberry`; never stored in
   bot data. Absent, `customer_lookup` answers "CRM unavailable" and the bot
   carries on, so the rest of a flow can be exercised without the CRM.
   """
@@ -272,7 +272,7 @@ defmodule AgentsDemo.Config do
 
   Set it to point at a mounted volume. NOTE: unset, on a box with no persistent
   volume, the default path is inside the container and every deploy starts an
-  empty file — `AgentsDemo.Events` is then a cache of what this instance has
+  empty file — `Connectix.Events` is then a cache of what this instance has
   seen, not a record.
   """
   @spec events_db() :: String.t() | nil
@@ -419,7 +419,7 @@ defmodule AgentsDemo.Config do
     raise """
     environment variable #{key} is missing.
 
-    Every setting this app reads is listed in AgentsDemo.Config, and named in
+    Every setting this app reads is listed in Connectix.Config, and named in
     .envrc.example. In development it belongs in .env; in a release, in the
     environment the unit is started with — see config/xamal.exs.
     """

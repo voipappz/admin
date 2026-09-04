@@ -1,7 +1,7 @@
-defmodule AgentsDemo.Skills.HumanHandoff do
+defmodule Connectix.Skills.HumanHandoff do
   @moduledoc "Hand a conversation to a person. Exposes `hand_off`; the bot stands down afterwards."
 
-  @behaviour AgentsDemo.Skills.Skill
+  @behaviour Connectix.Skills.Skill
 
   @impl true
   def id, do: "human_handoff"
@@ -17,7 +17,7 @@ defmodule AgentsDemo.Skills.HumanHandoff do
   def settings_schema, do: nil
 
   @impl true
-  def capabilities(_settings), do: [AgentsDemo.Capabilities.HumanHandoff.capability()]
+  def capabilities(_settings), do: [Connectix.Capabilities.HumanHandoff.capability()]
 
   @impl true
   def instructions(_settings) do

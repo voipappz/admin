@@ -1,15 +1,15 @@
-defmodule AgentsDemo.Agents.DisplayMessagePersistenceTest do
-  use AgentsDemo.DataCase
+defmodule Connectix.Agents.DisplayMessagePersistenceTest do
+  use Connectix.DataCase
 
-  alias AgentsDemo.Agents.DisplayMessagePersistence
-  alias AgentsDemo.Conversations
-  alias AgentsDemo.Conversations.DisplayMessage
+  alias Connectix.Agents.DisplayMessagePersistence
+  alias Connectix.Conversations
+  alias Connectix.Conversations.DisplayMessage
   alias LangChain.Message
   alias LangChain.Message.ToolCall
   alias LangChain.Message.ToolResult
 
-  import AgentsDemo.AccountsFixtures
-  import AgentsDemo.ConversationsFixtures
+  import Connectix.AccountsFixtures
+  import Connectix.ConversationsFixtures
 
   describe "save_synthetic_message/3" do
     test "persists a user-typed answer to a question" do

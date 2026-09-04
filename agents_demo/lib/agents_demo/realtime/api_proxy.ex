@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.ApiProxy do
+defmodule Connectix.Realtime.ApiProxy do
   @moduledoc """
   The credential-carrying half of this app's talk to the platform, over cable.
 
@@ -80,7 +80,7 @@ defmodule AgentsDemo.Realtime.ApiProxy do
 
   require Logger
 
-  alias AgentsDemo.Realtime.CableToken
+  alias Connectix.Realtime.CableToken
 
   @subprotocol "actioncable-v1-json"
   @api_identifier Jason.encode!(%{channel: "ApiProxy"})
@@ -139,14 +139,14 @@ defmodule AgentsDemo.Realtime.ApiProxy do
   @doc """
   The `StateChannel` subscriptions named by `EVENT_STREAMS`.
 
-  Listening only, and only so the frames land in `AgentsDemo.Events`: nothing
+  Listening only, and only so the frames land in `Connectix.Events`: nothing
   here feeds `ScreenPop`, which decides pops from `CallEvents` and from a
-  signed-in user's own stream. See `AgentsDemo.Config.event_streams/0` for why
+  signed-in user's own stream. See `Connectix.Config.event_streams/0` for why
   a stream has to be named one at a time.
   """
   @spec state_identifiers() :: [String.t()]
   def state_identifiers do
-    Enum.map(AgentsDemo.Config.event_streams(), fn {scope, id} ->
+    Enum.map(Connectix.Config.event_streams(), fn {scope, id} ->
       Jason.encode!(%{channel: "StateChannel", scope: scope, id: id})
     end)
   end
@@ -534,13 +534,13 @@ defmodule AgentsDemo.Realtime.ApiProxy do
        ) do
     case classify(identifier, message) do
       {:event, event} ->
-        AgentsDemo.Realtime.ScreenPop.handle_event(event)
+        Connectix.Realtime.ScreenPop.handle_event(event)
         state
 
       {:record, event} ->
         # Stored and nothing else. These streams are subscribed to answer "did
         # this frame reach us", so the only handling they need is the record.
-        AgentsDemo.Events.record("StateChannel", event)
+        Connectix.Events.record("StateChannel", event)
         state
 
       {:reply, %{"id" => id} = reply} ->

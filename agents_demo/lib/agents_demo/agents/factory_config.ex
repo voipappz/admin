@@ -1,11 +1,11 @@
-defmodule AgentsDemo.Agents.FactoryConfig do
+defmodule Connectix.Agents.FactoryConfig do
   @moduledoc """
-  Typed configuration consumed by `AgentsDemo.Agents.Factory.create_agent/2`.
+  Typed configuration consumed by `Connectix.Agents.Factory.create_agent/2`.
 
   Two kinds of input meet here and are kept apart on purpose:
 
   - **the compiled bot version** (`spec`), resolved by
-    `AgentsDemo.Agents.FactoryRouter` from the conversation's pin — this
+    `Connectix.Agents.FactoryRouter` from the conversation's pin — this
     decides what the agent *is*: prompt, model, tools, policy, limits;
   - **request options** (`timezone`, `tool_context`) — per-request
     presentation that may *narrow* behaviour but can never add a tool, lift
@@ -17,7 +17,7 @@ defmodule AgentsDemo.Agents.FactoryConfig do
   `{:error, %{field => [message]}}`.
   """
 
-  alias AgentsDemo.Bots.CompiledSpec
+  alias Connectix.Bots.CompiledSpec
 
   defstruct timezone: "UTC",
             tool_context: %{},

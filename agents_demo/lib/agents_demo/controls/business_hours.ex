@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Controls.BusinessHours do
+defmodule Connectix.Controls.BusinessHours do
   @moduledoc """
   Whether a bot is "in hours" — a deterministic control, never a model
   decision.
@@ -9,8 +9,8 @@ defmodule AgentsDemo.Controls.BusinessHours do
   checked rather than assumed.
   """
 
-  alias AgentsDemo.Bots.Version.Availability
-  alias AgentsDemo.Bots.Version.Availability.Window
+  alias Connectix.Bots.Version.Availability
+  alias Connectix.Bots.Version.Availability.Window
 
   @spec open?(Availability.t() | nil) :: boolean()
   def open?(availability), do: open?(availability, DateTime.utc_now())

@@ -1,7 +1,7 @@
-defmodule AgentsDemo.Agents.AgentSubscriberSessionTest do
+defmodule Connectix.Agents.AgentSubscriberSessionTest do
   use ExUnit.Case, async: true
 
-  alias AgentsDemo.Agents.AgentSubscriberSession
+  alias Connectix.Agents.AgentSubscriberSession
 
   describe "init_session_state/0" do
     test "starts with agent_status :not_running so the Wake button is shown for empty state" do

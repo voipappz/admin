@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Telemetry do
+defmodule Connectix.Telemetry do
   @moduledoc """
   Emits bounded-cardinality telemetry for portal-owned runtime behavior.
 

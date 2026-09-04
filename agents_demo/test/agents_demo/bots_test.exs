@@ -1,16 +1,16 @@
-defmodule AgentsDemo.BotsTest do
-  use AgentsDemo.DataCase
+defmodule Connectix.BotsTest do
+  use Connectix.DataCase
 
-  import AgentsDemo.AccountsFixtures
-  import AgentsDemo.BotsFixtures
-  import AgentsDemo.ConversationsFixtures
+  import Connectix.AccountsFixtures
+  import Connectix.BotsFixtures
+  import Connectix.ConversationsFixtures
 
-  alias AgentsDemo.Bots
-  alias AgentsDemo.Bots.Bot
-  alias AgentsDemo.Bots.BotVersion
-  alias AgentsDemo.Bots.Store
-  alias AgentsDemo.Bots.Snapshot
-  alias AgentsDemo.Bots.Validator
+  alias Connectix.Bots
+  alias Connectix.Bots.Bot
+  alias Connectix.Bots.BotVersion
+  alias Connectix.Bots.Store
+  alias Connectix.Bots.Snapshot
+  alias Connectix.Bots.Validator
 
   setup do
     %{scope: user_scope_fixture()}

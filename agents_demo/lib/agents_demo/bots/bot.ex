@@ -1,9 +1,9 @@
-defmodule AgentsDemo.Bots.Bot do
+defmodule Connectix.Bots.Bot do
   @moduledoc """
   A bot's stable identity — a plain struct. Everything the bot *does* is in
-  `AgentsDemo.Bots.BotVersion`. `current_version_id` is the published version new
+  `Connectix.Bots.BotVersion`. `current_version_id` is the published version new
   conversations pin; `draft_version_id` is the one being edited, if any.
-  Uniqueness of name/slug per owner is enforced by `AgentsDemo.Bots.Store` in the
+  Uniqueness of name/slug per owner is enforced by `Connectix.Bots.Store` in the
   write transaction.
   """
 

@@ -1,11 +1,11 @@
-defmodule AgentsDemo.Controls.SessionTimeout do
+defmodule Connectix.Controls.SessionTimeout do
   @moduledoc """
   Whether a conversation has been silent long enough that a deterministic
   flow should start over. Pure: takes the clock.
   """
 
-  alias AgentsDemo.Bots.Version.Limits
-  alias AgentsDemo.Conversations.Conversation
+  alias Connectix.Bots.Version.Limits
+  alias Connectix.Conversations.Conversation
 
   @spec expired?(Conversation.t(), Limits.t() | nil, DateTime.t()) :: boolean()
   def expired?(_conversation, nil, _now), do: false

@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Realtime.Instruction do
+defmodule Connectix.Realtime.Instruction do
   @moduledoc """
   Validates screen-pop instructions and matches them to Crystal runtime events.
 

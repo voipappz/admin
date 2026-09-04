@@ -1,4 +1,4 @@
-defmodule AgentsDemoWeb.ErrorJSON do
+defmodule ConnectixWeb.ErrorJSON do
   @moduledoc """
   This module is invoked by your endpoint in case of errors on JSON requests.
 

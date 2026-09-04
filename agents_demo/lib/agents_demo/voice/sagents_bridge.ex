@@ -1,4 +1,4 @@
-defmodule AgentsDemo.Voice.SagentsBridge do
+defmodule Connectix.Voice.SagentsBridge do
   @moduledoc """
   The one seam between Feline's media pipeline and the Sagents runtime.
 
@@ -28,7 +28,7 @@ defmodule AgentsDemo.Voice.SagentsBridge do
 
   ## Upstream, to the mouth
 
-  The agent's `{:agent, …}` events — the same ones `AgentsDemoWeb.ChatLive`
+  The agent's `{:agent, …}` events — the same ones `ConnectixWeb.ChatLive`
   consumes — become the `LLMFullResponseStartFrame` / `LLMTextFrame` /
   `LLMFullResponseEndFrame` sequence the sentence aggregator and TTS expect.
 
@@ -57,7 +57,7 @@ defmodule AgentsDemo.Voice.SagentsBridge do
 
   require Logger
 
-  alias AgentsDemo.Agents.Coordinator
+  alias Connectix.Agents.Coordinator
 
   alias Feline.Frames.All.{
     InterruptionFrame,
@@ -81,7 +81,7 @@ defmodule AgentsDemo.Voice.SagentsBridge do
      %{
        conversation_id: Keyword.fetch!(opts, :conversation_id),
        scope: Keyword.fetch!(opts, :scope),
-       turns: Keyword.get(opts, :turns, AgentsDemo.Turns),
+       turns: Keyword.get(opts, :turns, Connectix.Turns),
        greeting: Keyword.get(opts, :greeting),
        agent_id: nil,
        # The caller is mid-sentence; transcriptions accumulate until they stop.
@@ -251,7 +251,7 @@ defmodule AgentsDemo.Voice.SagentsBridge do
     case state.turns.submit(
            state.scope,
            state.conversation_id,
-           %AgentsDemo.Turns.Input{
+           %Connectix.Turns.Input{
              text: text,
              origin: :voice
            },
