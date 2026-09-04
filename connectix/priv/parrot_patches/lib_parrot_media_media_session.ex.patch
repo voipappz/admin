@@ -1,0 +1,22 @@
+--- a/lib/parrot/media/media_session.ex
++++ b/lib/parrot/media/media_session.ex
+@@ -537,12 +537,13 @@
+   end
+ 
+   defp get_pipeline_module_for_config(codec, data) do
+-    # Use PortAudioPipeline if using device audio
+-    if data.audio_source == :device || data.audio_sink == :device do
+-      Parrot.Media.PortAudioPipeline
+-    else
+-      # Use codec-specific pipeline for file/network only
+-      get_pipeline_module(codec)
++    # NOTE (Phone fork): route custom audio sources to app pipelines. This is an
++    # in-deps patch — lost on `mix deps.get`; must live in the parrot fork.
++    cond do
++      data.audio_source == :webrtc -> Connectix.WebRtcMediaPipeline
++      data.audio_source == :bot -> Connectix.BotMediaPipeline
++      data.audio_source == :device || data.audio_sink == :device -> Parrot.Media.PortAudioPipeline
++      true -> get_pipeline_module(codec)
+     end
+   end
+ 

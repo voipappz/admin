@@ -1,0 +1,77 @@
+--- a/lib/parrot/media/rtp_packet_logger.ex
++++ b/lib/parrot/media/rtp_packet_logger.ex
+@@ -43,6 +43,74 @@
+       end
+     end
+ 
++    # Local patch (CLAUDE.md #8) — broadcast a tick (audio level + the packet
++    # payload) every packet so the host app can render a live equalizer AND let
++    # the browser "Listen" feature decode the audio. `payload` is the RTP packet
++    # body (already past Membrane's RTP layer for our wiring, so usually raw
++    # G.711 A-law samples). We compute RMS and normalize to 0–100 for the level.
++    if function_exported?(Phoenix.PubSub, :broadcast, 3) and
++         Process.whereis(Connectix.PubSub) do
++      level = pcm_alaw_level(buffer.payload)
++
++      Phoenix.PubSub.broadcast(
++        Connectix.PubSub,
++        "phone",
++        {:rtp_pulse,
++         %{
++           dest: state.dest_info,
++           count: state.counter,
++           size: byte_size(buffer.payload),
++           level: level,
++           payload: buffer.payload
++         }}
++      )
++    end
++
+     {[buffer: {:output, buffer}], state}
+   end
++
++  # ── G.711 A-law inline decode + RMS ────────────────────────────────────────
++  # Lets us surface a live audio level to the UI without adding a separate
++  # Membrane filter to the pipeline.
++
++  import Bitwise
++
++  defp pcm_alaw_level(payload) when is_binary(payload) and byte_size(payload) > 0 do
++    {sum_sq, count} = alaw_acc(payload, 0, 0)
++
++    if count > 0 do
++      rms = :math.sqrt(sum_sq / count)
++      # A-law decodes to ~13-bit signed (max ~4096). Map RMS → 0..100.
++      min(100, trunc(rms / 4096.0 * 100))
++    else
++      0
++    end
++  end
++
++  defp pcm_alaw_level(_), do: 0
++
++  # Tail-recursive accumulator: sum of squares of decoded samples + sample count.
++  defp alaw_acc(<<>>, sum, count), do: {sum, count}
++
++  defp alaw_acc(<<b, rest::binary>>, sum, count) do
++    s = alaw_decode(b)
++    alaw_acc(rest, sum + s * s, count + 1)
++  end
++
++  # Standard ITU-T G.711 A-law expansion of a single byte → signed 13-bit int.
++  defp alaw_decode(byte) do
++    b = bxor(byte, 0x55)
++    sign = band(b, 0x80)
++    seg = bsr(band(b, 0x70), 4)
++    mant = band(b, 0x0F)
++
++    sample =
++      if seg == 0 do
++        bsl(mant, 4) + 8
++      else
++        bsl(bsl(mant, 4) + 264, seg - 1)
++      end
++
++    if sign == 0, do: -sample, else: sample
++  end
+ end

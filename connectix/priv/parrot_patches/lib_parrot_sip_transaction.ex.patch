@@ -1,0 +1,22 @@
+--- a/lib/parrot/sip/transaction.ex
++++ b/lib/parrot/sip/transaction.ex
+@@ -160,6 +160,19 @@
+     end
+   end
+ 
++  # PATCH (CLAUDE.md): the transaction FSM uses get_in(data, [:trans, :last_response])
++  # / get_in(state, [:data, :transaction, :last_response]) (transaction_statem.ex),
++  # which calls Access on this struct. Structs don't implement Access by default →
++  # (UndefinedFunctionError) Transaction.fetch/2. Implement Access (delegating to
++  # Map) so those get_in traversals work, unblocking 200 OK handling on real calls.
++  @behaviour Access
++  @impl Access
++  def fetch(struct, key), do: Map.fetch(struct, key)
++  @impl Access
++  def get_and_update(struct, key, fun), do: Map.get_and_update(struct, key, fun)
++  @impl Access
++  def pop(struct, key), do: Map.pop(struct, key)
++
+   defstruct [
+     # Transaction ID
+     :id,

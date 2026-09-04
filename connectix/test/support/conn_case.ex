@@ -30,7 +30,32 @@ defmodule ConnectixWeb.ConnCase do
   setup _tags do
     Connectix.Mnesia.reset_domain_for_test!()
     Connectix.Portal.Store.reset_for_test!()
-    {:ok, conn: Phoenix.ConnTest.build_conn()}
+    {:ok, conn: authenticated_conn()}
+  end
+
+  @doc """
+  A `conn` that clears `ConnectixWeb.Plugs.BasicAuth`, whether or not it's
+  configured.
+
+  Tests must not depend on `Connectix.Config.basic_auth/0` being unset: a
+  developer's own `.env` sets `PORTAL_UI_USER`/`PORTAL_UI_PASS` for local
+  browser testing, `docker-compose.yml`'s `elixir` service loads that whole
+  file via `env_file`, and `mix test` inherits it too — so a plain
+  `build_conn()` started failing every LiveView/controller test the moment
+  those variables were set, for a reason with nothing to do with the test
+  itself. Reading the credential at call time (like `Connectix.Config`
+  everywhere else) keeps this correct however the suite is invoked.
+  """
+  def authenticated_conn do
+    conn = Phoenix.ConnTest.build_conn()
+
+    case Connectix.Config.basic_auth() do
+      {user, pass} ->
+        Plug.Conn.put_req_header(conn, "authorization", "Basic " <> Base.encode64("#{user}:#{pass}"))
+
+      nil ->
+        conn
+    end
   end
 
   @doc """

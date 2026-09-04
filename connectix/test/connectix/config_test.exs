@@ -154,6 +154,49 @@ defmodule Connectix.ConfigTest do
     end
   end
 
+  describe "environments/0" do
+    test "falls back to a single placeholder environment when unset" do
+      with_env([{"CONNECTIX_ENVIRONMENTS", nil}], fn ->
+        assert Config.environments() == [%{name: "default", domain: nil, wss_url: nil}]
+      end)
+    end
+
+    test "parses name:domain:wss_url triples" do
+      with_env(
+        [
+          {"CONNECTIX_ENVIRONMENTS",
+           "prod:sip.example.com:wss://sip.example.com:8443,staging:sip-staging.example.com:wss://sip-staging.example.com:8443"}
+        ],
+        fn ->
+          assert Config.environments() == [
+                   %{
+                     name: "prod",
+                     domain: "sip.example.com",
+                     wss_url: "wss://sip.example.com:8443"
+                   },
+                   %{
+                     name: "staging",
+                     domain: "sip-staging.example.com",
+                     wss_url: "wss://sip-staging.example.com:8443"
+                   }
+                 ]
+        end
+      )
+    end
+
+    test "a name alone is a valid environment with no domain/wss_url" do
+      with_env([{"CONNECTIX_ENVIRONMENTS", "sandbox"}], fn ->
+        assert Config.environments() == [%{name: "sandbox", domain: nil, wss_url: nil}]
+      end)
+    end
+
+    test "drops malformed entries and falls back to default if none survive" do
+      with_env([{"CONNECTIX_ENVIRONMENTS", ":no-name,,"}], fn ->
+        assert Config.environments() == [%{name: "default", domain: nil, wss_url: nil}]
+      end)
+    end
+  end
+
   describe "models" do
     test "fall back to documented defaults" do
       with_env([{"AGENTS_DEMO_MODEL", nil}, {"AGENTS_DEMO_TITLE_MODEL", nil}], fn ->

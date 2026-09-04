@@ -1,0 +1,22 @@
+--- a/lib/parrot/sip/connection.ex
++++ b/lib/parrot/sip/connection.ex
+@@ -158,10 +158,16 @@
+         {:error, :no_via}
+ 
+       via ->
++        # PATCH (CLAUDE.md #1): received/rport apply ONLY to the topmost Via (the
++        # one we received on). Stacked Vias (e.g. Kamailio→FreeSWITCH, 2+ proxies)
++        # arrive as a LIST; calling maybe_add_received on the whole list hits
++        # Via.with_parameter with a list → (KeyError) :parameters. Update the head
++        # only, leave the rest untouched.
+         updated_via =
+-          via
+-          |> maybe_add_received(conn)
+-          |> maybe_fill_rport(conn)
++          case via do
++            [top | rest] -> [(top |> maybe_add_received(conn) |> maybe_fill_rport(conn)) | rest]
++            single -> single |> maybe_add_received(conn) |> maybe_fill_rport(conn)
++          end
+ 
+         updated_message = Message.set_header(message, "via", updated_via)
+         {:ok, updated_message}

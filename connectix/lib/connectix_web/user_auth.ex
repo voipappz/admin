@@ -3,148 +3,62 @@ defmodule ConnectixWeb.UserAuth do
   use ConnectixWeb, :verified_routes
 
   import Plug.Conn
-  import Phoenix.Controller
 
   alias Connectix.Accounts
   alias Connectix.Accounts.Scope
 
-  # Make the remember me cookie valid for 14 days. This should match
-  # the session validity setting in UserToken.
-  @max_cookie_age_in_days 14
-  @remember_me_cookie "_connectix_web_user_remember_me"
-  @remember_me_options [
-    sign: true,
-    max_age: @max_cookie_age_in_days * 24 * 60 * 60,
-    same_site: "Lax"
-  ]
-
-  # How old the session token should be before a new one is issued. When a request is made
-  # with a session token older than this value, then a new session token will be created
-  # and the session and remember-me cookies (if set) will be updated with the new token.
-  # Lowering this value will result in more tokens being created by active users. Increasing
-  # it will result in less time before a session token expires for a user to get issued a new
-  # token. This can be set to a value greater than `@max_cookie_age_in_days` to disable
-  # the reissuing of tokens completely.
-  @session_reissue_age_in_days 7
-
   @doc """
-  Logs the user in.
-
-  Redirects to the session's `:user_return_to` path
-  or falls back to the `signed_in_path/1`.
+  Assigns `:current_scope` in the `:browser` pipeline from the Basic Auth
+  identity `ConnectixWeb.Plugs.BasicAuth` just gated. See `resolve_scope/0` —
+  this plug and the `:mount_current_scope` LiveView `on_mount` below call the
+  same resolution, since a Plug's `conn.assigns` never reaches the LiveView
+  socket (only the session does), and there is nothing per-request to put in
+  the session: the identity is fixed by configuration, not by what the
+  request carried.
   """
   def fetch_current_scope_for_user(conn, _opts) do
-    with {token, conn} <- ensure_user_token(conn),
-         {user, token_inserted_at} <- Accounts.get_user_by_session_token(token) do
-      conn
-      |> assign(:current_scope, Scope.for_user(user))
-      |> maybe_reissue_user_session_token(user, token_inserted_at)
-    else
-      nil -> assign(conn, :current_scope, Scope.for_user(nil))
-    end
-  end
-
-  defp ensure_user_token(conn) do
-    if token = get_session(conn, :user_token) do
-      {token, conn}
-    else
-      conn = fetch_cookies(conn, signed: [@remember_me_cookie])
-
-      if token = conn.cookies[@remember_me_cookie] do
-        {token, conn |> put_token_in_session(token) |> put_session(:user_remember_me, true)}
-      else
-        nil
-      end
-    end
-  end
-
-  # Reissue the session token if it is older than the configured reissue age.
-  defp maybe_reissue_user_session_token(conn, user, token_inserted_at) do
-    token_age = DateTime.diff(DateTime.utc_now(:second), token_inserted_at, :day)
-
-    if token_age >= @session_reissue_age_in_days do
-      create_or_extend_session(conn, user, %{})
-    else
-      conn
-    end
-  end
-
-  # This function is the one responsible for creating session tokens
-  # and storing them safely in the session and cookies. It may be called
-  # either when logging in, during sudo mode, or to renew a session which
-  # will soon expire.
-  #
-  # When the session is created, rather than extended, the renew_session
-  # function will clear the session to avoid fixation attacks. See the
-  # renew_session function to customize this behaviour.
-  defp create_or_extend_session(conn, user, params) do
-    token = Accounts.generate_user_session_token(user)
-    remember_me = get_session(conn, :user_remember_me)
-
-    conn
-    |> renew_session(user)
-    |> put_token_in_session(token)
-    |> maybe_write_remember_me_cookie(token, params, remember_me)
-  end
-
-  # Do not renew session if the user is already logged in
-  # to prevent CSRF errors or data being lost in tabs that are still open
-  defp renew_session(conn, user) when conn.assigns.current_scope.user.id == user.id do
-    conn
-  end
-
-  # This function renews the session ID and erases the whole
-  # session to avoid fixation attacks. If there is any data
-  # in the session you may want to preserve after log in/log out,
-  # you must explicitly fetch the session data before clearing
-  # and then immediately set it after clearing, for example:
-  #
-  #     defp renew_session(conn, _user) do
-  #       delete_csrf_token()
-  #       preferred_locale = get_session(conn, :preferred_locale)
-  #
-  #       conn
-  #       |> configure_session(renew: true)
-  #       |> clear_session()
-  #       |> put_session(:preferred_locale, preferred_locale)
-  #     end
-  #
-  defp renew_session(conn, _user) do
-    delete_csrf_token()
-
-    conn
-    |> configure_session(renew: true)
-    |> clear_session()
-  end
-
-  defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}, _remember_me),
-    do: write_remember_me_cookie(conn, token)
-
-  defp maybe_write_remember_me_cookie(conn, token, _params, true),
-    do: write_remember_me_cookie(conn, token)
-
-  defp maybe_write_remember_me_cookie(conn, _token, _params, _remember_me), do: conn
-
-  defp write_remember_me_cookie(conn, token) do
-    conn
-    |> put_session(:user_remember_me, true)
-    |> put_resp_cookie(@remember_me_cookie, token, @remember_me_options)
-  end
-
-  defp put_token_in_session(conn, token) do
-    conn
-    |> put_session(:user_token, token)
-    |> put_session(:live_socket_id, user_session_topic(token))
+    assign(conn, :current_scope, resolve_scope())
   end
 
   @doc """
-  Disconnects existing sockets for the given tokens.
+  The one operator account, get-or-created from the configured Basic Auth
+  username (`Connectix.Config.basic_auth/0`), or `"dev"` when Basic Auth is
+  unconfigured — matching `ConnectixWeb.Plugs.BasicAuth`'s own pass-through
+  default so local dev/test needs no setup.
+
+  There is no login flow to assign a scope during, so this is idempotent and
+  safe to call from both the HTTP plug and the LiveView `on_mount` hook for
+  the same request.
   """
-  def disconnect_sessions(tokens) do
-    Enum.each(tokens, fn %{token: token} ->
-      ConnectixWeb.Endpoint.broadcast(user_session_topic(token), "disconnect", %{})
-    end)
+  def resolve_scope do
+    username =
+      case Connectix.Config.basic_auth() do
+        {user, _pass} -> user
+        nil -> "dev"
+      end
+
+    email = "#{username}@local.basicauth"
+
+    user =
+      Accounts.get_user_by_email(email) ||
+        case Accounts.register_user(%{"email" => email, "first_name" => username}) do
+          {:ok, user} -> user
+          # Lost a race with another request resolving the same identity.
+          {:error, _reason} -> Accounts.get_user_by_email(email)
+        end
+
+    Scope.for_user(user)
   end
 
-  defp user_session_topic(token), do: "users_sessions:#{Base.url_encode64(token)}"
+  @doc """
+  Handles mounting `current_scope` in LiveViews — see
+  `ConnectixWeb.Router`'s `live_session :current_user`.
+
+      live_session :current_user, on_mount: [{ConnectixWeb.UserAuth, :mount_current_scope}] do
+        live "/chat", ChatLive
+      end
+  """
+  def on_mount(:mount_current_scope, _params, _session, socket) do
+    {:cont, Phoenix.Component.assign_new(socket, :current_scope, fn -> resolve_scope() end)}
+  end
 end

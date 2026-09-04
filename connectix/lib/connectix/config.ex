@@ -121,6 +121,190 @@ defmodule Connectix.Config do
   @spec api_user_email() :: String.t() | nil
   def api_user_email, do: env("AGENTS_DEMO_API_USER_EMAIL")
 
+  # ── LiveView UI ─────────────────────────────────────────────────────────────
+
+  @doc """
+  HTTP Basic Auth credentials gating the LiveView UI (`PORTAL_UI_USER` /
+  `PORTAL_UI_PASS`), or `nil` when unconfigured.
+
+  Unconfigured, `ConnectixWeb.Plugs.BasicAuth` passes every request through —
+  local dev/test stays frictionless — and `Connectix.Application` logs a
+  warning at boot in that case, so an unprotected deployment is never
+  silent. There is exactly one operator
+  identity: the configured username doubles as the account
+  `ConnectixWeb.UserAuth` resolves `current_scope` from, the same way
+  `connectix.io/phone`'s retired `BasicAuth` plug worked before it moved to
+  session tokens.
+  """
+  @spec basic_auth() :: {String.t(), String.t()} | nil
+  def basic_auth do
+    with user when is_binary(user) <- env("PORTAL_UI_USER"),
+         pass when is_binary(pass) <- env("PORTAL_UI_PASS") do
+      {user, pass}
+    else
+      _unconfigured -> nil
+    end
+  end
+
+  # ── Calling environments ────────────────────────────────────────────────────
+
+  @doc """
+  Named SIP/calling environments the LiveView phone can dial through
+  (`CONNECTIX_ENVIRONMENTS`), as a list of `%{name:, domain:, wss_url:}` maps.
+
+  `name:domain:wss_url` triples, comma-separated — same shape as
+  `event_streams/0`'s `scope:id` pairs, for the same reason: one env var, no
+  JSON to escape in a `.env` file.
+
+      CONNECTIX_ENVIRONMENTS=prod:sip.example.com:wss://sip.example.com:8443,staging:sip-staging.example.com:wss://sip-staging.example.com:8443
+
+  Unset, this is a single placeholder `"default"` environment with `domain:
+  nil, wss_url: nil` — enough for the UI to render a switcher with one entry
+  before any real SIP target is configured. A malformed entry is dropped
+  rather than raised on, same as `event_streams/0`: a typo in one environment
+  should not take down every other one.
+  """
+  @spec environments() :: [
+          %{name: String.t(), domain: String.t() | nil, wss_url: String.t() | nil}
+        ]
+  def environments do
+    case env("CONNECTIX_ENVIRONMENTS") do
+      nil ->
+        [%{name: "default", domain: nil, wss_url: nil}]
+
+      raw ->
+        raw
+        |> String.split(",", trim: true)
+        |> Enum.flat_map(fn entry ->
+          case String.split(String.trim(entry), ":", parts: 3) do
+            [name, domain, wss_url] when name != "" ->
+              [%{name: name, domain: presence_or_nil(domain), wss_url: presence_or_nil(wss_url)}]
+
+            [name, domain] when name != "" ->
+              [%{name: name, domain: presence_or_nil(domain), wss_url: nil}]
+
+            [name] when name != "" ->
+              [%{name: name, domain: nil, wss_url: nil}]
+
+            _malformed ->
+              []
+          end
+        end)
+        |> case do
+          [] -> [%{name: "default", domain: nil, wss_url: nil}]
+          parsed -> parsed
+        end
+    end
+  end
+
+  defp presence_or_nil(""), do: nil
+  defp presence_or_nil(value), do: value
+
+  @doc """
+  SIP credentials the `Connectix.WebRtc.SipBridge` dials out with
+  (`CONNECTIX_SIP_USER` / `CONNECTIX_SIP_PASS` / `CONNECTIX_SIP_DOMAIN`), or
+  `nil` when any of the three is unconfigured — the bridge cannot register
+  without all three, so a partial set is treated as absent rather than
+  attempted and left to fail against a blank domain.
+
+  Deliberately flat (one account), not per-`environments/0` entry: this is
+  the credential for whichever environment is selected, same as
+  `basic_auth/0` is one operator identity rather than per-user accounts.
+  """
+  @spec sip_credentials() :: %{
+          user: String.t(),
+          pass: String.t(),
+          domain: String.t(),
+          server: String.t(),
+          port: pos_integer()
+        }
+          | nil
+  def sip_credentials do
+    with user when is_binary(user) <- env("CONNECTIX_SIP_USER"),
+         pass when is_binary(pass) <- env("CONNECTIX_SIP_PASS"),
+         domain when is_binary(domain) <- env("CONNECTIX_SIP_DOMAIN") do
+      %{
+        user: user,
+        pass: pass,
+        domain: domain,
+        # The registrar host/port, when it differs from the domain (a
+        # multi-tenant Kamailio, say) — CONNECTIX_SIP_SERVER/PORT. Defaults to
+        # the domain itself on the standard SIP port.
+        server: env("CONNECTIX_SIP_SERVER") || domain,
+        port: int_env("CONNECTIX_SIP_PORT", 5060, 1..65_535)
+      }
+    else
+      _unconfigured -> nil
+    end
+  end
+
+  @doc """
+  The Deepgram API key the Feline voice pipeline's STT stage reads
+  (`DEEPGRAM_API_KEY`), or `nil` when unconfigured. Feline's own service
+  module falls back to `System.get_env/1` directly when no `:api_key` option
+  is given; this app never leaves that to chance — `Connectix.Voice` always
+  passes this through explicitly, so "is voice configured" is one function
+  to check rather than an env var Feline reads behind the scenes.
+  """
+  @spec deepgram_api_key() :: String.t() | nil
+  def deepgram_api_key, do: env("DEEPGRAM_API_KEY")
+
+  @doc """
+  The Cartesia API key the Feline voice pipeline's TTS stage reads
+  (`CARTESIA_API_KEY`), or `nil` when unconfigured. See `deepgram_api_key/0`.
+  """
+  @spec cartesia_api_key() :: String.t() | nil
+  def cartesia_api_key, do: env("CARTESIA_API_KEY")
+
+  @doc """
+  Whether the Feline voice pipeline (`/voice`, `Connectix.Voice.SagentsBridge`)
+  has what it needs to actually run — both STT and TTS keys present. Checked
+  once, at the WebSocket upgrade, rather than letting a half-configured
+  pipeline start and fail mid-call.
+  """
+  @spec voice_configured?() :: boolean()
+  def voice_configured?, do: is_binary(deepgram_api_key()) and is_binary(cartesia_api_key())
+
+  @doc """
+  What the bot says when someone answers a call it placed
+  (`CONNECTIX_VOICE_GREETING`).
+
+  A greeting is not decoration on an outbound call: the callee says "hello?"
+  to silence otherwise, and hangs up before the bot's turn-detection has
+  anything to work with. Default is deliberately plain — a real deployment
+  should say who is calling and why.
+  """
+  @spec voice_greeting() :: String.t()
+  def voice_greeting,
+    do: env("CONNECTIX_VOICE_GREETING") || "Hello, this is the Connectix assistant. How can I help?"
+
+  @doc """
+  STUN server URLs for the WebRTC bridge (`STUN_URLS`, comma-separated), or
+  `[]`. No STUN unless asked for — on a LAN the browser and the BEAM exchange
+  host candidates directly, so a public STUN server is an unnecessary round
+  trip to a third party on every call.
+  """
+  @spec stun_urls() :: [String.t()]
+  def stun_urls, do: split_urls(env("STUN_URLS"))
+
+  @doc "TURN relay server URLs for the WebRTC bridge (`TURN_URLS`, comma-separated), or `[]`."
+  @spec turn_urls() :: [String.t()]
+  def turn_urls, do: split_urls(env("TURN_URLS"))
+
+  @doc "TURN relay username (`TURN_USERNAME`), or `nil`."
+  @spec turn_username() :: String.t() | nil
+  def turn_username, do: env("TURN_USERNAME")
+
+  @doc "TURN relay password (`TURN_PASSWORD`), or `nil`."
+  @spec turn_password() :: String.t() | nil
+  def turn_password, do: env("TURN_PASSWORD")
+
+  defp split_urls(nil), do: []
+
+  defp split_urls(raw) do
+    raw |> String.split(",", trim: true) |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
+  end
+
   # ── WhatsApp channel ────────────────────────────────────────────────────────
 
   @doc """
@@ -352,6 +536,12 @@ defmodule Connectix.Config do
       {"AGENTS_DEMO_THINKING_BUDGET", to_string(thinking_budget_tokens())},
       {"AGENTS_DEMO_API_KEY", presence(api_key())},
       {"AGENTS_DEMO_API_USER_EMAIL", api_user_email() || "not set"},
+      {"PORTAL_UI_USER/PORTAL_UI_PASS", if(basic_auth(), do: "set", else: "not set")},
+      {"CONNECTIX_ENVIRONMENTS", Enum.map_join(environments(), ",", & &1.name)},
+      {"CONNECTIX_SIP_USER/PASS/DOMAIN", if(sip_credentials(), do: "set", else: "not set")},
+      {"DEEPGRAM_API_KEY/CARTESIA_API_KEY", if(voice_configured?(), do: "set", else: "not set")},
+      {"STUN_URLS", if(stun_urls() == [], do: "not set", else: Enum.join(stun_urls(), ","))},
+      {"TURN_URLS", if(turn_urls() == [], do: "not set", else: Enum.join(turn_urls(), ","))},
       {"AGENTS_DEMO_DATA_DIR", data_dir()},
       {"MNESIA_DIR", mnesia_dir()},
       {"EVENTS_DIR", events_dir()},

@@ -9,4 +9,3 @@
 [tools]
 elixir = "1.19.5"
 erlang = "27.3.4"
-node = "22"

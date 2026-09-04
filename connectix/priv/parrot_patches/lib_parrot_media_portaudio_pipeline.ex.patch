@@ -1,0 +1,24 @@
+--- a/lib/parrot/media/portaudio_pipeline.ex
++++ b/lib/parrot/media/portaudio_pipeline.ex
+@@ -116,6 +116,7 @@
+         end)
+         |> child({:speaker_sink, ssrc}, %Membrane.PortAudio.Sink{
+           device_id: device_id || :default,
++          # Same rationale as :mic_source — local patch to force mono.
+           portaudio_buffer_size: 1024,
+           latency: :high
+         })
+@@ -209,6 +210,13 @@
+       # Microphone input
+       child(:mic_source, %PortAudio.Source{
+         device_id: device_id || :default,
++        # Force mono capture. Without this, PortAudio opens the default device
++        # with its native channel count (32 on pulse-via-WSLg), and the
++        # downstream FFmpeg.SWResample.Converter rejects anything outside
++        # 1 or 2 channels, crashing the pipeline. Local patch — re-apply if
++        # parrot_platform is reinstalled.
++        channels: 1,
++        sample_rate: 48_000,
+         # Match sink buffer size
+         portaudio_buffer_size: 512,
+         # High latency for stability

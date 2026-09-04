@@ -1,0 +1,58 @@
+# The dependency layer, built once and pushed, so a deploy build does not repeat
+# it. Measured on this repo before the split:
+#
+#   88.9s  mix deps.compile
+#   28.7s  mix deps.get
+#   25.5s  npm ci
+#   ─────
+#   143s of a ~180s cold build
+#
+# Kamal builders are always cold — there is no layer cache to hit — so that
+# whole 143s was paid on every deploy. Baked here, it is paid when a lockfile
+# changes and not otherwise.
+#
+# ELIXIR ONLY. The SPA's `npm ci` is 25.5s of the 143s and its builder stage is
+# already `node:24-alpine`, which needs no base of its own — adding node here
+# meant a nodesource apt repo that does not publish for trixie, i.e. a
+# third-party repository in the deploy path for a sixth of the saving.
+#
+# Rebuild when connectix/mix.lock changes — `make base` checks that for you
+# rather than trusting anyone to remember.
+ARG ELIXIR_VERSION=1.19.5
+ARG OTP_VERSION=27.3.4
+ARG DEBIAN_VERSION=trixie-20260610-slim
+
+FROM docker.io/hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}
+
+RUN apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=5 update \
+  && apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=5 install -y \
+       --no-install-recommends build-essential git \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+RUN mix local.hex --force && mix local.rebar --force
+
+ENV MIX_ENV="prod"
+
+# Hex's own advice for a constrained network, and it is needed here: the default
+# fans out parallel fetches with a short timeout, and on a link that stalls
+# mid-transfer that surfaces as `Request failed (:timeout)` on a different
+# package every run — indistinguishable from a bad lock entry.
+ENV HEX_HTTP_CONCURRENCY=1
+ENV HEX_HTTP_TIMEOUT=120
+
+# 117.6s of the 143s, paid here instead of on every deploy.
+COPY connectix/mix.exs connectix/mix.lock ./
+RUN mix deps.get --only $MIX_ENV
+RUN mkdir config
+COPY connectix/config/config.exs connectix/config/prod.exs config/
+RUN mix deps.compile
+RUN mix assets.setup
+
+# The lockfile this image was built from. `make base` compares it to the working
+# tree, so a stale base is caught before it silently ships old dependencies into
+# a release — the failure a base image invites and nothing else would catch.
+RUN mkdir -p /base && cp /app/mix.lock /base/mix.lock
+
+CMD ["elixir", "--version"]

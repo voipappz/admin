@@ -1,17 +1,21 @@
-# Multistage build: React frontend + Phoenix (Elixir) backend in a single image.
+# Phoenix (Elixir) backend, single stage. Pure-BEAM: no Node, no Vite, no
+# React anywhere in this image. connectix/ is the whole app — one process
+# answers the LiveView UI, /auth and /api (forwarded to the mothership), and
+# the /ws/events realtime socket, so the browser needs no second origin and no
+# CORS.
 #
-# The Elixir server, replacing the Deno one this file used to build. Same shape
-# — stage 1 builds the React bundle, the final stage serves it — but the server
-# is the Phoenix release in connectix/ instead of Deno. One process answers the SPA, /auth
-# and /api (forwarded to the mothership), and the /ws/events realtime socket,
-# so the browser needs no second origin and no CORS.
-#
-# Build context is THIS directory (voipappz/app), not connectix/: the image
-# needs both trees, the SPA source here and the Elixir app below.
+# Build context is THIS directory (voipappz/app), not connectix/, only because
+# that is where this file and Dockerfile.base already live; every COPY below
+# reaches into connectix/ for its actual source.
 
 # Declared BEFORE the first FROM on purpose: an ARG written between stages is
 # scoped to the stage it follows, so the later `FROM debian:${DEBIAN_VERSION}`
 # would expand to an empty version and fail to parse the image reference.
+# Declared HERE, above the first FROM, because an ARG used in a `FROM` is only
+# visible in the global scope — declared beside the stage that uses it, docker
+# reports "base name (${BASE_IMAGE}) should not be blank", and only on a build
+# that is not already cached.
+ARG BASE_IMAGE=connectix:base
 ARG ELIXIR_VERSION=1.19.5
 ARG OTP_VERSION=27.3.4
 ARG DEBIAN_VERSION=trixie-20260610-slim
@@ -23,42 +27,21 @@ ARG DEBIAN_VERSION=trixie-20260610-slim
 ARG RUNNER_DEBIAN_VERSION=trixie-slim
 
 # ---------------------------------------------------------------------------
-# Stage 1: the React bundle. Unchanged from the Deno-era image,
-# including its cache ordering — nothing that changes per-build may sit above
-# `npm ci`, or the install layer can never be reused.
+# The Phoenix release.
 # ---------------------------------------------------------------------------
-FROM node:24-alpine AS frontend-builder
-WORKDIR /build
-
-COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm,sharing=locked npm ci
-
-COPY . .
-
-ARG VITE_APP_VERSION
-ENV VITE_APP_VERSION=$VITE_APP_VERSION
-
-# Deliberately NOT set: an absolute URL here puts the browser on a different
-# origin than the page, and every call is then blocked by CORS. Unset, the
-# bundle uses relative URLs and Phoenix forwards them server-side.
-ARG VITE_MOTHERSHIP_URL
-ENV VITE_MOTHERSHIP_URL=$VITE_MOTHERSHIP_URL
-
-RUN npm run build
-
-# ---------------------------------------------------------------------------
-# Stage 2: the Phoenix release.
-# ---------------------------------------------------------------------------
-FROM docker.io/hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION} AS builder
-
-RUN apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=5 update \
-  && apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=5 install -y \
-       --no-install-recommends build-essential git \
-  && rm -rf /var/lib/apt/lists/*
+# FROM THE BASE, which already carries the toolchain, hex/rebar and — the point
+# — `deps.get` and `deps.compile` for this mix.lock. Measured before the split:
+# those two were 117.6s of a ~180s cold build, and a kamal builder is always
+# cold, so that was paid on every deploy.
+#
+# The dependency steps below stay rather than being deleted. They are no-ops
+# against a matching base (deps and _build are already there), and they are what
+# makes the build still CORRECT against a stale or absent one — a base image
+# that silently ships yesterday's dependencies is the failure this pattern
+# invites, and `make base` checks the lockfile for exactly that reason.
+FROM ${BASE_IMAGE} AS builder
 
 WORKDIR /app
-
-RUN mix local.hex --force && mix local.rebar --force
 
 ENV MIX_ENV="prod"
 
@@ -74,7 +57,7 @@ ENV HEX_HTTP_TIMEOUT=120
 
 COPY connectix/mix.exs connectix/mix.lock ./
 RUN mix deps.get --only $MIX_ENV
-RUN mkdir config
+RUN mkdir -p config
 
 COPY connectix/config/config.exs connectix/config/${MIX_ENV}.exs config/
 RUN mix deps.compile
@@ -96,7 +79,7 @@ COPY connectix/rel rel
 RUN mix release
 
 # ---------------------------------------------------------------------------
-# Final: the release plus the built SPA.
+# Final: the release, standalone.
 # ---------------------------------------------------------------------------
 FROM docker.io/hexpm/erlang:${OTP_VERSION}-debian-${DEBIAN_VERSION} AS final
 
@@ -120,12 +103,6 @@ RUN chown nobody /app
 ENV MIX_ENV="prod"
 
 COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/connectix ./
-
-# The React bundle. SPA_ROOT is what ConnectixWeb.Plugs.Spa reads; unset, the
-# app still boots and serves the API, it just has no dashboard — so a missing
-# bundle degrades rather than crashing at start.
-COPY --from=frontend-builder --chown=nobody:root /build/dist /app/dist
-ENV SPA_ROOT=/app/dist
 
 USER nobody
 

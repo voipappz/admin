@@ -1,22 +1,20 @@
 # Deployment
 
 Everything runs through **Docker** — there is no other tooling to install.
-One artifact either way: the image built from `Dockerfile.production` serves the
-React bundle and the Phoenix release from a single process (`SPA_ROOT=/app/dist`).
-CI builds and boot-probes this exact image on every push (the `prod-image` job).
+One artifact: the image built from `Dockerfile.production`, a single-stage
+Phoenix release — pure BEAM, no frontend build. CI builds and boot-probes this
+exact image on every push (the `prod-image` job).
 
 ## Run production on this box
 
 ```bash
-make prod        # build the production image + run it (:8000), probes / and /health/alive
-make prod-down   # stop it
+docker build -f Dockerfile.production -t voipappz-app:local .
+docker run -d --name app -p 8000:8000 -e PORT=8000 \
+  -e SECRET_KEY_BASE=... voipappz-app:local
 ```
 
 Runtime env comes from `.env` beside the compose file (`ENGINE_URL`, `NATS_URL`,
-the optional cable connection, and the portal database—see `.env.example`).
-Compose does not re-read env on restart; use
-`docker compose --profile prod up -d --force-recreate production` after
-editing.
+the optional cable connection, and the portal database — see `.env.example`).
 
 ## Deploy to Nimbus with Kamal
 
@@ -41,5 +39,5 @@ deploy from:
 
 That's it — the deploy tool itself runs inside a Docker image automatically;
 nothing to install. Nimbus is configured by
-`config/portal/deploy.nimbus.yml`; the post-deploy hook verifies the live SPA
-and current Elixir health surfaces before the deploy is considered complete.
+`config/portal/deploy.nimbus.yml`; the post-deploy hook verifies the live
+Elixir health surfaces before the deploy is considered complete.

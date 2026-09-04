@@ -124,6 +124,78 @@ const Hooks = {
         timeout = setTimeout(later, wait)
       }
     }
+  },
+  // Browser leg of the WebRTC<->SIP bridge (Connectix.WebRtc.Peer on the
+  // server, phx-hook="WebRtcPhone" on the panel in chat_components.ex).
+  // Signaling rides the SAME LiveView socket as chat (pushEvent/handleEvent)
+  // rather than a second Phoenix Channel, so phone and messaging share one
+  // process. Media itself (getUserMedia + RTCPeerConnection) never touches
+  // the LiveView socket — only SDP/ICE JSON does.
+  WebRtcPhone: {
+    mounted() {
+      this.pc = null
+      this.localStream = null
+
+      this.handleEvent("webrtc_ice", ({candidate}) => {
+        if (this.pc) this.pc.addIceCandidate(candidate).catch(err => console.warn("WebRtcPhone: bad remote ICE candidate", err))
+      })
+
+      this.handleEvent("webrtc_answer", ({answer}) => {
+        if (this.pc) this.pc.setRemoteDescription(answer).catch(err => console.error("WebRtcPhone: setRemoteDescription failed", err))
+      })
+
+      this.handleEvent("webrtc_hangup", () => this.teardown())
+
+      this.el.addEventListener("webrtc:start-call", () => this.startCall())
+      this.el.addEventListener("webrtc:hangup", () => this.teardown())
+    },
+
+    destroyed() {
+      this.teardown()
+    },
+
+    async startCall() {
+      try {
+        this.localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
+      } catch (err) {
+        console.error("WebRtcPhone: microphone access denied/unavailable", err)
+        this.pushEvent("phone_error", {reason: "microphone_unavailable"})
+        return
+      }
+
+      this.pc = new RTCPeerConnection()
+      this.localStream.getTracks().forEach(track => this.pc.addTrack(track, this.localStream))
+
+      const remoteAudio = this.el.querySelector("audio")
+      this.pc.ontrack = (event) => {
+        if (remoteAudio) remoteAudio.srcObject = event.streams[0]
+      }
+
+      this.pc.onicecandidate = (event) => {
+        if (event.candidate) this.pushEvent("phone_ice", {candidate: event.candidate.toJSON()})
+      }
+
+      const offer = await this.pc.createOffer()
+      await this.pc.setLocalDescription(offer)
+      const uriInput = this.el.querySelector('[name="dial_uri"]')
+      this.pushEvent("phone_offer", {offer: {type: offer.type, sdp: offer.sdp}, uri: uriInput ? uriInput.value : ""})
+    },
+
+    teardown() {
+      if (this.pc) {
+        this.pc.getSenders().forEach(sender => sender.track && sender.track.stop())
+        this.pc.close()
+        this.pc = null
+      }
+
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(track => track.stop())
+        this.localStream = null
+      }
+
+      const remoteAudio = this.el.querySelector("audio")
+      if (remoteAudio) remoteAudio.srcObject = null
+    }
   }
 }
 

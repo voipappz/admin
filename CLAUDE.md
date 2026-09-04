@@ -4,14 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**VoipAppZ portal** — a React 19 + Vite portal for VoIP/telecom **users** — access is user-based (user → permissions → environments); no tenant model in the app.
-The app is component-based and talks to **one backend: the voipappz-api
-"mothership"**, always same-origin through the app server (Vite proxy in dev,
-the Elixir portal's forwarder in prod). A customer deployment (fork) changes
-**env, not code**.
+**This is a pure-BEAM app.** There is no Node, no Vite, no React anywhere in
+this stack — the React SPA this repo used to ship was removed. `connectix/`
+(a Phoenix/Elixir app) is the whole product: it serves the LiveView UI, the
+realtime socket, and the API forwarder from one process, on one port.
 
+**VoipAppZ portal** — a VoIP/telecom portal for **users** — access is
+user-based (user → permissions → environments); no tenant model in the app.
+The app talks to **one backend: the voipappz-api "mothership"**, always
+same-origin through the portal's forwarder. A customer deployment (fork)
+changes **env, not code**.
+
+- **Elixir/Phoenix conventions, Bot-first design, Sagents, LiveView guidelines** → [connectix/CLAUDE.md](./connectix/CLAUDE.md) — read that file before working inside `connectix/`; this file covers the top-level repo shape, deployment and env instead of duplicating it.
 - **How it fits together** → [docs/architecture.md](./docs/architecture.md)
-- **How to add a feature** (service → hook → component recipe, data-access layer, feature flags) → [DEVELOPING.md](./DEVELOPING.md)
 - **How to deploy** (Docker-only) → [docs/deployment.md](./docs/deployment.md)
 
 ## Commands
@@ -19,16 +24,13 @@ the Elixir portal's forwarder in prod). A customer deployment (fork) changes
 | Command | Description |
 |---|---|
 | `make env` | Create `.env` (never overwrites an existing one) |
-| `make dev` | Run the whole local stack in Docker — Vite :4200 · portal :4001 · cable :4100, attached logs. The usual loop; needs only Docker. |
+| `make dev` | Run the local stack in Docker — portal :4001, attached logs. The usual loop; needs only Docker. |
 | `make up` / `make down` | Same stack, detached |
-| `make cable` / `make cable-down` | Just va-crystal's cable on :4100 (opt-in profile; needs the API container running) |
-| `make lint` / `make unit` | ESLint / Vitest one-shot — run in Docker (host `npm run lint` / `npm test` also work if you have node) |
-| `make portal-compile` / `make portal-test` | Compile with warnings as errors / run ExUnit in the running Elixir container |
-| `make test` | Playwright E2E in Docker — needs the app running; use `VITE_MOCK_LOGIN=1 make up` first for the offline suite |
-| `make act-portal` / `make act` | Run the Elixir portal job / complete CI workflow locally with `act` (auto-installs to `/tmp` when absent; never imports `.env`) |
-| `make build` | Production bundle → `dist/`, built in Docker. Must be clean before shipping. |
-| `make verify` | Health check: the portal's `/health` probes, Vite and the cable |
-| `make prod` / `make prod-down` | Run the production image on this box via docker compose (:8000) |
+| `make logs` | Follow the portal's logs |
+| `make health` | Where it is, whether it answers, and whether events are arriving |
+| `make test` | `mix compile --warnings-as-errors` then the Elixir suite, in Docker — `TEST=path/pattern` narrows it |
+| `make ci` | Run the CI workflow locally with `act` — `JOB=portal\|prod-image\|all` |
+| `make iex` / `make tui` / `make tmux` | Cockpit — attach a shell to the running portal, a live terminal dashboard, or a three-pane log+health view |
 | `cd ../mothership && make portal-deploy DEST=nimbus` | Deploy Nimbus through the mothership-owned Kamal policy |
 
 **Never deploy.** Building, testing and probing a production image locally is
@@ -40,73 +42,36 @@ not an agent's. Say what the command is and let a human run it.
 `config/portal/deploy.yml`, which is a **different live host** with a
 **different image** from every named destination. A dropped `DEST=` does not
 fail — it deploys somewhere else, and the first symptom is a timeout against a
-host nobody meant to touch. The Makefile now refuses rather than guessing.
+host nobody meant to touch. The Makefile refuses rather than guessing.
 
 ## The local stack
 
-`make dev` starts the web and the portal. They only work as a set, because the
-portal verifies tokens against the API and listens on the cable — point either
-somewhere else and the failures look like broken auth rather than a mismatched
-host.
+`make dev` starts the portal — the whole app, one container.
 
-The cable is NOT one of them: the portal dials a real va-crystal node
-(`PORTAL_CABLE_URL`). Neither is the Chrome extension, which lives in
-`../chrome` with its own Makefile — `make -C ../chrome build`, then load
-`../chrome/angular/dist` unpacked.
+The cable is NOT part of it: the portal dials a real va-crystal node directly
+(`PORTAL_CABLE_URL`), local by default. Neither is the Chrome extension, which
+lives in `../chrome` with its own Makefile — `make -C ../chrome build`, then
+load `../chrome/angular/dist` unpacked.
 
 | Service | Port | What it is |
 |---|---|---|
-| `react-app` | 4200 | Vite HMR. Proxies backend requests to the Elixir portal. |
-| `elixir` | **4001** | The portal — **the origin**. Serves the SPA and `/ws/events`, verifies tokens, holds the cable connection, forwards `/auth` · `/api/` · `/tasks/` to the mothership. |
+| `elixir` | **4001** | The portal — **the origin, and the whole app**. Serves the LiveView UI and `/ws/events`, verifies tokens, holds the cable connection, forwards `/auth` · `/api/` · `/tasks/` to the mothership. |
 
-**4001 is the origin and does not move.** The SPA, the Chrome extension and
-Vite's proxy all point at it, and none of them should ever have to change.
+**4001 is the origin and does not move.** The LiveView UI and the Chrome
+extension both point at it, and neither should ever have to change.
 
-**Everything uses `network_mode: host`**, because cable (4100), NATS (4222) and
-Postgres (5432) are published on the host's loopback and a bridged container
-cannot see `127.0.0.1`.
-
-### The cable, and why it is fiddly
-
-`make cable` reads the API's `SECRET_KEY` and `NATS_URL` out of the running API
-container (`API_CONTAINER`, default `va-app`) and passes them as environment —
-neither belongs in this repo. It refuses to start without the secret on purpose:
-cable would otherwise come up, answer `/health`, and reject every connection.
-
-**The portal needs no secret of its own.** A cable connection authenticates with
-a `?token=` the node verifies against its own `SECRET_KEY`, and it accepts a
-mothership user token — so the login the browser already did *is* the cable
-credential. `CABLE_TOKEN` exists only for a userless server-side tap.
-
-The image is `va-crystal-cable:latest` — va-crystal's node-only root Dockerfile built from source (the published `nirlevi/voipappz-crystal:latest` has the same shape but trails it), not the stack image:
-its entrypoint runs the node binary alone, so it can share a box with an
-installed node instead of fighting it for 5060/5080/8021. Five things are fatal
-at const-init, each with a message that points away from the cause — all are set
-in `docker-compose.yml` with a comment saying what breaks without them:
-`SECRET_KEY`, `LICENSE_JWT_SECRET`, `LICENSE_ENCRYPTION_KEY`, `VA_PATH`
-(→ `config/cable/va.yaml`), `FREESWITCH_PASSWORD`. A sixth is worse: bad NATS
-credentials are retried ten times and then **downgraded to a warning**, so the
-cable keeps running and silently delivers nothing.
-
-**The node has no account credential for the API.** Every call it makes is
-identified by `NODE_UUID` alone (`GET {API_URL}/switch/api/crystal/...`) — there
-is no account, token or basic-auth path anywhere in va-crystal's source. So
-`CABLE_API_URL` only answers usefully if `NODE_UUID` names a node registered on
-that server, and pointing the cable at a remote API also means its `SECRET_KEY`
-must be *that* API's signing secret, or every user token fails to verify.
-
-**Do not edit `../va-crystal` and do not build it here.** It is a separate repo
-on Bitbucket with its own install path; this compose consumes a published image.
+**Everything uses `network_mode: host`**, because cable, NATS and Postgres are
+published on the host's loopback and a bridged container cannot see
+`127.0.0.1`.
 
 ### Local by default, deliberately
 
-The portal's `ENGINE_URL` and `CABLE_URL` and the cable's `API_URL` are scoped
-to their own variables (`PORTAL_ENGINE_URL`, `PORTAL_CABLE_URL`,
-`CABLE_API_URL`) and default to local. They deliberately do **not** fall back to
-`MOTHERSHIP_URL`: that is the local-production fallback and may name the cloud,
-so the old chain silently pointed the portal at production while the cable and
-broker beside it stayed local — which presented as a login failing for a user
-who exists locally.
+The portal's `ENGINE_URL` and `CABLE_URL` are scoped to their own variables
+(`PORTAL_ENGINE_URL`, `PORTAL_CABLE_URL`) and default to local. They
+deliberately do **not** fall back to `MOTHERSHIP_URL`: that is the
+local-production fallback and may name the cloud, so the old chain silently
+pointed the portal at production while the cable and broker beside it stayed
+local — which presented as a login failing for a user who exists locally.
 
 ### The login pipeline
 
@@ -174,48 +139,39 @@ The full frame contract, error table and limits are in
 
 ## Architecture (big picture)
 
-Two runtime pieces:
+One runtime piece: **the Elixir portal** (`connectix/`, :4001) — the origin
+and the whole app. A `WebSock` handler at `/ws/events` (not a Phoenix Channel:
+the contract is a plain JSON frame protocol), one application Cable connection
+plus per-user Cable connections fanned out over `Phoenix.PubSub`, token
+verification through the node's `ApiProxy` channel, and a Phoenix LiveView UI
+(`ChatLive` at `/chat`, gated by `ConnectixWeb.Plugs.BasicAuth` — see
+`connectix/CLAUDE.md` for the LiveView/Bot-first conventions). Elixir holds no
+direct NATS connection. `ConnectixWeb.Plugs.EngineProxy` forwards the
+mothership's own routes (`/auth`, `/api/`, `/tasks/`) upstream, and **owns
+the CORS policy on them**: the extension's origin is a
+`chrome-extension://<id>` no upstream allowlist can name, so the upstream's
+headers are dropped and replaced rather than copied through.
 
-1. **React app** (`src/`, Vite :4200). All backend access goes through the
-   mothership over the Vite proxy. Data-access layering is strict:
-   - `src/lib/auth.ts` — the one credential (login JWT in `localStorage`, session helpers).
-   - `src/lib/clients/` — transport: `api.ts` (`apiList`/`apiGet` — adds the Bearer token, reads `X-Total`, drops the session on 401), `mothership.ts` (two-step login: password → optional per-customer OTP), `customerPortal.ts` (public branding).
-   - `src/services/` — one module per backend feature (`callsApi.js`, `reportsApi.js`, `featuresApi.js`): knows the endpoint, query params, and row normalization.
-   - `src/components/<Feature>/` — folder-per-component with its own hook (`useCalls.js` pattern). Components never build URLs or set headers.
+In development it runs from the Dockerfile's `dev` stage against the mounted
+source, so an edit reloads instead of needing a rebuild. The release stages
+above it are what ships (`Dockerfile.production`, single-stage: the Phoenix
+release alone, no frontend build).
 
-   **`Calls` is the blueprint feature** — replicate its service → hook →
-   component shape for new pages (full recipe in DEVELOPING.md).
+**There have been two prior "second pieces", and both are gone.** A Deno BFF
+(`api/`) used to sit behind the portal serving Dashboard extras — the DuckDB
+event projection, calls-per-hour, the dashboard/widget store, transcript
+reads, an event inspector and a read-only MCP surface. It was deleted when
+Elixir took over the origin. Later, a React SPA (`src/`) served as the UI
+while the LiveView equivalent was being restored; it too is gone — the
+LiveView UI is the UI now.
 
-2. **The Elixir portal** (`connectix/`, :4001) — the origin. A `WebSock`
-   handler at `/ws/events` (not a Phoenix Channel: the contract is a plain JSON
-   frame protocol), one application Cable connection plus per-user Cable
-   connections fanned out over `Phoenix.PubSub`, and token verification through
-   the node's `ApiProxy` channel. Elixir holds no direct NATS connection.
-   `ConnectixWeb.Plugs.EngineProxy` forwards the
-   mothership's own routes (`/auth`, `/api/`, `/tasks/`) upstream, and **owns
-   the CORS policy on them**: the extension's origin is a
-   `chrome-extension://<id>` no upstream allowlist can name, so the upstream's
-   headers are dropped and replaced rather than copied through.
+**What that leaves unserved**, until each lands in Elixir: `/dashboard/*`,
+`/events`, `/transcript`, and the `/rest/v1` PostgREST plane. Those routes
+404. The git history has the Deno implementation and the React SPA if either
+is wanted as a reference — `git log` on `src/`, `package.json`, `vite.config.js`.
 
-   In development it runs from the Dockerfile's `dev` stage against the mounted
-   source, so an edit reloads instead of needing a rebuild. The release stages
-   above it are what ships.
-
-**There is no third piece.** A Deno BFF (`api/`) used to sit behind the portal
-serving Dashboard extras — the DuckDB event projection, calls-per-hour, the
-dashboard/widget store, transcript reads, an event inspector and a read-only
-MCP surface. It was deleted when Elixir took over the origin, rather than kept
-as a second backend nobody would finish migrating.
-
-**What that leaves unserved**, until each lands in Elixir: `/dashboard/*`
-(`src/services/dashboardsApi.js` — the Dashboard builder), `/events`
-(`src/services/duckdbEventsApi.js` — the Event Explorer), `/transcript`, and
-the `/rest/v1` PostgREST plane. Those screens 404. Everything else the SPA
-calls is `/api/*`, which is forwarded to the mothership and was never Deno's.
-The frontend code for them is intentionally still here; the git history has the
-Deno implementation if it is wanted as a reference.
-
-There is **no Supabase** — auth is mothership accounts + a JWT.
+There is **no Supabase** — auth is mothership accounts + a JWT, or (for the
+LiveView UI specifically) HTTP Basic Auth — see `connectix/CLAUDE.md`.
 
 ## Environment
 
@@ -224,15 +180,6 @@ inline). The local stack keeps the portal and cable on the API at port 5000 by
 default; change `PORTAL_ENGINE_URL` and `CABLE_API_URL` together when that API
 lives elsewhere. Production Kamal destinations set `ENGINE_URL` in mothership.
 
-- **The browser never carries a backend host.** Clients build relative URLs;
-  the Vite proxy (dev) or the portal's forwarder (prod) owns the actual
-  mothership host. `VITE_MOTHERSHIP_URL` is the direct-mode escape hatch for static-only
-  hosting (e.g. the Fireberry embed) — leave it unset otherwise.
-- **Never set `VITE_API_BASE_URL` in dev** — it bypasses the Vite proxy and
-  trips CORS.
-- **Never `VITE_`-prefix a secret** — `VITE_*` is baked into the public browser
-  bundle; server-side vars (the cable secret, NATS credentials) must stay
-  unprefixed.
 - Editing `.env` + `docker compose restart` does **not** re-read env vars — use
   `docker compose up -d --force-recreate <service>`.
 - **A container reaches a host process at `172.18.0.1`, not
@@ -248,28 +195,12 @@ lives elsewhere. Production Kamal destinations set `ENGINE_URL` in mothership.
   whole file on every invocation, before it consults profiles — so a required
   variable on an opt-in service aborts every unrelated target, including
   `make dev`. Put the check in the Makefile target that starts the service.
-- `VITE_MOCK_LOGIN=1` gives an offline login (any email, OTP `123456`) for
-  frontend work with no backend, and is what the CI E2E job builds with so
-  Playwright can drive the real login flow hermetically (no credentials, no
-  network). It deliberately mirrors the mothership's two-step user-OTP shape
-  (the server's `VA_TEST_OTP` knob) and returns a user with
-  `extension`/`environment`, so post-login paths (session decode, SIP
-  derivation) are exercised too. It is a **build-time** flag: production
-  builds never set it, so the shipped bundle can't be toggled into mock auth.
 
 ## Conventions
 
-- Folder-per-component (`Component.jsx` + hooks + css together), components
-  under ~300 lines, don't share hooks between components.
-- i18n via `react-i18next` — Hebrew (RTL) is the default; use `useTranslation()`
-  for copy and `useDirection()` for layout. UI is MUI 7 + Radix/shadcn +
-  Tailwind.
-- Unit tests (Vitest) target service modules and hooks, mocked at the
-  `apiList`/`apiGet` boundary — never the network. Playwright specs live in
-  `tests/` (Input → Submit → capture response → assert).
-- Elixir tests (ExUnit) live in `connectix/test/`; plug tests drive the plug
-  directly with `Plug.Test` and stand up a real upstream when they need one —
-  no network to the platform.
+- Elixir/Phoenix code, tests and LiveView conventions live entirely in
+  [connectix/CLAUDE.md](./connectix/CLAUDE.md) — read it before editing
+  anything under `connectix/`.
 - Prefer simple solutions; exhaust existing patterns before introducing new
   ones. Never add fake/stub data outside tests. Never overwrite `.env` without
   confirmation.

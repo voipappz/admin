@@ -136,6 +136,29 @@ defmodule Connectix.MixProject do
       # its own LLM, context aggregator and assistant collector are a second
       # agent runtime and are deliberately not used. See AGENTS.md.
       {:feline, github: "dimamik/feline", ref: "6e85fb2f80894c06cad163be91fceb7ab3ca746f"},
+      # Elixir-native WebRTC<->SIP bridge (Connectix.WebRtc.*), ported from
+      # connectix.io/phone. NOT the Feline/Pipecat voice path documented in
+      # connectix/CLAUDE.md's "Voice: Feline around Sagents" — this is a
+      # second, separate calling surface (browser WebRTC <-> a real SIP
+      # account), predating Feline's integration here.
+      #
+      # parrot_platform pins ex_sdp ~> 0.17.0, but ex_webrtc needs ~> 1.0. The
+      # override forces ex_sdp 1.0 tree-wide — parrot only uses ExSDP in
+      # media_session.ex, and that usage is API-compatible with 1.0. Copied
+      # verbatim from connectix.io/phone/mix.exs, where this combination is
+      # verified to resolve.
+      {:ex_sdp, "~> 1.0", override: true},
+      # membrane_core (via parrot_platform) pulls `ratio`, which lists decimal
+      # as an OPTIONAL dep pinned `~> 1.6 or ~> 2.0` — but jason/ecto/
+      # open_api_spex already need decimal 3.x here, and ratio's use of
+      # decimal is API-compatible with 3.x at runtime. Same override, same
+      # reasoning, as connectix.io/phone/mix.exs.
+      {:decimal, "~> 3.0", override: true},
+      # Native NIF deps (ex_dtls -> OpenSSL, ex_libsrtp -> libsrtp2) need
+      # pkg-config + libssl-dev + libsrtp2-dev on the build host/image. NOT
+      # yet added to connectix/Dockerfile — see the report for this port.
+      {:ex_webrtc, "~> 0.16"},
+      {:parrot_platform, "~> 0.0.1-alpha.3"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
@@ -148,7 +171,11 @@ defmodule Connectix.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "assets.setup", "assets.build"],
+      setup: ["deps.get", &parrot_patch/1, "deps.compile parrot_platform --force", "assets.setup", "assets.build"],
+      # `deps.get` re-downloads a pristine parrot_platform every time, wiping
+      # priv/parrot_patches/*.patch — re-apply and force-recompile by hand
+      # with `mix parrot.patch` after any `deps.get`/`deps.update parrot_platform`.
+      "parrot.patch": [&parrot_patch/1, "deps.compile parrot_platform --force"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind connectix", "esbuild connectix"],
       "assets.deploy": [
@@ -165,5 +192,15 @@ defmodule Connectix.MixProject do
         "test"
       ]
     ]
+  end
+
+  # Re-apply the vendored parrot_platform source patches (priv/parrot_patches/,
+  # ported from connectix.io/phone) — `mix deps.get` re-downloads a pristine
+  # parrot and wipes them. Idempotent (see apply.sh); a no-op until
+  # deps/parrot_platform exists.
+  defp parrot_patch(_args) do
+    {out, status} = System.cmd("bash", ["priv/parrot_patches/apply.sh"], stderr_to_stdout: true)
+    IO.write(out)
+    if status != 0, do: Mix.raise("parrot patch failed (exit #{status}) — see output above")
   end
 end

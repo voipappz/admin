@@ -1,0 +1,691 @@
+defmodule ConnectixWeb.AgentLiveHelpers do
+  @moduledoc """
+  LiveView shell over `Connectix.Agents.AgentSubscriberSession`.
+
+  Each function takes a `socket`, calls the equivalent host-agnostic
+  function on `AgentSubscriberSession`, and applies the resulting
+  changes via `assign/2`. LiveView-specific concerns — streams (`stream/3`,
+  `stream_insert/3`), flash messages, `connected?` gates, and orchestrating
+  resume calls with their flash side effects — live here.
+
+  Non-LiveView consumers (a GraphQL bridge GenServer, etc.) should bypass
+  this module and call `AgentSubscriberSession` directly.
+
+  ## Subscription model
+
+  The host LiveView keeps a `Sagents.Subscriber` subs map in
+  `socket.assigns.sagents_subs`. The host is also expected to:
+
+    1. In `mount/3`, subscribe the LiveView process to the agent presence
+       topic via `Phoenix.PubSub.subscribe(ConnectixWeb.PubSub,
+       Sagents.Subscriber.presence_topic())` so `presence_diff` broadcasts
+       drive auto-resubscribe on agent migration.
+
+    2. In `handle_info/2`, route `{:DOWN, ref, :process, _, _}` and
+       `%Phoenix.Socket.Broadcast{event: "presence_diff"}` to
+       `handle_publisher_down/2` and `handle_presence_diff/2` here.
+
+    3. For the action path (send_message, wake_agent, etc.), call
+       `Coordinator.ensure_agent_session_running(socket.assigns,
+       agent_request_opts(socket))` and apply the returned changes with
+       `assign(socket, changes)`. Use `agent_request_opts/1` from this module
+       rather than a second copy: every path that can start an agent must
+       configure it identically.
+
+  ## Customization
+
+  This module was generated for your application and has hardcoded references to:
+  - `Connectix.Conversations` - Database context
+  - `Connectix.Agents.Coordinator` - Agent coordination
+  - `Connectix.Agents.AgentSubscriberSession` - Host-agnostic state model
+  - `Sagents.AgentServer` - Agent server module
+  - `Sagents.Subscriber` - Subscription bookkeeping
+  """
+
+  import Phoenix.LiveView, only: [stream: 4, stream_insert: 3, put_flash: 3, connected?: 1]
+  import Phoenix.Component, only: [assign: 2, assign: 3]
+
+  alias Connectix.Conversations
+  alias Connectix.Agents.Coordinator
+  alias Connectix.Agents.AgentSubscriberSession
+  alias Sagents.AgentServer
+  alias Sagents.Subscriber
+
+  require Logger
+
+  # Shown for `:registry_unavailable`, on every path that can hit it. See
+  # `flash_session_error/3` for why this condition gets its own copy.
+  @draining_message "This server is restarting. Please try that again in a moment."
+
+  # ===========================================================================
+  # State init / reset
+  # ===========================================================================
+
+  @doc """
+  Initialize all agent-related assigns to their default empty state.
+
+  Combines `AgentSubscriberSession.init_session_state/0` with the
+  `:messages` LiveView stream initialization.
+  """
+  def init_agent_state(socket) do
+    socket
+    |> assign(AgentSubscriberSession.init_session_state())
+    |> stream(:messages, [], reset: true)
+  end
+
+  @doc """
+  Reset all agent-related state to default values and unsubscribe from any
+  current agent.
+  """
+  def reset_conversation(socket) do
+    socket =
+      if connected?(socket) do
+        unsubscribe_current_agent(socket)
+      else
+        socket
+      end
+
+    init_agent_state(socket)
+  end
+
+  defp unsubscribe_current_agent(socket) do
+    agent_id = socket.assigns[:agent_id]
+    subs = socket.assigns[:sagents_subs] || %{}
+
+    if agent_id do
+      new_subs = Subscriber.unsubscribe_from_agent(subs, agent_id)
+      Logger.debug("Unsubscribed from agent #{agent_id}")
+      assign(socket, :sagents_subs, new_subs)
+    else
+      socket
+    end
+  end
+
+  # ===========================================================================
+  # Load conversation (load path — subscribe-only)
+  # ===========================================================================
+
+  @doc """
+  Load a conversation from the database and subscribe the LiveView to its
+  agent's events.
+
+  This is the **load path** — it never starts the agent. If the agent
+  isn't running, the subscription is recorded as `:pending`; it
+  auto-upgrades to `:subscribed` via `presence_diff` once the agent
+  appears (e.g. when the user takes an action that calls
+  `Coordinator.ensure_agent_session_running/1`).
+
+  ## Parameters
+
+  - `socket` - The LiveView socket
+  - `conversation_id` - ID of the conversation to load
+  - `opts` - Keyword list of options:
+    - `:scope` (required) - User scope for database queries
+    - `:user_id` (optional) - User ID for presence tracking
+    - `:conversations_module` (optional) - DB context module override
+      (default: `Conversations`)
+
+  ## Returns
+
+  - `{:ok, socket}` - Socket with conversation loaded and subscribed
+  - `{:error, socket}` - Socket with flash error (conversation not found, or
+    this node cannot host agent sessions)
+  """
+  def load_conversation(socket, conversation_id, opts) do
+    if Sagents.ready?() do
+      do_load_conversation(socket, conversation_id, opts)
+    else
+      # This node's Sagents supervision tree is down: it is draining during a
+      # deploy, or has not finished booting. Reading the agent's status, waking
+      # it for a pending interrupt, and every action the loaded page offers all
+      # need the registry, so there is nothing worth rendering here.
+      #
+      # The guard is what keeps this from being a crash. `AgentServer.get_status/1`
+      # below reads as total — it catches exits and answers `:not_running` — but
+      # it raises `Sagents.RegistryUnavailableError` before reaching the call it
+      # guards, and a `catch :exit` clause does not catch a raise.
+      Logger.warning(
+        "Refusing to load conversation #{inspect(conversation_id)}: " <>
+          "this node is draining, its Sagents registry is unavailable"
+      )
+
+      {:error, put_flash(socket, :error, @draining_message)}
+    end
+  end
+
+  defp do_load_conversation(socket, conversation_id, opts) do
+    scope = Keyword.fetch!(opts, :scope)
+    user_id = Keyword.get(opts, :user_id)
+    conversations = Keyword.get(opts, :conversations_module, Conversations)
+
+    try do
+      socket = maybe_unsubscribe_previous(socket, conversation_id)
+
+      conversation = conversations.get_conversation!(scope, conversation_id)
+      agent_id = Coordinator.conversation_agent_id(conversation_id)
+
+      socket = maybe_subscribe_and_track(socket, agent_id, conversation_id, user_id)
+
+      display_messages = conversations.load_display_messages(scope, conversation_id)
+      has_messages = !Enum.empty?(display_messages)
+      saved_todos = conversations.load_todos(scope, conversation_id)
+
+      agent_status = AgentServer.get_status(agent_id)
+
+      socket =
+        socket
+        |> assign(:conversation, conversation)
+        |> assign(:conversation_id, conversation_id)
+        |> assign(:agent_id, agent_id)
+        |> assign(:todos, saved_todos)
+        |> assign(:agent_status, agent_status)
+        |> assign(:agent_alive?, agent_status != :not_running)
+        |> stream(:messages, display_messages, reset: true)
+        |> assign(:has_messages, has_messages)
+
+      socket =
+        cond do
+          agent_status == :interrupted ->
+            info = AgentServer.get_info(agent_id)
+            handle_status_interrupted(socket, info.interrupt_data)
+
+          agent_status == :not_running and Conversations.interrupted?(conversation) ->
+            # Persisted state has a pending interrupt the user needs to see.
+            # Auto-wake the agent so the boot broadcast surfaces the question
+            # UI; clicking "Answer" then resumes against a live process.
+            # Other (idle/historical) conversations stay lazy — opening them
+            # for a read-only browse does not spin up an agent.
+            auto_wake_for_pending_interrupt(socket)
+
+          true ->
+            socket
+        end
+
+      {:ok, socket}
+    rescue
+      KeyError ->
+        {:error, put_flash(socket, :error, "Conversation not found")}
+    end
+  end
+
+  # Boots the agent for a conversation whose persisted metadata indicates a
+  # pending interrupt. The LiveView is seeded as initial subscriber inside
+  # ensure_agent_session_running, so the boot broadcast (carrying the restored
+  # `:interrupted` status from sagents' derive_boot_status) reaches us via
+  # handle_info and surfaces the interrupt UI without polling.
+  defp auto_wake_for_pending_interrupt(socket) do
+    case Coordinator.ensure_agent_session_running(
+           socket.assigns,
+           agent_request_opts(socket)
+         ) do
+      {:ok, changes} ->
+        socket |> assign(changes) |> assign(:agent_alive?, true)
+
+      {:error, reason} ->
+        Logger.warning(
+          "Auto-wake failed for interrupted conversation #{socket.assigns[:conversation_id]}: #{inspect(reason)}"
+        )
+
+        socket
+    end
+  end
+
+  defp maybe_unsubscribe_previous(socket, conversation_id) do
+    if connected?(socket) && socket.assigns[:conversation_id] &&
+         socket.assigns.conversation_id != conversation_id do
+      unsubscribe_current_agent(socket)
+    else
+      socket
+    end
+  end
+
+  defp maybe_subscribe_and_track(socket, agent_id, conversation_id, user_id) do
+    if connected?(socket) do
+      socket = subscribe_to_agent(socket, agent_id)
+      AgentSubscriberSession.maybe_track_viewer(conversation_id, user_id)
+      socket
+    else
+      socket
+    end
+  end
+
+  defp subscribe_to_agent(socket, agent_id) do
+    subs = socket.assigns[:sagents_subs] || %{}
+    new_subs = Subscriber.subscribe_to_agent(subs, agent_id)
+    assign(socket, :sagents_subs, new_subs)
+  end
+
+  # ===========================================================================
+  # Recovery (DOWN, presence_diff)
+  # ===========================================================================
+
+  @doc """
+  Route a `{:DOWN, ref, :process, _pid, _reason}` from a producer crash
+  to `AgentSubscriberSession.handle_publisher_down/3`. Pending
+  subscriptions flip to `:pending` and we wait for `presence_diff` to drive
+  resubscribe.
+  """
+  def handle_publisher_down(socket, ref, reason \\ :noproc) do
+    changes = AgentSubscriberSession.handle_publisher_down(socket.assigns, ref, reason)
+
+    if map_size(changes) > 0 do
+      Logger.debug(
+        "Producer DOWN — flipping subscription to pending (will re-subscribe on presence diff)"
+      )
+    end
+
+    assign(socket, changes)
+  end
+
+  @doc """
+  Route a Phoenix presence diff payload to
+  `AgentSubscriberSession.handle_presence_diff/2`.
+  """
+  def handle_presence_diff(socket, payload),
+    do: assign(socket, AgentSubscriberSession.handle_presence_diff(socket.assigns, payload))
+
+  # ===========================================================================
+  # Status handlers
+  # ===========================================================================
+
+  @doc "Status changed to :running."
+  def handle_status_running(socket),
+    do: assign(socket, AgentSubscriberSession.handle_status_running())
+
+  @doc "Status changed to :idle."
+  def handle_status_idle(socket),
+    do: assign(socket, AgentSubscriberSession.handle_status_idle())
+
+  @doc "Status changed to :cancelled."
+  def handle_status_cancelled(socket),
+    do: assign(socket, AgentSubscriberSession.handle_status_cancelled())
+
+  @doc "Status changed to :error — also surfaces a flash."
+  def handle_status_error(socket, reason) do
+    socket
+    |> assign(AgentSubscriberSession.handle_status_error(reason))
+    |> put_flash(:error, AgentSubscriberSession.format_error_message(reason))
+  end
+
+  @doc "Status changed to :interrupted (waiting for human input)."
+  def handle_status_interrupted(socket, interrupt_data),
+    do: assign(socket, AgentSubscriberSession.handle_status_interrupted(interrupt_data))
+
+  # ===========================================================================
+  # Messaging handlers
+  # ===========================================================================
+
+  @doc "Streaming LLM deltas (incremental chunks)."
+  def handle_llm_deltas(socket, deltas),
+    do: assign(socket, AgentSubscriberSession.handle_llm_deltas(socket.assigns, deltas))
+
+  @doc "Complete LLM message received."
+  def handle_llm_message_complete(socket),
+    do: assign(socket, AgentSubscriberSession.handle_llm_message_complete())
+
+  @doc """
+  Display message saved — reload from DB and stream-reset (or fall back to
+  `stream_insert/3` if there's no conversation context yet).
+  """
+  def handle_display_message_saved(socket, display_msg) do
+    socket =
+      if socket.assigns[:conversation_id] && socket.assigns[:current_scope] do
+        socket
+        |> assign(:streaming_delta, nil)
+        |> reload_messages_from_db()
+      else
+        stream_insert(socket, :messages, display_msg)
+      end
+
+    assign(socket, :has_messages, true)
+  end
+
+  @doc """
+  Reload display messages from the database and stream-reset.
+  """
+  def reload_messages_from_db(socket) do
+    if socket.assigns[:conversation_id] && socket.assigns[:current_scope] do
+      messages =
+        Conversations.load_display_messages(
+          socket.assigns.current_scope,
+          socket.assigns.conversation_id
+        )
+
+      stream(socket, :messages, messages, reset: true)
+    else
+      socket
+    end
+  end
+
+  @doc """
+  Persist a message to the DB if a conversation exists, otherwise build
+  an in-memory fallback. Returns the display message map.
+  """
+  def create_or_persist_message(socket, message_type, text) do
+    if socket.assigns[:conversation_id] && socket.assigns[:current_scope] do
+      case Conversations.append_text_message(
+             socket.assigns.current_scope,
+             socket.assigns.conversation_id,
+             message_type,
+             text
+           ) do
+        {:ok, display_msg} ->
+          display_msg
+
+        {:error, reason} ->
+          Logger.error("Failed to persist #{message_type} message: #{inspect(reason)}")
+          create_fallback_message(message_type, text)
+      end
+    else
+      create_fallback_message(message_type, text)
+    end
+  end
+
+  defp create_fallback_message(message_type, text) do
+    %{
+      id: generate_id(),
+      message_type: message_type,
+      content_type: "text",
+      content: %{"text" => text},
+      timestamp: DateTime.utc_now()
+    }
+  end
+
+  defp generate_id, do: :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
+
+  # ===========================================================================
+  # Tool execution handlers
+  # ===========================================================================
+
+  @doc "Tool call identified — set display_text + execution status."
+  def handle_tool_call_identified(socket, tool_info) do
+    assign(
+      socket,
+      AgentSubscriberSession.handle_tool_call_identified(socket.assigns, tool_info)
+    )
+  end
+
+  @doc "Tool execution lifecycle update."
+  def handle_tool_execution_update(socket, status, tool_info) do
+    assign(
+      socket,
+      AgentSubscriberSession.handle_tool_execution_update(socket.assigns, status, tool_info)
+    )
+  end
+
+  @doc "Display message updated — stream the new version."
+  def handle_display_message_updated(socket, updated_msg),
+    do: stream_insert(socket, :messages, updated_msg)
+
+  # ===========================================================================
+  # Lifecycle handlers
+  # ===========================================================================
+
+  @doc "Conversation title generated — write to DB and update assigns."
+  def handle_conversation_title_generated(socket, new_title, agent_id) do
+    assign(
+      socket,
+      AgentSubscriberSession.handle_conversation_title_generated(
+        socket.assigns,
+        new_title,
+        agent_id
+      )
+    )
+  end
+
+  @doc """
+  Agent shutdown event.
+
+  A restorable interrupt prompt stays on screen (see
+  `Sagents.AgentUtils.shutdown_session_changes/2`); answering it wakes the
+  agent. Everything else collapses to `:not_running`.
+  """
+  def handle_agent_shutdown(socket, shutdown_data) do
+    Logger.info("Agent #{socket.assigns[:agent_id]} shutting down: #{shutdown_data.reason}")
+    assign(socket, AgentSubscriberSession.handle_agent_shutdown(socket.assigns, shutdown_data))
+  end
+
+  # ===========================================================================
+  # HITL decision handlers
+  # ===========================================================================
+
+  @doc """
+  Handle a single HITL approve/reject decision. Orchestrates the resume call
+  (when the last pending tool is decided) and flash messages on top of the
+  state changes from `AgentSubscriberSession.handle_hitl_decision/3`.
+
+  The resume goes through `Coordinator.resume_agent_session/3`,
+  which wakes a sleeping agent and hands it the decision at boot. There is no
+  "the agent went away, start over" failure: the interrupt is durable, so the
+  worst case is a slower round trip.
+  """
+  def handle_hitl_decision(socket, index, decision_type) do
+    if (socket.assigns[:pending_tools] || []) == [] do
+      # Nothing pending: a duplicate event for a batch that is already settled.
+      # Falling through would hand `advance_hitl_decisions/3` an empty list, and
+      # it would happily report the batch complete and resume with a fabricated
+      # decision.
+      socket
+    else
+      do_handle_hitl_decision(socket, index, decision_type)
+    end
+  end
+
+  defp do_handle_hitl_decision(socket, index, decision_type) do
+    decision_label = if decision_type == :approve, do: "approved", else: "rejected"
+
+    AgentSubscriberSession.persist_hitl_decision(
+      socket.assigns,
+      socket.assigns.pending_tools,
+      index,
+      decision_label
+    )
+
+    Logger.info("#{String.capitalize(decision_label)} tool at index #{index}")
+
+    case AgentSubscriberSession.handle_hitl_decision(socket.assigns, index, decision_type) do
+      {:resume, accumulated, changes} ->
+        resume_or_flash(
+          socket,
+          accumulated,
+          changes,
+          AgentSubscriberSession.hitl_resume_running_changes(),
+          log_label: "HITL resume failed",
+          user_message: "Sorry, that decision could not be submitted. Please try again."
+        )
+
+      # Intermediate decisions in a multi-tool batch settle nothing, so they
+      # need no agent at all. Deliberately must not wake one.
+      {:more, changes} ->
+        assign(socket, changes)
+    end
+  end
+
+  # ===========================================================================
+  # Ask-user-question handlers
+  # ===========================================================================
+
+  @doc """
+  Handle a single answer to a pending AskUserQuestion interrupt. Orchestrates
+  the resume call (when the last pending question is answered) on top of the
+  state changes from
+  `AgentSubscriberSession.handle_question_response/2`.
+
+  The resume goes through `Coordinator.resume_agent_session/3`,
+  so an answer composed while the agent was asleep still lands: the agent is
+  woken with the answer in hand.
+  """
+  def handle_question_response(socket, response) do
+    if is_nil(socket.assigns[:pending_question]) do
+      # A second submission for a question that is already answered. The
+      # click-to-select variant has no submit button to disable, so a fast
+      # double click really does send two events, and the resume is synchronous
+      # so the second one arrives after `pending_question` has been cleared.
+      # Falling through would crash on the missing question.
+      socket
+    else
+      do_handle_question_response(socket, response)
+    end
+  end
+
+  defp do_handle_question_response(socket, response) do
+    case AgentSubscriberSession.handle_question_response(socket.assigns, response) do
+      {:resume, resume_data, changes} ->
+        resume_or_flash(
+          socket,
+          resume_data,
+          changes,
+          AgentSubscriberSession.question_resume_running_changes(),
+          log_label: "question resume failed",
+          user_message: "Sorry, that response could not be saved. Please try again."
+        )
+
+      # Intermediate answers in a multi-question batch need no agent at all,
+      # so they deliberately must not wake one. Only the final answer resumes.
+      {:more, changes} ->
+        assign(socket, changes)
+    end
+  end
+
+  # ===========================================================================
+  # Halt dismissal
+  # ===========================================================================
+
+  @doc """
+  Acknowledge a terminal `:halt` interrupt and clear its panel.
+
+  A halt is restorable, so the panel stays on screen when the agent naps. This
+  routes through `Coordinator.dismiss_agent_session/2`, which
+  wakes a sleeping agent and dismisses against the halt it rebuilt at boot, so
+  the button works on a dormant conversation.
+  """
+  def handle_halt_dismissal(socket) do
+    if is_nil(socket.assigns[:pending_halt]) do
+      # Nothing pending: a duplicate event for a halt already dismissed. The
+      # dismissal is synchronous, so a fast double click really does deliver a
+      # second event after the first cleared the panel.
+      socket
+    else
+      do_handle_halt_dismissal(socket)
+    end
+  end
+
+  defp do_handle_halt_dismissal(socket) do
+    case Coordinator.dismiss_agent_session(socket.assigns, agent_request_opts(socket)) do
+      :ok ->
+        assign(socket, Sagents.AgentUtils.cleared_interrupt_changes())
+
+      {:ok, session_changes} ->
+        socket
+        |> assign(session_changes)
+        |> assign(:agent_alive?, true)
+        |> assign(Sagents.AgentUtils.cleared_interrupt_changes())
+
+      {:error, reason} ->
+        flash_session_error(socket, reason,
+          log_label: "halt dismissal failed",
+          user_message: "That could not be dismissed. Please try again."
+        )
+    end
+  end
+
+  # ===========================================================================
+  # Shared resume orchestration
+  # ===========================================================================
+
+  # Single funnel for every interrupt response. Asks the agent rather than the
+  # assigns: a live, interrupted agent takes the answer in one call, and a
+  # sleeping one is woken with the answer already in hand. A *live* agent in
+  # the wrong state (someone answered from another tab) returns an error
+  # rather than being woken, because there is nothing to wake.
+  #
+  # `copy` is the log label / product copy pair described on
+  # `flash_session_error/3`.
+  defp resume_or_flash(socket, resume_data, changes, running_changes, copy) do
+    case Coordinator.resume_agent_session(
+           socket.assigns,
+           resume_data,
+           agent_request_opts(socket)
+         ) do
+      :ok ->
+        socket |> assign(changes) |> assign(running_changes)
+
+      {:ok, session_changes} ->
+        socket
+        |> assign(session_changes)
+        |> assign(changes)
+        |> assign(running_changes)
+
+      {:error, reason} ->
+        flash_session_error(socket, reason, copy)
+    end
+  end
+
+  # ===========================================================================
+  # Session error reporting
+  # ===========================================================================
+
+  @doc """
+  The copy shown when this node cannot host agent sessions.
+
+  Exposed so tests can assert *which* message a path produced without
+  hardcoding the string. A test that inlines the literal keeps passing after
+  someone rewords the copy, which is the moment it stops testing anything.
+  """
+  def draining_message, do: @draining_message
+
+  @doc """
+  Log a failed session action and flash product copy describing it.
+
+  `copy` carries two deliberately separate strings:
+
+    * `:log_label` — internal vocabulary, paired with the raw reason term.
+    * `:user_message` — product copy shown to the person. Never interpolate the
+      reason into it. A live-but-wrong-state agent returns "Cannot resume,
+      server is not interrupted": an internal string, and one that says "agent",
+      a word many products deliberately never put in front of a user. This is a
+      slot you are meant to edit and localize.
+
+  `:registry_unavailable` is answered separately because it is not a failure of
+  the request. It means this node cannot host or route agent sessions — it is
+  draining during a deploy, or has not finished booting — while every other node
+  serves the same request fine. "Try again" is literally the correct
+  instruction, and after a deploy the reconnect lands on a node that works.
+  Reporting it as a generic failure tells the user something is broken when
+  nothing is, and logging it at `:error` fills the log with alarms for a routine
+  deploy.
+  """
+  def flash_session_error(socket, reason, copy) do
+    label = Keyword.fetch!(copy, :log_label)
+
+    case reason do
+      :registry_unavailable ->
+        Logger.warning("#{label}: this node is draining, its Sagents registry is unavailable")
+        put_flash(socket, :error, @draining_message)
+
+      other ->
+        Logger.error("#{label}: #{inspect(other)}")
+        put_flash(socket, :error, Keyword.fetch!(copy, :user_message))
+    end
+  end
+
+  # ===========================================================================
+  # Per-request agent configuration
+  # ===========================================================================
+
+  @doc """
+  Per-request data the `Sagents.FactoryConfig` consumes, for **every** path
+  that may have to start an agent.
+
+  Fill this in once (timezone, tool context, tenant, whatever your factory
+  reads) and route your own
+  `Coordinator.ensure_agent_session_running/2` call sites through
+  it as well, rather than computing the same options separately.
+
+  An agent woken to accept an answer must be configured exactly like one woken
+  any other way. A second copy of this decision drifts silently: it compiles,
+  it passes tests, and the symptom is an agent that behaves subtly wrong only
+  on the paths that had to wake it.
+  """
+  def agent_request_opts(socket), do: [timezone: socket.assigns[:timezone] || "UTC"]
+end

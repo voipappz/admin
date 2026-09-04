@@ -1,0 +1,67 @@
+defmodule ConnectixWeb.ChatLiveEnvironmentSwitchTest do
+  @moduledoc """
+  The environment switcher in the chat header: `Connectix.Config.environments/0`
+  seeds `@current_environment` on mount, and the "switch_environment" event
+  swaps it — the assign `Connectix.WebRtc.SipBridge` (Part C) reads to pick a
+  dial target.
+  """
+
+  use ConnectixWeb.ConnCase, async: false
+
+  import Phoenix.LiveViewTest
+
+  setup do
+    %{conn: authenticated_conn()}
+  end
+
+  defp with_env(pairs, fun) do
+    previous = Map.new(pairs, fn {key, _new_value} -> {key, System.get_env(key)} end)
+    Enum.each(pairs, fn {key, value} -> System.put_env(key, value) end)
+
+    try do
+      fun.()
+    after
+      Enum.each(previous, fn
+        {key, nil} -> System.delete_env(key)
+        {key, value} -> System.put_env(key, value)
+      end)
+    end
+  end
+
+  test "defaults to the first configured environment", %{conn: conn} do
+    with_env(
+      [{"CONNECTIX_ENVIRONMENTS", "prod:sip.example.com,staging:sip-staging.example.com"}],
+      fn ->
+        {:ok, view, html} = live(conn, ~p"/chat")
+
+        assert has_element?(view, "select[name=name] option[selected]", "prod")
+        assert html =~ "prod"
+        assert html =~ "staging"
+      end
+    )
+  end
+
+  test "switch_environment changes the selected environment", %{conn: conn} do
+    with_env(
+      [{"CONNECTIX_ENVIRONMENTS", "prod:sip.example.com,staging:sip-staging.example.com"}],
+      fn ->
+        {:ok, view, _html} = live(conn, ~p"/chat")
+
+        html = render_change(view, "switch_environment", %{"name" => "staging"})
+
+        assert has_element?(view, "select[name=name] option[selected]", "staging")
+        assert html =~ "staging"
+      end
+    )
+  end
+
+  test "an unrecognized environment name is ignored", %{conn: conn} do
+    with_env([{"CONNECTIX_ENVIRONMENTS", "prod:sip.example.com"}], fn ->
+      {:ok, view, _html} = live(conn, ~p"/chat")
+
+      render_change(view, "switch_environment", %{"name" => "nonexistent"})
+
+      assert has_element?(view, "select[name=name] option[selected]", "prod")
+    end)
+  end
+end

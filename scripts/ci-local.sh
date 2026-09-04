@@ -41,38 +41,11 @@ mode="${1:-all}"
 job_args=()
 if [[ "$mode" != "all" ]]; then job_args=(-j "$mode"); fi
 
-# The e2e job serves its OWN build on :4200 and waits for it. act's runner shares
-# the host network, so a dev stack already holding that port (make dev / make up,
-# or a leaked `vite preview`) answers the wait instead — and that server is built
-# WITHOUT VITE_MOCK_LOGIN, so every post-login spec dies at the OTP step against a
-# real mothership. The job "fails" with nothing wrong in the code. Refuse to start.
-if [[ "$mode" == "e2e" || "$mode" == "all" ]]; then
-  if ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE ':4200$'; then
-    echo "!! port 4200 is already in use — the e2e job would test THAT server, not its own build." >&2
-    echo "   stop it first (make down, or pkill -f 'vite preview'), then re-run." >&2
-    exit 1
-  fi
-fi
-
-# The cable-events job starts its own stack on 14001/14100/14222/18222. A
-# leftover stack (a killed run, a `make test-cable` still up) would answer the
-# readiness gate in its place and the job would test THAT. Refuse to start.
-if [[ "$mode" == "cable-events" || "$mode" == "all" ]]; then
-  for port in 14001 14100 14222 18222 18021 18022; do
-    if ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE ":$port\$"; then
-      echo "!! port $port is already in use — the cable-events job would test THAT stack, not its own." >&2
-      echo "   docker compose -f tests/cable-events/docker-compose.yml down -v, then re-run." >&2
-      exit 1
-    fi
-  done
-fi
-
-# The empty env file keeps tenant credentials out; this one variable is the
-# exception, passed explicitly: the published node image may be behind the
-# source, and a locally built one is the only way to run the job then.
-extra_env=()
-if [[ -n "${VA_CRYSTAL_IMAGE:-}" ]]; then extra_env=(--env "VA_CRYSTAL_IMAGE=$VA_CRYSTAL_IMAGE"); fi
-
+# NO --bind. It mounts the working tree into every job, so a job's own
+# `mix deps.get` would write deps/ and _build/ into the real working tree, as
+# root. Without it, act copies the workspace and honours .gitignore, so each
+# job gets its own — which is what the real runner does, and what makes the
+# run representative.
 echo ">> running workflow: $mode"
 exec "$act_bin" push -W .github/workflows/ci.yml \
   "${job_args[@]}" \
@@ -80,6 +53,4 @@ exec "$act_bin" push -W .github/workflows/ci.yml \
   -P "ubuntu-24.04=$runner" \
   --container-architecture linux/amd64 \
   --pull=false \
-  --bind \
-  --env-file "$empty_env" \
-  "${extra_env[@]}"
+  --env-file "$empty_env"

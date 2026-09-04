@@ -1,12 +1,12 @@
 # Architecture — VoIPAppz portal
 
-A React 19 + Vite portal for VoIP/telecom **users**, built as reusable
-components over **one backend: the voipappz-api "mothership"**. Access is
-user-based: login resolves one verified user → their permissions → the
-environments they may act in. There is no tenant model or tenant selector in
-the app — `customer_uuid`/`environment_uuid` are backend authorization and
-routing metadata, not a UI concept. A customer deployment (fork) changes
-**env, not code**.
+A pure-BEAM Elixir/Phoenix portal for VoIP/telecom **users**, built over
+**one backend: the voipappz-api "mothership"**. Access is user-based: login
+resolves one verified user → their permissions → the environments they may
+act in. There is no tenant model or tenant selector in the app —
+`customer_uuid`/`environment_uuid` are backend authorization and routing
+metadata, not a UI concept. A customer deployment (fork) changes **env, not
+code**.
 
 The portal is this standalone repository, cloned beside the mothership repo.
 It remains its own application and image with an independent Kamal deploy;
@@ -16,32 +16,26 @@ deployment policy lives in mothership and is invoked there with
 ## The one rule: same-origin, always
 
 The browser never carries a backend host — every client builds **relative
-URLs**. The app server in front owns the actual upstream:
+URLs**. The Elixir portal in front owns the actual upstream, in dev and prod
+alike (one process, one container):
 
 ```
-         dev                              prod (single container, Kamal)
-
-  Browser                                 Browser
-    │                                       │
-    ▼                                       ▼
-  Vite :4200 ──proxy──►  Elixir portal :4001  ◄── serves dist/ itself
-                              ├─ /auth, /api/, /tasks/ ──► ENGINE_URL
-                              ├─ /ws/events               (its own socket)
-                              └─ everything else          (the SPA)
+  Browser
+    │
+    ▼
+  Elixir portal :4001
+    ├─ /auth, /api/, /tasks/ ──► ENGINE_URL
+    ├─ /ws/events               (its own socket)
+    └─ /, /chat                 (the LiveView UI)
 ```
-
-`VITE_MOTHERSHIP_URL` exists only as a **direct-mode escape hatch** for
-static-only hosting (e.g. the Fireberry embed) where no app server fronts the
-bundle.
 
 ## Pieces
 
 | Piece | Where | Role |
 |---|---|---|
-| React app | `src/` (Vite :4200) | UI. Strict data-access layering: `lib/auth.ts` (the one credential) → `lib/clients/` (transport) → `services/` (per-feature) → `components/` (folder-per-component; `Calls` is the blueprint). |
-| Elixir portal | `connectix/` (:4001) | **The origin.** Serves `dist/` and `/ws/events`, forwards `/auth` · `/api/` · `/tasks/`, verifies user tokens through Cable and fans accepted events out over `Phoenix.PubSub`. It holds no direct NATS connection. |
+| Elixir portal | `connectix/` (:4001) | **The origin, and the whole app.** Serves the LiveView UI and `/ws/events`, forwards `/auth` · `/api/` · `/tasks/`, verifies user tokens through Cable and fans accepted events out over `Phoenix.PubSub`. It holds no direct NATS connection. |
 | Mothership (voipappz-api) | external, env-pointed | Accounts + login (`/auth/user_login` + optional per-customer OTP), calls, reports, feature flags, portal branding. The source of truth. |
-| PostgREST | external, **optional** | A second, direct-SQL data plane (`/rest/v1/*`) for tenant-custom tables/views — see below. |
+| PostgREST | external, **optional** | A second, direct-SQL data plane (`/rest/v1/*`) for tenant-custom tables/views — see below. Currently unserved (see below). |
 | Core NATS | external | va-crystal's Cable backend and the mothership use the broker. It is not an Elixir portal transport. |
 | Cable (va-crystal/Nimbus WS) | external, optional | The portal's platform transport: token verification and API relay on the application connection, per-user state/notifications, and one application-level `CallEvents` subscription. |
 
@@ -95,52 +89,46 @@ portal took over the origin; those routes 404 until each lands in Elixir.
 
 ## Auth (the spine)
 
-```
-Login form → POST /auth/user_login (relative → proxy/forwarder → mothership)
-  → { user, token }  or  OTP challenge → POST /auth/user/otp/verify
-  → session (JWT) in localStorage.auth   [lib/auth.ts]
-  → every request: Authorization: Bearer <token>   [lib/clients/api.ts]
-  → 401 anywhere → session dropped, re-login       [AUTH_EVENTS.UNAUTHORIZED]
-```
+Two credential paths, depending on which surface is asking:
 
-The user object also configures the softphone: `extension.{username,password}`
-+ `environment.{domain,wss_server}` → `sipSettingsFromUser` — **no SIP endpoint
-is baked into the code** (`VITE_SIP_*` is a dev/demo override only).
+```
+Chrome extension / mothership-account flow:
+  POST /auth/user_login (relative → forwarder → mothership)
+    → { user, token }  or  OTP challenge → POST /auth/user/otp/verify
+    → session (JWT), Authorization: Bearer <token> on every request
+    → 401 anywhere → session dropped, re-login
+
+LiveView UI (`/`, `/chat`):
+  HTTP Basic Auth (ConnectixWeb.Plugs.BasicAuth), one operator identity —
+  see connectix/CLAUDE.md for the auth conventions used inside connectix/.
+```
 
 ## The optional PostgREST plane
 
-For tenant-custom tables/views that live beside the mothership. Enable it by
-**Nothing serves `/rest/v1` today** — the forward lived in the Deno BFF and went
-with it, so the route 404s and the app is mothership-only. The design, and the
-frontend half of it, are kept because the tenant-custom-table need has not gone
-away; re-landing it means one forwarder in the portal. When enabled, the
-connector JWT rides through — PostgREST verifies it with its own shared secret
+For tenant-custom tables/views that live beside the mothership.
+**Nothing serves `/rest/v1` today** — the forward lived in the Deno BFF and
+went with it, so the route 404s and the app is mothership-only. The design is
+kept because the tenant-custom-table need has not gone away; re-landing it
+means one forwarder in the portal, plus whatever UI consumes it lands on
+`connectix/` now, not a second frontend. When enabled, the connector JWT rides
+through — PostgREST verifies it with its own shared secret
 (`VA_PGRST_JWT_SECRET`), so RLS can scope rows by the token's claims.
-
-Frontend building blocks, layered like everything else:
-
-- `lib/clients/postgrest.ts` — `pgrstList` / `pgrstGet` (relative `/rest/v1`,
-  bearer auth, exact counts via `Content-Range`).
-- `components/PostgrestTable/` — a generic drop-in table with server-side
-  paging + sorting: `<PostgrestTable table="my_view" />`.
 
 ## Configuration
 
 Env is the whole tenant surface — every knob is documented inline in
-[.env.example](../.env.example) (frontend `VITE_*` only; the portal reads the
-unprefixed vars — never `VITE_`-prefix a secret). The local stack points the
-portal and cable at the API on port 5000 by default; `PORTAL_ENGINE_URL` and
-`CABLE_API_URL` move those two hops together. Production Kamal destinations
-set `ENGINE_URL` in mothership's deploy policy.
+[.env.example](../.env.example). The local stack points the portal and cable
+at the API on port 5000 by default; `PORTAL_ENGINE_URL` and `CABLE_API_URL`
+move those two hops together. Production Kamal destinations set `ENGINE_URL`
+in mothership's deploy policy.
 
 ## Verify
 
 ```bash
-make verify        # portal probes + web + cable
-# through the app server (any mode):
-curl -s localhost:4200/tasks/customer_portal_data          # mothership, public → 200
-curl -s localhost:4200/api/calls                           # mothership, authed → 401 without a token
-curl -s localhost:4001/health/alive                        # the portal itself → ok
+make health         # portal probes, cable, events
+curl -s localhost:4001/tasks/customer_portal_data           # mothership, public → 200
+curl -s localhost:4001/api/calls                             # mothership, authed → 401 without a token
+curl -s localhost:4001/health/alive                          # the portal itself → ok
 # the extension's origin — the header that makes its login possible:
 curl -si -X OPTIONS localhost:4001/auth/user_login \
   -H 'Origin: chrome-extension://kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk' \

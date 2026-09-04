@@ -1,0 +1,45 @@
+--- a/lib/parrot/sip/handler_adapter/core.ex
++++ b/lib/parrot/sip/handler_adapter/core.ex
+@@ -543,21 +543,25 @@
+   For other responses, stays in the current state.
+   """
+   def transaction_trying(:state_timeout, :proceed_to_final, data) do
+-    # Call method handler directly to get final response
+-    method = Map.get(data.request, :method)
++    # PATCH (CLAUDE.md #2): data.request is nil in this state — the real inbound
++    # request lives on the transaction. Passing nil makes handle_invite/2 see an
++    # empty To-user → 404/timeout on every inbound INVITE. Use the transaction's
++    # request.
++    request = (data.transaction && data.transaction.request) || data.request
++    method = Map.get(request, :method)
+ 
+     user_response =
+       CallbackHandler.call_method_handler(
+         data.handler_module,
+         method,
+-        data.request,
++        request,
+         data.handler_state
+       )
+ 
+     ResponseHandler.process_user_response(
+       user_response,
+       data.transaction,
+-      data.request
++      request
+     )
+ 
+     updated_data = %{data | response: user_response}
+@@ -594,7 +594,11 @@
+         data.handler_module,
+         method,
+         :trying,
+-        data.request,
++        # PATCH (CLAUDE.md #2, :progress variant): was `data.request` (nil here);
++        # the real inbound request is bound as `request` from the transaction in
++        # the head. nil → handle_invite/2 crashes in user_from_ruri on proxied
++        # inbound INVITEs that arrive via a 183. Pass `request`.
++        request,
+         # uas object
+         data.transaction,
+         data.handler_state

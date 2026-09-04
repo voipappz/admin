@@ -10,7 +10,25 @@ defmodule ConnectixWeb.Router do
     plug :put_root_layout, html: {ConnectixWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    # Gates the LiveView UI below and the `/dev` tools further down — both are
+    # mounted on `:browser`. Pass-through when `Connectix.Config.basic_auth/0`
+    # is unconfigured (local dev/test); see `ConnectixWeb.Plugs.BasicAuth`.
+    plug ConnectixWeb.Plugs.BasicAuth
     plug :fetch_current_scope_for_user
+  end
+
+  # Same Basic Auth gate as `:browser`, deliberately WITHOUT
+  # `:protect_from_forgery`: it refuses any plain GET response whose
+  # content-type is `text/javascript`/`application/javascript` from a
+  # non-XHR request (`Plug.CSRFProtection`'s cross-origin-JS-inclusion guard,
+  # aimed at responses with per-session secrets baked in) — exactly the shape
+  # of a `<script type="module" src="...">` load, which the vendored voice
+  # client's JS bundle is. That file is static with nothing session-specific
+  # in it, so the guard has nothing to protect here and would 403 a real
+  # browser, not just curl, if left on.
+  pipeline :voice_assets do
+    plug :accepts, ["html", "js"]
+    plug ConnectixWeb.Plugs.BasicAuth
   end
 
   pipeline :api do
@@ -53,19 +71,53 @@ defmodule ConnectixWeb.Router do
     post "/bots/:id/versions/:number/retire", BotController, :retire_version
   end
 
-  # There is no LiveView UI. The React portal (Vite build, served by
-  # `ConnectixWeb.Plugs.Spa`) is the only one — same call as
-  # `connectix.io/phone`, which runs headless for the same reason. Two ways to
-  # build a screen in one app is how both grow.
+  # The agent-chat LiveView UI. The React portal (Vite build, served by
+  # `ConnectixWeb.Plugs.Spa`) is the primary one — same call as
+  # `connectix.io/phone`, which runs headless for the same reason — but this
+  # one is a real, in-use surface now, not dev-only scaffolding, so it is
+  # mounted unconditionally rather than behind a compile-time flag.
   #
-  # It was gated behind `:liveview_ui?` rather than deleted for a while, on the
-  # theory that turning it back on should be a config change. Nobody turned it
-  # on, and ~4,900 lines were compiled and tested for a surface no request ever
-  # reached — so the gate was the cost, not the insurance.
+  # It was previously gated behind `Application.compile_env(:connectix,
+  # :liveview_ui?, false)`, on/off only by editing `config/dev.exs` /
+  # `config/test.exs` and recompiling — a `mix release` bakes `compile_env`
+  # in, so that flag could never become an env-var toggle in production
+  # anyway (`config/runtime.exs` runs after compilation). The one gate that
+  # *is* checked at request time is `ConnectixWeb.Plugs.BasicAuth`, above in
+  # `:browser` — that is what actually controls whether this is reachable.
   #
-  # `:browser` and `ConnectixWeb.UserAuth` stay: the `/dev` tools below
-  # (LiveDashboard, the mailbox preview, the agent debugger) run through that
-  # pipeline and need its root layout and scope plug.
+  # `[:browser]` and NOT `[:browser, :require_authenticated_user]`: there is
+  # no login to require. Basic Auth is the only gate — everyone who clears it
+  # shares the one operator identity `ConnectixWeb.UserAuth.resolve_scope/0`
+  # resolves. That is also why this is the `:current_user` `live_session`,
+  # not `:require_authenticated_user`: the distinction phx.gen.auth draws
+  # between them (a route that merely wants `current_scope` vs one that
+  # redirects an unauthenticated visitor) does not apply when Basic Auth
+  # already decided that before the router saw the request.
+  scope "/", ConnectixWeb do
+    pipe_through :browser
+
+    # A controller, not a LiveView route: it must send a raw 401 to make the
+    # browser drop the cached Basic Auth credential. See LogoutController.
+    get "/logout", LogoutController, :logout
+
+    live_session :current_user, on_mount: [{ConnectixWeb.UserAuth, :mount_current_scope}] do
+      live "/", WelcomeLive
+      live "/chat", ChatLive
+    end
+  end
+
+  # The Feline voice pipeline's vendored pipecat client. `/voice` resolves the
+  # ws:// URL (carrying `conversation_id`, when linked from an open chat) and
+  # redirects to `/voice/page`, the vendored HTML; `/voice/assets/*` is its
+  # own bundled JS. See VoiceController, `Connectix.Voice.FelinePipeline`, and
+  # the `:voice_assets` pipeline above for why this isn't `:browser`.
+  scope "/voice", ConnectixWeb do
+    pipe_through :voice_assets
+
+    get "/", VoiceController, :index
+    get "/page", VoiceController, :page
+    get "/assets/:file", VoiceController, :asset
+  end
 
   # The dashboard builder's storage. `/dashboard/*` rather than `/api/dashboard`
   # because the shipped client already calls these paths and the point of
@@ -167,5 +219,4 @@ defmodule ConnectixWeb.Router do
       )
     end
   end
-
 end

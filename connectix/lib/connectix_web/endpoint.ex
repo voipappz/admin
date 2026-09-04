@@ -25,14 +25,71 @@ defmodule ConnectixWeb.Endpoint do
 
   defp realtime_events(conn, _opts), do: conn
 
-  # The LiveView socket, for LiveDashboard and the agent debugger under `/dev`.
-  # There is no LiveView UI any more — the React portal is the UI — so outside
-  # dev nothing is listening on this and it should not accept upgrades.
-  if Application.compile_env(:connectix, :dev_routes, false) do
-    socket "/live", Phoenix.LiveView.Socket,
-      websocket: [connect_info: [session: @session_options]],
-      longpoll: [connect_info: [session: @session_options]]
+  # `/voice/ws` — the Feline voice pipeline (`Connectix.Voice.FelinePipeline`,
+  # `Connectix.Voice.SagentsBridge`). Gated by the SAME `Plugs.BasicAuth` the
+  # `:browser` pipeline uses for the LiveView UI: a browser that has already
+  # authenticated to load `/chat` has the credential cached and sends it
+  # automatically on this handshake too (it's still an HTTP request before the
+  # Upgrade), so no separate token scheme — this app has exactly one identity
+  # already, `ConnectixWeb.UserAuth.resolve_scope/0`.
+  #
+  # `conversation_id` comes from the query string so a voice call can attach
+  # to the SAME conversation a chat session already has open — the turn goes
+  # through `Connectix.Turns` like any other origin, so it lands in the same
+  # transcript `ChatLive` is already streaming. Absent, a fresh voice
+  # conversation is created.
+  #
+  # Placed BEFORE Plug.Static for the same reason as `/ws/events`: a catch-all
+  # must not be able to answer the upgrade.
+  plug :voice_ws
+
+  defp voice_ws(%Plug.Conn{request_path: "/voice/ws"} = conn, _opts) do
+    conn = Plug.Conn.fetch_query_params(conn)
+    conn = ConnectixWeb.Plugs.BasicAuth.call(conn, [])
+
+    if conn.halted do
+      conn
+    else
+      scope = ConnectixWeb.UserAuth.resolve_scope()
+
+      case resolve_voice_conversation(scope, conn.query_params["conversation_id"]) do
+        {:ok, conversation_id} ->
+          conn
+          |> WebSockAdapter.upgrade(
+            Feline.Transports.WebSocket.Handler,
+            %{bot: Connectix.Voice.FelinePipeline.bot(scope, conversation_id)},
+            []
+          )
+          |> Plug.Conn.halt()
+
+        {:error, reason} ->
+          conn
+          |> Plug.Conn.send_resp(422, "voice conversation unavailable: #{inspect(reason)}")
+          |> Plug.Conn.halt()
+      end
+    end
   end
+
+  defp voice_ws(conn, _opts), do: conn
+
+  defp resolve_voice_conversation(_scope, id) when is_binary(id) and id != "", do: {:ok, id}
+
+  defp resolve_voice_conversation(scope, _absent) do
+    case Connectix.Conversations.create_conversation(scope, %{source: "voice", title: "Voice call"}) do
+      {:ok, conversation} -> {:ok, conversation.id}
+      error -> error
+    end
+  end
+
+  # The LiveView socket — the agent-chat UI (`/`, `/chat`, see
+  # `ConnectixWeb.Router`) always, plus LiveDashboard/the agent debugger
+  # under `/dev` when `:dev_routes` is on. `ConnectixWeb.Plugs.BasicAuth`
+  # gates the HTTP mount that hands out the page; nothing separately gates
+  # this socket, matching the router's own reasoning for why the LiveView
+  # routes are unconditional now.
+  socket "/live", Phoenix.LiveView.Socket,
+    websocket: [connect_info: [session: @session_options]],
+    longpoll: [connect_info: [session: @session_options]]
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -86,9 +143,12 @@ defmodule ConnectixWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
-  # The Vite/React dashboard, served from this app. After the proxy and the
-  # router so real routes win, and inert unless SPA_ROOT is set.
-  plug ConnectixWeb.Plugs.Spa
+  # The React SPA plug is unmounted: the restored LiveView UI (WelcomeLive at
+  # "/", ChatLive at "/chat") is the UI now, and ConnectixWeb.Plugs.Spa would
+  # otherwise shadow both — it serves index.html unconditionally at "/" and
+  # for any extensionless path a browser navigates to. The module itself is
+  # untouched (see connectix/lib/connectix_web/plugs/spa.ex) in case a
+  # deployment still needs it; it's just no longer in this pipeline.
 
   plug ConnectixWeb.Router
 

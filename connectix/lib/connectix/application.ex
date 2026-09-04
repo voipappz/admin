@@ -8,6 +8,13 @@ defmodule Connectix.Application do
 
   @impl true
   def start(_type, _args) do
+    if is_nil(Connectix.Config.basic_auth()) do
+      Logger.warning(
+        "PORTAL_UI_USER/PORTAL_UI_PASS are unset — the agent-chat LiveView UI " <>
+          "(/, /chat) is reachable with no Basic Auth gate."
+      )
+    end
+
     children =
       [
         ConnectixWeb.Telemetry,
@@ -52,7 +59,18 @@ defmodule Connectix.Application do
           {Registry, keys: :unique, name: Connectix.Realtime.CableRegistry},
           {Registry, keys: :duplicate, name: Connectix.Realtime.SessionRegistry},
           {DynamicSupervisor, strategy: :one_for_one, name: Connectix.Realtime.CableSupervisor},
-          Connectix.Realtime.ScreenPop
+          Connectix.Realtime.ScreenPop,
+          # Browser<->SIP WebRTC bridge (Connectix.WebRtc.*, ported from
+          # connectix.io/phone): keyed registry so a Membrane pipeline leg
+          # (leg B, the SIP side) can find its browser peer (leg A) by the
+          # same key `Connectix.WebRtc.Peer.start_link/1` registered under.
+          {Registry, keys: :unique, name: Connectix.WebRtc.Registry},
+          # The shared SIP UDP socket, then the one UA that dials through it.
+          # Started even when CONNECTIX_SIP_* is unconfigured — `SipBridge`
+          # reads credentials at register/dial time, not at boot, the same
+          # way `ConnectixWeb.Plugs.BasicAuth` degrades to pass-through.
+          Connectix.WebRtc.Transport,
+          Connectix.WebRtc.SipBridge
         ] ++
         Connectix.Realtime.ApiProxy.children() ++
         [
