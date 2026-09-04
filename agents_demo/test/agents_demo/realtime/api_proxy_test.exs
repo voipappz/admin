@@ -8,7 +8,9 @@ defmodule AgentsDemo.Realtime.ApiProxyTest do
   know the action". The last one matters most, because misreading it turns an
   old image into a timeout that looks like a dead node.
   """
-  use ExUnit.Case, async: true
+  # async: false — the extra state subscriptions are read from EVENT_STREAMS at
+  # call time, and setting a variable is process-global.
+  use ExUnit.Case, async: false
 
   alias AgentsDemo.Realtime.ApiProxy
 
@@ -27,6 +29,59 @@ defmodule AgentsDemo.Realtime.ApiProxyTest do
       assert ApiProxy.classify(@call_events_identifier, event) == {:event, event}
       assert ApiProxy.classify(@api_identifier, reply) == {:reply, reply}
       assert ApiProxy.classify("unknown", event) == :ignore
+    end
+  end
+
+  describe "extra state streams (EVENT_STREAMS)" do
+    setup do
+      previous = System.get_env("EVENT_STREAMS")
+      on_exit(fn ->
+        if previous, do: System.put_env("EVENT_STREAMS", previous), else: System.delete_env("EVENT_STREAMS")
+      end)
+
+      :ok
+    end
+
+    test "adds nothing when unset" do
+      System.delete_env("EVENT_STREAMS")
+
+      assert ApiProxy.state_identifiers() == []
+      assert ApiProxy.identifiers() == [@api_identifier, @call_events_identifier]
+    end
+
+    test "subscribes to each named stream, after the two it always holds" do
+      System.put_env("EVENT_STREAMS", "user:agent-1,environment:env-1")
+
+      assert ApiProxy.identifiers() == [
+               @api_identifier,
+               @call_events_identifier,
+               Jason.encode!(%{channel: "StateChannel", scope: "user", id: "agent-1"}),
+               Jason.encode!(%{channel: "StateChannel", scope: "environment", id: "env-1"})
+             ]
+    end
+
+    test "records a state frame instead of feeding it to the pop evaluator" do
+      # These streams are subscribed to answer "did this frame reach us". Only
+      # CallEvents and a signed-in user's own stream may cause a pop.
+      identifier = Jason.encode!(%{channel: "StateChannel", scope: "user", id: "agent-1"})
+      message = %{"event" => "agent-state-change", "id" => "agent-1"}
+
+      assert ApiProxy.classify(identifier, message) == {:record, message}
+    end
+
+    test "matches the channel by decoding, not by the exact identifier string" do
+      # The node echoes back the identifier it was sent. Comparing strings would
+      # make this depend on Jason's key order, which is not part of the contract.
+      reordered = ~s({"scope":"user","id":"agent-1","channel":"StateChannel"})
+      message = %{"event" => "agent-state-change"}
+
+      assert ApiProxy.classify(reordered, message) == {:record, message}
+    end
+
+    test "ignores a channel it does not know" do
+      identifier = Jason.encode!(%{channel: "DashboardLive", id: "d-1"})
+
+      assert ApiProxy.classify(identifier, %{"a" => 1}) == :ignore
     end
   end
 

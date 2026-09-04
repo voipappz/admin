@@ -115,6 +115,45 @@ defmodule AgentsDemo.ConfigTest do
     end
   end
 
+  describe "event_streams/0" do
+    test "is empty when unset, so the cable connection carries what it always did" do
+      with_env([{"EVENT_STREAMS", nil}], fn ->
+        assert Config.event_streams() == []
+      end)
+    end
+
+    test "parses scope:id pairs" do
+      with_env([{"EVENT_STREAMS", "environment:env-1,user:user-1"}], fn ->
+        assert Config.event_streams() == [{"environment", "env-1"}, {"user", "user-1"}]
+      end)
+    end
+
+    test "tolerates whitespace around entries" do
+      with_env([{"EVENT_STREAMS", " user:a , user:b "}], fn ->
+        assert Config.event_streams() == [{"user", "a"}, {"user", "b"}]
+      end)
+    end
+
+    test "keeps a colon inside the id, because only the first one separates" do
+      with_env([{"EVENT_STREAMS", "user:node:test1"}], fn ->
+        assert Config.event_streams() == [{"user", "node:test1"}]
+      end)
+    end
+
+    test "drops malformed entries rather than raising" do
+      # A typo in one stream must not stop the relay that carries every login.
+      with_env([{"EVENT_STREAMS", "user:ok,nocolon,:no-scope,user:,"}], fn ->
+        assert Config.event_streams() == [{"user", "ok"}]
+      end)
+    end
+
+    test "does not subscribe to the same stream twice" do
+      with_env([{"EVENT_STREAMS", "user:a,user:a"}], fn ->
+        assert Config.event_streams() == [{"user", "a"}]
+      end)
+    end
+  end
+
   describe "models" do
     test "fall back to documented defaults" do
       with_env([{"AGENTS_DEMO_MODEL", nil}, {"AGENTS_DEMO_TITLE_MODEL", nil}], fn ->

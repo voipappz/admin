@@ -278,6 +278,48 @@ defmodule AgentsDemo.Config do
   @spec events_db() :: String.t() | nil
   def events_db, do: env("EVENTS_DB")
 
+  @doc """
+  Extra `StateChannel` streams the application cable connection subscribes to,
+  so their frames are stored (`EVENT_STREAMS`).
+
+  `scope:id` pairs, comma-separated:
+
+      EVENT_STREAMS=environment:319a6ccf-…,user:be5bc5f0-…
+
+  Empty by default, and empty means the singleton connection carries exactly
+  what it always did — `ApiProxy` and the node-wide `CallEvents`.
+
+  This exists because **cable has no firehose**. `CallEvents` streams every
+  baked call event, but everything else the node publishes goes to
+  `state.<scope>.<id>`, and `StateChannel` requires both a scope AND an id —
+  subscribing to a whole scope is deliberately not offered, so no client can
+  tap every account's state by omitting one. The full per-node stream exists
+  only on NATS (`node.<VA_NODE_UUID>`), which this app deliberately does not
+  connect to. So the only way to store a state stream is to name it, and this
+  is where it is named.
+
+  Without this the event store cannot answer the question it exists for: an
+  absent row means either "the node sent nothing" or "we were not listening",
+  and those are the two answers a troubleshooter is trying to tell apart.
+
+  Malformed entries are dropped rather than raised on: a typo in one stream
+  should not stop the relay that carries every login.
+  """
+  @spec event_streams() :: [{String.t(), String.t()}]
+  def event_streams do
+    "EVENT_STREAMS"
+    |> env()
+    |> to_string()
+    |> String.split(",", trim: true)
+    |> Enum.flat_map(fn pair ->
+      case String.split(String.trim(pair), ":", parts: 2) do
+        [scope, id] when scope != "" and id != "" -> [{String.trim(scope), String.trim(id)}]
+        _malformed -> []
+      end
+    end)
+    |> Enum.uniq()
+  end
+
   defp default_data_dir do
     case @compiled_env do
       :test ->
@@ -314,6 +356,7 @@ defmodule AgentsDemo.Config do
       {"MNESIA_DIR", mnesia_dir()},
       {"EVENTS_DIR", events_dir()},
       {"EVENTS_DB", events_db() || "not set"},
+      {"EVENT_STREAMS", event_streams_summary()},
       {"WHATSAPP_ACCESS_TOKEN", presence(whatsapp_access_token())},
       {"WHATSAPP_PHONE_NUMBER_ID", presence(whatsapp_phone_number_id())},
       {"WHATSAPP_APP_SECRET", presence(whatsapp_app_secret())},
@@ -326,6 +369,13 @@ defmodule AgentsDemo.Config do
       {"VA_INFLUXDB_DATABASE", influxdb_database()},
       {"VA_MONITOR_TOKEN", presence(monitor_token())}
     ]
+  end
+
+  defp event_streams_summary do
+    case event_streams() do
+      [] -> "not set"
+      streams -> Enum.map_join(streams, ",", fn {scope, id} -> "#{scope}:#{id}" end)
+    end
   end
 
   defp presence(value) when is_binary(value), do: "set"

@@ -207,6 +207,13 @@ services:
       # caller's own token is forwarded, which also works. `make dev` supplies
       # this from the API container, the same value the cable verifies with.
       CABLE_SECRET_KEY: ${SECRET_KEY:-}
+      # Extra `state.<scope>.<id>` streams the ONE application connection
+      # subscribes to purely so their frames land in the DuckDB event store —
+      # `scope:id`, comma-separated. Cable has no firehose: `CallEvents` is
+      # node-wide, but everything else lives on `state.<scope>.<id>` and
+      # StateChannel requires both halves, so an unnamed stream is an unwatched
+      # one. Empty here means the connection carries what it always did.
+      EVENT_STREAMS: ${EVENT_STREAMS:-}
       # Log shipping to InfluxDB 3 — the SAME four names the node reads, so one
       # .env configures both. Empty unless set, and empty means "not
       # configured": no handler is installed and nothing is posted. The console

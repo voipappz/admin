@@ -134,11 +134,37 @@ defmodule AgentsDemo.Realtime.ApiProxy do
   end
 
   @doc false
-  def identifiers, do: [@api_identifier, @call_events_identifier]
+  def identifiers, do: [@api_identifier, @call_events_identifier] ++ state_identifiers()
+
+  @doc """
+  The `StateChannel` subscriptions named by `EVENT_STREAMS`.
+
+  Listening only, and only so the frames land in `AgentsDemo.Events`: nothing
+  here feeds `ScreenPop`, which decides pops from `CallEvents` and from a
+  signed-in user's own stream. See `AgentsDemo.Config.event_streams/0` for why
+  a stream has to be named one at a time.
+  """
+  @spec state_identifiers() :: [String.t()]
+  def state_identifiers do
+    Enum.map(AgentsDemo.Config.event_streams(), fn {scope, id} ->
+      Jason.encode!(%{channel: "StateChannel", scope: scope, id: id})
+    end)
+  end
 
   @doc false
   def classify(@call_events_identifier, %{} = message), do: {:event, message}
   def classify(@api_identifier, %{} = message), do: {:reply, message}
+
+  # Decoded rather than compared against the encoded identifiers: the node
+  # echoes back the identifier it was sent, and matching on the exact string
+  # would make this depend on Jason's key order.
+  def classify(identifier, %{} = message) when is_binary(identifier) do
+    case Jason.decode(identifier) do
+      {:ok, %{"channel" => "StateChannel"}} -> {:record, message}
+      _other -> :ignore
+    end
+  end
+
   def classify(_identifier, _message), do: :ignore
 
   @doc """
@@ -433,6 +459,15 @@ defmodule AgentsDemo.Realtime.ApiProxy do
   defp handle_response({:done, _ref}, state), do: state
   defp handle_response(_other, state), do: state
 
+  # "state.<scope>.<id>" out of an identifier, matching the node's own name for
+  # the stream — so a log line here and a log line on the node say the same word.
+  defp stream_label(identifier) do
+    case Jason.decode(identifier) do
+      {:ok, %{"scope" => scope, "id" => id}} -> "state.#{scope}.#{id}"
+      _undecodable -> identifier
+    end
+  end
+
   defp handle_frame({:text, text}, state), do: handle_cable_message(Jason.decode(text), state)
   defp handle_frame({:close, _code, _reason}, state), do: schedule_reconnect(state)
   defp handle_frame(_frame, state), do: state
@@ -459,6 +494,10 @@ defmodule AgentsDemo.Realtime.ApiProxy do
       Logger.info("screen pop: singleton CallEvents subscription ready")
     end
 
+    if identifier in state_identifiers() do
+      Logger.info("events: recording #{stream_label(identifier)}")
+    end
+
     %{state | subscribed?: MapSet.member?(confirmed, @api_identifier), confirmed: confirmed, attempts: 0}
   end
 
@@ -475,7 +514,11 @@ defmodule AgentsDemo.Realtime.ApiProxy do
           "so it is not relaying API requests"
       )
     else
-      Logger.error("screen pop: CallEvents subscription REJECTED")
+      if identifier in state_identifiers() do
+        Logger.error("events: #{stream_label(identifier)} subscription REJECTED")
+      else
+        Logger.error("screen pop: CallEvents subscription REJECTED")
+      end
     end
 
     confirmed = MapSet.delete(state.confirmed, identifier)
@@ -492,6 +535,12 @@ defmodule AgentsDemo.Realtime.ApiProxy do
     case classify(identifier, message) do
       {:event, event} ->
         AgentsDemo.Realtime.ScreenPop.handle_event(event)
+        state
+
+      {:record, event} ->
+        # Stored and nothing else. These streams are subscribed to answer "did
+        # this frame reach us", so the only handling they need is the record.
+        AgentsDemo.Events.record("StateChannel", event)
         state
 
       {:reply, %{"id" => id} = reply} ->
