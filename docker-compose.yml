@@ -1,4 +1,4 @@
-# Core services (react-app + elixir + chrome-ext) have NO profile, so a plain
+# Core services (react-app + elixir) have NO profile, so a plain
 #   docker compose up -d        (or: make up)
 # starts ONLY them. Everything else is behind a profile and is never built or
 # started by a default `up`/`build` — so a heavy/optional build (e.g. the
@@ -90,74 +90,6 @@ services:
         npm run build &&
         echo '✅ Build completed successfully!' &&
         ls -la dist/
-      "
-
-  # The Chrome extension (chrome/) — the Angular popup plus the MV3 background
-  # worker. CORE, because it is a client of the portal beside it: it posts
-  # /auth/user_login to :4001 and opens its socket on :4001/ws/events, so a
-  # stack without it is missing the thing those two surfaces exist for.
-  #
-  # NOTHING IS SERVED, and that is not an omission. Chrome loads an extension
-  # from a DIRECTORY on disk, never over HTTP, so the artefact is
-  # chrome/angular/dist on the host mount and this container's whole job is to
-  # keep it fresh (`npm run watch` = ng build --watch + webpack -w). Load it
-  # once with "Load unpacked"; after that a popup edit needs nothing and a
-  # background/content-script edit needs the reload button in
-  # chrome://extensions. There is no port to point a browser at.
-  #
-  # NODE 20, NOT the 24 react-app runs. Angular 11 + webpack 4 need
-  # --openssl-legacy-provider (already inside package.json's scripts) and do not
-  # build on current Node even with it.
-  chrome-ext:
-    image: node:20
-    # The invoking user, so angular/dist lands HOST-owned. Everything this
-    # container produces is read by Chrome and rewritten by hand — `npm run
-    # build` on the host, the e2e global-setup, a plain rm — and root-owned
-    # output makes all three fail with EACCES inside a directory the developer
-    # appears to own. UID/GID are not exported by a shell, so the Makefile
-    # passes them; 1000 is the default a Linux desktop user actually has.
-    user: "${UID:-1000}:${GID:-1000}"
-    working_dir: /app
-    volumes:
-      - ./chrome:/app
-      # Its own volume. The extension has its OWN package.json and a ~650MB
-      # node_modules that shares node_modules_cache with nothing — the SPA's
-      # tree would overwrite it and neither build would resolve.
-      - chrome_node_modules:/app/node_modules
-    # `npm ci` only on a cold volume: it deletes node_modules first, so running
-    # it on every start would spend two minutes rebuilding an identical tree
-    # before the watcher that is the point of this container ever begins.
-    command: >
-      bash -c "
-        [ -x node_modules/.bin/ng ] || npm ci --legacy-peer-deps --no-audit --no-fund;
-        npm run watch
-      "
-
-  # The extension's popup as an ordinary web page, on :4300.
-  #
-  # Same Angular app, served by `ng serve` instead of packed into an extension,
-  # so the UI can be iterated on in a normal tab with hot reload — no
-  # rebuild → chrome://extensions → reload loop. `chrome.*` does not exist
-  # there, which is what `angular/src/app/providers/chrome-shim.ts` stands in
-  # for; it is self-installing and inert inside a real extension.
-  #
-  # NOT a replacement for chrome-ext beside it. This serves a page; that one
-  # keeps angular/dist built, which is the only thing Chrome can load unpacked.
-  # The background service worker and content script only exist in the packed
-  # form, so realtime and screen pops are the extension's job, not this one's.
-  chrome-web:
-    image: node:20
-    user: "${UID:-1000}:${GID:-1000}"
-    working_dir: /app
-    volumes:
-      - ./chrome:/app
-      - chrome_node_modules:/app/node_modules
-    ports:
-      - "4300:4300"
-    command: >
-      bash -c "
-        [ -x node_modules/.bin/ng ] || npm ci --legacy-peer-deps --no-audit --no-fund;
-        npm run serve
       "
 
   # The Elixir portal — the origin everything else points at. It serves the SPA
@@ -282,4 +214,3 @@ volumes:
   elixir_build:
   elixir_deps:
   node_modules_cache:
-  chrome_node_modules:
