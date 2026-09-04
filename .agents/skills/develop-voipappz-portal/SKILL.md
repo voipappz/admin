@@ -1,6 +1,6 @@
 ---
 name: develop-voipappz-portal
-description: Develop, debug, review, document, and verify the VoIPAppz React/Vite portal and its Elixir origin. Use for work in this repository involving src/, agents_demo/, Vite proxying, the mothership forwarder and its CORS policy, NATS token verification, the va-crystal cable client, /ws/events, health endpoints, Docker/CI/act, or deployment configuration. Do not use to change the external voipappz-api, va-crystal, or production systems unless the user explicitly puts them in scope.
+description: Develop, debug, review, document, and verify the VoIPAppz React/Vite portal and its Elixir origin. Use for work in this repository involving src/, connectix/, Vite proxying, the mothership forwarder and its CORS policy, NATS token verification, the va-crystal cable client, /ws/events, health endpoints, Docker/CI/act, or deployment configuration. Do not use to change the external voipappz-api, va-crystal, or production systems unless the user explicitly puts them in scope.
 ---
 
 # Develop the VoIPAppz portal
@@ -15,7 +15,7 @@ tree and keep tenant credentials out of source, logs, browser bundles, and CI.
 2. Read only the task-relevant canonical guide:
    - Frontend feature work: `DEVELOPING.md` and `docs/modules.md`.
    - Cross-service routing or event work: `docs/architecture.md`.
-   - Portal work: `docs/architecture.md` and `agents_demo/`'s moduledocs.
+   - Portal work: `docs/architecture.md` and `connectix/`'s moduledocs.
    - CI or acceptance work: `docs/testing.md`.
    - Deployment work: `docs/deployment.md`.
 3. Inspect `git status --short --branch` before editing. Treat existing changes
@@ -36,7 +36,7 @@ tree and keep tenant credentials out of source, logs, browser bundles, and CI.
 
 ## Preserve the portal invariants
 
-When changing `agents_demo/lib/agents_demo/realtime/` or the plugs:
+When changing `connectix/lib/connectix/realtime/` or the plugs:
 
 - **Ask on NATS, listen on cable, never HTTP.** Token verification is a NATS
   request/reply (`Realtime.Bus`). With no bus configured it refuses — that is

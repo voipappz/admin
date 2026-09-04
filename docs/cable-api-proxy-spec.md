@@ -5,7 +5,7 @@ the contract rather than a proposal.
 
 - **Node:** `va-crystal node/realtime/api_proxy_channel.cr` — that file is the
   authority on the contract, not this one. Read it first if the two disagree.
-- **Portal:** `AgentsDemo.Realtime.ApiProxy`, with `Plugs.EngineProxy` choosing
+- **Portal:** `Connectix.Realtime.ApiProxy`, with `Plugs.EngineProxy` choosing
   the transport and keeping HTTP as a fallback.
 
 **One caveat before enabling it anywhere real.** The vendored shard logs the
@@ -21,8 +21,8 @@ to log a body; that care is defeated one layer above it. Fix the shard first.
 The portal's transport rule is that Elixir talks to the platform over **cable or
 NATS, never HTTP**. Realtime already satisfies that. Everything else does not:
 `/auth`, `/api/`, `/tasks/` are forwarded over HTTP by
-`AgentsDemoWeb.Plugs.EngineProxy`
-(`agents_demo/lib/agents_demo_web/plugs/engine_proxy.ex`),
+`ConnectixWeb.Plugs.EngineProxy`
+(`connectix/lib/connectix_web/plugs/engine_proxy.ex`),
 straight to the API. That HTTP hop is the thing to remove.
 
 The intended shape:
@@ -74,7 +74,7 @@ obtains one. That is only a paradox if the *browser's* credential is what opens
 the connection.
 
 It isn't. **Elixir holds one account credential** and opens one connection with
-it (see `agents_demo` — `Realtime.CableToken`). User logins then ride over that
+it (see `connectix` — `Realtime.CableToken`). User logins then ride over that
 already-authenticated connection as ordinary proxied requests. The browser's
 credential never opens a cable connection and never reaches the node.
 

@@ -98,11 +98,11 @@ services:
   # /api/, /tasks/) upstream so it is a complete origin on its own.
   #
   # DEV STAGE, MOUNTED SOURCE. `target: dev` stops at the toolchain and runs
-  # `mix phx.server` over ./agents_demo, so an edit reloads. The release stages
+  # `mix phx.server` over ./connectix, so an edit reloads. The release stages
   # above are what ships; this one is what you type against.
   elixir:
     build:
-      context: ./agents_demo
+      context: ./connectix
       target: dev
     restart: unless-stopped
     # Host networking because cable (:4100), NATS (:4222) and Postgres (:5432)
@@ -157,7 +157,7 @@ services:
       VA_INFLUXDB_DATABASE: ${VA_INFLUXDB_DATABASE:-}
       VA_MONITOR_TOKEN: ${VA_MONITOR_TOKEN:-}
     volumes:
-      - ./agents_demo:/app
+      - ./connectix:/app
       # The built SPA, read-only: the server has no reason to write into it.
       - ./dist:/spa:ro
       # Named, so a recreate does not throw away a full compile — and so the

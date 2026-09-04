@@ -40,12 +40,12 @@ Calls is the reference implementation for new list modules.
 
 | Module | File | Responsibility |
 |---|---|---|
-| Origin/forwarder | `agents_demo/lib/agents_demo_web/plugs/engine_proxy.ex` | Forwards `/auth`, `/api/`, `/tasks/` to the mothership; answers preflights and owns the CORS policy on those routes. |
-| SPA server | `agents_demo/lib/agents_demo_web/plugs/spa.ex` | Serves the Vite build with an index fallback, without shadowing backend namespaces. |
-| Realtime socket | `agents_demo/lib/agents_demo_web/realtime_socket.ex` | `/ws/events` — a raw WebSock upgrade speaking the flat JSON frame contract shipped clients already use. |
-| Token verification | `agents_demo/lib/agents_demo/realtime/token_auth.ex`, `bus.ex` | NATS request/reply to the API. Refuses rather than falling back when no bus is configured. |
-| Cable client | `agents_demo/lib/agents_demo/realtime/cable_client.ex`, `cable_token.ex` | One upstream cable connection for the whole app, on a credential the portal mints from the verified identity. |
-| Health probes | `agents_demo/lib/agents_demo_web/controllers/health_controller.ex` | `/health/alive` (liveness, never drain-aware) and `/health/ready` (readiness, 503 from the start of shutdown). |
+| Origin/forwarder | `connectix/lib/connectix_web/plugs/engine_proxy.ex` | Forwards `/auth`, `/api/`, `/tasks/` to the mothership; answers preflights and owns the CORS policy on those routes. |
+| SPA server | `connectix/lib/connectix_web/plugs/spa.ex` | Serves the Vite build with an index fallback, without shadowing backend namespaces. |
+| Realtime socket | `connectix/lib/connectix_web/realtime_socket.ex` | `/ws/events` — a raw WebSock upgrade speaking the flat JSON frame contract shipped clients already use. |
+| Token verification | `connectix/lib/connectix/realtime/token_auth.ex`, `bus.ex` | NATS request/reply to the API. Refuses rather than falling back when no bus is configured. |
+| Cable client | `connectix/lib/connectix/realtime/cable_client.ex`, `cable_token.ex` | One upstream cable connection for the whole app, on a credential the portal mints from the verified identity. |
+| Health probes | `connectix/lib/connectix_web/controllers/health_controller.ex` | `/health/alive` (liveness, never drain-aware) and `/health/ready` (readiness, 503 from the start of shutdown). |
 
 ## Data ownership
 

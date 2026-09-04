@@ -64,5 +64,5 @@ api/mock/captured_calls.json
 # Runtime DATA, not source: schema.DAT and the .DCD/.DCL logs are written on
 # every boot and every write. Committing them means a checkout inherits another
 # machine's dashboards, and the schema is bound to the node name that made it.
-agents_demo/priv/mnesia/
+connectix/priv/mnesia/
 .env.bak

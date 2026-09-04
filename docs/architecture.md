@@ -39,7 +39,7 @@ bundle.
 | Piece | Where | Role |
 |---|---|---|
 | React app | `src/` (Vite :4200) | UI. Strict data-access layering: `lib/auth.ts` (the one credential) → `lib/clients/` (transport) → `services/` (per-feature) → `components/` (folder-per-component; `Calls` is the blueprint). |
-| Elixir portal | `agents_demo/` (:4001) | **The origin.** Serves `dist/` and `/ws/events`, forwards `/auth` · `/api/` · `/tasks/`, verifies user tokens through Cable and fans accepted events out over `Phoenix.PubSub`. It holds no direct NATS connection. |
+| Elixir portal | `connectix/` (:4001) | **The origin.** Serves `dist/` and `/ws/events`, forwards `/auth` · `/api/` · `/tasks/`, verifies user tokens through Cable and fans accepted events out over `Phoenix.PubSub`. It holds no direct NATS connection. |
 | Mothership (voipappz-api) | external, env-pointed | Accounts + login (`/auth/user_login` + optional per-customer OTP), calls, reports, feature flags, portal branding. The source of truth. |
 | PostgREST | external, **optional** | A second, direct-SQL data plane (`/rest/v1/*`) for tenant-custom tables/views — see below. |
 | Core NATS | external | va-crystal's Cable backend and the mothership use the broker. It is not an Elixir portal transport. |

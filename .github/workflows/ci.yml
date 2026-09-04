@@ -44,7 +44,7 @@ jobs:
       MIX_ENV: test
     defaults:
       run:
-        working-directory: agents_demo
+        working-directory: connectix
     steps:
       - uses: actions/checkout@v4
       - uses: erlef/setup-beam@v1
@@ -54,9 +54,9 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: |
-            agents_demo/deps
-            agents_demo/_build
-          key: mix-${{ runner.os }}-${{ hashFiles('agents_demo/mix.lock') }}
+            connectix/deps
+            connectix/_build
+          key: mix-${{ runner.os }}-${{ hashFiles('connectix/mix.lock') }}
           restore-keys: mix-${{ runner.os }}-
       - run: mix deps.get
       # --warnings-as-errors here and not in the app: a warning that reaches

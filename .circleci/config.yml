@@ -55,7 +55,7 @@ jobs:
           command: |
             apt-get update && apt-get install -y --no-install-recommends git build-essential
             mix local.hex --force && mix local.rebar --force
-            cd agents_demo
+            cd connectix
             mix deps.get
             mix compile --warnings-as-errors
             mix test

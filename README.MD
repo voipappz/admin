@@ -143,7 +143,7 @@ src/
   context/      # Auth, Direction
   i18n/         # react-i18next (Hebrew RTL default + English)
   theme/        # MUI theme
-agents_demo/    # the Elixir portal: the origin — SPA, /ws/events, forwarder
+connectix/    # the Elixir portal: the origin — SPA, /ws/events, forwarder
 .agents/skills/ # repository-scoped Codex workflows shared by the team
 tests/          # Playwright E2E
 ```

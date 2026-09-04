@@ -11,10 +11,10 @@ extension), both driven by the stack in `tests/cable-events/` and run by the
   `va-shared/src/cable_nats_backend.cr` (stream ⇄ NATS subject). Those files
   are the authority on the node's side; `va-crystal/docs/CABLE_SPEC.md` is its
   own contract for the wire.
-- **Portal:** `AgentsDemo.Realtime.ApiProxy` (the application connection:
+- **Portal:** `Connectix.Realtime.ApiProxy` (the application connection:
   `verify`, and the one `CallEvents` subscription), `Realtime.CableClient` (one
   connection per signed-in user), `Realtime.ScreenPop` + `Realtime.Instruction`
-  (the executor), `AgentsDemoWeb.RealtimeSocket` (`/ws/events`).
+  (the executor), `ConnectixWeb.RealtimeSocket` (`/ws/events`).
 - **Browser:** `chrome/docs/REALTIME_CONTRACT.md` is the frame contract the
   extension and the SPA speak; nothing here changes it.
 
@@ -112,7 +112,7 @@ host and no userinfo. It executes at most once per event id (256 ids, 60 s),
 and only when `(user_uuid, environment_uuid)` names a registered `/ws/events`
 process — an offline user gets nothing, and nothing is queued or replayed.
 Every outcome is a counter on `/metrics`
-(`agents_demo_screen_pop_events_count{result=…}`: `received`, `dispatched`,
+(`connectix_screen_pop_events_count{result=…}`: `received`, `dispatched`,
 `duplicate`, `offline`, `unloaded`, `rejected`), which is what lets a test
 prove *nothing happened* without a bare timeout.
 

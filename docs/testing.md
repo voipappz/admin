@@ -46,11 +46,11 @@ docker compose exec -e MIX_ENV=test elixir mix test
 | Reports | `src/components/Reports/ReportChart.test.js`, browser smoke. |
 | Authentication/OTP | Mothership/client unit tests and Playwright OTP scenarios. |
 | WebRTC phone | `src/lib/sip/*.test.ts`, resilience context test and integrated phone-panel smoke. |
-| The forwarder + its CORS policy | `agents_demo/test/agents_demo_web/plugs/engine_proxy_test.exs`, plus the production-image surface probes. |
-| Token verification | `agents_demo/test/agents_demo/realtime/token_auth_test.exs`. |
+| The forwarder + its CORS policy | `connectix/test/connectix_web/plugs/engine_proxy_test.exs`, plus the production-image surface probes. |
+| Token verification | `connectix/test/connectix/realtime/token_auth_test.exs`. |
 | The relay direction (node → portal → browser), screen pops, recovery | `tests/cable-events.spec.ts`, `chrome/tests/e2e/portal-receive.spec.ts`, the `cable-events` CI job — see `docs/cable-events-spec.md`. |
-| Screen-pop instruction handling | `agents_demo/test/agents_demo/realtime/instruction_test.exs`, `screen_pop_test.exs`, `api_proxy_test.exs`, `cable_client_test.exs`, and `agents_demo_web/realtime_socket_session_test.exs`. Cable/NATS delivery belongs to va-crystal; Chrome's existing mocked `tab:new` test owns extension behavior. |
-| Screen-pop metrics | `agents_demo/test/agents_demo/telemetry_test.exs` pins bounded events and `agents_demo_web/controllers/metrics_controller_test.exs` verifies the Prometheus `/metrics` surface. |
+| Screen-pop instruction handling | `connectix/test/connectix/realtime/instruction_test.exs`, `screen_pop_test.exs`, `api_proxy_test.exs`, `cable_client_test.exs`, and `connectix_web/realtime_socket_session_test.exs`. Cable/NATS delivery belongs to va-crystal; Chrome's existing mocked `tab:new` test owns extension behavior. |
+| Screen-pop metrics | `connectix/test/connectix/telemetry_test.exs` pins bounded events and `connectix_web/controllers/metrics_controller_test.exs` verifies the Prometheus `/metrics` surface. |
 | Optional PostgREST | `src/lib/clients/postgrest.test.ts` — client-side only; nothing serves `/rest/v1` since the Deno BFF was removed. |
 
 ## The CORS contract

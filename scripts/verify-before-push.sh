@@ -40,7 +40,7 @@ echo '==> Elixir portal compiles clean'
 # business standing up, and CI's `portal` job runs it against a real service
 # container. A warning caught here is the thing a push actually introduces.
 if command -v mix >/dev/null 2>&1; then
-  (cd agents_demo && MIX_ENV=test mix compile --warnings-as-errors)
+  (cd connectix && MIX_ENV=test mix compile --warnings-as-errors)
 elif docker compose ps --status running --services 2>/dev/null | grep -qx elixir; then
   docker compose exec -T -e MIX_ENV=test elixir mix compile --warnings-as-errors
 else

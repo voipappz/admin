@@ -117,7 +117,7 @@ the last:
 Chrome extension
   │  POST /auth/user_login          (same origin it opens its socket on)
   ▼
-Elixir portal            :4001      ../app/agents_demo
+Elixir portal            :4001      ../app/connectix
   │  cable frame: {action:"request", id, method, path, body}
   ▼
 va-crystal cable         :4100      ../va-crystal, ApiProxy channel
@@ -186,7 +186,7 @@ Two runtime pieces:
    **`Calls` is the blueprint feature** — replicate its service → hook →
    component shape for new pages (full recipe in DEVELOPING.md).
 
-2. **The Elixir portal** (`agents_demo/`, :4001) — the origin. A `WebSock`
+2. **The Elixir portal** (`connectix/`, :4001) — the origin. A `WebSock`
    handler at `/ws/events` (not a Phoenix Channel: the contract is a plain JSON
    frame protocol), one application Cable connection plus per-user Cable
    connections fanned out over `Phoenix.PubSub`, and token verification through
@@ -267,7 +267,7 @@ lives elsewhere. Production Kamal destinations set `ENGINE_URL` in mothership.
 - Unit tests (Vitest) target service modules and hooks, mocked at the
   `apiList`/`apiGet` boundary — never the network. Playwright specs live in
   `tests/` (Input → Submit → capture response → assert).
-- Elixir tests (ExUnit) live in `agents_demo/test/`; plug tests drive the plug
+- Elixir tests (ExUnit) live in `connectix/test/`; plug tests drive the plug
   directly with `Plug.Test` and stand up a real upstream when they need one —
   no network to the platform.
 - Prefer simple solutions; exhaust existing patterns before introducing new

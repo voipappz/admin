@@ -129,7 +129,7 @@ services:
       CABLE_URL: ws://127.0.0.1:14100/cable
       CABLE_SECRET_KEY: ${CABLE_EVENTS_SECRET:-cable-events-test-secret}
       CABLE_ACCOUNT_UUID: ${CABLE_EVENTS_ACCOUNT:-00000000-0000-0000-0000-0000000c1e27}
-      # Its own Erlang node name. The release defaults to agents_demo@<hostname>
+      # Its own Erlang node name. The release defaults to connectix@<hostname>
       # and, host-networked, shares epmd with a dev portal on the same box —
       # which already holds that name, so this one dies at boot with "seems to
       # be in use by another Erlang node". Distinct name, loopback host.

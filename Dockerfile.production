@@ -2,11 +2,11 @@
 #
 # The Elixir server, replacing the Deno one this file used to build. Same shape
 # — stage 1 builds the React bundle, the final stage serves it — but the server
-# is the Phoenix release in agents_demo/ instead of Deno. One process answers the SPA, /auth
+# is the Phoenix release in connectix/ instead of Deno. One process answers the SPA, /auth
 # and /api (forwarded to the mothership), and the /ws/events realtime socket,
 # so the browser needs no second origin and no CORS.
 #
-# Build context is THIS directory (voipappz/app), not agents_demo/: the image
+# Build context is THIS directory (voipappz/app), not connectix/: the image
 # needs both trees, the SPA source here and the Elixir app below.
 
 # Declared BEFORE the first FROM on purpose: an ARG written between stages is
@@ -63,7 +63,7 @@ RUN mix local.hex --force && mix local.rebar --force
 ENV MIX_ENV="prod"
 
 # Dependencies first, so a source-only change does not re-fetch or re-compile
-# them. Paths are prefixed with agents_demo/ because the context is one level up.
+# them. Paths are prefixed with connectix/ because the context is one level up.
 # Hex's own advice for a constrained network, and it is needed here: the
 # default fans out parallel fetches with a short timeout, and on a link that
 # stalls mid-transfer that surfaces as `Request failed (:timeout)` on a
@@ -72,27 +72,27 @@ ENV MIX_ENV="prod"
 ENV HEX_HTTP_CONCURRENCY=1
 ENV HEX_HTTP_TIMEOUT=120
 
-COPY agents_demo/mix.exs agents_demo/mix.lock ./
+COPY connectix/mix.exs connectix/mix.lock ./
 RUN mix deps.get --only $MIX_ENV
 RUN mkdir config
 
-COPY agents_demo/config/config.exs agents_demo/config/${MIX_ENV}.exs config/
+COPY connectix/config/config.exs connectix/config/${MIX_ENV}.exs config/
 RUN mix deps.compile
 
 RUN mix assets.setup
 
-COPY agents_demo/priv priv
-COPY agents_demo/lib lib
+COPY connectix/priv priv
+COPY connectix/lib lib
 
 RUN mix compile
 
-COPY agents_demo/assets assets
+COPY connectix/assets assets
 RUN mix assets.deploy
 
 # Changes here don't require recompiling the code.
-COPY agents_demo/config/runtime.exs config/
+COPY connectix/config/runtime.exs config/
 
-COPY agents_demo/rel rel
+COPY connectix/rel rel
 RUN mix release
 
 # ---------------------------------------------------------------------------
@@ -119,9 +119,9 @@ RUN chown nobody /app
 
 ENV MIX_ENV="prod"
 
-COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/agents_demo ./
+COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/connectix ./
 
-# The React bundle. SPA_ROOT is what AgentsDemoWeb.Plugs.Spa reads; unset, the
+# The React bundle. SPA_ROOT is what ConnectixWeb.Plugs.Spa reads; unset, the
 # app still boots and serves the API, it just has no dashboard — so a missing
 # bundle degrades rather than crashing at start.
 COPY --from=frontend-builder --chown=nobody:root /build/dist /app/dist

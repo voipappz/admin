@@ -139,7 +139,7 @@ export async function publishUntil(
 export async function screenPopMetrics(base = PORTAL): Promise<Record<string, number>> {
   const text = await (await fetch(`${base}/metrics`)).text();
   const out: Record<string, number> = {};
-  for (const m of text.matchAll(/agents_demo_screen_pop_events_count\{result="(\w+)"\} (\d+)/g)) out[m[1]] = Number(m[2]);
+  for (const m of text.matchAll(/connectix_screen_pop_events_count\{result="(\w+)"\} (\d+)/g)) out[m[1]] = Number(m[2]);
   return out;
 }
 

@@ -13,8 +13,8 @@ export default tseslint.config(
     // The Elixir app's fetched dependencies, vendored bundles and compiled
     // output. Not this project's source in any sense — `deps/` is what `mix
     // deps.get` downloaded, and priv/static is what esbuild already emitted.
-    'agents_demo/deps/**', 'agents_demo/assets/vendor/**', 'agents_demo/priv/static/**',
-    'agents_demo/_build/**'] },
+    'connectix/deps/**', 'connectix/assets/vendor/**', 'connectix/priv/static/**',
+    'connectix/_build/**'] },
   // Apply TypeScript recommended config to all files
   ...tseslint.configs.recommended,
   // JavaScript/JSX files

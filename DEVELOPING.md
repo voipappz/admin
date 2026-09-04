@@ -277,7 +277,7 @@ listen → one cable connection → va-crystal      (user state, dashboard value
              └─ Phoenix.PubSub → one /ws/events socket per browser
 ```
 
-Invariants when changing `agents_demo/lib/agents_demo/realtime/ (modules `Connectix.Realtime.*`)`:
+Invariants when changing `connectix/lib/connectix/realtime/ (modules `Connectix.Realtime.*`)`:
 
 - **Never reach the API over HTTP to verify a credential.** `Realtime.Bus`
   refuses (`{:error, :no_bus}`) when `NATS_URL` is unset; that refusal is the
