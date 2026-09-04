@@ -171,7 +171,12 @@ defmodule AgentsDemo.Realtime.ScreenPop do
     end
   end
 
-  defp route_event(state, event) when is_map(event) do
+  # Public only so a test can drive the routing decision without a GenServer,
+  # the same reason `process_event/3` and `process_user_event/5` are. It is the
+  # function that decides whether an event is anyone's, so it is the one worth
+  # asserting on directly.
+  @doc false
+  def route_event(state, event) when is_map(event) do
     environment_uuid = event["environment_uuid"]
     Telemetry.screen_pop_event(:received)
     AgentsDemo.Events.record("CallEvents", event)
@@ -185,16 +190,87 @@ defmodule AgentsDemo.Realtime.ScreenPop do
         enqueue(state, environment_uuid, event)
 
       true ->
-        Telemetry.screen_pop_event(:unloaded)
-        state
+        # No instructions for this environment — and for a node-wide CallEvents
+        # frame there usually IS no environment: the relayed callcenter payloads
+        # carry an agent and a call, not an environment_uuid. That used to end
+        # here, so every such frame was stored and dropped as `:unloaded`.
+        #
+        # The frame does name an AGENT, though, and a signed-in user's agent ids
+        # are registered when their socket connects. If one of them owns this
+        # agent, the event is theirs and the user-scoped path can answer it —
+        # the same path a `state.user.<id>` frame takes, which needs no
+        # environment because whose event it is was already settled.
+        #
+        # This is tighter than the environment gate it stands in for, not
+        # looser: the agent id was resolved from that user's own verified token,
+        # and they must have a live socket on THIS portal.
+        pop_via_agent(state, event)
     end
   end
 
-  defp route_event(state, _event) do
+  def route_event(state, _event) do
     Telemetry.screen_pop_event(:received)
     Telemetry.screen_pop_event(:rejected)
     state
   end
+
+  # A CallEvents frame handed to the user-scoped path, if it names an agent that
+  # someone signed in here answers to.
+  defp pop_via_agent(state, event) do
+    case agent_uuid(event) do
+      agent when is_binary(agent) and agent != "" ->
+        case user_for_agent(agent) do
+          {user_uuid, agent_ids} ->
+            Logger.debug(fn ->
+              "screen pop: CallEvents names agent #{agent} → user #{user_uuid}"
+            end)
+
+            pop_for_user(state, user_uuid, event, &online_user?/1, agent_ids)
+
+          nil ->
+            # The common case on a busy switch: the event belongs to an agent
+            # who is not signed in to this portal. Debug, not info — this fires
+            # for most frames.
+            Telemetry.screen_pop_event(:unloaded)
+
+            Logger.debug(fn ->
+              "screen pop: no pop — agent #{agent} has no session here"
+            end)
+
+            state
+        end
+
+      _no_agent ->
+        Telemetry.screen_pop_event(:unloaded)
+
+        Logger.debug(fn ->
+          "screen pop: no pop — event names no environment and no agent"
+        end)
+
+        state
+    end
+  end
+
+  @doc """
+  The signed-in user who answers to this agent id, and every id they answer to.
+
+  `nil` when nobody here does. Registered by `RealtimeSocket` at connect and
+  removed with the socket, so this cannot outlive the session it names.
+
+  One registry lookup rather than a scan: a busy node delivers thousands of
+  CallEvents frames a minute and every one of them asks this question.
+  """
+  @spec user_for_agent(String.t()) :: {String.t(), [String.t()]} | nil
+  def user_for_agent(agent_id) when is_binary(agent_id) and agent_id != "" do
+    case Registry.lookup(AgentsDemo.Realtime.SessionRegistry, {:agent, agent_id}) do
+      [{_pid, {user_uuid, agent_ids}} | _rest] -> {user_uuid, agent_ids}
+      [] -> nil
+    end
+  catch
+    :exit, _ -> nil
+  end
+
+  def user_for_agent(_agent_id), do: nil
 
   # A pop for the signed-in agent, from that agent's own state stream.
   #
@@ -216,6 +292,18 @@ defmodule AgentsDemo.Realtime.ScreenPop do
       ) do
     Telemetry.screen_pop_event(:received)
     AgentsDemo.Events.record("StateChannel", event)
+    pop_for_user(state, user_uuid, event, online?, agent_ids)
+  end
+
+  # The pop decision on its own — no store write, no `:received` count.
+  #
+  # Split out because `route_event` reaches it too, for a node-wide CallEvents
+  # frame that names a connected agent. That frame has already been recorded
+  # under `src: "CallEvents"` and counted; running the whole of
+  # `process_user_event/5` again would count it twice and store it a SECOND
+  # time, because the row id is a digest that includes `src` — so the same
+  # event would appear once as CallEvents and once as StateChannel.
+  defp pop_for_user(state, user_uuid, event, online?, agent_ids) do
     accepted = agent_ids || [user_uuid]
 
     with true <- is_map(event),

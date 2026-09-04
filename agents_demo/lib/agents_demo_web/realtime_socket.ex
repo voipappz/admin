@@ -168,6 +168,17 @@ defmodule AgentsDemoWeb.RealtimeSocket do
       # cable client subscribes, which is why it is resolved here and not later.
       agent_ids = AgentsDemo.Realtime.AgentIdentity.resolve(user_uuid, token)
 
+      # Registered so a NODE-WIDE CallEvents frame can be attributed. Such a
+      # frame names an agent and no environment, and until it could be traced
+      # back to a signed-in user there was nobody to pop it at — see
+      # `ScreenPop.user_for_agent/1`.
+      #
+      # Registered here rather than in `register_session/2` because this is
+      # where the ids already exist: resolving them costs a lookup against the
+      # mothership, and doing it twice per connect to avoid passing an argument
+      # would be a poor trade.
+      register_agent_ids(user_uuid, agent_ids)
+
       spec =
         {AgentsDemo.Realtime.CableClient,
          user_uuid: user_uuid,
@@ -230,6 +241,44 @@ defmodule AgentsDemoWeb.RealtimeSocket do
   end
 
   def register_session(_user_uuid, _environment_uuid), do: :ok
+
+  @doc """
+  Register every id the switch may name this user by, so an event that arrives
+  under one of them can be traced back to this session.
+
+  Keyed `{:agent, id}` in the SAME registry as the session, deliberately: the
+  entries then die with this socket, so an agent can never be attributed to a
+  user who has gone. A separate registry would need its own cleanup and would
+  eventually disagree with presence.
+
+  Logged at info with the ids, because "which agent ids is this user answering
+  to" is the first question when a pop does not happen, and it was previously
+  unanswerable from the outside — the ids were resolved and then only handed to
+  the cable client.
+  """
+  @spec register_agent_ids(String.t(), [String.t()]) :: :ok
+  def register_agent_ids(user_uuid, agent_ids) when is_list(agent_ids) do
+    registered =
+      agent_ids
+      |> Enum.filter(&(is_binary(&1) and &1 != ""))
+      |> Enum.uniq()
+      |> Enum.filter(fn agent_id ->
+        case Registry.register(
+               AgentsDemo.Realtime.SessionRegistry,
+               {:agent, agent_id},
+               {user_uuid, agent_ids}
+             ) do
+          {:ok, _pid} -> true
+          {:error, {:already_registered, _pid}} -> true
+        end
+      end)
+
+    Logger.info("session: #{user_uuid} answers to agent ids #{inspect(registered)}")
+
+    :ok
+  end
+
+  def register_agent_ids(_user_uuid, _agent_ids), do: :ok
 
   defp ack(frame, state), do: {:push, {:text, Jason.encode!(frame)}, state}
 

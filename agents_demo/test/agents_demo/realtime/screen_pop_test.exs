@@ -417,4 +417,115 @@ defmodule AgentsDemo.Realtime.ScreenPopTest do
     end
   end
 
+  describe "a node-wide CallEvents frame that names a signed-in agent" do
+    # This is a REAL frame, copied verbatim out of the production event store on
+    # nimbus. Two things about it are the whole reason this path exists:
+    #
+    #   * there is no `environment_uuid` anywhere in it, so `route_event` could
+    #     never match a loaded environment and dropped it as :unloaded;
+    #   * the only identity it carries is `meta.CC-Agent` — the agent's
+    #     powerlink_token, not the portal user uuid.
+    #
+    # Kept as the raw JSON rather than a hand-built map so it cannot quietly
+    # drift from what the switch actually sends.
+    @real_agent_offering ~s({"action":"agent-offering","caller_id_number":"0522463424","id":"agent-offering_e3dd4aa6-d602-4ae6-ac29-f58e961e921f_53beb321-4c10-454b-8e49-1ca449c94c3d_fdc47399-1a8b-4ecb-8751-891edf6b9e32","meta":{"CC-Action":"agent-offering","CC-Agent":"fdc47399-1a8b-4ecb-8751-891edf6b9e32","CC-Agent-System":"single_box","CC-Agent-Type":"callback","CC-Member-CID-Name":"0522463424","CC-Member-CID-Number":"0522463424","CC-Member-DNIS":"503","CC-Member-Session-UUID":"e3dd4aa6-d602-4ae6-ac29-f58e961e921f","CC-Member-UUID":"9312fae3-5923-4c29-b7a2-36c6f62f2c8c","CC-Queue":"11106@328.nimbusip.com"},"queue_name":"11106@328.nimbusip.com","type":"callcenter","user_uuid":"fdc47399-1a8b-4ecb-8751-891edf6b9e32","uuid":"e3dd4aa6-d602-4ae6-ac29-f58e961e921f"})
+
+    @real_agent_id "fdc47399-1a8b-4ecb-8751-891edf6b9e32"
+
+    defp real_frame, do: Jason.decode!(@real_agent_offering)
+
+    defp connect_agent(agent_id) do
+      user = "user-#{System.unique_integer([:positive])}"
+      Registry.register(AgentsDemo.Realtime.SessionRegistry, user, nil)
+
+      Registry.register(
+        AgentsDemo.Realtime.SessionRegistry,
+        {:agent, agent_id},
+        {user, [user, agent_id]}
+      )
+
+      Phoenix.PubSub.subscribe(AgentsDemo.PubSub, "realtime:user:#{user}")
+      user
+    end
+
+    test "the real frame carries no environment, which is why it never popped" do
+      frame = real_frame()
+
+      refute Map.has_key?(frame, "environment_uuid")
+      assert get_in(frame, ["meta", "CC-Agent"]) == @real_agent_id
+    end
+
+    test "user_for_agent/1 finds nobody when no session claims the agent" do
+      assert ScreenPop.user_for_agent("nobody-claims-this") == nil
+    end
+
+    test "user_for_agent/1 returns the user and every id they answer to" do
+      user = connect_agent(@real_agent_id)
+
+      assert ScreenPop.user_for_agent(@real_agent_id) == {user, [user, @real_agent_id]}
+    end
+
+    test "pops the real frame at the user who answers to its CC-Agent" do
+      connect_agent(@real_agent_id)
+
+      ScreenPop.route_event(%ScreenPop{}, real_frame())
+
+      assert_receive {:realtime, %{type: "notification", message: %{"action" => "tab:new", "url" => url}}}
+
+      # The caller's number reaches the CRM url — a pop to a blank search would
+      # look like it worked while being useless.
+      assert url =~ "0522463424"
+    end
+
+    test "does not pop for an agent nobody here answers to" do
+      # The common case on a busy switch: a real event belonging to someone
+      # signed in somewhere else entirely.
+      state = ScreenPop.route_event(%ScreenPop{}, real_frame())
+
+      assert state == %ScreenPop{}
+      refute_receive {:realtime, _}, 50
+    end
+
+    test "does not pop when the frame names neither an environment nor an agent" do
+      state = ScreenPop.route_event(%ScreenPop{}, %{"action" => "agent-offering"})
+
+      assert state == %ScreenPop{}
+      refute_receive {:realtime, _}, 50
+    end
+
+    test "the same frame twice pops once" do
+      # The node re-delivers heavily — one number.answer was measured arriving
+      # 28 times. A pop per delivery would open 28 tabs.
+      connect_agent(@real_agent_id)
+
+      state = ScreenPop.route_event(%ScreenPop{}, real_frame())
+      assert_receive {:realtime, %{message: %{"action" => "tab:new"}}}
+
+      ScreenPop.route_event(state, real_frame())
+      refute_receive {:realtime, _}, 50
+    end
+
+    test "an agent's registration dies with the socket that made it" do
+      agent = "agent-#{System.unique_integer([:positive])}"
+      user = "user-#{System.unique_integer([:positive])}"
+
+      task =
+        Task.async(fn ->
+          Registry.register(
+            AgentsDemo.Realtime.SessionRegistry,
+            {:agent, agent},
+            {user, [user, agent]}
+          )
+
+          :registered
+        end)
+
+      assert Task.await(task) == :registered
+
+      # The task process is gone, so the registration must be too — otherwise a
+      # pop could be attributed to a user who has disconnected.
+      Process.sleep(20)
+      assert ScreenPop.user_for_agent(agent) == nil
+    end
+  end
 end
