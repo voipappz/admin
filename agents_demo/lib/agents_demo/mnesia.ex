@@ -14,13 +14,24 @@ defmodule Connectix.Mnesia do
   `to_record/3` and `to_map/2` convert between that tuple and a plain map so the
   rest of the app deals in maps and structs, never tuples.
 
-  ## Node naming and persistence
+  ## This app is STATELESS by default — `ram_copies`
 
-  `disc_copies` — the on-disk tables — need a named node; a `mix phx.server` in a
-  container is `:nonode@nohost` unless told otherwise, so `ensure_started/0`
-  names it before creating the schema. A release already runs named. Without a
-  name the tables fall back to `ram_copies`, which is correct for tests and a
-  silent data-loss trap in dev — hence the warning.
+  Persistence is opt-in, and only `MNESIA_DIR` opts in. Set it, and the tables
+  are `disc_copies` in that directory and the node is named so they can be;
+  unset, everything is RAM and dies with the process.
+
+  That is not a downgrade, it is the truth being written down. On nimbus the
+  portal has no mounted volume, so `disc_copies` were written to a path INSIDE
+  the container and thrown away by the next deploy — paying for a named node, a
+  disc schema and fsync to lose the data anyway. A store that is discarded on
+  every deploy is a cache; calling it a database only means nobody is warned.
+
+  Being RAM-only also removes two failures that were entirely self-inflicted:
+  the named node made a second BEAM on the same box (`mix test` beside a running
+  server) collide on `agents_demo@127.0.0.1`, and a disc schema on WSL is the
+  documented hang. Neither happens to a node that never asks for a name.
+
+  Mount a volume and set `MNESIA_DIR` to it when the data has to survive.
   """
 
   require Logger
@@ -206,8 +217,17 @@ defmodule Connectix.Mnesia do
 
   # ── setup internals ──────────────────────────────────────────────────────
 
+  # Whether this deployment asked to persist at all. Only an explicit MNESIA_DIR
+  # counts: `Config.mnesia_dir/0` always returns a path (it defaults under the
+  # data dir), so asking it cannot distinguish "configured" from "defaulted" —
+  # and that difference is exactly what decides between a database and a cache.
+  defp persist?, do: Connectix.Config.env("MNESIA_DIR") != nil
+
   defp storage_type do
     cond do
+      not persist?() ->
+        :ram_copies
+
       node() == :nonode@nohost ->
         :ram_copies
 
@@ -223,8 +243,12 @@ defmodule Connectix.Mnesia do
     end
   end
 
+  # Only when persisting. A name costs nothing until two BEAMs want the same
+  # one — `mix test` beside a running server on the same box — and then the
+  # second silently loses distribution and its Mnesia with it. A stateless node
+  # has no reason to ask.
   defp ensure_named_node do
-    if node() == :nonode@nohost do
+    if persist?() and node() == :nonode@nohost do
       # A stable loopback longname avoids hostname/IPv6 resolver drift (notably
       # on WSL) while still giving Mnesia the named node disc_copies requires.
       case Node.start(:"agents_demo@127.0.0.1", :longnames) do
