@@ -1,4 +1,4 @@
-.PHONY: help env dev check-engine check-mothership up down logs build lint unit portal-compile portal-test verify test test-cable act-cable probe act act-portal push status module prod prod-down portal-print portal-deploy
+.PHONY: help env dev health health check-engine check-mothership up down logs build lint unit portal-compile portal-test test test-cable probe act status module portal-print portal-deploy
 
 # Everything runs in Docker — no host node/npm/ruby required. One-off npm/node
 # commands reuse the react-app service (repo mount + cached node_modules volume).
@@ -137,37 +137,8 @@ portal-compile: ## Compile the Elixir portal with warnings as errors (running st
 portal-test: ## Run ExUnit in the Elixir container (TEST=path:line for a targeted run)
 	docker compose exec -T -e MIX_ENV=test elixir mix test $(TEST)
 
-prod: ## Deploy via docker compose: build + run the production image (:8000)
-	docker compose --profile prod build production
-	docker compose --profile prod up -d production
-	@echo "waiting for readiness..."; ready=0; for i in $$(seq 1 60); do \
-	  if curl -sf -o /dev/null localhost:8000/health/ready; then ready=1; break; fi; sleep 1; done; \
-	  if [ "$$ready" != 1 ]; then \
-	    echo "production did not become ready within 60s"; \
-	    docker compose --profile prod logs --tail 80 production; exit 1; \
-	  fi
-	@failed=0; for path in / /health/alive /health/ready; do \
-	  code=$$(curl -s -o /dev/null -w '%{http_code}' "localhost:8000$$path"); \
-	  printf "  %-14s → %s\n" "$$path" "$$code"; \
-	  [ "$$code" = 200 ] || failed=1; \
-	 done; exit $$failed
-	@echo "production → http://localhost:8000  (env from .env; recreate to re-read)"
-
-prod-down: ## Stop the docker compose production container
-	docker compose --profile prod down production
-
-verify: ## Health check: the portal's probes and the Vite dev server
-	@echo "==> Services"
-	@failed=0; \
-	  probe() { name="$$1"; url="$$2"; label="$$3"; \
-	    printf "  %-9s %-30s " "$$name" "$$label"; \
-	    if curl -sf -o /dev/null "$$url"; then echo OK; else echo DOWN; failed=1; fi; \
-	  }; \
-	  probe portal "$(PORTAL)/health/alive" "$(PORTAL)/health/alive"; \
-	  probe ready "$(PORTAL)/health/ready" "$(PORTAL)/health/ready"; \
-	  probe web/vite "$(WEB_APP)/" "$(WEB_APP)/"; \
-	  probe cable "$(CABLE_HEALTH)" "$(PORTAL_CABLE_URL)"; \
-	  exit $$failed
+health: ## Services + cable subscriptions confirmed + events arriving
+	@scripts/health.sh
 
 test: ## Playwright E2E in Docker (needs the app running — make up / make dev)
 	docker compose --profile test run --rm e2e
@@ -191,24 +162,10 @@ test-cable: ## The real chain (NATS → node → portal → extension): make tes
 	@echo "the extension half lives with the extension:"
 	@echo "  make -C ../chrome build && (cd ../chrome && CABLE_EVENTS=1 npx playwright test portal-receive)"
 
-act-cable: ## The cable-events CI job locally with act (VA_CRYSTAL_IMAGE is passed through)
-	ACT_BIN="$(ACT)" ACT_RUNNER_IMAGE="$(ACT_PLATFORM)" scripts/ci-local.sh cable-events
-
-# Through the PORTAL, not straight at cable: that is the path the browser and
-# the extension take, and it covers the two hops that fail most often — NATS
-# token verification and the portal's own cable credential.
-probe: ## Probe /ws/events with a real session: make probe AUTH='<localStorage.auth>'
-	@docker run --rm --network host \
-	  -e AUTH='$(AUTH)' -e TOKEN='$(TOKEN)' -e ID='$(ID)' \
-	  -e PORTAL_URL='$(PORTAL)' -e SECONDS='$(SECONDS)' \
-	  -v "$(PWD)/scripts:/s:ro" node:22-alpine \
-	  node /s/portal-probe.mjs
-
-act-portal: ## Run the Elixir portal CI job locally with act
-	ACT_BIN="$(ACT)" ACT_RUNNER_IMAGE="$(ACT_PLATFORM)" scripts/ci-local.sh portal
-
-act: ## Run the complete GitHub Actions workflow locally (same pattern as ../cli)
-	ACT_BIN="$(ACT)" ACT_RUNNER_IMAGE="$(ACT_PLATFORM)" scripts/ci-local.sh all
+# One target, not one per job. `all` is the whole workflow; anything else is a
+# job id from .github/workflows/ci.yml.
+act: ## CI locally with act: make act [JOB=portal|cable-events|all]
+	ACT_BIN="$(ACT)" ACT_RUNNER_IMAGE="$(ACT_PLATFORM)" scripts/ci-local.sh $(or $(JOB),all)
 
 # Deploying is INVOKED from here and DECIDED in mothership.
 #
@@ -268,22 +225,24 @@ portal-deploy: ## Build, push and swap the portal container — make portal-depl
 	$(portal_cli_guard)
 	$(PORTAL_CLI) portal deploy -d $(DEST)
 
-push: ## git push current branch to origin
-	git push
-
-status: ## Local git + production health + deployed version
+# There is no single "production". Kamal has a destination per customer, each
+# with its own host and image, which is exactly why a bare `portal-deploy` was
+# able to ship to the wrong one. So this lists them rather than pretending one
+# PROD_URL speaks for all.
+status: ## Local git + the kamal destinations this repo can deploy to
 	@echo "=== Local git ==="
 	@git log --oneline -1
 	@git status -sb
 	@echo
-	@if [ -z "$(PROD_URL)" ]; then \
-	  echo "=== Production: PROD_URL not set (skip) — set PROD_URL in .env ==="; \
+	@echo "=== Destinations (mothership config/portal) ==="
+	@if [ -d "$(VA_MOTHERSHIP)/config/portal" ]; then \
+	  for f in $(VA_MOTHERSHIP)/config/portal/deploy.*.yml; do \
+	    d=$$(basename $$f .yml | sed 's/deploy\.//'); \
+	    host=$$(grep -A3 'hosts:' $$f | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+|[a-z0-9.-]+\.(io|com)' | head -1); \
+	    img=$$(grep -m1 '^image:' $$f | sed 's/image: *//'); \
+	    printf "  %-8s %-24s %s\n" "$$d" "$$host" "$$img"; \
+	  done; \
+	  echo "  make portal-deploy DEST=<one of the above>"; \
 	else \
-	  echo "=== Production ($(PROD_URL)) ==="; \
-	  curl -s -o /dev/null -w "GET /health/alive → %{http_code}\n" "$(PROD_URL)/health/alive"; \
-	  curl -s -o /dev/null -w "GET /health/ready → %{http_code}\n" "$(PROD_URL)/health/ready"; \
-	  curl -s -o /dev/null -w "GET /             → %{http_code}\n" "$(PROD_URL)/"; \
-	  echo "=== Deployed version ==="; \
-	  curl -s "$(PROD_URL)/" | grep -oE 'src="/assets/[^"]+\.js"' | head -1 | sed 's/src="//;s/"//' \
-	    | xargs -I{} curl -s "$(PROD_URL){}" | grep -oE '2026\.[0-9.]+-[a-f0-9]+' | sort -u | head -1; \
+	  echo "  no mothership checkout at $(VA_MOTHERSHIP)"; \
 	fi

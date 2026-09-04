@@ -16,7 +16,7 @@
     "test:pw:debug": "playwright test --debug",
     "test:pw:report": "playwright show-report",
     "verify:push": "bash scripts/verify-before-push.sh",
-    "prepare": "git config core.hooksPath .githooks || true",
+    "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
     "security-scan": "npx audit-ci --moderate",
     "test-quality": "npm run lint"
   },

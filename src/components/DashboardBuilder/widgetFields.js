@@ -75,6 +75,7 @@ export function isSingleField(type) {
   return SOURCE_BY_TYPE[type] === 'stats';
 }
 
+// eslint-disable-next-line no-unused-vars -- part of the field-handler signature
 export function isFieldless(_type) {
   // Nothing is fieldless now — the only type that was went with the event
   // widgets. Kept as a seam because callers still ask.

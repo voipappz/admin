@@ -187,28 +187,6 @@ services:
   # Production image (build + run). Opt-in: --profile prod
   # Heavy build (Vite + an Elixir release). Behind a profile so a build failure
   # can never break the core dev stack — it is only built/run when you ask.
-  production:
-    profiles: ["prod"]
-    build:
-      context: .
-      dockerfile: Dockerfile.production
-    # One process serves everything on PORT: the SPA out of /app/dist, the
-    # forwarded /auth + /api routes, and /ws/events — the same process Kamal
-    # runs in prod (config/deploy.yml, app_port 3000).
-    ports:
-      - "8000:3000"
-    environment:
-      PORT: 3000
-      # The API. Forwarded routes go here; Cable verifies user tokens and
-      # carries realtime events, so Elixir holds no direct NATS connection.
-      ENGINE_URL: ${ENGINE_URL:-${MOTHERSHIP_URL:-https://cloud.voipappz.io}}
-      CABLE_URL: ${CABLE_URL:-}
-      CABLE_SECRET_KEY: ${SECRET_KEY:-}
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
-      DATABASE_URL: ${DATABASE_URL:-}
-    # No container healthcheck: the image has no curl (in prod, kamal-proxy
-    # probes /health/alive externally — config/deploy.yml). Verify locally:
-    #   curl localhost:8000/health/alive
 
 volumes:
   elixir_build:

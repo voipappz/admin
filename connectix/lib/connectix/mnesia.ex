@@ -243,17 +243,25 @@ defmodule Connectix.Mnesia do
     end
   end
 
-  # Only when persisting. A name costs nothing until two BEAMs want the same
-  # one — `mix test` beside a running server on the same box — and then the
-  # second silently loses distribution and its Mnesia with it. A stateless node
-  # has no reason to ask.
+  # ALWAYS, and not because of Mnesia — `set_dir` decides storage now, and a
+  # RAM-only node needs no name for it.
+  #
+  # The name is what makes the running system reachable: `--rpc-eval` and
+  # `--remsh` need one, and they are how anyone asks a live portal which cable
+  # streams it confirmed or how many events it has stored. Dropping it made the
+  # node stateless and unobservable in the same stroke, which traded a real
+  # problem for a worse one.
+  #
+  # A second BEAM wanting the same name — `mix test` beside a running server —
+  # is handled by failing to name and carrying on: that path is only dangerous
+  # when it also shares a disc schema, and it no longer can.
   defp ensure_named_node do
-    if persist?() and node() == :nonode@nohost do
+    if node() == :nonode@nohost do
       # A stable loopback longname avoids hostname/IPv6 resolver drift (notably
       # on WSL) while still giving Mnesia the named node disc_copies requires.
       case Node.start(:"connectix@127.0.0.1", :longnames) do
         {:ok, _} ->
-          Logger.info("mnesia: named node #{node()} for disc persistence")
+          Logger.info("mnesia: named node #{node()}")
 
         {:error, reason} ->
           Logger.warning("mnesia: node not named (#{inspect(reason)}) — RAM-only")

@@ -15,7 +15,6 @@ import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { useLogin } from './Login';
 import { useTranslation, Trans } from 'react-i18next';
-import { brand } from '../../config';
 import { fmtClock } from '../../lib/format';
 import './Login.css';
 

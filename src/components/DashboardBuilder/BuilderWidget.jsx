@@ -1,5 +1,5 @@
 import {
-  Box, Chip, IconButton, LinearProgress, ListItemIcon, ListItemText, Menu,
+  Box, IconButton, LinearProgress, ListItemIcon, ListItemText, Menu,
   MenuItem, Paper, Stack, Typography,
 } from '@mui/material';
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';

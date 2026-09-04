@@ -10,6 +10,11 @@ export default tseslint.config(
   // on code that is not in the tree. eslint does not read .gitignore, so it
   // has to be said here too.
 { ignores: ['dist', 'cypress/videos', 'cypress/screenshots','src/context/AuthContext.jsx', 'OLD/**/*', '.claude/worktrees/**',
+    // The Elixir app's own asset bundle — Phoenix's esbuild owns it, it is not
+    // built by this Vite project, and it is not a Node context (hence `process`
+    // reading as undefined here). Same reason `chrome/**` was ignored before it
+    // moved to its own repo.
+    'connectix/**',
     // The Elixir app's fetched dependencies, vendored bundles and compiled
     // output. Not this project's source in any sense — `deps/` is what `mix
     // deps.get` downloaded, and priv/static is what esbuild already emitted.

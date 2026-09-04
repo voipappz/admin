@@ -66,3 +66,7 @@ api/mock/captured_calls.json
 # machine's dashboards, and the schema is bound to the node name that made it.
 connectix/priv/mnesia/
 .env.bak
+
+# Mnesia leaves a schema directory beside the app even RAM-only, named for the
+# node. Nothing in it survives a restart by design — see Connectix.Mnesia.
+Mnesia.*

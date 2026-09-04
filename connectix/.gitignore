@@ -48,3 +48,6 @@ docker-compose.override.yml
 
 # Agent filesystems created at runtime.
 /user_files/
+
+# See the root .gitignore — RAM-only Mnesia still names a directory here.
+Mnesia.*

@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import {
   Alert, AppBar, Box, Button, Chip, CircularProgress, Dialog, DialogActions,
   DialogContent, DialogTitle, Divider, IconButton, ListItemIcon, ListItemText,
-  Menu, MenuItem, Paper, Stack, TextField, Toolbar, Tooltip, Typography,
+  Menu, MenuItem, Paper, TextField, Toolbar, Tooltip, Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import BarChartIcon from '@mui/icons-material/BarChart';
