@@ -1,4 +1,24 @@
-.PHONY: help help-all urls iex tui tmux tmux-kill mise ci env dev health check-engine check-mothership up down logs build lint unit portal-compile portal-test test test-cable probe act status module portal-print portal-deploy
+# Make checks only the LAST command of a recipe line, so a failure in the middle
+# of one is silently ignored and the target reports success. `-e` makes every
+# command count; `-o pipefail` makes every stage of a pipe count.
+#
+# It creates failure shapes worth knowing: `x=$(cmd)` where cmd may legitimately
+# fail (a probe, `docker compose port`) needs `|| true`, and `cmd && continue`
+# in a loop kills the recipe in exactly the case the loop exists for.
+# `-u` is deliberately NOT set — .env-derived variables are legitimately unset
+# and recipes test for that.
+SHELL := bash
+.SHELLFLAGS := -e -o pipefail -c
+
+# Every name here needs a rule. A .PHONY name without one is not an error: make
+# prints "Nothing to be done" and exits 0, so a deleted rule looks like a
+# working target. `make check-make` fails on any that is missing.
+PHONY_TARGETS := help check-make urls iex tui tmux tmux-kill mise env dev \
+                 check-engine up down logs build lint unit portal-compile \
+                 portal-test health test test-cable ci probe status module \
+                 portal-print portal-deploy
+
+.PHONY: $(PHONY_TARGETS)
 
 # Everything runs in Docker — no host node/npm/ruby required. One-off npm/node
 # commands reuse the react-app service (repo mount + cached node_modules volume).
@@ -22,7 +42,11 @@ CABLE_API_URL := $(if $(CABLE_API_URL),$(CABLE_API_URL),$(PORTAL_ENGINE_URL))
 # Local stack endpoints. PORTAL is the origin: the SPA, the Chrome extension
 # (which lives in ../chrome and builds with `make -C ../chrome build`)
 # and Vite's proxy all point at 4001, and it does not move.
-PORTAL   ?= http://localhost:4001
+# ASK COMPOSE, never state it. A second app publishing 4001 and answering
+# /health/alive is indistinguishable from ours in a printed URL — the skill's
+# rule, and the reason `urls` guards its fallback rather than assuming.
+PORTAL_ADDR = $(shell docker compose port elixir 4001 2>/dev/null || true)
+PORTAL   ?= http://$(if $(PORTAL_ADDR),$(PORTAL_ADDR),localhost:4001)
 # The cable the portal SUBSCRIBES to. There is no cable in this stack any more:
 # va-crystal was removed from docker-compose.yml, because what the portal needs
 # is one WebSocket endpoint and running a node beside it meant a whole switch on
@@ -64,44 +88,45 @@ STACK_UP = key="$${SECRET_KEY:-$(SECRET_KEY)}"; \
 	    PORTAL_ENGINE_URL="$(PORTAL_ENGINE_URL)" CABLE_API_URL="$(CABLE_API_URL)" \
 	    PORTAL_CABLE_URL="$(PORTAL_CABLE_URL)" \
 	    docker compose up -d
-WEB_APP  ?= http://localhost:4200
+WEB_ADDR = $(shell docker compose port react-app 4200 2>/dev/null || true)
+WEB_APP  ?= http://$(if $(WEB_ADDR),$(WEB_ADDR),localhost:4200)
 
 # Production URL for `make status` — set PROD_URL in .env (or on the CLI).
 PROD_URL ?= $(shell sed -n 's/^PROD_URL=//p' .env 2>/dev/null | head -1 | tr -d '\r"')
 
 .DEFAULT_GOAL := help
 
-# EIGHT VERBS, and they are the whole daily loop. Everything else this Makefile
-# can do is real and stays documented — in `make help-all`, one keystroke away.
-# A first page that lists twenty targets asks the reader to already know which
-# ones matter, which is the opposite of what a first page is for.
+# Generated from the `##` comments and `##@` groups, so it cannot drift from the
+# rules the way a hand-written page does. Nothing is hidden: a target a
+# developer cannot see is a target they cannot use, and undocumented targets are
+# where rot accumulates.
 help: ## Show this help
-	@printf '\n\033[1mconnectix portal\033[0m\n\n'
-	@printf '  \033[36mmake dev\033[0m        start it — Vite :4200 · portal :4001, attached logs\n'
-	@printf '  \033[36mmake tmux\033[0m       cockpit: portal, vite and health on one screen\n'
-	@printf '  \033[36mmake health\033[0m     is it RECEIVING EVENTS (cable confirmed + store growing)\n'
-	@printf '  \033[36mmake urls\033[0m       where this stack actually is\n'
-	@printf '  \033[36mmake iex\033[0m        attach a shell to the RUNNING portal (remsh)\n'
-	@printf '  \033[36mmake test\033[0m       Playwright E2E (unit: make unit / make portal-test)\n'
-	@printf '  \033[36mmake ci\033[0m         CI locally with act (bare `make ci` lists the jobs)\n'
-	@printf '  \033[36mmake down\033[0m       stop\n'
-	@printf '\n  \033[2mevery other target:  make help-all        traps and why: CLAUDE.md\033[0m\n\n'
+	@printf '\n\033[1mconnectix portal\033[0m  — Elixir origin · React SPA · TUI · kamal deploy\n'
+	@awk 'BEGIN {FS = ":.*## "} \
+	     /^##@ / { printf "\n\033[1m%s\033[0m\n", substr($$0, 5); next } \
+	     /^[a-zA-Z0-9_-]+:.*## / { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 }' \
+	     $(firstword $(MAKEFILE_LIST))
+	@printf '\n  \033[2mtraps and why: CLAUDE.md\033[0m\n\n'
 
-# Generated from the `##` comments, so it cannot drift the way a hand-written
-# list does — which is exactly why the page above is the one that is curated.
-help-all: ## Every documented target
-	@printf '\n\033[1mconnectix portal — every target\033[0m\n\n'
-	@grep -hE '^[a-zA-Z0-9_-]+:.*##' $(firstword $(MAKEFILE_LIST)) \
-	  | sed 's/:.*## /|/' \
-	  | awk -F'|' '{ printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2 }'
-	@printf '\n'
+# A .PHONY name with no rule is not an error — make prints "Nothing to be done"
+# and exits 0, so deleting a rule leaves a target that appears to work. CI runs
+# this.
+check-make: ## Every .PHONY name has a rule
+	@missing=""; \
+	for t in $(PHONY_TARGETS); do \
+	  grep -qE "^$$t( [a-z-]+)*:" $(firstword $(MAKEFILE_LIST)) || missing="$$missing $$t"; \
+	done; \
+	if [ -n "$$missing" ]; then echo "!! .PHONY without a rule:$$missing"; exit 1; fi; \
+	echo "all $(words $(PHONY_TARGETS)) .PHONY targets have rules"
+
+##@ Cockpit — what is it doing
 
 # Where this stack actually is — resolved, not assumed. Every port is read from
 # compose rather than repeated here, because a Makefile that states a port is a
 # Makefile that will one day state the wrong one.
 urls: ## Print the URLs this stack actually publishes
-	@printf '  portal   %s\n' "$$(docker compose ps --status running --format '{{.Service}}' 2>/dev/null | grep -q elixir && echo '$(PORTAL)' || echo 'not running (make dev)')"
-	@printf '  web      %s\n' "$$(docker compose ps --status running --format '{{.Service}}' 2>/dev/null | grep -q react-app && echo '$(WEB_APP)' || echo 'not running (make dev)')"
+	@printf '  portal   %s\n' "$(if $(PORTAL_ADDR),$(PORTAL),not running (make dev))"
+	@printf '  web      %s\n' "$(if $(WEB_ADDR),$(WEB_APP),not running (make dev))"
 	@printf '  cable    %s\n' "$(PORTAL_CABLE_URL)"
 	@printf '  engine   %s\n' "$(PORTAL_ENGINE_URL)"
 	@printf '  events   %s\n' "$$(docker compose ps --status running --format '{{.Service}}' 2>/dev/null | grep -q elixir && echo 'make health' || echo '-')"
@@ -141,6 +166,8 @@ tmux: ## Dev cockpit: portal, vite and health on one screen
 tmux-kill: ## Close the cockpit session (same as Ctrl-b Q inside it)
 	@tmux kill-session -t connectix 2>/dev/null && echo "cockpit closed" || echo "no cockpit running"
 
+##@ Setup
+
 mise: ## Install the pinned host toolchain (elixir/erlang/node — see mise.toml)
 	@command -v mise >/dev/null || curl https://mise.run | sh
 	mise trust && mise install && mise current
@@ -151,6 +178,8 @@ env: ## Create .env (never overwrites an existing one)
 	else \
 	  cp .env.example .env && echo "wrote .env — set PORTAL_ENGINE_URL if the local API is not on :5000"; \
 	fi
+
+##@ Run it
 
 dev: check-engine ## Run the whole local stack in Docker (Vite :4200 · portal :4001), attached logs
 	@$(STACK_UP) react-app elixir
@@ -187,10 +216,15 @@ logs: ## Follow logs for every service in the local stack
 # so without it the new files land root-owned and you need sudo to edit or
 # delete your own scaffold. Safe here (unlike build/lint/unit) because this
 # command only writes source files — it never touches the node_modules volume.
-module: ## Scaffold a feature module: make module NAME=Foo [ENDPOINT=/api/foos]
-	@test -n "$(NAME)" || { echo "usage: make module NAME=Foo [ENDPOINT=/api/foos]"; exit 1; }
+# MODULE, never NAME. WSL exports NAME as the hostname and make imports the
+# environment, so `make module` with no argument scaffolded a module called
+# LT-7G19VF4 — verified on this box before the rename.
+module: ## [MODULE=Foo] Scaffold a feature module (ENDPOINT=/api/foos)
+	@test -n "$(MODULE)" || { echo "usage: make module MODULE=Foo [ENDPOINT=/api/foos]"; exit 1; }
 	docker compose run --rm --no-deps --user "$(shell id -u):$(shell id -g)" \
-	  react-app node scripts/new-module.mjs "$(NAME)" "$(ENDPOINT)"
+	  react-app node scripts/new-module.mjs "$(MODULE)" "$(ENDPOINT)"
+
+##@ Build and check
 
 build: ## Production build → dist/ (in Docker)
 	$(NPM_RUN) 'npm install --loglevel=error --no-audit --no-fund && npm run build'
@@ -203,6 +237,8 @@ unit: ## Vitest unit tests, one-shot (in Docker)
 
 portal-compile: ## Compile the Elixir portal with warnings as errors (running stack required)
 	docker compose exec -T -e MIX_ENV=test elixir mix compile --warnings-as-errors
+
+##@ Test
 
 portal-test: ## Run ExUnit in the Elixir container (TEST=path:line for a targeted run)
 	docker compose exec -T -e MIX_ENV=test elixir mix test $(TEST)
@@ -234,7 +270,17 @@ test-cable: ## The real chain (NATS → node → portal → extension): make tes
 
 # One target, not one per job. `all` is the whole workflow; anything else is a
 # job id from .github/workflows/ci.yml.
-ci act: ## CI locally with act: make ci [JOB=portal|cable-events|all]
+# Through the PORTAL, not straight at cable: that is the path the browser and
+# the extension take, and it covers the two hops that fail most often — token
+# verification and the portal's own cable credential.
+probe: ## [AUTH=<localStorage.auth>] Probe /ws/events with a real session
+	@docker run --rm --network host \
+	  -e AUTH='$(AUTH)' -e TOKEN='$(TOKEN)' -e ID='$(ID)' \
+	  -e PORTAL_URL='$(PORTAL)' -e SECONDS='$(SECONDS)' \
+	  -v "$(PWD)/scripts:/s:ro" node:22-alpine \
+	  node /s/portal-probe.mjs
+
+ci: ## [JOB=portal|cable-events|all] Run CI locally with act
 	ACT_BIN="$(ACT)" ACT_RUNNER_IMAGE="$(ACT_PLATFORM)" scripts/ci-local.sh $(or $(JOB),all)
 
 # Deploying is INVOKED from here and DECIDED in mothership.
@@ -281,6 +327,8 @@ define portal_cli_guard
 	@test -x "$(VA_MOTHERSHIP)/bin/voipappz" || $(MAKE) -C "$(VA_MOTHERSHIP)" build
 endef
 
+##@ Deploy — kamal, from the mothership policy
+
 portal-print: ## Print the exact Kamal commands, change nothing — make portal-print DEST=mtn
 	$(portal_cli_guard)
 	$(PORTAL_CLI) portal deploy --print $(if $(DEST),-d $(DEST))
@@ -308,8 +356,9 @@ status: ## Local git + the kamal destinations this repo can deploy to
 	@if [ -d "$(VA_MOTHERSHIP)/config/portal" ]; then \
 	  for f in $(VA_MOTHERSHIP)/config/portal/deploy.*.yml; do \
 	    d=$$(basename $$f .yml | sed 's/deploy\.//'); \
-	    host=$$(grep -A3 'hosts:' $$f | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+|[a-z0-9.-]+\.(io|com)' | head -1); \
-	    img=$$(grep -m1 '^image:' $$f | sed 's/image: *//'); \
+	    host=$$(grep -A3 'hosts:' $$f | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+|[a-z0-9.-]+\.(io|com)' | head -1 || true); \
+	    img=$$(grep -m1 '^image:' $$f | sed 's/image: *//' || true); \
+	    img=$${img:-(inherits deploy.yml)}; \
 	    printf "  %-8s %-24s %s\n" "$$d" "$$host" "$$img"; \
 	  done; \
 	  echo "  make portal-deploy DEST=<one of the above>"; \
