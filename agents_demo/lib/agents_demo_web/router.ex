@@ -53,24 +53,19 @@ defmodule AgentsDemoWeb.Router do
     post "/bots/:id/versions/:number/retire", BotController, :retire_version
   end
 
-  # The LiveView web UI, off by default.
+  # There is no LiveView UI. The React portal (Vite build, served by
+  # `AgentsDemoWeb.Plugs.Spa`) is the only one — same call as
+  # `connectix.io/phone`, which runs headless for the same reason. Two ways to
+  # build a screen in one app is how both grow.
   #
-  # The React portal (Vite build, served by `AgentsDemoWeb.Plugs.Spa`) is the
-  # UI — same call as `connectix.io/phone`, which runs headless for the same
-  # reason. Two ways to build a screen in one app is how both grow, so only one
-  # is mounted.
+  # It was gated behind `:liveview_ui?` rather than deleted for a while, on the
+  # theory that turning it back on should be a config change. Nobody turned it
+  # on, and ~4,900 lines were compiled and tested for a surface no request ever
+  # reached — so the gate was the cost, not the insurance.
   #
-  # Gated rather than deleted: the LiveViews and their tests still compile and
-  # run (`config/test.exs` turns this on), so turning the UI back on is a config
-  # change, not a recovery. `:browser` and `AgentsDemoWeb.UserAuth` stay wired
-  # for the same reason.
-  if Application.compile_env(:agents_demo, :liveview_ui?, false) do
-    scope "/", AgentsDemoWeb do
-      pipe_through :browser
-
-      live "/", WelcomeLive
-    end
-  end
+  # `:browser` and `AgentsDemoWeb.UserAuth` stay: the `/dev` tools below
+  # (LiveDashboard, the mailbox preview, the agent debugger) run through that
+  # pipeline and need its root layout and scope plug.
 
   # The dashboard builder's storage. `/dashboard/*` rather than `/api/dashboard`
   # because the shipped client already calls these paths and the point of
@@ -173,35 +168,4 @@ defmodule AgentsDemoWeb.Router do
     end
   end
 
-  ## Authentication routes — part of the LiveView UI above, gated with it.
-
-  if Application.compile_env(:agents_demo, :liveview_ui?, false) do
-    scope "/", AgentsDemoWeb do
-      pipe_through [:browser, :require_authenticated_user]
-
-      live_session :require_authenticated_user,
-        on_mount: [{AgentsDemoWeb.UserAuth, :require_authenticated}] do
-        live "/users/settings", UserLive.Settings, :edit
-        live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
-
-        live "/chat", ChatLive
-      end
-
-      post "/users/update-password", UserSessionController, :update_password
-    end
-
-    scope "/", AgentsDemoWeb do
-      pipe_through [:browser]
-
-      live_session :current_user,
-        on_mount: [{AgentsDemoWeb.UserAuth, :mount_current_scope}] do
-        live "/users/register", UserLive.Registration, :new
-        live "/users/log-in", UserLive.Login, :new
-        live "/users/log-in/:token", UserLive.Confirmation, :new
-      end
-
-      post "/users/log-in", UserSessionController, :create
-      delete "/users/log-out", UserSessionController, :delete
-    end
-  end
 end

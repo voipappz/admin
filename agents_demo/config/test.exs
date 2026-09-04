@@ -40,10 +40,6 @@ config :langchain,
 # receiver is configured rather than `self()`.
 config :agents_demo, :whatsapp_adapter, AgentsDemo.Channels.WhatsApp.TestAdapter
 
-# The LiveView UI is off in dev/prod (the React portal is the UI); the suite
-# still exercises its LiveViews, so mount them here.
-config :agents_demo, liveview_ui?: true
-
 # No cable relay in the suite. `EngineProxy` prefers cable over HTTP, and
 # `ApiProxy.enabled?/0` reads CABLE_URL from the environment — which the dev
 # container sets — so without this a plug test that stands up a fake upstream

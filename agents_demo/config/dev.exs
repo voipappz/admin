@@ -60,10 +60,6 @@ config :agents_demo, AgentsDemoWeb.Endpoint,
 
 # Enable dev routes for dashboard and mailbox
 config :agents_demo, dev_routes: true
-# Keep the LiveView routes compiled in development so verified routes remain
-# warning-free; the shipped portal still owns the production UI.
-config :agents_demo, :liveview_ui?, true
-
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 

@@ -25,11 +25,10 @@ defmodule AgentsDemoWeb.Endpoint do
 
   defp realtime_events(conn, _opts), do: conn
 
-  # The LiveView socket, mounted only when the LiveView UI is (see the router)
-  # or in dev, where LiveDashboard needs it. Headless otherwise: nothing is
-  # listening on it, so it should not accept upgrades.
-  if Application.compile_env(:agents_demo, :liveview_ui?, false) or
-       Application.compile_env(:agents_demo, :dev_routes, false) do
+  # The LiveView socket, for LiveDashboard and the agent debugger under `/dev`.
+  # There is no LiveView UI any more — the React portal is the UI — so outside
+  # dev nothing is listening on this and it should not accept upgrades.
+  if Application.compile_env(:agents_demo, :dev_routes, false) do
     socket "/live", Phoenix.LiveView.Socket,
       websocket: [connect_info: [session: @session_options]],
       longpoll: [connect_info: [session: @session_options]]
