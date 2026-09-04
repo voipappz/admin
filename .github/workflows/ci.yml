@@ -234,21 +234,42 @@ jobs:
         run: tests/cable-events/ready.sh
       - name: Elixir → cable, screen-pop, and restart recovery (A, C, D)
         run: CABLE_EVENTS=1 npx playwright test tests/cable-events.spec.ts --workers=1
-      # The extension: Angular 11 builds on Node 20, so switch for this half.
+      # The extension is its OWN repo (github.com/voipappz/chrome) and is checked
+      # out here rather than vendored, because scenario B is the one assertion
+      # that cannot be made from either side alone: it needs this stack running
+      # AND a real Chrome with the real extension loaded. Private repo — the
+      # token is only present where the secret exists, and the half is skipped
+      # rather than failed when it is not, so a fork still runs A/C/D.
+      - name: Check out the extension
+        id: extension
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: voipappz/chrome
+          path: extension
+          token: ${{ secrets.EXTENSION_REPO_TOKEN || github.token }}
+      # Angular 11 builds on Node 20, so switch for this half.
       - uses: actions/setup-node@v4
+        if: steps.extension.outcome == 'success'
         with:
           node-version: 20
       - name: Build the extension
-        working-directory: chrome
+        if: steps.extension.outcome == 'success'
+        working-directory: extension
         run: |
           npm ci --legacy-peer-deps --no-audit --no-fund
           NODE_OPTIONS=--openssl-legacy-provider npm run build
       - name: Install Chromium for the extension suite
-        working-directory: chrome
+        if: steps.extension.outcome == 'success'
+        working-directory: extension
         run: npx playwright install --with-deps chromium
       - name: Chrome → Elixir with the real extension (B)
-        working-directory: chrome
+        if: steps.extension.outcome == 'success'
+        working-directory: extension
         run: CABLE_EVENTS=1 npx playwright test portal-receive --workers=1
+      - name: Say so when the extension half did not run
+        if: steps.extension.outcome != 'success'
+        run: echo "::warning::extension not checked out — scenario B skipped (set EXTENSION_REPO_TOKEN)"
       - name: Why it failed (both sides of the cable)
         if: failure()
         run: |
