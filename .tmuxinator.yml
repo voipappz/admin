@@ -1,36 +1,23 @@
-# Dev cockpit — one command opens the whole stack with logs + shells:
-#   make tmux          (or: tmuxinator local)
-# Requires tmux + tmuxinator on the host. Uses the Docker stack (make up);
-# for host-Vite HMR use `make dev` in a plain terminal instead.
-name: voipappz
+# The dev cockpit: one screen that answers "is it up, is it receiving events,
+# and what is it saying" without three terminals and a remembered RPC.
+#
+# `make tmux` starts it. Ctrl-b d detaches and leaves it running; Ctrl-b Q quits.
+name: connectix
 root: <%= ENV["PWD"] %>
 
-# Start the core stack (react-app + elixir) before any window opens.
-pre_window: docker compose up -d
-
 windows:
-  - app:
-      layout: main-vertical
+  - main:
+      layout: tiled
       panes:
-        - vite:
-            - docker compose logs -f react-app
-        - portal:
-            - docker compose logs -f elixir
-
+        # The portal: the origin, and the only place cable and event problems
+        # are visible as they happen.
+        - docker compose logs -f elixir
+        # Vite, so a frontend failure is not mistaken for a backend one.
+        - docker compose logs -f react-app
+        # The question `verify` could never answer, on a loop: cable
+        # subscriptions confirmed, and whether the store is actually growing.
+        - watch -n 10 -c make health
   - shell:
-      layout: even-horizontal
+      root: <%= ENV["PWD"] %>
       panes:
-        - repo:
-            - echo "repo shell — try: make verify | make test | npm run test:run"
-        - container:
-            - docker compose exec react-app bash
-
-  - status:
-      layout: even-horizontal
-      panes:
-        - verify:
-            - make verify
-            - echo ""
-            - echo "make verify  — re-run the health check"
-        - monitor:
-            - watch -n 5 docker compose ps
+        - # a plain shell, for `make iex`, `make test`, anything

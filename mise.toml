@@ -1,0 +1,12 @@
+# The host toolchain, pinned. Until now the Elixir and OTP versions existed in
+# exactly one place — .github/workflows/ci.yml — so "what does this build with"
+# was answerable only by reading CI, and a laptop could disagree with it
+# silently. These are the same versions that job uses.
+#
+# Everything still runs in Docker (`make dev`, `make test`); this is for the
+# host tools that cannot: `mix format` in an editor, an LSP, `iex` outside a
+# container. Nothing here is required to run the stack.
+[tools]
+elixir = "1.19.5"
+erlang = "27.3.4"
+node = "22"

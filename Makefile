@@ -1,4 +1,4 @@
-.PHONY: help env dev health health check-engine check-mothership up down logs build lint unit portal-compile portal-test test test-cable probe act status module portal-print portal-deploy
+.PHONY: help help-all urls iex tui tmux tmux-kill mise ci env dev health check-engine check-mothership up down logs build lint unit portal-compile portal-test test test-cable probe act status module portal-print portal-deploy
 
 # Everything runs in Docker — no host node/npm/ruby required. One-off npm/node
 # commands reuse the react-app service (repo mount + cached node_modules volume).
@@ -71,9 +71,79 @@ PROD_URL ?= $(shell sed -n 's/^PROD_URL=//p' .env 2>/dev/null | head -1 | tr -d 
 
 .DEFAULT_GOAL := help
 
+# EIGHT VERBS, and they are the whole daily loop. Everything else this Makefile
+# can do is real and stays documented — in `make help-all`, one keystroke away.
+# A first page that lists twenty targets asks the reader to already know which
+# ones matter, which is the opposite of what a first page is for.
 help: ## Show this help
-	@awk 'BEGIN{FS=":.*## ";printf "\nmake \033[36m<target>\033[0m\n\n"} \
-	      /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n",$$1,$$2}' $(MAKEFILE_LIST)
+	@printf '\n\033[1mconnectix portal\033[0m\n\n'
+	@printf '  \033[36mmake dev\033[0m        start it — Vite :4200 · portal :4001, attached logs\n'
+	@printf '  \033[36mmake tmux\033[0m       cockpit: portal, vite and health on one screen\n'
+	@printf '  \033[36mmake health\033[0m     is it RECEIVING EVENTS (cable confirmed + store growing)\n'
+	@printf '  \033[36mmake urls\033[0m       where this stack actually is\n'
+	@printf '  \033[36mmake iex\033[0m        attach a shell to the RUNNING portal (remsh)\n'
+	@printf '  \033[36mmake test\033[0m       Playwright E2E (unit: make unit / make portal-test)\n'
+	@printf '  \033[36mmake ci\033[0m         CI locally with act (bare `make ci` lists the jobs)\n'
+	@printf '  \033[36mmake down\033[0m       stop\n'
+	@printf '\n  \033[2mevery other target:  make help-all        traps and why: CLAUDE.md\033[0m\n\n'
+
+# Generated from the `##` comments, so it cannot drift the way a hand-written
+# list does — which is exactly why the page above is the one that is curated.
+help-all: ## Every documented target
+	@printf '\n\033[1mconnectix portal — every target\033[0m\n\n'
+	@grep -hE '^[a-zA-Z0-9_-]+:.*##' $(firstword $(MAKEFILE_LIST)) \
+	  | sed 's/:.*## /|/' \
+	  | awk -F'|' '{ printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2 }'
+	@printf '\n'
+
+# Where this stack actually is — resolved, not assumed. Every port is read from
+# compose rather than repeated here, because a Makefile that states a port is a
+# Makefile that will one day state the wrong one.
+urls: ## Print the URLs this stack actually publishes
+	@printf '  portal   %s\n' "$$(docker compose ps --status running --format '{{.Service}}' 2>/dev/null | grep -q elixir && echo '$(PORTAL)' || echo 'not running (make dev)')"
+	@printf '  web      %s\n' "$$(docker compose ps --status running --format '{{.Service}}' 2>/dev/null | grep -q react-app && echo '$(WEB_APP)' || echo 'not running (make dev)')"
+	@printf '  cable    %s\n' "$(PORTAL_CABLE_URL)"
+	@printf '  engine   %s\n' "$(PORTAL_ENGINE_URL)"
+	@printf '  events   %s\n' "$$(docker compose ps --status running --format '{{.Service}}' 2>/dev/null | grep -q elixir && echo 'make health' || echo '-')"
+
+# A shell INSIDE the running portal, not a new one beside it. `--remsh` attaches
+# to the live node, so `Connectix.Events.timeline("<call-uuid>")` or
+# `:sys.get_state(Connectix.Realtime.ApiProxy)` answer for the process actually
+# serving traffic. `make health` is three fixed questions; this is the rest.
+#
+# It works because the node is NAMED — see Connectix.Mnesia on why that survived
+# the move to RAM-only storage.
+iex: ## Attach a shell to the running portal (remsh)
+	@docker compose ps --status running --format '{{.Service}}' | grep -q elixir \
+	  || { echo "portal is not running — make up"; exit 1; }
+	docker compose exec elixir sh -lc \
+	  'iex --name console-$$$$@127.0.0.1 --cookie $$(cat ~/.erlang.cookie) --remsh connectix@127.0.0.1'
+
+# The cockpit as a terminal app rather than as three panes: the store's totals,
+# the subscriptions the node confirmed, and the events as they land. It boots
+# the app, so it shows THIS process — `make iex` is the one that attaches to a
+# portal already running.
+tui: ## Live cockpit: what this portal is receiving (q quits)
+	docker compose run --rm --no-deps -e MIX_ENV=dev elixir mix connectix.tui
+
+# One screen: the portal's log, Vite's, and `health` on a loop. The third is the
+# one that matters — a portal can serve /health/ready while storing nothing, and
+# that is invisible in a log.
+tmux: ## Dev cockpit: portal, vite and health on one screen
+	@command -v tmuxinator >/dev/null || { \
+	  echo "tmuxinator not installed:  mise install && gem install tmuxinator"; exit 1; }
+	@command -v tmux >/dev/null || { echo "tmux not installed"; exit 1; }
+	@echo '  panes: portal log · vite log · health (10s)      window 2: a shell'
+	@echo '  exit:  Ctrl-b d detaches (make tmux returns)   Ctrl-b Q quits it'
+	@echo
+	tmuxinator start -p .tmuxinator.yml
+
+tmux-kill: ## Close the cockpit session (same as Ctrl-b Q inside it)
+	@tmux kill-session -t connectix 2>/dev/null && echo "cockpit closed" || echo "no cockpit running"
+
+mise: ## Install the pinned host toolchain (elixir/erlang/node — see mise.toml)
+	@command -v mise >/dev/null || curl https://mise.run | sh
+	mise trust && mise install && mise current
 
 env: ## Create .env (never overwrites an existing one)
 	@if [ -f .env ]; then \
@@ -164,7 +234,7 @@ test-cable: ## The real chain (NATS → node → portal → extension): make tes
 
 # One target, not one per job. `all` is the whole workflow; anything else is a
 # job id from .github/workflows/ci.yml.
-act: ## CI locally with act: make act [JOB=portal|cable-events|all]
+ci act: ## CI locally with act: make ci [JOB=portal|cable-events|all]
 	ACT_BIN="$(ACT)" ACT_RUNNER_IMAGE="$(ACT_PLATFORM)" scripts/ci-local.sh $(or $(JOB),all)
 
 # Deploying is INVOKED from here and DECIDED in mothership.
