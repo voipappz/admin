@@ -119,6 +119,10 @@ defmodule ConnectixWeb.ChatLive do
   defp panel_status(status) when status in [:calling, :ringing, :in_call, :failed], do: status
   defp panel_status(_registered_or_idle), do: :idle
 
+  defp dial_error(:bridge_busy), do: "the browser phone is already on this line — hang up first"
+  defp dial_error(:sip_not_configured), do: "no SIP account configured"
+  defp dial_error(reason), do: inspect(reason)
+
   @impl true
   def handle_params(params, _uri, socket) do
     conversation_id = params["conversation_id"]
@@ -254,10 +258,6 @@ defmodule ConnectixWeb.ChatLive do
         end
     end
   end
-
-  defp dial_error(:bridge_busy), do: "the browser phone is already on this line — hang up first"
-  defp dial_error(:sip_not_configured), do: "no SIP account configured"
-  defp dial_error(reason), do: inspect(reason)
 
   def handle_event("phone_ice", %{"candidate" => candidate}, socket) do
     if peer = Connectix.WebRtc.Peer.whereis(:bridge), do: Connectix.WebRtc.Peer.ice(peer, candidate)
