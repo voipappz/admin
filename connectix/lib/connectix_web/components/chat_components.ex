@@ -335,6 +335,9 @@ defmodule ConnectixWeb.ChatComponents do
   attr :is_phone_open, :boolean, default: true
   attr :is_rail_open, :boolean, default: false
   attr :sidebar_active_tab, :string, default: "tasks"
+  attr :sidebar_collapsed, :boolean, default: true
+  attr :todos, :list, default: []
+  attr :files, :any, default: []
   attr :has_messages, :boolean, default: false
   attr :loading, :boolean, default: false
   attr :streaming_delta, :any
@@ -707,6 +710,19 @@ defmodule ConnectixWeb.ChatComponents do
       </header>
 
       <div class="flex flex-1 relative overflow-hidden">
+
+        <%!-- Tasks & Files first among the columns, but *under* the header:
+              rendered as a sibling of this component it sat beside the header
+              instead of below it, so the app bar only spanned part of the
+              window. --%>
+        <div :if={not @sidebar_collapsed} class="flex-shrink-0">
+          <.tasks_files_sidebar
+            todos={@todos}
+            files={@files}
+            collapsed={false}
+            active_tab={@sidebar_active_tab}
+          />
+        </div>
 
         <%!-- Chats on the LEFT, the phone on the RIGHT, the conversation in
               between — the shape of every chat app. Each side collapses on its

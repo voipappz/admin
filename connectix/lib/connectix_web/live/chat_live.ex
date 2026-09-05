@@ -1206,18 +1206,6 @@ defmodule ConnectixWeb.ChatLive do
         sidebar_active_tab={@sidebar_active_tab}
       />
 
-      <%!-- Collapsed means gone, not a 60px empty rail: an always-present
-           column with nothing in it pushed the phone card out of the leftmost
-           position and squeezed the conversation. The way back in is a button
-           in the chat header. --%>
-      <div :if={!@sidebar_collapsed} class="flex-shrink-0">
-        <.tasks_files_sidebar
-          todos={@todos}
-          files={@files}
-          collapsed={false}
-          active_tab={@sidebar_active_tab}
-        />
-      </div>
 
       <div class="flex flex-1 min-w-0 relative">
         <.chat_interface
@@ -1229,6 +1217,9 @@ defmodule ConnectixWeb.ChatLive do
           is_phone_open={@is_phone_open}
           is_rail_open={@is_rail_open}
           sidebar_active_tab={@sidebar_active_tab}
+          sidebar_collapsed={@sidebar_collapsed}
+          todos={@todos}
+          files={@files}
           streaming_delta={@streaming_delta}
           agent_status={@agent_status}
           agent_alive?={@agent_alive?}
@@ -1249,7 +1240,6 @@ defmodule ConnectixWeb.ChatLive do
           phone_account={@phone_account}
           phone_number={@phone_number}
           phone_tab={@phone_tab}
-          sidebar_collapsed={@sidebar_collapsed}
         />
       </div>
 
