@@ -13,6 +13,16 @@ __pycache__/
 # ─── Dependencies ───
 api/data/
 
+# ─── Dead React/Node leftovers ───
+# Nothing in this repo produces these any more — the SPA, Vite and the whole
+# Node toolchain were deleted when the app became pure BEAM. They survive only
+# as root-owned directories Docker created before that, and `rm` cannot remove
+# them without sudo. Ignored so a broad `git add` cannot sweep 384MB of dead
+# node_modules into a commit while they wait to be deleted by hand.
+node_modules/
+dist/
+test-results/
+
 # ─── Logs ───
 *.log
 
