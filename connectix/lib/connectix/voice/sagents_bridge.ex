@@ -204,7 +204,17 @@ defmodule Connectix.Voice.SagentsBridge do
   def handle_info({:agent, {:status_changed, :error, reason}}, _ctx, state) do
     Logger.error("[voice] agent error on #{state.conversation_id}: #{inspect(reason)}")
 
-    {:push, %Feline.Frames.All.ErrorFrame{error: reason, fatal: false}, :downstream, state}
+    # A STRING, not the raw reason. `Feline.Pipeline.Task` interpolates
+    # `frame.error` into its log line, so handing it a struct with no
+    # `String.Chars` raises `Protocol.UndefinedError` inside the pipeline's own
+    # `handle_info` and kills the task — every processor with it. That is how a
+    # recoverable LLM refusal ("credit balance is too low") became a dropped
+    # call: the bot went silent mid-conversation and the caller heard nothing,
+    # with the real cause three layers down in a crash report.
+    #
+    # An agent error should cost a turn, not the call.
+    {:push, %Feline.Frames.All.ErrorFrame{error: describe(reason), fatal: false}, :downstream,
+     state}
   end
 
   def handle_info({:agent, _other}, _ctx, state), do: {:ok, state}
@@ -212,6 +222,15 @@ defmodule Connectix.Voice.SagentsBridge do
   def handle_info(_message, _ctx, state), do: {:ok, state}
 
   # ── Internals ───────────────────────────────────────────────────────────────
+
+  # Anything an agent can fail with, rendered so it can be interpolated. Prefers
+  # the exception's own message, because that is the sentence a human needs
+  # ("credit balance is too low"), and falls back to `inspect/1` for terms that
+  # are not exceptions at all.
+  defp describe(%{__exception__: true} = error), do: Exception.message(error)
+  defp describe(%{message: message}) when is_binary(message), do: message
+  defp describe(reason) when is_binary(reason), do: reason
+  defp describe(reason), do: inspect(reason)
 
   defp maybe_greet(ctx, %{greeting: greeting} = state) when is_binary(greeting) do
     ctx.push.(%TextFrame{text: greeting}, :downstream)

@@ -291,6 +291,20 @@ defmodule Connectix.Mnesia do
       dir = Connectix.Config.mnesia_dir()
       File.mkdir_p!(dir)
       Application.put_env(:mnesia, :dir, String.to_charlist(dir))
+
+      # How much an ungraceful stop is allowed to cost. Mnesia folds
+      # `LATEST.LOG` into the tables every 1000 writes or 3 minutes by default,
+      # and anything since the last fold dies with the VM.
+      #
+      # `Connectix.Drain` flushes on a graceful shutdown, which covers the
+      # release. It does NOT cover dev: `mix phx.server` does not turn SIGTERM
+      # into an OTP shutdown, so no `terminate/2` runs and `docker compose
+      # restart` simply kills the node. These thresholds are what actually
+      # protects a developer's data — at most 10 writes or 5 seconds of it.
+      # Cheap here because this is a low-write store; the tables holding real
+      # volume are DuckDB's, not Mnesia's.
+      Application.put_env(:mnesia, :dump_log_write_threshold, 10)
+      Application.put_env(:mnesia, :dump_log_time_threshold, :timer.seconds(5))
     end
   end
 

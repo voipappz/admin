@@ -67,6 +67,7 @@ defmodule Connectix.Voice.SipCallBridge do
        pipeline_opts: Keyword.take(opts, [:greeting, :turns]),
        task: nil,
        sip_src: nil,
+       frames_in: 0,
        out: <<>>,
        timer: nil,
        next_tick: nil,
@@ -110,7 +111,18 @@ defmodule Connectix.Voice.SipCallBridge do
     }
 
     PipelineTask.queue_frame(task, frame, :downstream)
-    {:noreply, state}
+    Connectix.Telemetry.call_audio(:in)
+
+    # Deepgram closes an idle socket after about ten seconds, so "no
+    # transcription" has two very different causes that look identical from the
+    # outside: the caller said nothing, or their audio never reached us at all.
+    # Saying so once, on the first frame, separates them without narrating
+    # every one of the fifty that arrive each second.
+    if state.frames_in == 0 do
+      Logger.info("[call] inbound audio reaching the bot (#{byte_size(payload)} bytes/frame)")
+    end
+
+    {:noreply, %{state | frames_in: state.frames_in + 1}}
   end
 
   # Audio before the pipeline exists (ringing, or a failed start) has nowhere
@@ -132,7 +144,13 @@ defmodule Connectix.Voice.SipCallBridge do
     {frame, out} = Alaw.pop_frame(state.out)
     payload = frame || Alaw.silence_frame()
 
-    if state.sip_src, do: send(state.sip_src, {:browser_pcma, payload})
+    if state.sip_src do
+      send(state.sip_src, {:browser_pcma, payload})
+      # Counted whether it carries speech or the silence frame: a caller hearing
+      # nothing while this ticks means the bot produced no audio, which is a
+      # different fault from the frames never leaving.
+      Connectix.Telemetry.call_audio(:out)
+    end
 
     {:noreply, schedule_tick(%{state | out: out})}
   end

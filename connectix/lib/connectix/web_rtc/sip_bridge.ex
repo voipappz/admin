@@ -655,7 +655,26 @@ defmodule Connectix.WebRtc.SipBridge do
 
   # ── PubSub / misc helpers ────────────────────────────────────────────────────
 
-  defp emit(event, payload), do: Phoenix.PubSub.broadcast(@pubsub, @topic, {:webrtc_phone, event, payload})
+  # The one funnel every SIP state change already passed through, so it is also
+  # where a call gets a trail. The PubSub broadcast is live-only — it reaches
+  # the LiveViews that happen to exist at that instant and is then gone, which
+  # is why "why did that call drop" had no answer five minutes later. The
+  # counter says whether calls are failing; the event store says what happened
+  # to one specific call.
+  defp emit(event, payload) do
+    Phoenix.PubSub.broadcast(@pubsub, @topic, {:webrtc_phone, event, payload})
+
+    if event in [:registered, :register_refused, :calling, :ringing, :answered, :ended, :failed] do
+      Connectix.Telemetry.call_sip(event)
+    end
+
+    Connectix.Events.record("sip", %{
+      "label" => "sip.#{event}",
+      "payload" => payload
+    })
+
+    :ok
+  end
 
   defp gen_call_id(domain), do: "#{:rand.uniform(999_999_999)}-#{:rand.uniform(99_999)}@#{domain}"
 

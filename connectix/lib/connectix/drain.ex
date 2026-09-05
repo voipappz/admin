@@ -81,6 +81,29 @@ defmodule Connectix.Drain do
       Process.sleep(delay)
     end
 
+    flush_mnesia()
     :ok
+  end
+
+  # Mnesia writes transactions to `LATEST.LOG` and only folds them into the
+  # per-table `.DCL`/`.DCD` on a dump — which it does on its own schedule, or
+  # at a clean `:mnesia.stop()`. Nothing here performs that stop: the container
+  # is killed, the BEAM goes down, and everything written since the last dump
+  # is gone. That is not a theoretical window. It ate every conversation
+  # created in this session while `users` — dumped earlier by chance — survived,
+  # which made durability look selectively broken and sent the investigation
+  # after a phantom query bug.
+  #
+  # This runs LAST in the drain, after readiness has already flipped false, so
+  # nothing is still being accepted when the log is folded down.
+  defp flush_mnesia do
+    case :mnesia.dump_log() do
+      :dumped -> Logger.info("draining: mnesia log flushed to disc")
+      other -> Logger.warning("draining: mnesia dump_log returned #{inspect(other)}")
+    end
+  rescue
+    error -> Logger.warning("draining: mnesia dump_log failed — #{inspect(error)}")
+  catch
+    :exit, reason -> Logger.warning("draining: mnesia dump_log exited — #{inspect(reason)}")
   end
 end

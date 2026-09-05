@@ -84,6 +84,28 @@ defmodule ConnectixWeb.Telemetry do
         description: "Screen-pop instruction loads by outcome"
       ),
 
+      # A call has four places it can silently stop: RTP never arrives, the
+      # bridge never forwards it, the transcriber drops the socket, or the
+      # voice never comes back. Without these, all four present identically —
+      # as a caller hearing nothing — and the only way to tell them apart was
+      # to attach a console to a live call and guess. Each is a counter so the
+      # question "where did the audio stop" is answerable after the fact.
+      counter("connectix.call.audio.count",
+        event_name: [:connectix, :call, :audio],
+        tags: [:direction],
+        description: "Call audio frames, inbound from SIP and outbound to it"
+      ),
+      counter("connectix.call.stt.count",
+        event_name: [:connectix, :call, :stt],
+        tags: [:event],
+        description: "Speech-to-text lifecycle: connected, closed, transcript"
+      ),
+      counter("connectix.call.sip.count",
+        event_name: [:connectix, :call, :sip],
+        tags: [:event],
+        description: "SIP call lifecycle by outcome"
+      ),
+
       # VM Metrics
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
       summary("vm.total_run_queue_lengths.total"),
@@ -94,7 +116,8 @@ defmodule ConnectixWeb.Telemetry do
 
   def prometheus_metrics do
     Enum.filter(metrics(), fn metric ->
-      match?([:connectix, :screen_pop | _rest], metric.name)
+      match?([:connectix, :screen_pop | _rest], metric.name) or
+        match?([:connectix, :call | _rest], metric.name)
     end)
   end
 

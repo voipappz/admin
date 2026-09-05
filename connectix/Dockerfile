@@ -134,4 +134,13 @@ ENV MIX_ENV="dev"
 
 # deps.get on every boot: the mounted mix.exs is the source of truth and a
 # dependency added on the host must not require rebuilding this image.
-CMD ["sh", "-c", "mix deps.get && mix phx.server"]
+#
+# `exec` is load-bearing, not style. Without it `sh` stays PID 1 and does not
+# forward signals, so `docker compose restart` delivered SIGTERM to the shell
+# and never to the BEAM — which then died by SIGKILL when the grace period
+# expired. No signal meant no OTP shutdown, no `terminate/2`, and so no Mnesia
+# log dump: every conversation written since the last automatic dump was lost
+# on each restart, which is how a durable store came to look like a cache.
+# With `exec` the VM is PID 1, OTP's signal handler runs `init:stop()`, and
+# `Connectix.Drain` gets to flush.
+CMD ["sh", "-c", "mix deps.get && exec mix phx.server"]
