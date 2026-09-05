@@ -35,14 +35,6 @@ defmodule ConnectixWeb.ChatComponents do
       ]}>
         <%= if not @collapsed do %>
           <h3 class="text-lg font-semibold m-0">Tasks & Files</h3>
-          <button
-            phx-click="toggle_sidebar"
-            class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded hover:bg-[var(--color-border-light)] transition-colors flex-shrink-0"
-            type="button"
-            title="Collapse"
-          >
-            <.icon name="hero-chevron-left" class="w-5 h-5" />
-          </button>
         <% else %>
           <button
             phx-click="toggle_sidebar"
@@ -162,14 +154,6 @@ defmodule ConnectixWeb.ChatComponents do
     <div class="flex-1 min-h-0 flex flex-col">
       <div class="flex justify-between items-center px-6 py-4 border-b border-[var(--color-border)]">
         <h3 class="m-0 text-lg">Thread History</h3>
-        <button
-          phx-click="toggle_thread_history"
-          class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded hover:bg-[var(--color-border-light)] transition-colors"
-          type="button"
-          title="Close"
-        >
-          <.icon name="hero-x-mark" class="w-5 h-5" />
-        </button>
       </div>
 
       <div
@@ -349,6 +333,8 @@ defmodule ConnectixWeb.ChatComponents do
 
   attr :is_thread_history_open, :boolean, default: false
   attr :is_phone_open, :boolean, default: true
+  attr :is_rail_open, :boolean, default: false
+  attr :sidebar_active_tab, :string, default: "tasks"
   attr :has_messages, :boolean, default: false
   attr :loading, :boolean, default: false
   attr :streaming_delta, :any
@@ -630,6 +616,18 @@ defmodule ConnectixWeb.ChatComponents do
     <div class="flex flex-col h-screen w-full bg-[var(--color-background)]">
       <header class="flex justify-between items-center px-6 h-[70px] border-b border-[var(--color-border)] bg-[var(--color-background)] flex-shrink-0">
         <div class="flex items-center gap-3">
+            <%!-- Only when the rail is hidden: on a wide screen the rail is
+                 always there and a hamburger would toggle nothing visible. --%>
+            <button
+              id="rail-hamburger"
+              phx-click="toggle_rail"
+              type="button"
+              aria-label="Menu"
+              title="Menu"
+              class="md:hidden p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors"
+            >
+              <.icon name="hero-bars-3" class="w-5 h-5" />
+            </button>
           <.icon name="hero-chat-bubble-left-right" class="w-7 h-7 text-[var(--color-primary)]" />
           <h1 class="text-2xl font-semibold m-0">Connectix</h1>
 
@@ -680,39 +678,6 @@ defmodule ConnectixWeb.ChatComponents do
               <.icon name="hero-bug-ant" class="w-5 h-5" />
             </button>
 
-            <button
-              phx-click="toggle_thread_history"
-              class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors"
-              type="button"
-              title="Thread History"
-            >
-              <.icon name="hero-clock" class="w-5 h-5" />
-            </button>
-
-            <button
-              id="toggle-phone"
-              phx-click="toggle_phone"
-              class={[
-                "p-2 bg-transparent border-none rounded-md hover:bg-[var(--color-border)] transition-colors",
-                if(@is_phone_open,
-                  do: "text-[var(--color-primary)]",
-                  else: "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-                )
-              ]}
-              type="button"
-              title={if @is_phone_open, do: "Hide phone", else: "Show phone"}
-            >
-              <.icon name="hero-phone" class="w-5 h-5" />
-            </button>
-
-            <button
-              phx-click="new_thread"
-              class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors"
-              type="button"
-              title="New Thread"
-            >
-              <.icon name="hero-document-plus" class="w-5 h-5" />
-            </button>
           </div>
 
           <Layouts.theme_toggle />
@@ -753,6 +718,48 @@ defmodule ConnectixWeb.ChatComponents do
       </header>
 
       <div class="flex flex-1 relative overflow-hidden">
+        <%!-- The icon rail: the app's own navigation, always the leftmost
+              thing. Taken from the shape the React portal used (a permanent
+              narrow rail on desktop, a hamburger-opened drawer when there is
+              no room for it) rather than inventing a third pattern. Icon-only
+              by design — a second expandable panel beside it would just
+              duplicate what the columns already show. --%>
+        <nav
+          id="nav-rail"
+          class={[
+            "w-16 flex-shrink-0 flex-col items-center gap-1 py-3",
+            "border-r border-[var(--color-border)] bg-[var(--color-surface)]",
+            if(@is_rail_open, do: "flex", else: "hidden md:flex")
+          ]}
+        >
+          <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl">
+            <.icon name="hero-chat-bubble-left-right" class="w-7 h-7 text-[var(--color-primary)]" />
+          </div>
+
+          <.rail_button
+            event="toggle_thread_history"
+            icon="hero-chat-bubble-oval-left-ellipsis"
+            label="Chats"
+            active={@is_thread_history_open}
+          />
+          <.rail_button
+            event="open_panel"
+            value="tasks"
+            icon="hero-check-circle"
+            label="Tasks"
+            active={not @sidebar_collapsed and @sidebar_active_tab == "tasks"}
+          />
+          <.rail_button
+            event="open_panel"
+            value="files"
+            icon="hero-folder"
+            label="Files"
+            active={not @sidebar_collapsed and @sidebar_active_tab == "files"}
+          />
+          <.rail_button event="toggle_phone" icon="hero-phone" label="Phone" active={@is_phone_open} />
+          <.rail_button event="new_thread" icon="hero-document-plus" label="New thread" active={false} />
+        </nav>
+
         <%!-- Chats on the LEFT, the phone on the RIGHT, the conversation in
               between — the shape of every chat app. Each side collapses on its
               own, so closing the chat list leaves the phone up, and vice versa.
@@ -2158,4 +2165,33 @@ defmodule ConnectixWeb.ChatComponents do
     </div>
     """
   end
+
+  attr :event, :string, required: true
+  attr :icon, :string, required: true
+  attr :label, :string, required: true
+  attr :active, :boolean, required: true
+  attr :value, :string, default: nil
+
+  defp rail_button(assigns) do
+    ~H"""
+    <button
+      phx-click={@event}
+      phx-value-tab={@value}
+      type="button"
+      title={@label}
+      aria-label={@label}
+      class={[
+        "flex h-10 w-10 items-center justify-center rounded-lg border-none transition-colors",
+        if(@active,
+          do: "bg-[var(--color-border)] text-[var(--color-primary)]",
+          else:
+            "bg-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-border)] hover:text-[var(--color-text-primary)]"
+        )
+      ]}
+    >
+      <.icon name={@icon} class="w-5 h-5" />
+    </button>
+    """
+  end
+
 end

@@ -110,6 +110,9 @@ defmodule ConnectixWeb.ChatLive do
      # The phone is the right-hand drawer, open by default and closable on its
      # own — so shutting the chat list leaves the dialpad up, and vice versa.
      |> assign(:is_phone_open, true)
+     # Only meaningful below the `md` breakpoint, where the rail is hidden and
+     # the hamburger reveals it; above it the rail is always shown.
+     |> assign(:is_rail_open, false)
      |> load_conversations()}
   end
 
@@ -303,6 +306,23 @@ defmodule ConnectixWeb.ChatLive do
 
   def handle_event("toggle_phone", _params, socket) do
     {:noreply, assign(socket, :is_phone_open, !socket.assigns.is_phone_open)}
+  end
+
+  def handle_event("toggle_rail", _params, socket) do
+    {:noreply, assign(socket, :is_rail_open, !socket.assigns.is_rail_open)}
+  end
+
+  # Tasks and Files are two rail entries over one panel: opening either shows
+  # the panel on that tab, and clicking the one already showing closes it. That
+  # keeps the rail behaving like navigation — a second click on where you
+  # already are puts the space back.
+  def handle_event("open_panel", %{"tab" => tab}, socket) do
+    showing? = not socket.assigns.sidebar_collapsed and socket.assigns.sidebar_active_tab == tab
+
+    {:noreply,
+     socket
+     |> assign(:sidebar_collapsed, showing?)
+     |> assign(:sidebar_active_tab, tab)}
   end
 
   def handle_event("phone_ice", %{"candidate" => candidate}, socket) do
@@ -1197,6 +1217,8 @@ defmodule ConnectixWeb.ChatLive do
           loading={@loading}
           is_thread_history_open={@is_thread_history_open}
           is_phone_open={@is_phone_open}
+          is_rail_open={@is_rail_open}
+          sidebar_active_tab={@sidebar_active_tab}
           streaming_delta={@streaming_delta}
           agent_status={@agent_status}
           agent_alive?={@agent_alive?}

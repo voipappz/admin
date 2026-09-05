@@ -45,7 +45,8 @@ defmodule ConnectixWeb.ChatLiveSidebarLayoutTest do
     # Gone, not narrowed — and the chat list is untouched by it.
     refute has_element?(view, "#webrtc-phone")
     assert has_element?(view, "#conversation-list")
-    assert has_element?(view, "button#toggle-phone")
+    # The way back is the icon rail, which is always present on a wide viewport.
+    assert has_element?(view, "#nav-rail button[phx-click=toggle_phone]")
   end
 
   test "collapsing Tasks & Files removes the column instead of leaving a rail", %{conn: conn} do

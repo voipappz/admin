@@ -193,6 +193,8 @@ defmodule ConnectixWeb.ChatComponentsTest do
         loading: false,
         is_thread_history_open: false,
         is_phone_open: false,
+        is_rail_open: false,
+        sidebar_active_tab: "tasks",
         streaming_delta: nil,
         agent_status: :idle,
         agent_alive?: true,
