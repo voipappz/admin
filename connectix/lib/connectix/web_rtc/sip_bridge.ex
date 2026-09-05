@@ -48,6 +48,13 @@ defmodule Connectix.WebRtc.SipBridge do
   alias Parrot.Sip.Message
   alias Parrot.Sip.UAC
 
+  # Comfortably inside the 120s `expires` we ask for: re-registering at half
+  # the lifetime keeps both the registrar binding and the NAT pinhole open,
+  # which is what makes the UA reachable between calls rather than only just
+  # after one. Registering once and assuming it holds is why a dial minutes
+  # later kept coming back `not_registered`.
+  @reregister_ms 60_000
+
   @pubsub Connectix.PubSub
   @topic "webrtc_phone"
 
@@ -78,6 +85,10 @@ defmodule Connectix.WebRtc.SipBridge do
     # cannot tear down a new one.
     :invite_timer,
     mode: :browser,
+    # Re-REGISTER timer. The binding we ask for expires in 120s and the NAT
+    # pinhole closes sooner than that, so a UA that registers once is reachable
+    # for two minutes and then quietly is not. See `@reregister_ms`.
+    reg_timer: nil,
     auth_retried: false,
     # Whether the registrar actually accepted us, tracked apart from `status`
     # because `status` is a *call* state that teardown has to reset. Resetting
@@ -191,6 +202,14 @@ defmodule Connectix.WebRtc.SipBridge do
   end
 
   @impl true
+  # Refresh the binding on our own schedule. Cast rather than call `do_register`
+  # directly so it takes the identical path a manual `register/0` does — one
+  # registration flow, not two that can drift.
+  def handle_info(:reregister, s) do
+    if s.registered?, do: GenServer.cast(self(), :register)
+    {:noreply, %{s | reg_timer: nil}}
+  end
+
   def handle_info({:sip_response, msg}, s), do: {:noreply, on_response(msg, s)}
 
   # No final response ever arrived. Without this the panel sits on "Calling…"
@@ -289,6 +308,11 @@ defmodule Connectix.WebRtc.SipBridge do
       err ->
         {:reply, err, fail(s, nil, inspect(err))}
     end
+  end
+
+  defp arm_reregister(s) do
+    if s.reg_timer, do: Process.cancel_timer(s.reg_timer)
+    %{s | reg_timer: Process.send_after(self(), :reregister, @reregister_ms)}
   end
 
   defp arm_invite_timer(call_id),
@@ -468,7 +492,7 @@ defmodule Connectix.WebRtc.SipBridge do
 
   defp dispatch(200, :register, _r, s) do
     emit(:registered, %{})
-    %{s | status: :registered, registered?: true, auth_retried: false}
+    %{s | status: :registered, registered?: true, auth_retried: false} |> arm_reregister()
   end
 
   # A refused REGISTER is not a call failure: there is no call to tear down,
