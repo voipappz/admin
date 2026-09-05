@@ -348,6 +348,7 @@ defmodule ConnectixWeb.ChatComponents do
   end
 
   attr :is_thread_history_open, :boolean, default: false
+  attr :is_phone_open, :boolean, default: true
   attr :has_messages, :boolean, default: false
   attr :loading, :boolean, default: false
   attr :streaming_delta, :any
@@ -689,6 +690,22 @@ defmodule ConnectixWeb.ChatComponents do
             </button>
 
             <button
+              id="toggle-phone"
+              phx-click="toggle_phone"
+              class={[
+                "p-2 bg-transparent border-none rounded-md hover:bg-[var(--color-border)] transition-colors",
+                if(@is_phone_open,
+                  do: "text-[var(--color-primary)]",
+                  else: "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+                )
+              ]}
+              type="button"
+              title={if @is_phone_open, do: "Hide phone", else: "Show phone"}
+            >
+              <.icon name="hero-phone" class="w-5 h-5" />
+            </button>
+
+            <button
               phx-click="new_thread"
               class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors"
               type="button"
@@ -736,26 +753,14 @@ defmodule ConnectixWeb.ChatComponents do
       </header>
 
       <div class="flex flex-1 relative overflow-hidden">
-        <%!-- One left column: the softphone, then the conversation history.
-              The phone lives here and nowhere else — there is no phone bar
-              across the top any more. --%>
+        <%!-- Chats on the LEFT, the phone on the RIGHT, the conversation in
+              between — the shape of every chat app. Each side collapses on its
+              own, so closing the chat list leaves the phone up, and vice versa.
+              Closed means absent: no empty rail is left behind. --%>
         <%= if @is_thread_history_open do %>
-          <%!-- `min-h-0` so the history below can actually claim the leftover
-               height: without it the column floors at its content size and the
-               list collapses to a scroll sliver. --%>
+          <%!-- `min-h-0` so the list can claim the full height: without it the
+               column floors at its content size and collapses to a sliver. --%>
           <div class="w-80 border-r border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0 flex flex-col min-h-0">
-            <.phone_panel
-              status={@phone_status}
-              error={@phone_error}
-              registered?={@phone_registered?}
-              account={@phone_account}
-              number={@phone_number}
-              tab={@phone_tab}
-              conversation_id={@conversation_id}
-              environments={@environments}
-              current_environment={@current_environment}
-            />
-
             <.conversation_history_sidebar
               conversation_list={@streams.conversation_list}
               conversation_id={@conversation_id}
@@ -824,6 +829,22 @@ defmodule ConnectixWeb.ChatComponents do
             />
           <% end %>
         </div>
+
+        <%= if @is_phone_open do %>
+          <div class="w-80 border-l border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0 flex flex-col min-h-0 overflow-y-auto">
+            <.phone_panel
+              status={@phone_status}
+              error={@phone_error}
+              registered?={@phone_registered?}
+              account={@phone_account}
+              number={@phone_number}
+              tab={@phone_tab}
+              conversation_id={@conversation_id}
+              environments={@environments}
+              current_environment={@current_environment}
+            />
+          </div>
+        <% end %>
       </div>
 
       <form

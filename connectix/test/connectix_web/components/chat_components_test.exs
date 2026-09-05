@@ -192,6 +192,7 @@ defmodule ConnectixWeb.ChatComponentsTest do
         input: "",
         loading: false,
         is_thread_history_open: false,
+        is_phone_open: false,
         streaming_delta: nil,
         agent_status: :idle,
         agent_alive?: true,

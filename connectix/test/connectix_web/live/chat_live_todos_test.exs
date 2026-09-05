@@ -201,7 +201,10 @@ defmodule ConnectixWeb.ChatLiveTodosTest do
           assert todo6.content == "Deploy to staging environment for testing"
           assert todo6.status == :pending
 
-          # Verify TODOs appear in rendered HTML
+          # Verify TODOs appear in rendered HTML. Tasks & Files is collapsed on
+          # mount — the chat list owns the left edge now — so open the panel
+          # the TODOs render into before reading the markup.
+          render_click(view, "toggle_sidebar", %{})
           html = render(view)
           assert html =~ "Research project requirements"
           assert html =~ "Design database schema"

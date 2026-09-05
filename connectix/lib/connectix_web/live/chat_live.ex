@@ -79,7 +79,11 @@ defmodule ConnectixWeb.ChatLive do
      |> assign(:timezone, timezone)
      |> assign_filesystem_files()
      |> assign(:handler, :bot)
-     |> assign(:sidebar_collapsed, false)
+     # Collapsed by default: the conversation list and the phone are the left
+     # bar, as in any chat app. Tasks & Files is what the agent is working on
+     # right now — context, not navigation — and left open it claimed the
+     # leftmost, widest column while empty, pushing the actual chats inward.
+     |> assign(:sidebar_collapsed, true)
      |> assign(:sidebar_active_tab, "tasks")
      |> assign(:selected_sub_agent, nil)
      |> assign(:selected_file, nil)
@@ -103,6 +107,9 @@ defmodule ConnectixWeb.ChatLive do
      # to be loaded here rather than only in "toggle_thread_history", or the
      # first paint is an empty history under the dialpad.
      |> assign(:is_thread_history_open, true)
+     # The phone is the right-hand drawer, open by default and closable on its
+     # own — so shutting the chat list leaves the dialpad up, and vice versa.
+     |> assign(:is_phone_open, true)
      |> load_conversations()}
   end
 
@@ -292,6 +299,10 @@ defmodule ConnectixWeb.ChatLive do
             {:noreply, assign(socket, phone_status: :failed, phone_error: dial_error(reason))}
         end
     end
+  end
+
+  def handle_event("toggle_phone", _params, socket) do
+    {:noreply, assign(socket, :is_phone_open, !socket.assigns.is_phone_open)}
   end
 
   def handle_event("phone_ice", %{"candidate" => candidate}, socket) do
@@ -1185,6 +1196,7 @@ defmodule ConnectixWeb.ChatLive do
           input={@input}
           loading={@loading}
           is_thread_history_open={@is_thread_history_open}
+          is_phone_open={@is_phone_open}
           streaming_delta={@streaming_delta}
           agent_status={@agent_status}
           agent_alive?={@agent_alive?}

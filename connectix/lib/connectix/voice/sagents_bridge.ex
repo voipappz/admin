@@ -75,6 +75,7 @@ defmodule Connectix.Voice.SagentsBridge do
   alias LangChain.MessageDelta
   alias Sagents.AgentServer
 
+
   @impl true
   def init(opts) do
     {:ok,
@@ -213,6 +214,15 @@ defmodule Connectix.Voice.SagentsBridge do
     # with the real cause three layers down in a crash report.
     #
     # An agent error should cost a turn, not the call.
+    #
+    # Worth knowing for whoever picks this up: on a phone call the caller also
+    # hears nothing when a turn fails, which is indistinguishable from a dead
+    # line. Speaking a short apology here would be the right behaviour, but the
+    # obvious implementation — pushing Start/LLMText/End from this callback —
+    # produced no audio in testing, while the identical frames injected at the
+    # head of the pipeline did. Something about emitting a turn from inside the
+    # processor differs from relaying one, and it was not worth guessing at
+    # further. Left undone deliberately rather than left half-working.
     {:push, %Feline.Frames.All.ErrorFrame{error: describe(reason), fatal: false}, :downstream,
      state}
   end
