@@ -121,6 +121,7 @@ defmodule ConnectixWeb.ChatLive do
 
   defp dial_error(:bridge_busy), do: "the browser phone is already on this line — hang up first"
   defp dial_error(:sip_not_configured), do: "no SIP account configured"
+  defp dial_error(:not_registered), do: "not registered with the SIP server — check the account"
   defp dial_error(reason), do: inspect(reason)
 
   @impl true

@@ -79,6 +79,13 @@ defmodule Connectix.WebRtc.SipBridge do
     :invite_timer,
     mode: :browser,
     auth_retried: false,
+    # Whether the registrar actually accepted us, tracked apart from `status`
+    # because `status` is a *call* state that teardown has to reset. Resetting
+    # it to `:registered` used to assert a registration that may never have
+    # happened: a REGISTER answered `403 Forbidden` still ended up reported as
+    # registered, and the first visible symptom was a baffling `404` on the
+    # next INVITE rather than "this account is not registered".
+    registered?: false,
     status: :idle,
     cseq: 1
   ]
@@ -138,6 +145,14 @@ defmodule Connectix.WebRtc.SipBridge do
       nil ->
         emit(:failed, %{code: nil, reason: "SIP not configured"})
         {:reply, {:error, :sip_not_configured}, s}
+
+      _creds when not s.registered? ->
+        # Dialing unregistered does not fail honestly: the registrar answers
+        # the INVITE `404 Not Found` because it does not know the caller, which
+        # reads as "that number does not exist" rather than "this account is
+        # not registered". Refuse here so the reason survives to the UI.
+        emit(:failed, %{code: nil, reason: "not registered"})
+        {:reply, {:error, :not_registered}, s}
 
       creds ->
         s = merge_credentials(s, creds)
@@ -307,7 +322,7 @@ defmodule Connectix.WebRtc.SipBridge do
         bridge_pid: nil,
         mode: :browser,
         auth_retried: false,
-        status: :registered
+        status: if(s.registered?, do: :registered, else: :idle)
     }
   end
 
@@ -453,7 +468,15 @@ defmodule Connectix.WebRtc.SipBridge do
 
   defp dispatch(200, :register, _r, s) do
     emit(:registered, %{})
-    %{s | status: :registered, auth_retried: false}
+    %{s | status: :registered, registered?: true, auth_retried: false}
+  end
+
+  # A refused REGISTER is not a call failure: there is no call to tear down,
+  # and routing it through `fail/3` (which calls `reset_call/2`) is exactly
+  # what used to overwrite the refusal with `status: :registered`.
+  defp dispatch(code, :register, r, s) when code >= 400 do
+    emit(:failed, %{code: code, reason: r.reason_phrase})
+    %{s | status: :idle, registered?: false, auth_retried: false}
   end
 
   defp dispatch(200, :invite, r, s) do
