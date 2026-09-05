@@ -648,17 +648,6 @@ defmodule ConnectixWeb.ChatComponents do
 
         <div class="flex items-center gap-4">
           <div class="flex items-center gap-2">
-            <%!-- The Tasks & Files column is fully removed when collapsed, so
-                 its only way back is here. --%>
-            <button
-              :if={@sidebar_collapsed}
-              phx-click="toggle_sidebar"
-              class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors"
-              type="button"
-              title="Show Tasks & Files"
-            >
-              <.icon name="hero-view-columns" class="w-5 h-5" />
-            </button>
 
             <button
               phx-click="toggle_debug_mode"
@@ -718,47 +707,6 @@ defmodule ConnectixWeb.ChatComponents do
       </header>
 
       <div class="flex flex-1 relative overflow-hidden">
-        <%!-- The icon rail: the app's own navigation, always the leftmost
-              thing. Taken from the shape the React portal used (a permanent
-              narrow rail on desktop, a hamburger-opened drawer when there is
-              no room for it) rather than inventing a third pattern. Icon-only
-              by design — a second expandable panel beside it would just
-              duplicate what the columns already show. --%>
-        <nav
-          id="nav-rail"
-          class={[
-            "w-16 flex-shrink-0 flex-col items-center gap-1 py-3",
-            "border-r border-[var(--color-border)] bg-[var(--color-surface)]",
-            if(@is_rail_open, do: "flex", else: "hidden md:flex")
-          ]}
-        >
-          <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl">
-            <.icon name="hero-chat-bubble-left-right" class="w-7 h-7 text-[var(--color-primary)]" />
-          </div>
-
-          <.rail_button
-            event="toggle_thread_history"
-            icon="hero-chat-bubble-oval-left-ellipsis"
-            label="Chats"
-            active={@is_thread_history_open}
-          />
-          <.rail_button
-            event="open_panel"
-            value="tasks"
-            icon="hero-check-circle"
-            label="Tasks"
-            active={not @sidebar_collapsed and @sidebar_active_tab == "tasks"}
-          />
-          <.rail_button
-            event="open_panel"
-            value="files"
-            icon="hero-folder"
-            label="Files"
-            active={not @sidebar_collapsed and @sidebar_active_tab == "files"}
-          />
-          <.rail_button event="toggle_phone" icon="hero-phone" label="Phone" active={@is_phone_open} />
-          <.rail_button event="new_thread" icon="hero-document-plus" label="New thread" active={false} />
-        </nav>
 
         <%!-- Chats on the LEFT, the phone on the RIGHT, the conversation in
               between — the shape of every chat app. Each side collapses on its
@@ -2163,6 +2111,68 @@ defmodule ConnectixWeb.ChatComponents do
         {render_markdown(@text, @streaming)}
       </div>
     </div>
+    """
+  end
+
+  attr :is_rail_open, :boolean, required: true
+  attr :is_thread_history_open, :boolean, required: true
+  attr :is_phone_open, :boolean, required: true
+  attr :sidebar_collapsed, :boolean, required: true
+  attr :sidebar_active_tab, :string, required: true
+
+  @doc """
+  The app's navigation: a narrow permanent icon rail, the leftmost thing on
+  screen, collapsing to a hamburger-opened panel when the viewport is too
+  narrow to keep it.
+
+  Rendered by `ConnectixWeb.ChatLive` ahead of every column rather than from
+  inside `chat_interface/1`, because the Tasks & Files panel is a sibling of
+  that component — nesting the rail inside it put navigation to the *right* of
+  a panel it controls.
+  """
+  def nav_rail(assigns) do
+    ~H"""
+    <%!-- The icon rail: the app's own navigation, always the leftmost
+          thing. Taken from the shape the React portal used (a permanent
+          narrow rail on desktop, a hamburger-opened drawer when there is
+          no room for it) rather than inventing a third pattern. Icon-only
+          by design — a second expandable panel beside it would just
+          duplicate what the columns already show. --%>
+    <nav
+      id="nav-rail"
+      class={[
+        "w-16 flex-shrink-0 flex-col items-center gap-1 py-3",
+        "border-r border-[var(--color-border)] bg-[var(--color-surface)]",
+        if(@is_rail_open, do: "flex", else: "hidden md:flex")
+      ]}
+    >
+      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl">
+        <.icon name="hero-chat-bubble-left-right" class="w-7 h-7 text-[var(--color-primary)]" />
+      </div>
+
+      <.rail_button
+        event="toggle_thread_history"
+        icon="hero-chat-bubble-oval-left-ellipsis"
+        label="Chats"
+        active={@is_thread_history_open}
+      />
+      <.rail_button
+        event="open_panel"
+        value="tasks"
+        icon="hero-check-circle"
+        label="Tasks"
+        active={not @sidebar_collapsed and @sidebar_active_tab == "tasks"}
+      />
+      <.rail_button
+        event="open_panel"
+        value="files"
+        icon="hero-folder"
+        label="Files"
+        active={not @sidebar_collapsed and @sidebar_active_tab == "files"}
+      />
+      <.rail_button event="toggle_phone" icon="hero-phone" label="Phone" active={@is_phone_open} />
+      <.rail_button event="new_thread" icon="hero-document-plus" label="New thread" active={false} />
+    </nav>
     """
   end
 

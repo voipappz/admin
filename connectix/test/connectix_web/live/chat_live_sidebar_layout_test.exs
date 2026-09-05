@@ -54,15 +54,16 @@ defmodule ConnectixWeb.ChatLiveSidebarLayoutTest do
 
     # Tasks & Files is collapsed on mount now — the chats own the left edge —
     # so open it before checking that closing it removes the column.
-    render_click(view, "toggle_sidebar", %{})
+    render_click(view, "open_panel", %{"tab" => "tasks"})
     assert has_element?(view, "aside")
 
-    render_click(view, "toggle_sidebar", %{})
+    render_click(view, "open_panel", %{"tab" => "tasks"})
 
     # Not merely narrowed to a 60px chevron strip — absent.
     refute has_element?(view, "aside")
-    # ...and the only way back is the header control, so it has to be there.
-    assert has_element?(view, "button[phx-click=toggle_sidebar][title='Show Tasks & Files']")
+    # ...and the way back is the icon rail, which owns Tasks and Files now.
+    assert has_element?(view, "#nav-rail button[phx-value-tab=tasks]")
+    assert has_element?(view, "#nav-rail button[phx-value-tab=files]")
 
     # The phone survives the collapse — it is a different column entirely.
     assert has_element?(view, "#webrtc-phone")

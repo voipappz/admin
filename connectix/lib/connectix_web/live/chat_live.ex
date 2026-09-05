@@ -1196,6 +1196,16 @@ defmodule ConnectixWeb.ChatLive do
   def render(assigns) do
     ~H"""
     <div class="flex h-screen w-screen bg-[var(--color-surface)] overflow-hidden">
+      <%!-- Navigation first, always: the rail is the leftmost thing on screen,
+           ahead of every column it controls. --%>
+      <.nav_rail
+        is_rail_open={@is_rail_open}
+        is_thread_history_open={@is_thread_history_open}
+        is_phone_open={@is_phone_open}
+        sidebar_collapsed={@sidebar_collapsed}
+        sidebar_active_tab={@sidebar_active_tab}
+      />
+
       <%!-- Collapsed means gone, not a 60px empty rail: an always-present
            column with nothing in it pushed the phone card out of the leftmost
            position and squeezed the conversation. The way back in is a button

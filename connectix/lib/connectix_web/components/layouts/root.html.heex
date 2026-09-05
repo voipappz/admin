@@ -32,7 +32,13 @@
         }
         window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
 
-        window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
+        // `closest`, not `e.target` directly: the click lands on the <span>
+        // icon inside the button, which carries no data-phx-theme, so reading
+        // the target gave undefined and the toggle silently did nothing.
+        window.addEventListener("phx:set-theme", (e) => {
+          const el = e.target.closest && e.target.closest("[data-phx-theme]");
+          if (el) setTheme(el.dataset.phxTheme);
+        });
       })();
     </script>
   </head>
