@@ -60,8 +60,29 @@ defmodule Connectix.Portal.Store do
     )
 
     seed_default()
-    Logger.info("portal store: Mnesia ready (dir=#{:mnesia.system_info(:directory)})")
+    log_storage()
     {:ok, %{}}
+  end
+
+  # Say which of the two it actually is. The old line printed
+  # `Mnesia ready (dir=…)` unconditionally, and the directory it named is
+  # Mnesia's *default* (cwd + `Mnesia.<node>`) rather than a configured one —
+  # so a RAM-only node announced a path containing nothing but `schema.DAT`
+  # and logs, with no `.DCD`/`.DCL` table files behind it. It read as
+  # "persisted here", and cost real time when conversations kept vanishing:
+  # the store had been destroyed by a restart, while the boot line said the
+  # database was ready. Storage type is the fact worth printing.
+  defp log_storage do
+    case :mnesia.table_info(@dashboards, :disc_copies) do
+      [] ->
+        Logger.warning(
+          "portal store: Mnesia is RAM-ONLY — every conversation, message and bot is " <>
+            "lost on restart. Set MNESIA_DIR to a mounted path to persist."
+        )
+
+      _discs ->
+        Logger.info("portal store: Mnesia persisting to #{:mnesia.system_info(:directory)}")
+    end
   end
 
   # ── Dashboards ─────────────────────────────────────────────────────────────
