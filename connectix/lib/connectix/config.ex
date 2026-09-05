@@ -504,6 +504,12 @@ defmodule Connectix.Config do
     |> Enum.uniq()
   end
 
+  @doc """
+  Whether this was compiled for the test suite. Read at compile time — `Mix`
+  does not exist in a release, so a runtime `Mix.env/0` crashes in production.
+  """
+  def test?, do: @compiled_env == :test
+
   defp default_data_dir do
     case @compiled_env do
       :test ->

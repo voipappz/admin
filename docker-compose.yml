@@ -92,6 +92,22 @@ services:
       VA_INFLUXDB_PORT: ${VA_INFLUXDB_PORT:-}
       VA_INFLUXDB_DATABASE: ${VA_INFLUXDB_DATABASE:-}
       VA_MONITOR_TOKEN: ${VA_MONITOR_TOKEN:-}
+      # Makes Mnesia a database rather than a cache. `Connectix.Mnesia.persist?/0`
+      # counts ONLY an explicit MNESIA_DIR — defaulting a path would blur
+      # "configured to persist" with "happens to have somewhere to write", so
+      # unset means `ram_copies` and every conversation, message, bot and user
+      # dies with the container. That is what was happening: 13 restarts, and
+      # each one silently emptied the store while the boot log announced a
+      # directory it was not using.
+      #
+      # Under the `./connectix:/app` bind mount below, so it lands in
+      # `connectix/user_files/mnesia` on the host and outlives `docker compose
+      # up --force-recreate`. `user_files/` is already gitignored.
+      #
+      # The test suite is unaffected: it runs unnamed (`nonode@nohost`), and
+      # `storage_type/0` forces `ram_copies` for an unnamed node regardless of
+      # this variable, so tests never touch this schema.
+      MNESIA_DIR: ${MNESIA_DIR:-/app/user_files/mnesia}
     volumes:
       - ./connectix:/app
       # Named, so a recreate does not throw away a full compile — and so the

@@ -221,7 +221,14 @@ defmodule Connectix.Mnesia do
   # counts: `Config.mnesia_dir/0` always returns a path (it defaults under the
   # data dir), so asking it cannot distinguish "configured" from "defaulted" —
   # and that difference is exactly what decides between a database and a cache.
-  defp persist?, do: Connectix.Config.env("MNESIA_DIR") != nil
+  # The test clause is not a nicety. `MNESIA_DIR` is set on the container, so
+  # `MIX_ENV=test` in that same container would otherwise adopt the SAME disc
+  # schema the dev server is using — and the suite's own setup calls
+  # `reset_domain_for_test!/0`, which clears conversations, users and the id
+  # sequence. Running the tests would silently destroy the developer's data,
+  # and did: conversations vanished and duplicate operator users accumulated
+  # while a test run happened to be in flight. Tests always get RAM-only.
+  defp persist?, do: Connectix.Config.env("MNESIA_DIR") != nil and not Connectix.Config.test?()
 
   defp storage_type do
     cond do
