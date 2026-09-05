@@ -86,7 +86,6 @@ defmodule ConnectixWeb.ChatLive do
      |> assign(:selected_file_path, nil)
      |> assign(:selected_file_content, nil)
      |> assign(:file_view_mode, :rendered)
-     |> assign(:is_thread_history_open, false)
      |> assign(:conversations_loaded, 0)
      |> assign(:has_more_conversations, true)
      |> assign(:has_conversations, false)
@@ -95,7 +94,28 @@ defmodule ConnectixWeb.ChatLive do
      |> assign(:environments, environments)
      |> assign(:current_environment, current_environment)
      |> assign(:phone_status, phone_status())
-     |> assign(:phone_error, nil)}
+     |> assign(:phone_registered?, phone_registered?())
+     |> assign(:phone_account, Connectix.Config.sip_credentials())
+     |> assign(:phone_number, "")
+     |> assign(:phone_tab, "dialpad")
+     |> assign(:phone_error, nil)
+     # The sidebar holds the phone, so it opens by default — and the list has
+     # to be loaded here rather than only in "toggle_thread_history", or the
+     # first paint is an empty history under the dialpad.
+     |> assign(:is_thread_history_open, true)
+     |> load_conversations()}
+  end
+
+  # Shared by mount and the sidebar toggle so the two can't drift apart.
+  defp load_conversations(socket) do
+    conversations = Conversations.list_conversations(socket.assigns.current_scope, limit: 20, offset: 0)
+    loaded_count = length(conversations)
+
+    socket
+    |> stream(:conversation_list, conversations, reset: true)
+    |> assign(:conversations_loaded, loaded_count)
+    |> assign(:has_more_conversations, loaded_count == 20)
+    |> assign(:has_conversations, loaded_count > 0)
   end
 
   # Read the live UA state rather than assuming `:idle`. The panel is driven by
@@ -118,6 +138,20 @@ defmodule ConnectixWeb.ChatLive do
   # ready to dial, which the panel calls idle.
   defp panel_status(status) when status in [:calling, :ringing, :in_call, :failed], do: status
   defp panel_status(_registered_or_idle), do: :idle
+
+  # Distinct from `status` on purpose: a refused REGISTER used to report itself
+  # as registered, so the dot has to read the field the registrar actually
+  # decided. See Connectix.WebRtc.SipBridge.
+  defp phone_registered? do
+    case Connectix.WebRtc.SipBridge.get_state() do
+      %{registered?: registered?} -> registered?
+      _ -> false
+    end
+  rescue
+    _ -> false
+  catch
+    :exit, _ -> false
+  end
 
   defp dial_error(:bridge_busy), do: "the browser phone is already on this line — hang up first"
   defp dial_error(:sip_not_configured), do: "no SIP account configured"
@@ -274,6 +308,31 @@ defmodule ConnectixWeb.ChatLive do
     {:noreply, socket |> assign(phone_status: :idle, phone_error: nil) |> push_event("webrtc_hangup", %{})}
   end
 
+  # The keypad and the text field edit the same buffer, so a number can be
+  # tapped, typed, or pasted interchangeably. The field stays a real input
+  # named `dial_uri` because the WebRtcPhone hook reads its DOM value when it
+  # builds the offer (assets/js/app.js).
+  def handle_event("phone_key", %{"key" => key}, socket) do
+    {:noreply, assign(socket, :phone_number, socket.assigns.phone_number <> key)}
+  end
+
+  def handle_event("phone_backspace", _params, socket) do
+    {:noreply, assign(socket, :phone_number, String.slice(socket.assigns.phone_number, 0..-2//1))}
+  end
+
+  def handle_event("phone_number_changed", %{"dial_uri" => number}, socket) do
+    {:noreply, assign(socket, :phone_number, number)}
+  end
+
+  def handle_event("phone_tab", %{"tab" => tab}, socket) do
+    {:noreply, assign(socket, :phone_tab, tab)}
+  end
+
+  def handle_event("phone_register", _params, socket) do
+    Connectix.WebRtc.SipBridge.register()
+    {:noreply, assign(socket, :phone_error, nil)}
+  end
+
   @impl true
   def handle_event("cancel_agent", _params, socket) do
     Logger.info("User requested to cancel agent execution")
@@ -331,17 +390,9 @@ defmodule ConnectixWeb.ChatLive do
     socket =
       if is_opening do
         # When opening, reset and reload the stream to ensure items render
-        scope = socket.assigns.current_scope
-        conversations = Conversations.list_conversations(scope, limit: 20, offset: 0)
-
-        loaded_count = length(conversations)
-
         socket
         |> assign(:is_thread_history_open, true)
-        |> stream(:conversation_list, conversations, reset: true)
-        |> assign(:conversations_loaded, loaded_count)
-        |> assign(:has_more_conversations, loaded_count == 20)
-        |> assign(:has_conversations, loaded_count > 0)
+        |> load_conversations()
       else
         assign(socket, :is_thread_history_open, false)
       end
@@ -754,12 +805,24 @@ defmodule ConnectixWeb.ChatLive do
     {:noreply, assign(socket, :phone_status, :in_call)}
   end
 
+  def handle_info({:webrtc_phone, :registered, _payload}, socket) do
+    {:noreply, assign(socket, phone_registered?: true, phone_error: nil)}
+  end
+
   def handle_info({:webrtc_phone, :failed, %{code: code, reason: reason}}, socket) do
-    {:noreply, assign(socket, phone_status: :failed, phone_error: "#{code} #{reason}")}
+    # A refused REGISTER arrives here too, and it is the one case where the
+    # dot has to go grey: the account is not usable until that is fixed.
+    {:noreply,
+     socket
+     |> assign(phone_status: :failed, phone_error: String.trim("#{code} #{reason}"))
+     |> assign(:phone_registered?, phone_registered?())}
   end
 
   def handle_info({:webrtc_phone, :idle, _payload}, socket) do
-    {:noreply, assign(socket, phone_status: :idle, phone_error: nil)}
+    {:noreply,
+     socket
+     |> assign(phone_status: :idle, phone_error: nil)
+     |> assign(:phone_registered?, phone_registered?())}
   end
 
   def handle_info({:webrtc_phone, _event, _payload}, socket), do: {:noreply, socket}
@@ -1102,11 +1165,15 @@ defmodule ConnectixWeb.ChatLive do
   def render(assigns) do
     ~H"""
     <div class="flex h-screen w-screen bg-[var(--color-surface)] overflow-hidden">
-      <div class="flex-shrink-0">
+      <%!-- Collapsed means gone, not a 60px empty rail: an always-present
+           column with nothing in it pushed the phone card out of the leftmost
+           position and squeezed the conversation. The way back in is a button
+           in the chat header. --%>
+      <div :if={!@sidebar_collapsed} class="flex-shrink-0">
         <.tasks_files_sidebar
           todos={@todos}
           files={@files}
-          collapsed={@sidebar_collapsed}
+          collapsed={false}
           active_tab={@sidebar_active_tab}
         />
       </div>
@@ -1134,6 +1201,11 @@ defmodule ConnectixWeb.ChatLive do
           current_environment={@current_environment}
           phone_status={@phone_status}
           phone_error={@phone_error}
+          phone_registered?={@phone_registered?}
+          phone_account={@phone_account}
+          phone_number={@phone_number}
+          phone_tab={@phone_tab}
+          sidebar_collapsed={@sidebar_collapsed}
         />
       </div>
 

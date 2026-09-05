@@ -40,6 +40,71 @@ jobs:
       - run: mix compile --warnings-as-errors
       - run: mix test
 
+  # Many-at-once concurrency checks, tagged `:stress` and excluded from the
+  # default run — `mix test` stays the fast gate, this is the slow one. Split
+  # into its own job so a loaded runner cannot fail the suite everyone waits on.
+  stress:
+    name: Stress (concurrency)
+    runs-on: ubuntu-24.04
+    env:
+      MIX_ENV: test
+    defaults:
+      run:
+        working-directory: connectix
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19.5"
+          otp-version: "27.3.4"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            connectix/deps
+            connectix/_build
+          key: mix-${{ runner.os }}-${{ hashFiles('connectix/mix.lock') }}
+          restore-keys: mix-${{ runner.os }}-
+      - run: mix deps.get
+      - run: mix test --only stress
+
+  # Browser end-to-end, the replacement for the Playwright suite that left with
+  # the SPA. Wallaby drives a real Chrome over chromedriver — an Elixir
+  # dependency, so no Node comes back into this repo.
+  browser:
+    name: Browser E2E (Wallaby)
+    runs-on: ubuntu-24.04
+    env:
+      MIX_ENV: test
+      # Flips the endpoint to `server: true` in config/test.exs. Without it
+      # nothing is listening and every browser test fails to connect.
+      WALLABY: "1"
+    defaults:
+      run:
+        working-directory: connectix
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19.5"
+          otp-version: "27.3.4"
+      # Debian/Ubuntu's packaged pair, so the driver matches the browser —
+      # which a separately-downloaded chromedriver does not guarantee.
+      - name: Install Chromium and chromedriver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends chromium-browser chromium-chromedriver \
+            || sudo apt-get install -y --no-install-recommends chromium chromium-driver
+          chromedriver --version
+      - uses: actions/cache@v4
+        with:
+          path: |
+            connectix/deps
+            connectix/_build
+          key: mix-${{ runner.os }}-${{ hashFiles('connectix/mix.lock') }}
+          restore-keys: mix-${{ runner.os }}-
+      - run: mix deps.get
+      - run: mix test --only wallaby
+
   # The exact artifact Kamal deploys: the Phoenix release alone — pure BEAM,
   # no Vite build, no Node anywhere in this image.
   prod-image:

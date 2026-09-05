@@ -148,10 +148,24 @@ const Hooks = {
 
       this.el.addEventListener("webrtc:start-call", () => this.startCall())
       this.el.addEventListener("webrtc:hangup", () => this.teardown())
+
+      // Voice with the agent. Deliberately a hook handler rather than a link:
+      // the target is a single screen, so when the pipecat client moves into
+      // this page it replaces the body of this function and nothing about the
+      // card has to change.
+      this.el.addEventListener("phone:talk", () => this.startVoice())
     },
 
     destroyed() {
       this.teardown()
+    },
+
+    // Temporary: opens the vendored pipecat client. The next pass runs that
+    // client here instead, so this stays a no-navigation control.
+    startVoice() {
+      const trigger = this.el.querySelector("[data-voice-url]")
+      const url = trigger && trigger.dataset.voiceUrl
+      if (url) window.open(url, "_blank", "noopener")
     },
 
     async startCall() {

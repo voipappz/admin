@@ -234,7 +234,7 @@ probe: ## [AUTH=<localStorage.auth>] Probe /ws/events with a real session
 # The whole workflow, or one job. `cable-events` is where the real chain runs —
 # it needs a private va-crystal image, which is why it is a CI job and not a
 # make target.
-ci: ## [JOB=portal|cable-events|all] Run CI locally with act
+ci: ## [JOB=portal|stress|browser|prod-image|all] Run CI locally with act
 	ACT_BIN="$(ACT)" ACT_RUNNER_IMAGE="$(ACT_PLATFORM)" scripts/ci-local.sh $(or $(JOB),all)
 
 ##@ Deploy — kamal, from the mothership policy

@@ -124,6 +124,11 @@ defmodule Connectix.MixProject do
       {:mdex, "~> 0.13"},
       {:lumis, "~> 0.1"},
       {:tidewave, "~> 0.5", only: :dev},
+      # Browser E2E. The Playwright suite went with the React SPA, and this is
+      # the pure-BEAM replacement: Wallaby drives a real Chrome over
+      # chromedriver with no Node in the picture. Tagged `:wallaby` and
+      # excluded from the default run — see test/support/wallaby_case.ex.
+      {:wallaby, "~> 0.31", only: :test, runtime: false},
       # Bare-metal deploy over SSH (systemd + Caddy), an Elixir port of Kamal.
       # No Docker in the deploy path — see config/xamal.exs.
       {:xamal, "~> 0.4", only: :dev, runtime: false},

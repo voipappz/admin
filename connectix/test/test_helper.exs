@@ -24,7 +24,22 @@ Mimic.copy(Connectix.Turns)
 # can present an already-verified identity instead of standing up a broker.
 Mimic.copy(Connectix.Realtime.TokenAuth)
 
-ExUnit.start(exclude: [:web_tool, :live_call], capture_log: true)
+# `:stress` runs many-at-once concurrency checks and `:wallaby` drives a real
+# browser. Both are slower than the rest and fail on a loaded machine for
+# reasons that are not the code's fault, so neither blocks the default run:
+#
+#     mix test --only stress
+#     mix test --only wallaby   # needs chromedriver; see WallabyCase
+ExUnit.start(exclude: [:web_tool, :live_call, :stress, :wallaby], capture_log: true)
+
+# Wallaby is `runtime: false`, so nothing starts it implicitly — and starting
+# it unconditionally would spawn chromedrivers for a suite that never opens a
+# browser. WALLABY=1 is the same flag that flips the endpoint to `server: true`
+# in config/test.exs, so the two cannot drift apart.
+if System.get_env("WALLABY") == "1" do
+  {:ok, _} = Application.ensure_all_started(:wallaby)
+  Application.put_env(:wallaby, :base_url, ConnectixWeb.Endpoint.url())
+end
 # ExUnit.start(exclude: [:web_tool], capture_log: false)
 
 # Clean up test filesystem after entire test suite completes

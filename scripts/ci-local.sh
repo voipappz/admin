@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Run the GitHub Actions workflow locally with nektos/act.
 #
-#   scripts/ci-local.sh portal # Elixir portal job
-#   scripts/ci-local.sh all    # complete workflow
-#   scripts/ci-local.sh -l     # list jobs
+#   scripts/ci-local.sh portal     # compile + the default test suite
+#   scripts/ci-local.sh stress     # the :stress-tagged concurrency checks
+#   scripts/ci-local.sh browser    # Wallaby E2E (real Chrome, no Node)
+#   scripts/ci-local.sh prod-image # build the release image and probe it
+#   scripts/ci-local.sh all        # complete workflow
+#   scripts/ci-local.sh -l         # list jobs
 set -euo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

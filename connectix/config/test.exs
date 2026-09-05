@@ -3,12 +3,31 @@ import Config
 # Only in tests, remove the complexity from the password hashing algorithm
 config :bcrypt_elixir, :log_rounds, 1
 
-# We don't run a server during test. If one is required,
-# you can enable the server option below.
+# The server runs only for Wallaby, which drives a real browser and therefore
+# needs something listening. `mix test` sets no such flag, so the ordinary
+# suite still runs serverless and fast; `mix test --only wallaby` is expected
+# to be invoked with WALLABY=1 (see test/support/wallaby_case.ex).
 config :connectix, ConnectixWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "1ucpgggKD06EdyuAUcqtPYRrzXO4o+RZ8J+S/n9nfFo12rKiJW1nH06RIzmi8BQj",
-  server: false
+  server: System.get_env("WALLABY") == "1"
+
+# Chromedriver, headless. `readiness_timeout` is generous because a cold
+# container starts chromedriver and Chrome for the first request.
+config :wallaby,
+  otp_app: :connectix,
+  driver: Wallaby.Chrome,
+  screenshot_on_failure: true,
+  chromedriver: [
+    headless: true,
+    # --no-sandbox: Chrome cannot use its sandbox as root inside a container,
+    # and every CI runner and this dev image run as root.
+    capabilities: %{
+      chromeOptions: %{
+        args: ~w(--no-sandbox --disable-dev-shm-usage --disable-gpu --headless=new --window-size=1400,900)
+      }
+    }
+  ]
 
 # In test we don't send emails
 config :connectix, Connectix.Mailer, adapter: Swoosh.Adapters.Test

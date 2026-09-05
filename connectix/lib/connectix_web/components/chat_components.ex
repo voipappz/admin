@@ -154,10 +154,12 @@ defmodule ConnectixWeb.ChatComponents do
   attr :has_more, :boolean, default: false
   attr :has_conversations, :boolean, default: false
 
-  # Component: Conversation History Sidebar
+  # Component: Conversation History Sidebar. Width and the right-hand border
+  # belong to the sidebar column that also holds the phone card, not to this
+  # component — it just fills whatever is left below the phone.
   def conversation_history_sidebar(assigns) do
     ~H"""
-    <div class="w-80 border-r border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0 flex flex-col">
+    <div class="flex-1 min-h-0 flex flex-col">
       <div class="flex justify-between items-center px-6 py-4 border-b border-[var(--color-border)]">
         <h3 class="m-0 text-lg">Thread History</h3>
         <button
@@ -368,80 +370,251 @@ defmodule ConnectixWeb.ChatComponents do
   attr :phone_error, :string, default: nil
 
   @doc """
-  The WebRTC<->SIP phone bar — lives directly under the chat header, on the
-  same screen as the conversation, not a separate page (see
+  The WebRTC<->SIP softphone — a card at the top of the left sidebar, on the
+  same screen as the conversation rather than a separate page (see
   `Connectix.WebRtc.Peer`/`SipBridge` for the two legs it bridges, and the
   `WebRtcPhone` hook in assets/js/app.js for the browser side). Signaling
   rides the chat LiveView's own socket; only the eventual audio never touches
   it (raw WebRTC media, browser<->BEAM).
+
+  The dialled number lives in `@number` rather than in the DOM, so the keypad
+  and the text field edit one buffer — but it is still rendered as an input
+  named `dial_uri`, because the hook reads that element's value when it builds
+  the offer.
   """
   attr :status, :atom, default: :idle
   attr :error, :string, default: nil
+  attr :registered?, :boolean, default: false
+  attr :account, :map, default: nil
+  attr :number, :string, default: ""
+  attr :tab, :string, default: "dialpad"
 
   def phone_panel(assigns) do
     ~H"""
     <div
       id="webrtc-phone"
       phx-hook="WebRtcPhone"
-      class="flex items-center gap-3 px-6 py-2 border-b border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0"
+      class="m-3 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] overflow-hidden flex-shrink-0"
     >
-      <.icon name="hero-phone" class="w-5 h-5 text-[var(--color-text-secondary)]" />
+      <%!-- Identity: who the registrar thinks we are, and whether it agreed. --%>
+      <div class="flex items-start gap-3 px-4 pt-3 pb-2">
+        <div class="w-10 h-10 rounded-full bg-[var(--color-border)] text-[var(--color-text-primary)] flex items-center justify-center text-base font-semibold flex-shrink-0">
+          {phone_initial(@account)}
+        </div>
 
-      <span class={[
-        "text-xs font-medium px-2 py-0.5 rounded-full",
-        @status == :idle && "text-[var(--color-text-secondary)]",
-        @status in [:calling, :ringing] && "bg-yellow-100 text-yellow-800",
-        @status in [:connected, :in_call] && "bg-green-100 text-green-800",
-        @status == :failed && "bg-red-100 text-red-800"
-      ]}>
-        {phone_status_label(@status)}
-      </span>
-
-      <form phx-submit="phone_dial_agent" class="contents">
-        <input
-          type="text"
-          name="dial_uri"
-          placeholder="sip:1000@example.com or an extension"
-          disabled={@status != :idle}
-          class="flex-1 max-w-xs text-sm px-3 py-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-background)]"
-        />
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-[var(--color-text-primary)] truncate">
+            {phone_display_name(@account)}
+          </div>
+          <%!-- Wraps rather than truncates: "Not registered • 2safenet…" hides
+               exactly the part you need when a registration is being chased. --%>
+          <div class="flex items-start gap-1.5 mt-0.5">
+            <span class={[
+              "w-2 h-2 rounded-full flex-shrink-0 mt-1",
+              @registered? && "bg-green-500",
+              !@registered? && "bg-[var(--color-text-tertiary)]"
+            ]}>
+            </span>
+            <span
+              class="text-xs text-[var(--color-text-secondary)] break-all leading-snug"
+              title={phone_registration_label(@account, @registered?)}
+            >
+              {phone_registration_label(@account, @registered?)}
+            </span>
+          </div>
+        </div>
 
         <button
-          :if={@status == :idle}
           type="button"
-          phx-click={Phoenix.LiveView.JS.dispatch("webrtc:start-call", to: "#webrtc-phone")}
-          class="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+          phx-click="phone_tab"
+          phx-value-tab={if @tab == "settings", do: "dialpad", else: "settings"}
+          class="p-1.5 rounded-md text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors flex-shrink-0"
+          title="Phone settings"
         >
-          Dial
+          <.icon name="hero-cog-6-tooth" class="w-4 h-4" />
         </button>
+      </div>
 
-        <%!-- Same line, different party on our end: the agent takes the call
-              instead of this browser. See Connectix.Voice.SipCallBridge. --%>
+      <div :if={@tab == "dialpad"} class="px-4 pb-4">
+        <%!-- The form is what lets "Call with bot" submit `dial_uri`; the
+              browser call reads the same input from the DOM instead. --%>
+        <form phx-submit="phone_dial_agent" phx-change="phone_number_changed">
+          <div class="relative">
+            <input
+              type="text"
+              name="dial_uri"
+              value={@number}
+              autocomplete="off"
+              placeholder="Enter number"
+              disabled={@status != :idle}
+              class="w-full text-center text-lg tracking-wide px-10 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] disabled:opacity-60"
+            />
+            <button
+              :if={@number != "" and @status == :idle}
+              type="button"
+              phx-click="phone_backspace"
+              class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors"
+              title="Delete"
+            >
+              <.icon name="hero-backspace" class="w-4 h-4" />
+            </button>
+          </div>
+
+          <div class="grid grid-cols-3 gap-1.5 mt-2">
+            <button
+              :for={key <- ~w(1 2 3 4 5 6 7 8 9 * 0 #)}
+              type="button"
+              phx-click="phone_key"
+              phx-value-key={key}
+              disabled={@status != :idle}
+              class="py-2 rounded-xl text-lg font-light text-[var(--color-text-primary)] bg-[var(--color-background)] border border-[var(--color-border)] hover:bg-[var(--color-border-light)] active:scale-95 transition-all disabled:opacity-40 disabled:pointer-events-none"
+            >
+              {key}
+            </button>
+          </div>
+
+          <%!-- Idle: this browser calls (mic -> WebRTC -> SIP). In a call:
+                the same slot becomes the way out of it. --%>
+          <button
+            :if={@status == :idle}
+            type="button"
+            phx-click={Phoenix.LiveView.JS.dispatch("webrtc:start-call", to: "#webrtc-phone")}
+            class="w-full mt-2 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white transition-colors flex items-center justify-center"
+            title="Call from this browser"
+          >
+            <.icon name="hero-phone" class="w-5 h-5" />
+          </button>
+
+          <button
+            :if={@status != :idle}
+            type="button"
+            phx-click="phone_hangup"
+            class="w-full mt-2 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+          >
+            <.icon name="hero-phone-x-mark" class="w-5 h-5" /> Hang up
+          </button>
+
+          <%!-- Two other parties can take this line instead of the browser:
+                the agent over SIP, or the agent over the voice pipeline. Kept
+                visually secondary so the primary call action stays obvious. --%>
+          <div :if={@status == :idle} class="grid grid-cols-2 gap-1.5 mt-1.5">
+            <button
+              type="submit"
+              title="Place the call and let the AI agent do the talking"
+              class="py-2 rounded-xl bg-[var(--color-primary)] text-white hover:opacity-90 transition-opacity text-xs font-medium flex items-center justify-center gap-1.5"
+            >
+              <.icon name="hero-sparkles" class="w-4 h-4" /> Call with bot
+            </button>
+
+            <%!-- Voice with the agent, no phone leg at all. A control on the
+                  card rather than navigation: the target is one screen, and
+                  the next pass swaps this click for an in-page voice session
+                  without the card changing shape. --%>
+            <button
+              type="button"
+              disabled={is_nil(@conversation_id)}
+              phx-click={
+                @conversation_id &&
+                  Phoenix.LiveView.JS.dispatch("phone:talk", to: "#webrtc-phone")
+              }
+              data-voice-url={@conversation_id && "/voice?conversation_id=#{@conversation_id}"}
+              title="Talk to the agent by voice"
+              class="py-2 rounded-xl border border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-border-light)] transition-colors text-xs font-medium flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <.icon name="hero-microphone" class="w-4 h-4" /> Talk
+            </button>
+          </div>
+
+          <p :if={@status != :idle and @number != ""} class="text-xs text-[var(--color-text-secondary)] text-center mt-2 mb-0 truncate">
+            {phone_status_label(@status)} · {@number}
+          </p>
+          <p :if={@status != :idle and @number == ""} class="text-xs text-[var(--color-text-secondary)] text-center mt-2 mb-0">
+            {phone_status_label(@status)}
+          </p>
+          <p :if={@error} class="text-xs text-red-500 text-center mt-2 mb-0">{@error}</p>
+        </form>
+      </div>
+
+      <div :if={@tab == "settings"} class="px-4 pb-4 flex flex-col gap-3">
+        <div class="text-xs text-[var(--color-text-secondary)] flex flex-col gap-1">
+          <div class="flex justify-between gap-2">
+            <span>Extension</span>
+            <span class="text-[var(--color-text-primary)] truncate">{(@account && @account.user) || "—"}</span>
+          </div>
+          <div class="flex justify-between gap-2">
+            <span>Domain</span>
+            <span class="text-[var(--color-text-primary)] truncate">{(@account && @account.domain) || "—"}</span>
+          </div>
+          <div class="flex justify-between gap-2">
+            <span>Registration</span>
+            <span class={[
+              "truncate",
+              @registered? && "text-green-600 dark:text-green-400",
+              !@registered? && "text-[var(--color-text-tertiary)]"
+            ]}>
+              {phone_registration_label(@account, @registered?)}
+            </span>
+          </div>
+        </div>
+
         <button
-          :if={@status == :idle}
-          type="submit"
-          title="Place the call and let the AI agent talk"
-          class="px-3 py-1.5 bg-[var(--color-primary)] text-white rounded-md hover:opacity-90 transition-opacity text-sm font-medium"
+          type="button"
+          phx-click="phone_register"
+          disabled={is_nil(@account)}
+          class="w-full py-2 rounded-xl border border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-border-light)] transition-colors text-xs font-medium disabled:opacity-40 disabled:pointer-events-none"
         >
-          Call with bot
+          Re-register
         </button>
-      </form>
 
-      <button
-        :if={@status != :idle}
-        type="button"
-        phx-click="phone_hangup"
-        class="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
-      >
-        Hang up
-      </button>
+        <form :if={@environments != []} phx-change="switch_environment" class="flex flex-col gap-1">
+          <label class="text-xs text-[var(--color-text-secondary)]">Calling environment</label>
+          <select
+            name="name"
+            class="text-xs bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-[var(--color-text-primary)]"
+          >
+            <option
+              :for={environment <- @environments}
+              value={environment.name}
+              selected={@current_environment && environment.name == @current_environment.name}
+            >
+              {environment.name}
+            </option>
+          </select>
+        </form>
+      </div>
 
-      <span :if={@error} class="text-xs text-red-600">{@error}</span>
+      <div class="grid grid-cols-2 border-t border-[var(--color-border)]">
+        <button
+          :for={{tab, label, icon} <- [{"dialpad", "Dialpad", "hero-squares-2x2"}, {"settings", "Settings", "hero-cog-6-tooth"}]}
+          type="button"
+          phx-click="phone_tab"
+          phx-value-tab={tab}
+          class={[
+            "py-2 flex flex-col items-center gap-0.5 text-[11px] font-medium transition-colors border-b-2",
+            @tab == tab && "text-amber-500 border-amber-500",
+            @tab != tab &&
+              "text-[var(--color-text-secondary)] border-transparent hover:text-[var(--color-text-primary)]"
+          ]}
+        >
+          <.icon name={icon} class="w-4 h-4" />
+          {label}
+        </button>
+      </div>
 
       <audio class="hidden" autoplay></audio>
     </div>
     """
   end
+
+  defp phone_initial(%{user: <<initial::utf8, _rest::binary>>}), do: <<initial::utf8>>
+  defp phone_initial(_), do: "?"
+
+  defp phone_display_name(%{user: user}), do: user
+  defp phone_display_name(_), do: "No SIP account"
+
+  defp phone_registration_label(nil, _registered?), do: "no SIP account configured"
+  defp phone_registration_label(%{domain: domain}, true), do: "Ready • #{domain}"
+  defp phone_registration_label(%{domain: domain}, false), do: "Not registered • #{domain}"
 
   defp phone_status_label(:idle), do: "Not on a call"
   defp phone_status_label(:calling), do: "Calling…"
@@ -476,6 +649,18 @@ defmodule ConnectixWeb.ChatComponents do
 
         <div class="flex items-center gap-4">
           <div class="flex items-center gap-2">
+            <%!-- The Tasks & Files column is fully removed when collapsed, so
+                 its only way back is here. --%>
+            <button
+              :if={@sidebar_collapsed}
+              phx-click="toggle_sidebar"
+              class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors"
+              type="button"
+              title="Show Tasks & Files"
+            >
+              <.icon name="hero-view-columns" class="w-5 h-5" />
+            </button>
+
             <button
               phx-click="toggle_debug_mode"
               class={[
@@ -515,27 +700,9 @@ defmodule ConnectixWeb.ChatComponents do
 
           <Layouts.theme_toggle />
 
-          <%= if @environments != [] do %>
-            <form
-              phx-change="switch_environment"
-              class="flex items-center gap-2 pl-4 border-l border-[var(--color-border)]"
-            >
-              <.icon name="hero-globe-alt" class="w-4 h-4 text-[var(--color-text-secondary)]" />
-              <select
-                name="name"
-                title="Calling environment"
-                class="text-xs bg-transparent border border-[var(--color-border)] rounded-md px-2 py-1 text-[var(--color-text-secondary)]"
-              >
-                <option
-                  :for={environment <- @environments}
-                  value={environment.name}
-                  selected={@current_environment && environment.name == @current_environment.name}
-                >
-                  {environment.name}
-                </option>
-              </select>
-            </form>
-          <% end %>
+          <%!-- The environment picker moved to the phone card's Settings tab:
+               it selects which SIP environment a call goes through, so it
+               belongs with the phone rather than in the chat chrome. --%>
 
           <%= if @current_scope do %>
             <div class="flex items-center gap-2 pl-4 border-l border-[var(--color-border)]">
@@ -550,19 +717,9 @@ defmodule ConnectixWeb.ChatComponents do
               >
                 <.icon name="hero-code-bracket" class="w-5 h-5" />
               </.link>
-              <%!-- Feline voice pipeline (Deepgram STT -> SagentsBridge -> Cartesia
-                   TTS) — a separate page (its client isn't a LiveView), opened in a
-                   new tab so the chat stays visible. Same conversation_id, so what
-                   gets said over voice shows up in this transcript too. --%>
-              <.link
-                :if={@conversation_id}
-                href={"/voice?conversation_id=#{@conversation_id}"}
-                target="_blank"
-                class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors no-underline inline-flex items-center justify-center"
-                title="Talk to the agent (voice)"
-              >
-                <.icon name="hero-microphone" class="w-5 h-5" />
-              </.link>
+              <%!-- Voice lives on the phone card in the sidebar, not up here:
+                   the target is one screen, so the affordance sits with the
+                   other call actions rather than as navigation. --%>
               <%!-- No server-side session to end — /logout answers 401 with a
                    fresh WWW-Authenticate challenge so the browser drops the
                    cached Basic Auth credential. See LogoutController. --%>
@@ -578,16 +735,34 @@ defmodule ConnectixWeb.ChatComponents do
         </div>
       </header>
 
-      <.phone_panel status={@phone_status} error={@phone_error} />
-
       <div class="flex flex-1 relative overflow-hidden">
+        <%!-- One left column: the softphone, then the conversation history.
+              The phone lives here and nowhere else — there is no phone bar
+              across the top any more. --%>
         <%= if @is_thread_history_open do %>
-          <.conversation_history_sidebar
-            conversation_list={@streams.conversation_list}
-            conversation_id={@conversation_id}
-            has_more={@has_more_conversations}
-            has_conversations={@has_conversations}
-          />
+          <%!-- `min-h-0` so the history below can actually claim the leftover
+               height: without it the column floors at its content size and the
+               list collapses to a scroll sliver. --%>
+          <div class="w-80 border-r border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0 flex flex-col min-h-0">
+            <.phone_panel
+              status={@phone_status}
+              error={@phone_error}
+              registered?={@phone_registered?}
+              account={@phone_account}
+              number={@phone_number}
+              tab={@phone_tab}
+              conversation_id={@conversation_id}
+              environments={@environments}
+              current_environment={@current_environment}
+            />
+
+            <.conversation_history_sidebar
+              conversation_list={@streams.conversation_list}
+              conversation_id={@conversation_id}
+              has_more={@has_more_conversations}
+              has_conversations={@has_conversations}
+            />
+          </div>
         <% end %>
 
         <div class="flex flex-1 flex-col overflow-hidden relative">

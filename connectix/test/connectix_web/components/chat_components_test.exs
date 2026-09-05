@@ -207,7 +207,12 @@ defmodule ConnectixWeb.ChatComponentsTest do
         environments: [],
         current_environment: nil,
         phone_status: :idle,
-        phone_error: nil
+        phone_error: nil,
+        phone_registered?: false,
+        phone_account: nil,
+        phone_number: "",
+        phone_tab: "dialpad",
+        sidebar_collapsed: false
       }
 
       render_component(&ChatComponents.chat_interface/1, Map.merge(base, overrides))
