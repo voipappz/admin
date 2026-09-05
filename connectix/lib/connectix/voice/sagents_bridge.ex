@@ -75,6 +75,11 @@ defmodule Connectix.Voice.SagentsBridge do
   alias LangChain.MessageDelta
   alias Sagents.AgentServer
 
+  # What the caller hears when a turn fails. Says nothing about why: an unfunded
+  # account, a provider outage and a timeout are the same sentence to someone
+  # holding a phone, and the detail belongs in the log and the error frame.
+  @degraded_reply "Sorry, I could not think of a reply just then. Please say that again."
+
 
   @impl true
   def init(opts) do
@@ -213,18 +218,19 @@ defmodule Connectix.Voice.SagentsBridge do
     # call: the bot went silent mid-conversation and the caller heard nothing,
     # with the real cause three layers down in a crash report.
     #
-    # An agent error should cost a turn, not the call.
+    # An agent error costs a turn, not the call — and on a phone call it must
+    # not cost it silently. A caller cannot see an error frame: a failed turn
+    # and a dead line sound identical, so they say "hello?" and hang up. Speak,
+    # then close the turn so the next thing they say is still heard.
     #
-    # Worth knowing for whoever picks this up: on a phone call the caller also
-    # hears nothing when a turn fails, which is indistinguishable from a dead
-    # line. Speaking a short apology here would be the right behaviour, but the
-    # obvious implementation — pushing Start/LLMText/End from this callback —
-    # produced no audio in testing, while the identical frames injected at the
-    # head of the pipeline did. Something about emitting a turn from inside the
-    # processor differs from relaying one, and it was not worth guessing at
-    # further. Left undone deliberately rather than left half-working.
-    {:push, %Feline.Frames.All.ErrorFrame{error: describe(reason), fatal: false}, :downstream,
-     state}
+    # `:running` already opened this turn, so only the text and the end frame
+    # are pushed; opening a second one would leave the aggregator unbalanced.
+    {:push_many,
+     [
+       {%LLMTextFrame{text: @degraded_reply}, :downstream},
+       {%LLMFullResponseEndFrame{}, :downstream},
+       {%Feline.Frames.All.ErrorFrame{error: describe(reason), fatal: false}, :downstream}
+     ], end_turn(state)}
   end
 
   def handle_info({:agent, _other}, _ctx, state), do: {:ok, state}

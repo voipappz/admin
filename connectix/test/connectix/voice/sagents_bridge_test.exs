@@ -277,13 +277,48 @@ defmodule Connectix.Voice.SagentsBridgeTest do
       assert s.merged == nil
     end
 
-    test "an agent error surfaces as a non-fatal frame rather than killing the call" do
-      assert {:push, %ErrorFrame{fatal: false}, :downstream, _s} =
+    test "an agent error is spoken to the caller, then closed, then reported" do
+      # A caller cannot see an error frame: a failed turn and a dead line sound
+      # exactly the same, so the failure has to be audible. The end frame
+      # closes the turn `:running` opened, so the next thing said is still
+      # heard, and the non-fatal error frame still carries the reason onward.
+      assert {:push_many, pushes, _s} =
                SagentsBridge.handle_info(
                  {:agent, {:status_changed, :error, :boom}},
                  ctx(),
                  state()
                )
+
+      assert [
+               {%LLMTextFrame{text: spoken}, :downstream},
+               {%LLMFullResponseEndFrame{}, :downstream},
+               {%ErrorFrame{fatal: false}, :downstream}
+             ] = pushes
+
+      assert spoken =~ "say that again"
+    end
+
+    test "the spoken failure carries a sentence, not a struct" do
+      # `Feline.Pipeline.Task` interpolates `frame.error` into its log line, so
+      # a raw exception struct raises `Protocol.UndefinedError` inside the
+      # pipeline and takes every processor down with it — an unfunded LLM
+      # dropping the whole call.
+      error = %LangChain.LangChainError{
+        type: "invalid_request_error",
+        message: "Your credit balance is too low",
+        original: %{}
+      }
+
+      assert {:push_many, pushes, _s} =
+               SagentsBridge.handle_info(
+                 {:agent, {:status_changed, :error, error}},
+                 ctx(),
+                 state()
+               )
+
+      assert {%ErrorFrame{error: described}, :downstream} = List.last(pushes)
+      assert is_binary(described)
+      assert described =~ "credit balance"
     end
 
     test "unrelated agent events are ignored" do
