@@ -88,5 +88,9 @@ export RELEASE_COOKIE="my-app-cookie"
 # needs no config change.
 # export OPENAI_KEY=""
 
+# Google AI Studio (Gemini) key — the one provider with a free tier. Selected
+# by naming a gemini-* model: AGENTS_DEMO_MODEL="gemini-2.5-flash".
+# export GOOGLE_API_KEY=""
+
 # Public HTTPS tunnel for WhatsApp webhooks — see `make tunnel`.
 # export NGROK_AUTHTOKEN=""

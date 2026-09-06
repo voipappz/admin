@@ -27,7 +27,7 @@ defmodule Connectix.Agents.Factory do
   alias Connectix.Skills.Capability
   alias Connectix.Skills.Context
   alias Connectix.Skills.Skill
-  alias LangChain.ChatModels.ChatAnthropic
+  alias LangChain.ChatModels.{ChatAnthropic, ChatGoogleAI, ChatOpenAI}
   alias Sagents.Agent
   alias Sagents.Middleware.ConversationTitle
   alias Sagents.Middleware.HumanInTheLoop
@@ -72,31 +72,48 @@ defmodule Connectix.Agents.Factory do
   # ---------------------------------------------------------------------------
 
   # Only a provider reference lives in the spec; the key comes from the
-  # environment at build time and never touches bot data.
+  # environment at build time and never touches bot data. The provider is the
+  # model name's (`Config.model_provider/1`), so the same spec runs on
+  # Anthropic, Google or OpenAI by changing one variable. Extended thinking
+  # and prompt caching are Anthropic features and are set only there.
   defp build_model(%CompiledSpec{model: model}) do
-    ChatAnthropic.new!(
-      %{
-        model: model.name || Config.main_model(),
-        api_key: Config.anthropic_api_key!(),
-        stream: true,
-        cache_control: %{"type" => "ephemeral"},
-        thinking: %{
-          type: "enabled",
-          budget_tokens: model.thinking_budget_tokens || Config.thinking_budget_tokens()
-        }
-      }
+    name = model.name || Config.main_model()
+
+    common =
+      %{model: name, stream: true}
       |> maybe_put(:temperature, model.temperature)
       |> maybe_put(:max_tokens, model.max_output_tokens)
-    )
+
+    case Config.model_provider(name) do
+      :anthropic ->
+        ChatAnthropic.new!(
+          Map.merge(common, %{
+            api_key: Config.anthropic_api_key!(),
+            cache_control: %{"type" => "ephemeral"},
+            thinking: %{
+              type: "enabled",
+              budget_tokens: model.thinking_budget_tokens || Config.thinking_budget_tokens()
+            }
+          })
+        )
+
+      :google ->
+        ChatGoogleAI.new!(Map.put(common, :api_key, Config.google_api_key!()))
+
+      :openai ->
+        ChatOpenAI.new!(Map.put(common, :api_key, Config.openai_api_key!()))
+    end
   end
 
   defp title_model do
-    ChatAnthropic.new!(%{
-      model: Config.title_model(),
-      api_key: Config.anthropic_api_key!(),
-      temperature: 1,
-      stream: false
-    })
+    name = Config.title_model()
+    common = %{model: name, temperature: 1, stream: false}
+
+    case Config.model_provider(name) do
+      :anthropic -> ChatAnthropic.new!(Map.put(common, :api_key, Config.anthropic_api_key!()))
+      :google -> ChatGoogleAI.new!(Map.put(common, :api_key, Config.google_api_key!()))
+      :openai -> ChatOpenAI.new!(Map.put(common, :api_key, Config.openai_api_key!()))
+    end
   end
 
   defp maybe_put(map, _key, nil), do: map

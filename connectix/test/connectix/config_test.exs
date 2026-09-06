@@ -28,6 +28,43 @@ defmodule Connectix.ConfigTest do
     end
   end
 
+  describe "model_provider/1" do
+    test "reads the provider off the model name" do
+      assert Config.model_provider("claude-sonnet-4-6") == :anthropic
+      assert Config.model_provider("claude-haiku-4-5") == :anthropic
+      assert Config.model_provider("gemini-2.5-flash") == :google
+      assert Config.model_provider("gpt-4o-mini") == :openai
+      assert Config.model_provider("o3-mini") == :openai
+    end
+
+    test "anything unrecognised is Anthropic, the default provider" do
+      assert Config.model_provider("something-else") == :anthropic
+    end
+  end
+
+  describe "title_model/0" do
+    test "defaults to the small Anthropic model when the main model is Anthropic" do
+      with_env([{"AGENTS_DEMO_MODEL", nil}, {"AGENTS_DEMO_TITLE_MODEL", nil}], fn ->
+        assert Config.model_provider(Config.title_model()) == :anthropic
+      end)
+    end
+
+    test "follows the main model to another provider rather than needing a second key" do
+      # Titles run on every conversation. A Gemini bot whose titles still
+      # went to Anthropic would fail every title the moment the Anthropic key
+      # was the reason for switching.
+      with_env([{"AGENTS_DEMO_MODEL", "gemini-2.5-flash"}, {"AGENTS_DEMO_TITLE_MODEL", nil}], fn ->
+        assert Config.title_model() == "gemini-2.5-flash"
+      end)
+    end
+
+    test "an explicit title model wins" do
+      with_env([{"AGENTS_DEMO_MODEL", "gemini-2.5-flash"}, {"AGENTS_DEMO_TITLE_MODEL", "gpt-4o-mini"}], fn ->
+        assert Config.title_model() == "gpt-4o-mini"
+      end)
+    end
+  end
+
   describe "env/1" do
     test "an unset variable and one set to \"\" are both absent" do
       with_env([{"AGENTS_DEMO_TEST_VAR", nil}], fn ->

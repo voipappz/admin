@@ -68,6 +68,40 @@ defmodule Connectix.Config do
   @spec openai_api_key() :: String.t() | nil
   def openai_api_key, do: env("OPENAI_KEY")
 
+  @doc "OpenAI API key, raising when unset — see `anthropic_api_key!/0`."
+  @spec openai_api_key!() :: String.t()
+  def openai_api_key!, do: openai_api_key() || raise_missing("OPENAI_KEY")
+
+  @doc """
+  Google AI (Gemini) API key (`GOOGLE_API_KEY`), or `nil`. From Google AI
+  Studio; the only provider here with a free tier, which is why it exists —
+  a bot can be tried with no card on file. Selected by naming a `gemini-*`
+  model in `AGENTS_DEMO_MODEL`; see `model_provider/1`.
+  """
+  @spec google_api_key() :: String.t() | nil
+  def google_api_key, do: env("GOOGLE_API_KEY")
+
+  @doc "Google AI API key, raising when unset — see `anthropic_api_key!/0`."
+  @spec google_api_key!() :: String.t()
+  def google_api_key!, do: google_api_key() || raise_missing("GOOGLE_API_KEY")
+
+  @doc """
+  Which provider serves a model, from its name — the one thing every provider
+  encodes in the name, so no second variable has to agree with the first:
+
+    * `gemini-*` → `:google`
+    * `gpt-*`, `o1*`/`o3*`/`o4*` → `:openai`
+    * anything else → `:anthropic`
+
+  `Connectix.Agents.Factory` builds the matching LangChain chat model and
+  reads the matching key. Changing provider is therefore one variable.
+  """
+  @spec model_provider(String.t()) :: :anthropic | :google | :openai
+  def model_provider("gemini-" <> _rest), do: :google
+  def model_provider("gpt-" <> _rest), do: :openai
+  def model_provider(<<"o", digit, _rest::binary>>) when digit in ?1..?9, do: :openai
+  def model_provider(_other), do: :anthropic
+
   @doc """
   Model backing a conversation (`AGENTS_DEMO_MODEL`, default
   `#{@default_main_model}`). A bot's own `model` overrides it per conversation;
@@ -83,7 +117,18 @@ defmodule Connectix.Config do
   reasoning.
   """
   @spec title_model() :: String.t()
-  def title_model, do: env("AGENTS_DEMO_TITLE_MODEL") || @default_title_model
+  def title_model do
+    # The default follows the main model's provider. A Gemini or GPT main
+    # model with the Anthropic default here means every title needs an
+    # Anthropic key too — and when that key is the reason the provider was
+    # switched, every title fails. Same provider, and the main model itself
+    # rather than a guess at that provider's small model.
+    env("AGENTS_DEMO_TITLE_MODEL") ||
+      case model_provider(main_model()) do
+        :anthropic -> @default_title_model
+        _other -> main_model()
+      end
+  end
 
   @doc """
   Extended-thinking budget in tokens (`AGENTS_DEMO_THINKING_BUDGET`, default
@@ -537,6 +582,7 @@ defmodule Connectix.Config do
     [
       {"ANTHROPIC_API_KEY", presence(anthropic_api_key())},
       {"OPENAI_KEY", presence(openai_api_key())},
+      {"GOOGLE_API_KEY", presence(google_api_key())},
       {"AGENTS_DEMO_MODEL", main_model()},
       {"AGENTS_DEMO_TITLE_MODEL", title_model()},
       {"AGENTS_DEMO_THINKING_BUDGET", to_string(thinking_budget_tokens())},
