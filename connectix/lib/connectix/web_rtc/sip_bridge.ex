@@ -837,8 +837,12 @@ defmodule Connectix.WebRtc.SipBridge do
     end
   end
 
+  # One header value, comma-joined, never a list: the transport's serializer
+  # has no formatter for a list under "route" and falls back to `inspect/1`,
+  # which put `Route: ["<sip:…>"]` on the wire — brackets and quotes included.
+  # The proxy could not read it and the ACK timed out exactly as before.
   defp with_route(msg, routes) when routes in [nil, []], do: msg
-  defp with_route(msg, routes), do: put_header(msg, "route", routes)
+  defp with_route(msg, routes), do: put_header(msg, "route", Enum.join(routes, ", "))
 
   # A request needs a transaction branch on its top Via even when no
   # transaction owns it; parrot adds one inside `ack_request` and keeps that
