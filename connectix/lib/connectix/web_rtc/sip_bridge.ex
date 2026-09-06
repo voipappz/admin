@@ -614,7 +614,9 @@ defmodule Connectix.WebRtc.SipBridge do
           else: {"www-authenticate", "authorization"}
 
       challenge = r.headers[challenge_hdr]
-      emit(:authenticating, %{})
+      # The refresh's challenge is not news to a call in progress: the panel
+      # flashed "authenticating" 58 s into an otherwise perfect call.
+      unless method == :register and call_in_progress?(s), do: emit(:authenticating, %{})
 
       if challenge && s.password do
         me = self()
