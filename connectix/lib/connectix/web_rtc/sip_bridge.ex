@@ -74,6 +74,10 @@ defmodule Connectix.WebRtc.SipBridge do
     :media_session,
     :sdp_offer,
     :invite_cseq,
+    # The INVITE's client-transaction id, kept so an unanswered call can be
+    # CANCELled. Without it the only tool for hanging up was BYE, which is
+    # meaningless before a dialog exists — see `do_hangup/1`.
+    :invite_uac_id,
     # `:agent` calls only — who the bot is talking as, which conversation the
     # transcript lands in, and the process holding the `:bridge` slot.
     :scope,
@@ -89,7 +93,13 @@ defmodule Connectix.WebRtc.SipBridge do
     # pinhole closes sooner than that, so a UA that registers once is reachable
     # for two minutes and then quietly is not. See `@reregister_ms`.
     reg_timer: nil,
-    auth_retried: false,
+    # Auth retry is tracked per transaction, not once for the UA. REGISTER and
+    # INVITE are challenged independently and a registrar challenges EVERY
+    # REGISTER, including the periodic refresh — so one shared flag meant the
+    # refresh's ordinary 401, landing while an INVITE's own retry had left the
+    # flag set, was read as an auth loop and tore down a live call.
+    reg_auth_retried: false,
+    invite_auth_retried: false,
     # Whether the registrar actually accepted us, tracked apart from `status`
     # because `status` is a *call* state that teardown has to reset. Resetting
     # it to `:registered` used to assert a registration that may never have
@@ -98,7 +108,14 @@ defmodule Connectix.WebRtc.SipBridge do
     # next INVITE rather than "this account is not registered".
     registered?: false,
     status: :idle,
-    cseq: 1
+    # Two CSeq spaces, because these are two transactions. A REGISTER carries
+    # its own freshly generated Call-ID (see `base_headers/4`), so it is not in
+    # the INVITE's dialog and must not share its sequence: rewinding `cseq` on
+    # a refresh made the eventual in-dialog BYE lower than its own INVITE, and
+    # RFC 3261 §12.2.2 requires the far end to reject that out of order — so
+    # hanging up stopped working and the callee stayed on a dead call.
+    cseq: 1,
+    reg_cseq: 1
   ]
 
   # How long to wait for any final response to an INVITE before giving up.
@@ -190,12 +207,26 @@ defmodule Connectix.WebRtc.SipBridge do
         local_ip = Transport.local_ip()
         local_port = Transport.local_port()
 
+        # A refresh must be invisible to a call in progress. This runs every
+        # `@reregister_ms` regardless of what the UA is doing, so touching
+        # `status` here would drop a live call out of `:in_call` — taking the
+        # hang-up control off the panel and defeating the `:invite_timeout`
+        # guard, which only matches `:calling`/`:ringing`.
+        in_call? = call_in_progress?(s)
+
         s =
           s
           |> merge_credentials(creds)
-          |> Map.merge(%{local_ip: local_ip, local_port: local_port, status: :connecting, cseq: 1})
+          |> Map.merge(%{
+            local_ip: local_ip,
+            local_port: local_port,
+            reg_cseq: s.reg_cseq + 1,
+            reg_auth_retried: false
+          })
 
-        emit(:connecting, %{server: s.server})
+        s = if in_call?, do: s, else: %{s | status: :connecting}
+
+        unless in_call?, do: emit(:connecting, %{server: s.server})
         do_register(s)
         {:noreply, s}
     end
@@ -315,6 +346,21 @@ defmodule Connectix.WebRtc.SipBridge do
     %{s | reg_timer: Process.send_after(self(), :reregister, @reregister_ms)}
   end
 
+  @doc false
+  # `status` describes the CALL, and registration is a separate transaction that
+  # refreshes on its own timer — so every registration outcome has to ask
+  # whether it is allowed to speak for `status` at all. `call_id` is checked as
+  # well as `status` because it is set the moment an INVITE goes out, closing
+  # the window between dialing and the first provisional response.
+  def call_in_progress?(s),
+    do: s.status in [:calling, :ringing, :in_call] or not is_nil(s.call_id)
+
+  defp registered_unless_in_call(s),
+    do: if(call_in_progress?(s), do: s, else: %{s | status: :registered})
+
+  defp idle_unless_in_call(s),
+    do: if(call_in_progress?(s), do: s, else: %{s | status: :idle})
+
   defp arm_invite_timer(call_id),
     do: Process.send_after(self(), {:invite_timeout, call_id}, @invite_timeout_ms)
 
@@ -340,12 +386,13 @@ defmodule Connectix.WebRtc.SipBridge do
         media_session: nil,
         sdp_offer: nil,
         invite_cseq: nil,
+        invite_uac_id: nil,
         invite_timer: nil,
         scope: nil,
         conversation_id: nil,
         bridge_pid: nil,
         mode: :browser,
-        auth_retried: false,
+        invite_auth_retried: false,
         status: if(s.registered?, do: :registered, else: :idle)
     }
   end
@@ -409,7 +456,7 @@ defmodule Connectix.WebRtc.SipBridge do
         s_for_msg = %{s | local_tag: local_tag, cseq: invite_cseq}
         me = self()
         msg = invite_msg(uri, s_for_msg, call_id, sdp_offer)
-        UAC.request(msg, &send(me, {:sip_response, &1}))
+        uac_id = UAC.request(msg, &send(me, {:sip_response, &1}))
 
         {:ok,
          %{
@@ -420,6 +467,7 @@ defmodule Connectix.WebRtc.SipBridge do
              sdp_offer: sdp_offer,
              local_tag: local_tag,
              invite_cseq: invite_cseq,
+             invite_uac_id: uac_id,
              cseq: invite_cseq + 1
          }}
 
@@ -428,12 +476,32 @@ defmodule Connectix.WebRtc.SipBridge do
     end
   end
 
+  # Hanging up is two different requests depending on how far the call got, and
+  # sending the wrong one does nothing useful.
+  #
+  # A BYE ends an established dialog. Before the callee answers there IS no
+  # dialog — no remote tag — so a BYE is answered `481 Call/Transaction Does Not
+  # Exist` and the phone keeps ringing. Worse, the INVITE transaction stays
+  # alive: when the callee eventually picks up, the 200 OK arrives against
+  # freshly reset state and `send_ack/2` reaches `Uri.parse(nil)`, which raises
+  # and takes this process down with the call it was supposed to have ended.
+  #
+  # `remote_tag` is set only by the 200 on the INVITE, so it is exactly the
+  # "is there a dialog" question.
   defp do_hangup(s) do
-    if s.callee_uri do
-      me = self()
-      bye_uri = s.remote_target || s.callee_uri
-      msg = bye_msg(bye_uri, s)
-      UAC.request(msg, &send(me, {:sip_response, &1}))
+    cond do
+      s.remote_tag ->
+        me = self()
+        bye_uri = s.remote_target || s.callee_uri
+        msg = bye_msg(bye_uri, s)
+        UAC.request(msg, &send(me, {:sip_response, &1}))
+
+      s.invite_uac_id ->
+        Logger.info("WebRtc.SipBridge: cancelling an INVITE that was never answered")
+        UAC.cancel(s.invite_uac_id)
+
+      true ->
+        :ok
     end
 
     emit(:idle, %{})
@@ -450,10 +518,24 @@ defmodule Connectix.WebRtc.SipBridge do
 
   defp on_response(_other, s), do: s
 
-  defp dispatch(code, method, r, s) when code in [401, 407] do
-    if s.auth_retried do
+  # Public only so a test can drive the response state machine without a
+  # registrar, the same reason `Realtime.ScreenPop.route_event/2` is. What a
+  # registration refresh is allowed to do to a call in progress is decided
+  # entirely here, and none of it is observable from a call that succeeds.
+  @doc false
+  def dispatch(code, method, r, s)
+
+  def dispatch(code, method, r, s) when code in [401, 407] do
+    retried? = if method == :register, do: s.reg_auth_retried, else: s.invite_auth_retried
+
+    if retried? do
       Logger.warning("WebRtc.SipBridge: second #{code} on #{method} — auth loop, giving up")
-      fail(s, code, "auth loop")
+      # A registration that cannot authenticate is not a call failure. Routing
+      # it through `fail/3` would tear down whatever call is up — which is the
+      # opposite of what a refresh should be able to do.
+      if method == :register,
+        do: %{s | registered?: false, reg_auth_retried: false} |> idle_unless_in_call(),
+        else: fail(s, code, "auth loop")
     else
       {challenge_hdr, response_hdr} =
         if code == 407,
@@ -468,18 +550,25 @@ defmodule Connectix.WebRtc.SipBridge do
 
         case method do
           :register ->
-            new_cseq = s.cseq + 1
+            new_cseq = s.reg_cseq + 1
             auth = digest_auth(challenge, method, register_uri(s), s)
-            do_register(%{s | cseq: new_cseq}, auth)
-            %{s | cseq: new_cseq, auth_retried: true}
+            do_register(%{s | reg_cseq: new_cseq}, auth)
+            %{s | reg_cseq: new_cseq, reg_auth_retried: true}
 
           :invite ->
             new_cseq = s.cseq + 1
             auth = digest_auth(challenge, method, s.callee_uri, s)
             msg = invite_msg(s.callee_uri, %{s | cseq: new_cseq}, s.call_id, s.sdp_offer)
             msg = put_header(msg, response_hdr, auth)
-            UAC.request(msg, &send(me, {:sip_response, &1}))
-            %{s | cseq: new_cseq, invite_cseq: new_cseq, auth_retried: true}
+            uac_id = UAC.request(msg, &send(me, {:sip_response, &1}))
+
+            %{
+              s
+              | cseq: new_cseq,
+                invite_cseq: new_cseq,
+                invite_uac_id: uac_id,
+                invite_auth_retried: true
+            }
 
           _ ->
             s
@@ -490,20 +579,25 @@ defmodule Connectix.WebRtc.SipBridge do
     end
   end
 
-  defp dispatch(200, :register, _r, s) do
-    emit(:registered, %{})
-    %{s | status: :registered, registered?: true, auth_retried: false} |> arm_reregister()
+  def dispatch(200, :register, _r, s) do
+    # Mid-call this is a refresh, and the panel must keep showing the call. Only
+    # the registration verdict is news; `status` still belongs to the call.
+    unless call_in_progress?(s), do: emit(:registered, %{})
+
+    %{s | registered?: true, reg_auth_retried: false}
+    |> registered_unless_in_call()
+    |> arm_reregister()
   end
 
   # A refused REGISTER is not a call failure: there is no call to tear down,
   # and routing it through `fail/3` (which calls `reset_call/2`) is exactly
   # what used to overwrite the refusal with `status: :registered`.
-  defp dispatch(code, :register, r, s) when code >= 400 do
-    emit(:failed, %{code: code, reason: r.reason_phrase})
-    %{s | status: :idle, registered?: false, auth_retried: false}
+  def dispatch(code, :register, r, s) when code >= 400 do
+    unless call_in_progress?(s), do: emit(:failed, %{code: code, reason: r.reason_phrase})
+    %{s | registered?: false, reg_auth_retried: false} |> idle_unless_in_call()
   end
 
-  defp dispatch(200, :invite, r, s) do
+  def dispatch(200, :invite, r, s) do
     remote_tag = to_tag(r)
     sdp_answer = r.body
     remote_target = extract_contact_uri(r) || s.callee_uri
@@ -526,21 +620,21 @@ defmodule Connectix.WebRtc.SipBridge do
         remote_target: remote_target,
         status: :in_call,
         invite_timer: nil,
-        auth_retried: false
+        invite_auth_retried: false
     }
   end
 
-  defp dispatch(code, _, _, s) when code in [180, 183] do
+  def dispatch(code, _, _, s) when code in [180, 183] do
     emit(:ringing, %{})
     s
   end
 
-  defp dispatch(code, _, _, s) when code in 100..199, do: s
-  defp dispatch(code, _, _, s) when code in 200..299, do: s
+  def dispatch(code, _, _, s) when code in 100..199, do: s
+  def dispatch(code, _, _, s) when code in 200..299, do: s
 
-  defp dispatch(code, _, r, s) when code >= 400, do: fail(s, code, r.reason_phrase)
+  def dispatch(code, _, r, s) when code >= 400, do: fail(s, code, r.reason_phrase)
 
-  defp dispatch(_, _, _, s), do: s
+  def dispatch(_, _, _, s), do: s
 
   defp send_ack(s, remote_tag) do
     cseq = s.invite_cseq || s.cseq
@@ -550,8 +644,12 @@ defmodule Connectix.WebRtc.SipBridge do
 
   # ── Message builders ────────────────────────────────────────────────────────
 
+  # A REGISTER is its own transaction: its own Call-ID (`base_headers/4` mints
+  # one and, unlike the dialog builders below, nothing overrides it), its own
+  # CSeq space, and its own From tag — passing `local_tag: nil` stops a refresh
+  # sent mid-call from borrowing the INVITE dialog's tag.
   defp register_msg(uri, s, auth) do
-    h = base_headers(:register, s, s.cseq, "sip:#{s.username}@#{s.domain}")
+    h = base_headers(:register, %{s | local_tag: nil}, s.reg_cseq, "sip:#{s.username}@#{s.domain}")
     h = if auth, do: Map.put(h, "authorization", auth), else: h
     h = Map.put(h, "expires", 120)
     Message.new_request(:register, uri, h)
