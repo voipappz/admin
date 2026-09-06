@@ -67,6 +67,14 @@ defmodule Connectix.WebRtc.Transport do
 
     T.stop_udp()
 
+    # parrot picks the callback with `function_exported?/3`, which does not
+    # load a module. Nothing calls `SipHandler` before the first INBOUND
+    # request — outbound calls never touch it — so under `mix phx.server`
+    # (interactive code loading) it was not loaded when the far end's BYE
+    # arrived, and parrot answered `501 Not Implemented by User Handler` for
+    # a `handle_bye/2` that exists. A release preloads every module, which is
+    # why this only shows in dev — where every call gets tested.
+    Code.ensure_loaded!(Connectix.WebRtc.SipHandler)
     handler = HandlerAdapter.new(Connectix.WebRtc.SipHandler, %{})
 
     case T.start_udp(%{

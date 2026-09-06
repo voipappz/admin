@@ -152,4 +152,97 @@ defmodule Connectix.WebRtc.SipBridgeTest do
       refute SipBridge.call_in_progress?(%SipBridge{status: :idle})
     end
   end
+
+  # What the first real bot call (2026-09-06) taught, each pinned as a
+  # callback driven directly — no registrar, no media, no network. The states
+  # carry no remote tag and no INVITE transaction id, so `signal_hangup/1` has
+  # nothing to send; what is under test is the state machine's verdict.
+  describe "the media leg dying mid-call" do
+    # One `:enetunreach` on an RTP packet crashed the media pipeline, the
+    # linked MediaSession exited, and the catch-all EXIT clause stopped the
+    # UA: no BYE, registration lost on restart, agent bridge and every Feline
+    # processor taken down with it. A dead media leg is a failed call.
+    test "ends the call and leaves the UA registered" do
+      media = dead_pid()
+
+      s = %SipBridge{
+        status: :in_call,
+        registered?: true,
+        media_session: media,
+        call_id: "c1",
+        callee_uri: "sip:1000@example.com"
+      }
+
+      crash = {:membrane_child_crash, :udp, %RuntimeError{message: ":enetunreach"}}
+      assert {:noreply, after_exit} = SipBridge.handle_info({:EXIT, media, crash}, s)
+
+      assert after_exit.registered?, "the registration is not what failed"
+      assert after_exit.status == :registered
+      assert is_nil(after_exit.call_id)
+      assert is_nil(after_exit.media_session)
+    end
+
+    test "an exit from any other linked process still stops the UA" do
+      other = dead_pid()
+      assert {:stop, :boom, _s} = SipBridge.handle_info({:EXIT, other, :boom}, %SipBridge{})
+    end
+  end
+
+  describe "a BYE from the far end" do
+    # parrot answers the BYE itself; `SipHandler.handle_bye/2` relays the
+    # call-id here. Before the relay, a remote hang-up was acknowledged and
+    # then ignored — the panel stayed on the call.
+    test "ends the call it names" do
+      s = %SipBridge{
+        status: :in_call,
+        registered?: true,
+        call_id: "c1",
+        callee_uri: "sip:1000@example.com"
+      }
+
+      assert {:noreply, ended} = SipBridge.handle_cast({:remote_bye, "c1"}, s)
+      assert ended.status == :registered
+      assert is_nil(ended.call_id)
+    end
+
+    test "for a dialog that is not the current call changes nothing" do
+      s = %SipBridge{status: :in_call, call_id: "c2", callee_uri: "sip:1000@example.com"}
+      assert {:noreply, ^s} = SipBridge.handle_cast({:remote_bye, "c1"}, s)
+    end
+  end
+
+  describe "a retransmitted 200 to the INVITE" do
+    # The far end retransmits its 200 until it sees our ACK. Re-running the
+    # whole answer path on each one restarted media setup and re-stamped the
+    # call record; the only correct response is another ACK.
+    test "leaves a call that is already up untouched" do
+      s = %SipBridge{status: :in_call, remote_tag: "r1", call_id: "c1", callee_uri: "sip:1000@example.com"}
+
+      # No To tag at all: not our dialog's 200, so not even an ACK goes out —
+      # which keeps this test off the network. A matching tag would re-ACK
+      # and return the same state.
+      assert ^s = SipBridge.dispatch(200, :invite, %{headers: %{}, body: ""}, s)
+    end
+  end
+
+  describe "the UAS handler" do
+    # parrot selects the callback with `function_exported?/3`, which does not
+    # load the module, and nothing calls `SipHandler` before the first inbound
+    # request. Under interactive code loading it was not loaded when the far
+    # end's BYE arrived, and parrot answered 501 for a clause that exists.
+    # `Transport.init/1` now loads it; this asks parrot's exact question.
+    test "is loaded before the first inbound request can arrive" do
+      assert function_exported?(Connectix.WebRtc.SipHandler, :handle_bye, 2),
+             "SipHandler is not loaded — parrot will answer 501 to the far end's BYE"
+    end
+  end
+
+  # A pid that has already exited, so an EXIT message about it is honest and
+  # nothing here can accidentally signal a live process.
+  defp dead_pid do
+    pid = spawn(fn -> :ok end)
+    ref = Process.monitor(pid)
+    assert_receive {:DOWN, ^ref, :process, ^pid, _reason}
+    pid
+  end
 end

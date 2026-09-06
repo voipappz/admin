@@ -58,6 +58,10 @@ defmodule Connectix.WebRtc.SipBridge do
   @pubsub Connectix.PubSub
   @topic "webrtc_phone"
 
+  # A GenServer crash report prints the whole state, and this state holds the
+  # SIP password. It has already been printed once — a media-leg crash on
+  # 2026-09-06 dumped it into the container log in clear. Never again.
+  @derive {Inspect, except: [:password]}
   defstruct [
     :username,
     :password,
@@ -151,6 +155,13 @@ defmodule Connectix.WebRtc.SipBridge do
 
   def hangup, do: GenServer.call(__MODULE__, :hangup)
 
+  @doc """
+  The far end hung up. Relayed by `Connectix.WebRtc.SipHandler.handle_bye/2`
+  after parrot has already answered the BYE with 200 — this only has to end
+  the call on our side. `call_id` is the dialog the BYE named.
+  """
+  def remote_bye(call_id), do: GenServer.cast(__MODULE__, {:remote_bye, call_id})
+
   # ── GenServer ────────────────────────────────────────────────────────────────
 
   @impl true
@@ -232,6 +243,19 @@ defmodule Connectix.WebRtc.SipBridge do
     end
   end
 
+  # Matched on the call-id so a late BYE for a dialog that is already gone
+  # cannot end a newer call. Nothing to send: parrot answered the BYE itself.
+  def handle_cast({:remote_bye, call_id}, %{call_id: call_id} = s) when is_binary(call_id) do
+    Logger.info("WebRtc.SipBridge: far end hung up #{call_id}")
+    emit(:idle, %{})
+    {:noreply, reset_call(s, %{"outcome" => "remote_hangup"})}
+  end
+
+  def handle_cast({:remote_bye, stale}, s) do
+    Logger.debug(fn -> "WebRtc.SipBridge: BYE for #{inspect(stale)} names no current call" end)
+    {:noreply, s}
+  end
+
   @impl true
   # Refresh the binding on our own schedule. Cast rather than call `do_register`
   # directly so it takes the identical path a manual `register/0` does — one
@@ -257,6 +281,25 @@ defmodule Connectix.WebRtc.SipBridge do
   def handle_info({:EXIT, pid, reason}, %{bridge_pid: pid} = s) do
     Logger.error("WebRtc.SipBridge: agent bridge exited: #{inspect(reason)}")
     {:noreply, %{s | bridge_pid: nil}}
+  end
+
+  # The media leg died. On 2026-09-06 this was ONE `:enetunreach` on an RTP
+  # packet: `Membrane.UDP.Endpoint` raises on a send error, the pipeline
+  # crashes, parrot's `MediaSession` (linked) exits — and it landed in the
+  # catch-all `{:stop, reason, s}` below. So one dropped packet killed the UA:
+  # no BYE to the far end, registration gone on restart, the agent bridge and
+  # every Feline processor taken down in the cascade. A dead media leg is a
+  # failed CALL, not a failed UA: signal the far end, tear the call down, keep
+  # the registration.
+  #
+  # Not retried in place, deliberately. The send failed because the address
+  # the RTP socket is bound to no longer routes — `Transport` rebinds the SIP
+  # socket for exactly that reason — so a fresh socket on the same address
+  # would fail the same way. Ending the call cleanly is the correct outcome.
+  def handle_info({:EXIT, pid, reason}, %{media_session: pid} = s) do
+    Logger.error("WebRtc.SipBridge: media leg exited mid-call: #{inspect(reason)}")
+    signal_hangup(s)
+    {:noreply, fail(%{s | media_session: nil}, nil, "media leg died")}
   end
 
   def handle_info({:EXIT, _pid, :normal}, s), do: {:noreply, s}
@@ -489,6 +532,15 @@ defmodule Connectix.WebRtc.SipBridge do
   # `remote_tag` is set only by the 200 on the INVITE, so it is exactly the
   # "is there a dialog" question.
   defp do_hangup(s) do
+    signal_hangup(s)
+    emit(:idle, %{})
+    %{reset_call(s, %{"outcome" => "hungup"}) | cseq: s.cseq + 1}
+  end
+
+  # Tell the far end the call is over: BYE for an established dialog, CANCEL
+  # for an INVITE still in flight, nothing when there is no call. Shared by
+  # the operator's hang-up and by a media-leg failure, so both say goodbye.
+  defp signal_hangup(s) do
     cond do
       s.remote_tag ->
         me = self()
@@ -503,9 +555,6 @@ defmodule Connectix.WebRtc.SipBridge do
       true ->
         :ok
     end
-
-    emit(:idle, %{})
-    %{reset_call(s, %{"outcome" => "hungup"}) | cseq: s.cseq + 1}
   end
 
   # ── Response handler ────────────────────────────────────────────────────────
@@ -597,11 +646,25 @@ defmodule Connectix.WebRtc.SipBridge do
     %{s | registered?: false, reg_auth_retried: false} |> idle_unless_in_call()
   end
 
+  # A retransmitted 200: the far end has not seen our ACK. Every 2xx
+  # retransmission gets an ACK (RFC 3261 §13.2.2.4) and nothing else happens
+  # again — media, pipeline and call record were all set up on the first one.
+  # Without this clause a retransmission re-ran the whole answer path.
+  def dispatch(200, :invite, r, %{status: :in_call} = s) do
+    if to_tag(r) == s.remote_tag, do: send_ack(s, s.remote_tag)
+    s
+  end
+
   def dispatch(200, :invite, r, s) do
     remote_tag = to_tag(r)
     sdp_answer = r.body
     remote_target = extract_contact_uri(r) || s.callee_uri
-    send_ack(s, remote_tag)
+    # The ACK for a 2xx is addressed to the remote target — the Contact the
+    # 200 carried — not to the URI we dialed (§13.2.2.4). FreeSWITCH ended the
+    # first bot call with `Reason: 408 "ACK Timeout"`: our ACK went to the
+    # domain, and whether the proxy forwarded it to the box that answered is
+    # not something to leave to the proxy.
+    send_ack(%{s | remote_target: remote_target}, remote_tag)
 
     if s.media_session, do: MediaSessionManager.complete_uac_setup(s.media_session, sdp_answer)
 
@@ -638,7 +701,7 @@ defmodule Connectix.WebRtc.SipBridge do
 
   defp send_ack(s, remote_tag) do
     cseq = s.invite_cseq || s.cseq
-    msg = ack_msg(s.callee_uri, %{s | cseq: cseq}, remote_tag)
+    msg = ack_msg(s.remote_target || s.callee_uri, %{s | cseq: cseq}, remote_tag)
     UAC.ack_request(msg)
   end
 
@@ -665,15 +728,20 @@ defmodule Connectix.WebRtc.SipBridge do
       else: msg
   end
 
+  # In-dialog requests (§12.2.1.1): the request-URI is the remote target (the
+  # Contact from the 200) and the To header is the dialog's remote URI — the
+  # address we dialed — carrying the remote tag. These used to build To from
+  # `uri`, which put the far end's Contact host into To once `uri` became the
+  # remote target; FreeSWITCH tolerated it, a stricter UAS would not.
   defp bye_msg(uri, s) do
-    h = base_headers(:bye, s, s.cseq, uri)
+    h = base_headers(:bye, s, s.cseq, s.callee_uri)
     h = if s.call_id, do: Map.put(h, "call-id", CallId.new(s.call_id)), else: h
     h = if s.remote_tag, do: put_in(h, ["to"], To.with_parameter(h["to"], "tag", s.remote_tag)), else: h
     Message.new_request(:bye, uri, h)
   end
 
   defp ack_msg(uri, s, remote_tag) do
-    h = base_headers(:ack, s, s.cseq, uri)
+    h = base_headers(:ack, s, s.cseq, s.callee_uri)
     h = if s.call_id, do: Map.put(h, "call-id", CallId.new(s.call_id)), else: h
     h = if remote_tag, do: put_in(h, ["to"], To.with_parameter(h["to"], "tag", remote_tag)), else: h
     Message.new_request(:ack, uri, h)
