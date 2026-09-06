@@ -44,8 +44,10 @@ defmodule Connectix.WebRtc.SipBridge do
   alias Connectix.Voice.CallRecord
   alias Connectix.WebRtc.Transport
   alias Parrot.Media.MediaSessionManager
-  alias Parrot.Sip.Headers.{CallId, Contact, CSeq, From, To, Via}
+  alias Parrot.Sip.{Branch, Uri}
+  alias Parrot.Sip.Headers.{CallId, Contact, CSeq, From, RecordRoute, To, Via}
   alias Parrot.Sip.Message
+  alias Parrot.Sip.Transport.Udp, as: UdpTransport
   alias Parrot.Sip.UAC
 
   # Comfortably inside the 120s `expires` we ask for: re-registering at half
@@ -75,6 +77,13 @@ defmodule Connectix.WebRtc.SipBridge do
     :remote_tag,
     :callee_uri,
     :remote_target,
+    # The dialog's route set (RFC 3261 §12.1.2): the 200's Record-Route values,
+    # reversed, as header-ready strings. Every in-dialog request carries them
+    # as `Route` and is SENT to the first one. Without this the ACK went
+    # straight to the Contact behind the proxy and never arrived: FreeSWITCH
+    # retransmitted the 200 for 32 s and then ended every call with
+    # `Reason: 408 "ACK Timeout"`.
+    :route_set,
     :media_session,
     :sdp_offer,
     :invite_cseq,
@@ -423,6 +432,7 @@ defmodule Connectix.WebRtc.SipBridge do
       s
       | callee_uri: nil,
         remote_target: nil,
+        route_set: nil,
         call_id: nil,
         local_tag: nil,
         remote_tag: nil,
@@ -543,10 +553,22 @@ defmodule Connectix.WebRtc.SipBridge do
   defp signal_hangup(s) do
     cond do
       s.remote_tag ->
-        me = self()
         bye_uri = s.remote_target || s.callee_uri
         msg = bye_msg(bye_uri, s)
-        UAC.request(msg, &send(me, {:sip_response, &1}))
+
+        # parrot's transaction layer sends to the request-URI host, full stop
+        # (`UAC.request/3` even takes a `nexthop` it ignores). A dialog with a
+        # route set needs the BYE at the proxy, so it goes out directly, the
+        # way parrot itself sends ACK. What that costs is Timer E: a BYE lost
+        # on the wire is not retransmitted. Accepted — the far end's own RTP
+        # timeout ends the call in that case — until the next hop lands in
+        # parrot, where it belongs.
+        if s.route_set in [nil, []] do
+          me = self()
+          UAC.request(msg, &send(me, {:sip_response, &1}))
+        else
+          send_in_dialog(msg, s)
+        end
 
       s.invite_uac_id ->
         Logger.info("WebRtc.SipBridge: cancelling an INVITE that was never answered")
@@ -664,7 +686,8 @@ defmodule Connectix.WebRtc.SipBridge do
     # first bot call with `Reason: 408 "ACK Timeout"`: our ACK went to the
     # domain, and whether the proxy forwarded it to the box that answered is
     # not something to leave to the proxy.
-    send_ack(%{s | remote_target: remote_target}, remote_tag)
+    route_set = route_set_from(r)
+    send_ack(%{s | remote_target: remote_target, route_set: route_set}, remote_tag)
 
     if s.media_session, do: MediaSessionManager.complete_uac_setup(s.media_session, sdp_answer)
 
@@ -681,6 +704,7 @@ defmodule Connectix.WebRtc.SipBridge do
       s
       | remote_tag: remote_tag,
         remote_target: remote_target,
+        route_set: route_set,
         status: :in_call,
         invite_timer: nil,
         invite_auth_retried: false
@@ -702,7 +726,7 @@ defmodule Connectix.WebRtc.SipBridge do
   defp send_ack(s, remote_tag) do
     cseq = s.invite_cseq || s.cseq
     msg = ack_msg(s.remote_target || s.callee_uri, %{s | cseq: cseq}, remote_tag)
-    UAC.ack_request(msg)
+    send_in_dialog(msg, s)
   end
 
   # ── Message builders ────────────────────────────────────────────────────────
@@ -746,6 +770,85 @@ defmodule Connectix.WebRtc.SipBridge do
     h = if remote_tag, do: put_in(h, ["to"], To.with_parameter(h["to"], "tag", remote_tag)), else: h
     Message.new_request(:ack, uri, h)
   end
+
+  # ── Dialog routing ──────────────────────────────────────────────────────────
+
+  # The route set for the dialog a 2xx just created (§12.1.2): its Record-Route
+  # values in reverse order, each kept as the proxy's own bytes. parrot hands
+  # the header over as the raw string; it is split on the commas between
+  # values rather than parsed and re-serialised, because a re-serialised URI
+  # comes back with its parameters in map order, and a Route value is the
+  # proxy's identity — it goes back exactly as it came. Empty when the far end
+  # recorded no route, in which case in-dialog requests go to the remote
+  # target directly and nothing changes.
+  @doc false
+  def route_set_from(%{headers: %{"record-route" => recorded}}) do
+    recorded
+    |> List.wrap()
+    |> Enum.flat_map(fn
+      %RecordRoute{} = header -> [RecordRoute.format(header)]
+      raw when is_binary(raw) -> raw |> String.split(~r/(?<=>)\s*,\s*(?=<)/) |> Enum.map(&String.trim/1)
+      _other -> []
+    end)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.reverse()
+  end
+
+  def route_set_from(_response), do: []
+
+  # Where an in-dialog request is actually sent: the first Route hop (§8.1.2,
+  # loose routing), or nowhere special when there is no route set.
+  @doc false
+  def route_hop([first | _rest]) when is_binary(first) do
+    case RecordRoute.parse(first) do
+      %RecordRoute{uri: %Uri{host: host, port: port}} -> {host, port || 5060}
+      %RecordRoute{uri: raw} when is_binary(raw) -> uri_hop(raw)
+      _ -> nil
+    end
+  end
+
+  def route_hop(_none), do: nil
+
+  defp uri_hop(uri) when is_binary(uri) do
+    case Uri.parse(uri) do
+      {:ok, %Uri{host: host, port: port}} when is_binary(host) -> {host, port || 5060}
+      _ -> nil
+    end
+  end
+
+  # Sends an in-dialog request the way RFC 3261 §12.2.1.1 says: Route header
+  # carrying the route set, request-URI the remote target, transport
+  # destination the first Route hop. Bypasses parrot's transaction layer, which
+  # cannot be told a destination — this is a copy of what its own `ack_request`
+  # does, plus the Route and the hop.
+  defp send_in_dialog(%Message{} = msg, s) do
+    msg =
+      msg
+      |> with_route(s.route_set)
+      |> brand_via()
+
+    destination = route_hop(s.route_set) || uri_hop(msg.request_uri)
+
+    if destination do
+      UdpTransport.send_request(%{message: msg, destination: destination})
+    else
+      Logger.error("WebRtc.SipBridge: no destination for #{msg.method} #{inspect(msg.request_uri)}")
+      :ok
+    end
+  end
+
+  defp with_route(msg, routes) when routes in [nil, []], do: msg
+  defp with_route(msg, routes), do: put_header(msg, "route", routes)
+
+  # A request needs a transaction branch on its top Via even when no
+  # transaction owns it; parrot adds one inside `ack_request` and keeps that
+  # helper private.
+  defp brand_via(%Message{headers: %{"via" => [%Via{} = via | rest]} = h} = msg) do
+    via = %{via | parameters: Map.put(via.parameters || %{}, "branch", Branch.generate())}
+    %{msg | headers: %{h | "via" => [via | rest]}}
+  end
+
+  defp brand_via(msg), do: msg
 
   defp base_headers(method, s, seq, to_uri) do
     lip = s.local_ip || Transport.local_ip()

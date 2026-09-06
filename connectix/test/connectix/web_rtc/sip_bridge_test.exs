@@ -237,6 +237,35 @@ defmodule Connectix.WebRtc.SipBridgeTest do
     end
   end
 
+  describe "the dialog route set" do
+    # From the trace of the second bot call: the 200 carried
+    # `Record-Route: <sip:35.157.19.1;lr=on;ftag=…>`, our ACK carried no Route
+    # and went straight to the Contact behind that proxy, and FreeSWITCH ended
+    # the call at 32 s with `408 ACK Timeout`. parrot leaves the header as the
+    # raw string, so parsing it is the part worth pinning.
+    @recorded "<sip:35.157.19.1;lr=on;ftag=ebff35df3c0fb568e110e2ad>"
+
+    test "is the 200's Record-Route values, reversed, ready for a Route header" do
+      response = %{headers: %{"record-route" => @recorded}}
+      assert SipBridge.route_set_from(response) == [@recorded]
+
+      two = %{headers: %{"record-route" => "<sip:first.example;lr>, <sip:second.example;lr>"}}
+      assert SipBridge.route_set_from(two) == ["<sip:second.example;lr>", "<sip:first.example;lr>"]
+    end
+
+    test "is empty when the far end recorded no route" do
+      assert SipBridge.route_set_from(%{headers: %{}}) == []
+      assert SipBridge.route_set_from(%{headers: %{"record-route" => nil}}) == []
+    end
+
+    test "names the first hop as where an in-dialog request is sent" do
+      assert SipBridge.route_hop([@recorded]) == {"35.157.19.1", 5060}
+      assert SipBridge.route_hop(["<sip:proxy.example:5080;lr>"]) == {"proxy.example", 5080}
+      assert SipBridge.route_hop([]) == nil
+      assert SipBridge.route_hop(nil) == nil
+    end
+  end
+
   # A pid that has already exited, so an EXIT message about it is honest and
   # nothing here can accidentally signal a live process.
   defp dead_pid do
