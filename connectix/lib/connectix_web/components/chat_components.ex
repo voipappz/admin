@@ -631,7 +631,8 @@ defmodule ConnectixWeb.ChatComponents do
             >
               <.icon name="hero-bars-3" class="w-5 h-5" />
             </button>
-          <.icon name="hero-chat-bubble-left-right" class="w-7 h-7 text-[var(--color-primary)]" />
+          <%!-- Wordmark only. The rail already carries the mark at its top, and
+               showing it again here read as two logos side by side. --%>
           <h1 class="text-2xl font-semibold m-0">Connectix</h1>
 
           <%!-- Gated on liveness, not on status. `@agent_status == :not_running`
