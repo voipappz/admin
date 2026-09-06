@@ -92,5 +92,8 @@ export RELEASE_COOKIE="my-app-cookie"
 # by naming a gemini-* model: AGENTS_DEMO_MODEL="gemini-2.5-flash".
 # export GOOGLE_API_KEY=""
 
+# xAI (Grok) key. Selected by naming a grok-* model: AGENTS_DEMO_MODEL="grok-4".
+# export XAI_API_KEY=""
+
 # Public HTTPS tunnel for WhatsApp webhooks — see `make tunnel`.
 # export NGROK_AUTHTOKEN=""

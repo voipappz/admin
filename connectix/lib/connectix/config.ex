@@ -86,18 +86,31 @@ defmodule Connectix.Config do
   def google_api_key!, do: google_api_key() || raise_missing("GOOGLE_API_KEY")
 
   @doc """
+  xAI (Grok) API key (`XAI_API_KEY`), or `nil`. Selected by naming a `grok-*`
+  model in `AGENTS_DEMO_MODEL`; see `model_provider/1`.
+  """
+  @spec xai_api_key() :: String.t() | nil
+  def xai_api_key, do: env("XAI_API_KEY")
+
+  @doc "xAI API key, raising when unset — see `anthropic_api_key!/0`."
+  @spec xai_api_key!() :: String.t()
+  def xai_api_key!, do: xai_api_key() || raise_missing("XAI_API_KEY")
+
+  @doc """
   Which provider serves a model, from its name — the one thing every provider
   encodes in the name, so no second variable has to agree with the first:
 
     * `gemini-*` → `:google`
+    * `grok-*` → `:xai`
     * `gpt-*`, `o1*`/`o3*`/`o4*` → `:openai`
     * anything else → `:anthropic`
 
   `Connectix.Agents.Factory` builds the matching LangChain chat model and
   reads the matching key. Changing provider is therefore one variable.
   """
-  @spec model_provider(String.t()) :: :anthropic | :google | :openai
+  @spec model_provider(String.t()) :: :anthropic | :google | :openai | :xai
   def model_provider("gemini-" <> _rest), do: :google
+  def model_provider("grok-" <> _rest), do: :xai
   def model_provider("gpt-" <> _rest), do: :openai
   def model_provider(<<"o", digit, _rest::binary>>) when digit in ?1..?9, do: :openai
   def model_provider(_other), do: :anthropic
@@ -583,6 +596,7 @@ defmodule Connectix.Config do
       {"ANTHROPIC_API_KEY", presence(anthropic_api_key())},
       {"OPENAI_KEY", presence(openai_api_key())},
       {"GOOGLE_API_KEY", presence(google_api_key())},
+      {"XAI_API_KEY", presence(xai_api_key())},
       {"AGENTS_DEMO_MODEL", main_model()},
       {"AGENTS_DEMO_TITLE_MODEL", title_model()},
       {"AGENTS_DEMO_THINKING_BUDGET", to_string(thinking_budget_tokens())},

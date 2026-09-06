@@ -35,6 +35,7 @@ defmodule Connectix.ConfigTest do
       assert Config.model_provider("gemini-2.5-flash") == :google
       assert Config.model_provider("gpt-4o-mini") == :openai
       assert Config.model_provider("o3-mini") == :openai
+      assert Config.model_provider("grok-4") == :xai
     end
 
     test "anything unrecognised is Anthropic, the default provider" do

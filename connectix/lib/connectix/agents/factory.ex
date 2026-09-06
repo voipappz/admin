@@ -27,7 +27,7 @@ defmodule Connectix.Agents.Factory do
   alias Connectix.Skills.Capability
   alias Connectix.Skills.Context
   alias Connectix.Skills.Skill
-  alias LangChain.ChatModels.{ChatAnthropic, ChatGoogleAI, ChatOpenAI}
+  alias LangChain.ChatModels.{ChatAnthropic, ChatGoogleAI, ChatGrok, ChatOpenAI}
   alias Sagents.Agent
   alias Sagents.Middleware.ConversationTitle
   alias Sagents.Middleware.HumanInTheLoop
@@ -100,6 +100,9 @@ defmodule Connectix.Agents.Factory do
       :google ->
         ChatGoogleAI.new!(Map.put(common, :api_key, Config.google_api_key!()))
 
+      :xai ->
+        ChatGrok.new!(Map.put(common, :api_key, Config.xai_api_key!()))
+
       :openai ->
         ChatOpenAI.new!(Map.put(common, :api_key, Config.openai_api_key!()))
     end
@@ -112,6 +115,7 @@ defmodule Connectix.Agents.Factory do
     case Config.model_provider(name) do
       :anthropic -> ChatAnthropic.new!(Map.put(common, :api_key, Config.anthropic_api_key!()))
       :google -> ChatGoogleAI.new!(Map.put(common, :api_key, Config.google_api_key!()))
+      :xai -> ChatGrok.new!(Map.put(common, :api_key, Config.xai_api_key!()))
       :openai -> ChatOpenAI.new!(Map.put(common, :api_key, Config.openai_api_key!()))
     end
   end
