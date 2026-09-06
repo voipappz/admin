@@ -46,7 +46,12 @@ defmodule Connectix.WebRtc.Transport do
 
   @impl true
   def init(_opts) do
-    local_ip = best_local_ip()
+    local_ip =
+      case best_local_ip() do
+        {:ok, ip} -> ip
+        :error -> "127.0.0.1"
+      end
+
     exposed_ip = exposed_ip(local_ip)
     ip_tuple = ip_to_tuple(local_ip)
     exposed_tuple = ip_to_tuple(exposed_ip)
@@ -89,8 +94,14 @@ defmodule Connectix.WebRtc.Transport do
     bound = s.local_ip
 
     case best_local_ip() do
-      ^bound -> {:noreply, s}
-      moved -> {:noreply, rebind(s, moved)}
+      # No route right now. Not a move — keep the socket we have. If it really
+      # is gone, the next tick with a route will see a different address.
+      :error -> {:noreply, s}
+      {:ok, ^bound} -> {:noreply, s}
+      # `bound` is nil after a failed rebind (no socket at all), so any address
+      # the kernel now offers is a reason to try again — including the one
+      # that failed to bind last time.
+      {:ok, moved} -> {:noreply, rebind(s, moved)}
     end
   end
 
@@ -125,10 +136,18 @@ defmodule Connectix.WebRtc.Transport do
         %__MODULE__{local_ip: new_ip, local_port: port, exposed_ip: exposed_ip}
 
       {:error, reason} ->
-        # Keep the old state and try again on the next tick rather than
-        # crashing: a half-configured network usually settles.
-        Logger.error("WebRtc.Transport: rebind to #{new_ip} failed: #{inspect(reason)}")
-        s
+        # The old socket is already stopped, so the state must say there is no
+        # socket — not keep naming an address nothing is bound to. Keeping it
+        # meant that when the interface settled back to that same address the
+        # tick matched `^bound`, decided nothing had changed, and never tried
+        # again: a UA silently dead until the BEAM restarted. With `nil` here
+        # the next tick rebinds to whatever address the kernel offers.
+        Logger.error(
+          "WebRtc.Transport: rebind to #{new_ip} failed: #{inspect(reason)} — " <>
+            "no SIP socket until the next address check succeeds"
+        )
+
+        %{s | local_ip: nil, local_port: nil}
     end
   end
 
@@ -157,14 +176,23 @@ defmodule Connectix.WebRtc.Transport do
   # and a wrong choice here means Via/Contact/SDP advertise an address the
   # registrar can never route a response or RTP back to. No packet is sent —
   # UDP `connect/3` only binds the route, it's a routing-table lookup.
+  # The address the kernel would route from, found by "connecting" a UDP socket
+  # (no packet is sent) and reading which local address it picked.
+  #
+  # `:error` when there is no route at all, and it matters that this is NOT
+  # reported as an address: this machine's uplink flaps, and a transient
+  # `:enetunreach` on the 15 s tick used to come back as `"127.0.0.1"` — which
+  # the tick read as "the address moved to loopback" and acted on, tearing down
+  # the live SIP socket in the middle of a call. Loopback is a boot-time
+  # fallback (`init/1`) so the suite runs offline; it is never a move.
   defp best_local_ip do
     with {:ok, socket} <- :gen_udp.open(0, active: false),
          :ok <- :gen_udp.connect(socket, ~c"8.8.8.8", 53),
          {:ok, {ip, _port}} <- :inet.sockname(socket) do
       :gen_udp.close(socket)
-      ip |> :inet.ntoa() |> to_string()
+      {:ok, ip |> :inet.ntoa() |> to_string()}
     else
-      _ -> "127.0.0.1"
+      _ -> :error
     end
   end
 
