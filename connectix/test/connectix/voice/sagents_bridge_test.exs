@@ -28,6 +28,8 @@ defmodule Connectix.Voice.SagentsBridgeTest do
     LLMFullResponseStartFrame,
     LLMMessagesAppendFrame,
     LLMTextFrame,
+    StartFrame,
+    TextFrame,
     TranscriptionFrame,
     UserStartedSpeakingFrame,
     UserStoppedSpeakingFrame
@@ -42,8 +44,10 @@ defmodule Connectix.Voice.SagentsBridgeTest do
   # `async: true`. Global mode is process-wide and would break unrelated async
   # tests in other files.
 
-  # The bridge only ever calls `ctx.push` for the greeting; everything else is
-  # returned. Sending to self() keeps those visible to the test.
+  # The bridge returns every frame it emits; nothing is pushed through
+  # `ctx.push` any more (the greeting used to be, and that was a bug — see "the
+  # greeting" below). `push` is still wired to self() so any regression to
+  # pushing from setup shows up as a received message.
   defp ctx do
     test = self()
 
@@ -68,6 +72,45 @@ defmodule Connectix.Voice.SagentsBridgeTest do
 
   defp text_delta(text), do: delta(LangChain.Message.ContentPart.text!(text), 1)
   defp thinking_delta(text), do: delta(LangChain.Message.ContentPart.thinking!(text), 0)
+
+  describe "the greeting" do
+    # `Feline.Processor.Server` runs `handle_setup` and only THEN forwards the
+    # `StartFrame`, so a frame pushed during setup is enqueued downstream ahead
+    # of it and reaches Cartesia before Cartesia has opened its socket. The
+    # greeting was pushed there, and the caller answered to silence — with no
+    # error anywhere, because a `TextFrame` at a TTS with no client is just
+    # dropped. These are the ordering contract, driven without a pipeline.
+    setup do
+      # The bridge calls the one-argument form; Mimic stubs are per arity, so
+      # stubbing `/2` (as `TurnsTest` does, for a caller that passes opts)
+      # would let this fall through to the real coordinator.
+      stub(Connectix.Agents.Coordinator, :ensure_agent_session_running, fn _state -> {:ok, %{}} end)
+
+      stub(AgentServer, :subscribe, fn _agent_id, _channel, _pid -> {:ok, self(), make_ref()} end)
+      :ok
+    end
+
+    test "is never pushed from setup, where it would overtake the StartFrame" do
+      {:ok, _state} = SagentsBridge.handle_setup(%StartFrame{}, ctx(), state(%{greeting: "Hello."}))
+
+      refute_received {:pushed, _frame, _direction},
+                      "pushed during setup — it will arrive at TTS before the StartFrame does"
+
+      assert_received {:greet, "Hello."}
+    end
+
+    test "is spoken when the deferred message lands, after setup has returned" do
+      assert {:push, %TextFrame{text: "Hello."}, :downstream, _state} =
+               SagentsBridge.handle_info({:greet, "Hello."}, ctx(), state())
+    end
+
+    test "a bot with no greeting sends nothing" do
+      {:ok, _state} = SagentsBridge.handle_setup(%StartFrame{}, ctx(), state())
+
+      refute_received {:greet, _text}
+      refute_received {:pushed, _frame, _direction}
+    end
+  end
 
   describe "thinking is never spoken" do
     test "a delta carrying only thinking pushes nothing" do

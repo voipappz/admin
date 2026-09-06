@@ -233,6 +233,12 @@ defmodule Connectix.Voice.SagentsBridge do
      ], end_turn(state)}
   end
 
+  # Deferred from `handle_setup` — see `maybe_greet/2` for why it cannot be
+  # pushed there.
+  def handle_info({:greet, text}, _ctx, state) do
+    {:push, %TextFrame{text: text}, :downstream, state}
+  end
+
   def handle_info({:agent, _other}, _ctx, state), do: {:ok, state}
 
   def handle_info(_message, _ctx, state), do: {:ok, state}
@@ -248,8 +254,27 @@ defmodule Connectix.Voice.SagentsBridge do
   defp describe(reason) when is_binary(reason), do: reason
   defp describe(reason), do: inspect(reason)
 
+  # The greeting cannot be pushed from `handle_setup`, even though that is the
+  # obvious place for it and reads correctly.
+  #
+  # `Feline.Processor.Server.handle_system/3` runs `handle_setup` and only THEN
+  # forwards the `StartFrame`:
+  #
+  #     {:ok, mod_state} = state.module.handle_setup(frame, ctx(state), ...)
+  #     do_push(frame, direction, state)
+  #
+  # So anything pushed during setup is enqueued downstream *ahead* of the
+  # StartFrame. This processor sits before `CartesiaTTS`, whose own
+  # `handle_setup` is what opens its WebSocket — so the greeting arrived while
+  # its client was still `nil` and was synthesized into nothing. Deterministic,
+  # not a race: every processor drains its mailbox in order, so the greeting
+  # overtook the StartFrame at every hop. The caller answered to silence.
+  #
+  # Sending ourselves a message instead puts the greeting after `handle_system`
+  # returns, so the StartFrame is already in the next processor's mailbox and
+  # the order is right the whole way down.
   defp maybe_greet(ctx, %{greeting: greeting} = state) when is_binary(greeting) do
-    ctx.push.(%TextFrame{text: greeting}, :downstream)
+    send(ctx.self, {:greet, greeting})
     {:ok, state}
   end
 
