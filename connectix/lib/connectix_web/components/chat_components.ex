@@ -34,7 +34,13 @@ defmodule ConnectixWeb.ChatComponents do
         !@collapsed && "justify-between px-6"
       ]}>
         <%= if not @collapsed do %>
-          <h3 class="text-lg font-semibold m-0">Tasks & Files</h3>
+          <%!-- Named for the section the rail selected. The panel used to be
+               one "Tasks & Files" drawer with a tab strip inside it, which
+               meant two ways to reach the same two things — the rail entry and
+               then a tab. The rail is the menu; this is what it opened. --%>
+          <h3 class="text-lg font-semibold m-0">
+            {if @active_tab == "files", do: "Files", else: "Tasks"}
+          </h3>
         <% else %>
           <button
             phx-click="toggle_sidebar"
@@ -49,36 +55,6 @@ defmodule ConnectixWeb.ChatComponents do
 
       <%= if not @collapsed do %>
         <div class="flex-1 overflow-y-auto flex flex-col">
-          <div class="flex bg-[var(--color-background)]">
-            <button
-              class={[
-                "flex-1 py-3 px-4 bg-transparent text-[var(--color-text-secondary)] font-medium text-sm transition-all border-b-2 relative cursor-pointer border-t-0 border-l-0 border-r-0",
-                @active_tab == "tasks" &&
-                  "text-[var(--color-primary)] border-[var(--color-primary)] font-semibold bg-[var(--color-surface)]",
-                @active_tab != "tasks" &&
-                  "border-[var(--color-border)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border-light)]"
-              ]}
-              phx-click="switch_tab"
-              phx-value-tab="tasks"
-              type="button"
-            >
-              Tasks
-            </button>
-            <button
-              class={[
-                "flex-1 py-3 px-4 bg-transparent text-[var(--color-text-secondary)] font-medium text-sm transition-all border-b-2 relative cursor-pointer border-t-0 border-l-0 border-r-0",
-                @active_tab == "files" &&
-                  "text-[var(--color-primary)] border-[var(--color-primary)] font-semibold bg-[var(--color-surface)]",
-                @active_tab != "files" &&
-                  "border-[var(--color-border)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border-light)]"
-              ]}
-              phx-click="switch_tab"
-              phx-value-tab="files"
-              type="button"
-            >
-              Files
-            </button>
-          </div>
 
           <div class="flex-1 p-4 overflow-y-auto">
             <%= if @active_tab == "tasks" do %>
