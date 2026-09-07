@@ -195,7 +195,6 @@ defmodule ConnectixWeb.ChatComponentsTest do
         is_phone_open: false,
         is_rail_open: false,
         sidebar_active_tab: "tasks",
-        sidebar_collapsed: true,
         todos: [],
         files: [],
         streaming_delta: nil,
@@ -218,10 +217,48 @@ defmodule ConnectixWeb.ChatComponentsTest do
         phone_account: nil,
         phone_number: "",
         phone_tab: "dialpad",
-        sidebar_collapsed: false
+        # Tasks/Files closed, so the Thread History slot is free — see
+        # "the left column holds one panel" below.
+        sidebar_collapsed: true
       }
 
       render_component(&ChatComponents.chat_interface/1, Map.merge(base, overrides))
+    end
+
+    # Files and Thread History share ONE column. They used to render on
+    # independent conditions, so opening Files put a second panel beside the
+    # chat list and pushed the conversation — and the phone — off a narrow
+    # window. Opening one replaces the other.
+    test "the left column holds one panel: Files replaces Thread History" do
+      html =
+        render_interface(%{
+          is_thread_history_open: true,
+          sidebar_collapsed: false,
+          sidebar_active_tab: "files"
+        })
+
+      assert html =~ "Files", "Tasks/Files was asked for and is not rendered"
+
+      refute html =~ "Thread History",
+             "both panels rendered; Files must take the slot, not sit beside the chat list"
+    end
+
+    test "closing Files brings Thread History straight back" do
+      html =
+        render_interface(%{
+          is_thread_history_open: true,
+          sidebar_collapsed: true,
+          streams: %{messages: [], conversation_list: []}
+        })
+
+      assert html =~ "Thread History",
+             "the chat list's own toggle was still on, so it should reclaim the slot"
+    end
+
+    test "neither panel renders when both are closed" do
+      html = render_interface(%{is_thread_history_open: false, sidebar_collapsed: true})
+
+      refute html =~ "Thread History"
     end
 
     test "hides Wake while a process is backing the conversation" do

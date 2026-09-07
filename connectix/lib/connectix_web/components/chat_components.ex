@@ -688,10 +688,14 @@ defmodule ConnectixWeb.ChatComponents do
 
       <div class="flex flex-1 relative overflow-hidden">
 
-        <%!-- Tasks & Files first among the columns, but *under* the header:
-              rendered as a sibling of this component it sat beside the header
-              instead of below it, so the app bar only spanned part of the
-              window. --%>
+        <%!-- ONE left column, not two. Tasks/Files and Thread History share
+              this slot: opening Files REPLACES the chat list instead of adding
+              a third column beside it, which is what pushed the conversation
+              and the phone off a narrow window.
+
+              Under the header, not beside it — rendered as a sibling of this
+              component it sat next to the header and the app bar only spanned
+              part of the window. --%>
         <div :if={not @sidebar_collapsed} class="flex-shrink-0">
           <.tasks_files_sidebar
             todos={@todos}
@@ -704,8 +708,13 @@ defmodule ConnectixWeb.ChatComponents do
         <%!-- Chats on the LEFT, the phone on the RIGHT, the conversation in
               between — the shape of every chat app. Each side collapses on its
               own, so closing the chat list leaves the phone up, and vice versa.
-              Closed means absent: no empty rail is left behind. --%>
-        <%= if @is_thread_history_open do %>
+              Closed means absent: no empty rail is left behind.
+
+              `@sidebar_collapsed and`: the chat list yields the slot while
+              Tasks/Files holds it. Its own toggle is remembered, so closing
+              Files brings the list straight back rather than leaving the
+              column empty. --%>
+        <%= if @sidebar_collapsed and @is_thread_history_open do %>
           <%!-- `min-h-0` so the list can claim the full height: without it the
                column floors at its content size and collapses to a sliver. --%>
           <div class="w-80 border-r border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0 flex flex-col min-h-0">
