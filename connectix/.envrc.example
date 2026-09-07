@@ -17,24 +17,24 @@ export ANTHROPIC_API_KEY="your-api-key-here"
 
 # The model a conversation runs on, and the smaller one that names it. A bot's
 # own `model` overrides the first per conversation.
-# export AGENTS_DEMO_MODEL="claude-sonnet-4-6"
-# export AGENTS_DEMO_TITLE_MODEL="claude-haiku-4-5"
+# export CONNECTIX_MODEL="claude-sonnet-4-6"
+# export CONNECTIX_TITLE_MODEL="claude-haiku-4-5"
 
 # Extended-thinking budget in tokens. Anthropic requires at least 1024; the
 # ceiling is a cost bound, since thinking is billed as output.
-# export AGENTS_DEMO_THINKING_BUDGET="3000"
+# export CONNECTIX_THINKING_BUDGET="3000"
 
 # How long a tool call may run, in milliseconds. Unset means no timeout, which
 # is right when a human is watching and can give up themselves. An unattended
 # agent — answering a webhook, or a call — wants a finite one.
-# export AGENTS_DEMO_TOOL_TIMEOUT_MS="600000"
+# export CONNECTIX_TOOL_TIMEOUT_MS="600000"
 
 # ── Public HTTP API (see /api/docs) ─────────────────────────────────────────
 
 # The API refuses every request when the key is unset, rather than running
 # unauthenticated. Both are needed; one without the other answers 401.
-# export AGENTS_DEMO_API_KEY="$(openssl rand -hex 24)"
-# export AGENTS_DEMO_API_USER_EMAIL="you@example.com"
+# export CONNECTIX_API_KEY="$(openssl rand -hex 24)"
+# export CONNECTIX_API_USER_EMAIL="you@example.com"
 
 # ── WhatsApp channel ────────────────────────────────────────────────────────
 
@@ -54,17 +54,18 @@ export ANTHROPIC_API_KEY="your-api-key-here"
 # Root of the agents' own filesystems — the /Memories each user sees. Must be
 # an absolute path outside the release in production: a deploy replaces the
 # release directory wholesale. Defaults to ./user_files in development.
-# export AGENTS_DEMO_DATA_DIR="/opt/xamal/connectix/data"
+# export CONNECTIX_DATA_DIR="/opt/xamal/connectix/data"
 
-# ── Database (development and test) ─────────────────────────────────────────
+# ── Durable state ───────────────────────────────────────────────────────────
 
-# Defaults match docker-compose.yml. PGPORT is the one most often changed —
-# set it when 5432 is already taken by another project's database.
-# export PGPORT="5434"
-# export PGHOST="localhost"
-# export PGUSER="postgres"
-# export PGPASSWORD="postgres"
-# export PGDATABASE="connectix_dev"
+# There is NO DATABASE SERVER. Mnesia ships inside the BEAM and the event store
+# is a DuckDB file; both live under CONNECTIX_DATA_DIR above.
+#
+# MNESIA_DIR IS WHAT MAKES MNESIA DURABLE. Unset, it runs ram_copies: every
+# restart is a fresh, empty, perfectly healthy-looking database. In production
+# point it at a mounted volume.
+# export MNESIA_DIR="/data/mnesia"
+# export EVENTS_DIR="/data/events"
 
 # Phoenix HTTP port in development. Read by config/runtime.exs and by the
 # Makefile (for the tunnel), so `.env` or the shell is enough either way.
@@ -76,7 +77,7 @@ export ANTHROPIC_API_KEY="your-api-key-here"
 # discovery and needs the nodes connected in an Erlang cluster; `local` is
 # right for a one-box deploy, which otherwise pays for CRDT sync and gets
 # nothing back.
-# export AGENTS_DEMO_DISTRIBUTION="horde"
+# export CONNECTIX_DISTRIBUTION="horde"
 
 # For local clustered usage
 export RELEASE_DISTRIBUTION="name"
@@ -89,10 +90,10 @@ export RELEASE_COOKIE="my-app-cookie"
 # export OPENAI_KEY=""
 
 # Google AI Studio (Gemini) key — the one provider with a free tier. Selected
-# by naming a gemini-* model: AGENTS_DEMO_MODEL="gemini-2.5-flash".
+# by naming a gemini-* model: CONNECTIX_MODEL="gemini-2.5-flash".
 # export GOOGLE_API_KEY=""
 
-# xAI (Grok) key. Selected by naming a grok-* model: AGENTS_DEMO_MODEL="grok-4".
+# xAI (Grok) key. Selected by naming a grok-* model: CONNECTIX_MODEL="grok-4".
 # export XAI_API_KEY=""
 
 # Public HTTPS tunnel for WhatsApp webhooks — see `make tunnel`.

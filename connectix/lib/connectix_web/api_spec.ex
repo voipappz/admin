@@ -33,7 +33,7 @@ defmodule ConnectixWeb.ApiSpec do
         as the message is accepted rather than waiting for a reply. Poll
         `GET /messages` for the answer.
 
-        Authenticate with `Authorization: Bearer <AGENTS_DEMO_API_KEY>`.
+        Authenticate with `Authorization: Bearer <CONNECTIX_API_KEY>`.
         """
       },
       paths: Paths.from_router(ConnectixWeb.Router),
@@ -42,7 +42,7 @@ defmodule ConnectixWeb.ApiSpec do
           "bearer" => %SecurityScheme{
             type: "http",
             scheme: "bearer",
-            description: "The value of AGENTS_DEMO_API_KEY."
+            description: "The value of CONNECTIX_API_KEY."
           }
         }
       },

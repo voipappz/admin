@@ -33,7 +33,7 @@ defmodule Connectix.MixProject do
   # holds the per-user agent filesystems created at runtime; shipping them
   # would put local dev data — and whatever an agent wrote into it — on the
   # server, and every deploy would overwrite what production had accumulated.
-  # Runtime state belongs outside the release, under AGENTS_DEMO_DATA_DIR.
+  # Runtime state belongs outside the release, under CONNECTIX_DATA_DIR.
   defp strip_runtime_state(release) do
     priv = Path.join([release.path, "lib", "connectix-#{release.version}", "priv"])
 

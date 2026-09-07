@@ -100,7 +100,7 @@ defmodule Connectix.Agents.DemoSetup do
 
   # Private helper to setup user directory and return storage path
   defp setup_user_directory(user_id) do
-    # AGENTS_DEMO_DATA_DIR, or a per-environment default. See
+    # CONNECTIX_DATA_DIR, or a per-environment default. See
     # `Connectix.Config.data_dir/0` — in particular why this cannot ask
     # `Mix.env()`, which does not exist in a release.
     base_path = Config.data_dir()

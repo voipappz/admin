@@ -60,9 +60,8 @@ load `../chrome/angular/dist` unpacked.
 **4001 is the origin and does not move.** The LiveView UI and the Chrome
 extension both point at it, and neither should ever have to change.
 
-**Everything uses `network_mode: host`**, because cable, NATS and Postgres are
-published on the host's loopback and a bridged container cannot see
-`127.0.0.1`.
+**Everything uses `network_mode: host`**, because cable and NATS are published
+on the host's loopback and a bridged container cannot see `127.0.0.1`.
 
 ### Local by default, deliberately
 

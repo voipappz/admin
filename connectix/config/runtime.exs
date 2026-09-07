@@ -52,20 +52,20 @@ config :anu,
   verify_token: env.("WHATSAPP_VERIFY_TOKEN")
 
 # How long a tool call may run, in milliseconds
-# (`AGENTS_DEMO_TOOL_TIMEOUT_MS`). Unset means no timeout, which is right when
+# (`CONNECTIX_TOOL_TIMEOUT_MS`). Unset means no timeout, which is right when
 # a human is watching the reply and can give up themselves. An unattended agent
 # — one answering a webhook or a voice call — wants a finite one, because
 # nobody is there to notice a tool that never returns.
 config :langchain,
-  async_tool_timeout: int_env.("AGENTS_DEMO_TOOL_TIMEOUT_MS", :infinity)
+  async_tool_timeout: int_env.("CONNECTIX_TOOL_TIMEOUT_MS", :infinity)
 
-# Sagents distributed process management (`AGENTS_DEMO_DISTRIBUTION`, default
+# Sagents distributed process management (`CONNECTIX_DISTRIBUTION`, default
 # `horde`). Horde.Registry and Horde.DynamicSupervisor give cross-node process
 # discovery, which needs the nodes connected in an Erlang cluster. Set
 # `local` for single-node mode — a one-box deploy pays for Horde's CRDT sync
 # and gets nothing back.
 distribution =
-  case env.("AGENTS_DEMO_DISTRIBUTION") do
+  case env.("CONNECTIX_DISTRIBUTION") do
     "local" -> :local
     _horde_by_default -> :horde
   end

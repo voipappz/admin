@@ -51,7 +51,7 @@ defmodule Connectix.Events do
   `EVENTS_DB`, else `<EVENTS_DIR>/events.duckdb`, else `<data dir>/events`.
 
   **A path inside the container is not storage.** Every deployment has to mount
-  a volume and point `EVENTS_DIR` (or `AGENTS_DEMO_DATA_DIR`) at it, or the
+  a volume and point `EVENTS_DIR` (or `CONNECTIX_DATA_DIR`) at it, or the
   file is created fresh in the container's own filesystem and every deploy
   starts an empty store — with no error, because an empty DuckDB is a perfectly
   valid one. That was true of nimbus until 2026-09-07, which is why this

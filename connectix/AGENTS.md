@@ -23,15 +23,14 @@ the ports in effect.
 | Command | Does |
 |---|---|
 | `make setup` | first run: deps, database, assets |
-| `make dev` | starts Postgres, then `mix phx.server` |
+| `make dev` | `mix phx.server` |
 | `make test` | the suite |
 | `make precommit` | everything CI checks, plus the tests |
 | `make act` | runs the GitHub Actions job locally |
-| `make up` / `make down` | Postgres only |
-| `make psql` / `make reset` | shell on, or rebuild, the dev database |
 | `make tunnel` / `make tunnel-url` | public HTTPS tunnel for webhooks |
 
-Postgres runs in `docker-compose.yml`. `.env` is the whole story: Dotenvy loads
+There is no database server: Mnesia is in the BEAM and the event store is a
+DuckDB file, both under `CONNECTIX_DATA_DIR`. `.env` is the whole story: Dotenvy loads
 it at the top of `config/runtime.exs`, and everything environment-dependent is
 configured there, so a value never has to be exported before `mix` starts.
 
@@ -66,7 +65,7 @@ Three details are load-bearing:
   is the only safe use.
 
 A setting that only one call site knows about is one nobody can list, document,
-or ship to a server — which is exactly how `AGENTS_DEMO_API_KEY` came to be read
+or ship to a server — which is exactly how `CONNECTIX_API_KEY` came to be read
 inside a plug and listed nowhere in `config/xamal.exs`.
 
 ## Channels
@@ -149,8 +148,8 @@ expose it, and a customer needs to read them before they have a key. The spec
 is generated from the router and the controllers' `operation/1` declarations,
 so it cannot drift from the routes that exist.
 
-    AGENTS_DEMO_API_KEY          # bearer token; the API refuses everything if unset
-    AGENTS_DEMO_API_USER_EMAIL   # requests act as this user
+    CONNECTIX_API_KEY          # bearer token; the API refuses everything if unset
+    CONNECTIX_API_USER_EMAIL   # requests act as this user
 
 | | |
 |---|---|
@@ -844,8 +843,8 @@ pass.
 
 Every env var the app reads at runtime has to be listed in `config/xamal.exs` or
 it simply is not there on the box, and the surface it configures is dead in
-production while working locally. `AGENTS_DEMO_API_KEY`,
-`AGENTS_DEMO_API_USER_EMAIL` and `WHATSAPP_OWNER_EMAIL` are all optional and all
+production while working locally. `CONNECTIX_API_KEY`,
+`CONNECTIX_API_USER_EMAIL` and `WHATSAPP_OWNER_EMAIL` are all optional and all
 shipped only when set.
 
 Two things break `mix release` rather than the deploy, and both fail late:
@@ -905,9 +904,8 @@ reaches nobody. Doing it properly needs a `handler` flag on the conversation —
 the agent stands down while a human answers — and a guard so a message that
 arrived *from* a channel is never echoed back to it.
 
-**`make act` needs port 5432 free.** The workflow publishes it because the job
-runs on the runner VM rather than in a container, so anything else bound to 5432
-locally will collide.
+**`make act` needs no database.** It used to publish 5432 for a Postgres
+service the workflow started; the app has had no Ecto since 39c92198.
 
 **Channel credentials are per-deployment, not per-tenant.** One WhatsApp number,
 one API key, one user. Supporting several would mean a tenant on every row,

@@ -1,23 +1,4 @@
 services:
-  db:
-    image: postgres:17-alpine
-    container_name: connectix_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    # Bound to loopback only. Override the host port with PGPORT when 5432 is
-    # already taken by another project's database.
-    ports:
-      - "127.0.0.1:${PGPORT:-5432}:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   # Public HTTPS tunnel to the locally-running Phoenix server, so external
   # webhooks (WhatsApp Cloud API) can reach it. Opt-in:
   #
@@ -37,6 +18,3 @@ services:
       # Set NGROK_AUTHTOKEN in .env — get one at dashboard.ngrok.com
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
     command: http ${PHX_PORT:-4000} --log stdout
-
-volumes:
-  pgdata:

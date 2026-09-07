@@ -9,14 +9,14 @@
 #
 # Server details come from the environment so this file carries no host
 # secrets — set them in .xamal/secrets (gitignored) or your shell:
-#   AGENTS_DEMO_HOST=1.2.3.4  AGENTS_DEMO_SSH_USER=root  AGENTS_DEMO_DOMAIN=app.example.com
+#   CONNECTIX_HOST=1.2.3.4  CONNECTIX_SSH_USER=root  CONNECTIX_DOMAIN=app.example.com
 import Config
 
 # The bare hostname for Phoenix's own URL generation (PHX_HOST). The domain may
 # carry an explicit ":port" for Caddy's bind address; PHX_HOST must not, or the
 # port ends up baked into every generated absolute URL.
 phx_host =
-  case System.get_env("AGENTS_DEMO_DOMAIN") do
+  case System.get_env("CONNECTIX_DOMAIN") do
     nil -> "agents-demo.example.com"
     domain -> domain |> String.split(":") |> hd()
   end
@@ -48,21 +48,21 @@ end
 config :xamal,
   service: "connectix",
   servers: [
-    web: [System.get_env("AGENTS_DEMO_HOST") || "AGENTS_DEMO_HOST-unset"]
+    web: [System.get_env("CONNECTIX_HOST") || "CONNECTIX_HOST-unset"]
   ],
   ssh: [
-    user: System.get_env("AGENTS_DEMO_SSH_USER") || "root",
+    user: System.get_env("CONNECTIX_SSH_USER") || "root",
     # A DEDICATED directory holding only the deploy key, named with a standard
     # basename. Erlang's :ssh is given `Path.dirname(hd(keys))` as its
     # `user_dir` and then tries only standard basenames inside it — pointing
     # this at ~/.ssh means an unrelated pre-existing id_ed25519 gets tried
     # instead, and auth fails silently against the wrong identity.
-    keys: [System.get_env("AGENTS_DEMO_SSH_KEY") || "~/.ssh/agents-demo-deploy/id_ed25519"]
+    keys: [System.get_env("CONNECTIX_SSH_KEY") || "~/.ssh/agents-demo-deploy/id_ed25519"]
   ],
   # Caddy terminates TLS (Let's Encrypt) and proxies to the app. It also
   # carries the LiveView WebSocket, so the UI and its socket share an origin.
   caddy: [
-    host: System.get_env("AGENTS_DEMO_DOMAIN") || "agents-demo.example.com",
+    host: System.get_env("CONNECTIX_DOMAIN") || "agents-demo.example.com",
     app_port: 4000
   ],
   release: [
@@ -83,12 +83,12 @@ config :xamal,
         # Agent filesystems live OUTSIDE the release: xamal replaces `current`
         # wholesale on every deploy, so anything inside it is destroyed by the
         # next one.
-        AGENTS_DEMO_DATA_DIR: "/opt/xamal/connectix/data"
+        CONNECTIX_DATA_DIR: "/opt/xamal/connectix/data"
       ] ++
         optional.("POOL_SIZE") ++
         optional.("ECTO_IPV6") ++
         optional.("DNS_CLUSTER_QUERY") ++
-        optional.("AGENTS_DEMO_API_USER_EMAIL") ++
+        optional.("CONNECTIX_API_USER_EMAIL") ++
         optional.("WHATSAPP_OWNER_EMAIL"),
     secret:
       ["SECRET_KEY_BASE", "DATABASE_URL", "ANTHROPIC_API_KEY"]
@@ -96,7 +96,7 @@ config :xamal,
         # The HTTP API is optional the same way: with no key the API refuses
         # every request, which is the correct behaviour for a deploy that does
         # not expose one.
-        if secret_present?.("AGENTS_DEMO_API_KEY"), do: ["AGENTS_DEMO_API_KEY"], else: []
+        if secret_present?.("CONNECTIX_API_KEY"), do: ["CONNECTIX_API_KEY"], else: []
       )
       |> Kernel.++(
         # The WhatsApp channel is OPTIONAL and must stay that way: declaring

@@ -76,7 +76,7 @@ defmodule Connectix.Config do
   Google AI (Gemini) API key (`GOOGLE_API_KEY`), or `nil`. From Google AI
   Studio; the only provider here with a free tier, which is why it exists —
   a bot can be tried with no card on file. Selected by naming a `gemini-*`
-  model in `AGENTS_DEMO_MODEL`; see `model_provider/1`.
+  model in `CONNECTIX_MODEL`; see `model_provider/1`.
   """
   @spec google_api_key() :: String.t() | nil
   def google_api_key, do: env("GOOGLE_API_KEY")
@@ -87,7 +87,7 @@ defmodule Connectix.Config do
 
   @doc """
   xAI (Grok) API key (`XAI_API_KEY`), or `nil`. Selected by naming a `grok-*`
-  model in `AGENTS_DEMO_MODEL`; see `model_provider/1`.
+  model in `CONNECTIX_MODEL`; see `model_provider/1`.
   """
   @spec xai_api_key() :: String.t() | nil
   def xai_api_key, do: env("XAI_API_KEY")
@@ -116,15 +116,15 @@ defmodule Connectix.Config do
   def model_provider(_other), do: :anthropic
 
   @doc """
-  Model backing a conversation (`AGENTS_DEMO_MODEL`, default
+  Model backing a conversation (`CONNECTIX_MODEL`, default
   `#{@default_main_model}`). A bot's own `model` overrides it per conversation;
   this is the default a bot with none falls back to.
   """
   @spec main_model() :: String.t()
-  def main_model, do: env("AGENTS_DEMO_MODEL") || @default_main_model
+  def main_model, do: env("CONNECTIX_MODEL") || @default_main_model
 
   @doc """
-  Model that names conversations (`AGENTS_DEMO_TITLE_MODEL`, default
+  Model that names conversations (`CONNECTIX_TITLE_MODEL`, default
   `#{@default_title_model}`). Deliberately a smaller model than `main_model/0`:
   it runs once per conversation on a few hundred tokens and nobody reads its
   reasoning.
@@ -136,7 +136,7 @@ defmodule Connectix.Config do
     # Anthropic key too — and when that key is the reason the provider was
     # switched, every title fails. Same provider, and the main model itself
     # rather than a guess at that provider's small model.
-    env("AGENTS_DEMO_TITLE_MODEL") ||
+    env("CONNECTIX_TITLE_MODEL") ||
       case model_provider(main_model()) do
         :anthropic -> @default_title_model
         _other -> main_model()
@@ -144,18 +144,18 @@ defmodule Connectix.Config do
   end
 
   @doc """
-  Extended-thinking budget in tokens (`AGENTS_DEMO_THINKING_BUDGET`, default
+  Extended-thinking budget in tokens (`CONNECTIX_THINKING_BUDGET`, default
   #{@default_thinking_budget}). Anthropic requires at least 1024. The ceiling
   here is a cost bound, not a model limit — thinking is billed as output.
   """
   @spec thinking_budget_tokens() :: pos_integer()
   def thinking_budget_tokens,
-    do: int_env("AGENTS_DEMO_THINKING_BUDGET", @default_thinking_budget, 1_024..200_000)
+    do: int_env("CONNECTIX_THINKING_BUDGET", @default_thinking_budget, 1_024..200_000)
 
   # ── HTTP API ────────────────────────────────────────────────────────────────
 
   @doc """
-  Bearer token for the public API (`AGENTS_DEMO_API_KEY`), or `nil`.
+  Bearer token for the public API (`CONNECTIX_API_KEY`), or `nil`.
 
   With none the API refuses every request rather than running unauthenticated:
   an agent that can search the web and write files is not something to leave
@@ -164,20 +164,20 @@ defmodule Connectix.Config do
   """
   @spec api_key() :: String.t() | nil
   def api_key do
-    case env("AGENTS_DEMO_API_KEY") do
+    case env("CONNECTIX_API_KEY") do
       key when is_binary(key) and byte_size(key) >= 16 -> key
       _too_short_or_absent -> nil
     end
   end
 
   @doc """
-  Email of the user API requests act as (`AGENTS_DEMO_API_USER_EMAIL`), or
+  Email of the user API requests act as (`CONNECTIX_API_USER_EMAIL`), or
   `nil`. Their scope keys every downstream query and the agent's own
   filesystem — the API is a way into the same app, not a way around its
   scoping. Set without `api_key/0` it does nothing, and vice versa.
   """
   @spec api_user_email() :: String.t() | nil
-  def api_user_email, do: env("AGENTS_DEMO_API_USER_EMAIL")
+  def api_user_email, do: env("CONNECTIX_API_USER_EMAIL")
 
   # ── LiveView UI ─────────────────────────────────────────────────────────────
 
@@ -474,7 +474,7 @@ defmodule Connectix.Config do
 
   @doc """
   Root of the agents' own filesystems — the `/Memories` each user sees
-  (`AGENTS_DEMO_DATA_DIR`).
+  (`CONNECTIX_DATA_DIR`).
 
   It must be an absolute path outside the release in production. A deploy
   replaces the release directory wholesale, so anything written inside it is
@@ -486,12 +486,12 @@ defmodule Connectix.Config do
   each other's files.
   """
   @spec data_dir() :: String.t()
-  def data_dir, do: env("AGENTS_DEMO_DATA_DIR") || default_data_dir()
+  def data_dir, do: env("CONNECTIX_DATA_DIR") || default_data_dir()
 
   @doc """
   Directory holding Mnesia's durable tables (`MNESIA_DIR`).
 
-  Defaults to `mnesia/` under `AGENTS_DEMO_DATA_DIR`, keeping all mutable state
+  Defaults to `mnesia/` under `CONNECTIX_DATA_DIR`, keeping all mutable state
   outside a release. Set it directly only when table files need a separate
   volume or filesystem.
   """
@@ -501,7 +501,7 @@ defmodule Connectix.Config do
   @doc """
   Directory holding the DuckDB file of received cable events (`EVENTS_DIR`).
 
-  Defaults to `events/` under `AGENTS_DEMO_DATA_DIR`, for the same reason
+  Defaults to `events/` under `CONNECTIX_DATA_DIR`, for the same reason
   `mnesia_dir/0` does: a deploy replaces the release directory wholesale.
   Overridden wholesale by `events_db/0` when that names a file directly.
   """
@@ -597,18 +597,18 @@ defmodule Connectix.Config do
       {"OPENAI_KEY", presence(openai_api_key())},
       {"GOOGLE_API_KEY", presence(google_api_key())},
       {"XAI_API_KEY", presence(xai_api_key())},
-      {"AGENTS_DEMO_MODEL", main_model()},
-      {"AGENTS_DEMO_TITLE_MODEL", title_model()},
-      {"AGENTS_DEMO_THINKING_BUDGET", to_string(thinking_budget_tokens())},
-      {"AGENTS_DEMO_API_KEY", presence(api_key())},
-      {"AGENTS_DEMO_API_USER_EMAIL", api_user_email() || "not set"},
+      {"CONNECTIX_MODEL", main_model()},
+      {"CONNECTIX_TITLE_MODEL", title_model()},
+      {"CONNECTIX_THINKING_BUDGET", to_string(thinking_budget_tokens())},
+      {"CONNECTIX_API_KEY", presence(api_key())},
+      {"CONNECTIX_API_USER_EMAIL", api_user_email() || "not set"},
       {"PORTAL_UI_USER/PORTAL_UI_PASS", if(basic_auth(), do: "set", else: "not set")},
       {"CONNECTIX_ENVIRONMENTS", Enum.map_join(environments(), ",", & &1.name)},
       {"CONNECTIX_SIP_USER/PASS/DOMAIN", if(sip_credentials(), do: "set", else: "not set")},
       {"DEEPGRAM_API_KEY/CARTESIA_API_KEY", if(voice_configured?(), do: "set", else: "not set")},
       {"STUN_URLS", if(stun_urls() == [], do: "not set", else: Enum.join(stun_urls(), ","))},
       {"TURN_URLS", if(turn_urls() == [], do: "not set", else: Enum.join(turn_urls(), ","))},
-      {"AGENTS_DEMO_DATA_DIR", data_dir()},
+      {"CONNECTIX_DATA_DIR", data_dir()},
       {"MNESIA_DIR", mnesia_dir()},
       {"EVENTS_DIR", events_dir()},
       {"EVENTS_DB", events_db() || "not set"},

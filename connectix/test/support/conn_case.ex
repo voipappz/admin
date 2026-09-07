@@ -98,7 +98,7 @@ defmodule ConnectixWeb.ConnCase do
 
       setup :api_conn
 
-  Configures `AGENTS_DEMO_API_KEY` and `AGENTS_DEMO_API_USER_EMAIL` for the
+  Configures `CONNECTIX_API_KEY` and `CONNECTIX_API_USER_EMAIL` for the
   test (restored afterwards), registers that user, and returns a `conn`
   carrying the bearer header plus the user's scope. The variables are
   process-global, so tests using this must not be `async`.
@@ -108,10 +108,10 @@ defmodule ConnectixWeb.ConnCase do
     key = "test-api-key-#{System.unique_integer([:positive])}-0123456789"
 
     previous =
-      Enum.map(~w(AGENTS_DEMO_API_KEY AGENTS_DEMO_API_USER_EMAIL), &{&1, System.get_env(&1)})
+      Enum.map(~w(CONNECTIX_API_KEY CONNECTIX_API_USER_EMAIL), &{&1, System.get_env(&1)})
 
-    System.put_env("AGENTS_DEMO_API_KEY", key)
-    System.put_env("AGENTS_DEMO_API_USER_EMAIL", user.email)
+    System.put_env("CONNECTIX_API_KEY", key)
+    System.put_env("CONNECTIX_API_USER_EMAIL", user.email)
 
     ExUnit.Callbacks.on_exit(fn ->
       for {name, value} <- previous do
