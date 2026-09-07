@@ -568,6 +568,13 @@ defmodule Connectix.Config do
   """
   def test?, do: @compiled_env == :test
 
+  @doc """
+  Whether this was compiled for production. Same compile-time read as
+  `test?/0`, and used where a missing setting should be tolerated locally but
+  refused on a public host — see `ConnectixWeb.Plugs.BasicAuth`.
+  """
+  def prod?, do: @compiled_env == :prod
+
   defp default_data_dir do
     case @compiled_env do
       :test ->
