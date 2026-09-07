@@ -45,9 +45,8 @@ services:
       context: ./connectix
       target: dev
     restart: unless-stopped
-    # Host networking because cable (:4100), NATS (:4222) and Postgres (:5432)
-    # are all published on the host's loopback,
-    # and a bridged container cannot see 127.0.0.1.
+    # Host networking because cable (:4100) and NATS (:4222) are published on
+    # the host's loopback, and a bridged container cannot see 127.0.0.1.
     network_mode: host
     env_file:
       - path: .env
