@@ -21,9 +21,11 @@ defmodule Connectix.Realtime.AgentIdentityTest do
     assert AgentIdentity.powerlink_token(%{}) == nil
   end
 
-  # A bad credential must degrade to "match on the uuid", never to a user with
-  # no ids at all — that would silently switch every pop off for the session.
-  test "resolve never returns fewer ids than the user uuid" do
-    assert AgentIdentity.resolve("u-1", nil) == ["u-1"]
+  # A session whose token cannot be resolved answers to NO id — not to its
+  # portal uuid. The uuid fallback is how every user came to pop on every
+  # call: the node stamps `user_uuid` on a user's own stream frames, and the
+  # rule falls back to that field. Pops off for one session beats pops for all.
+  test "resolve yields no ids at all when there is no credential to look the token up with" do
+    assert AgentIdentity.resolve("u-1", nil) == []
   end
 end

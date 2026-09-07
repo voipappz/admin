@@ -287,14 +287,18 @@ defmodule Connectix.Realtime.ScreenPopTest do
       {:ok, state: %ScreenPop{}}
     end
 
+    @powerlink "cb1b0a46-77d5-4b3a-92d8-31768fea74e4"
+
+    # The event names the agent by powerlink_token — never by the portal uuid,
+    # which the switch does not know.
     defp state_event(overrides \\ %{}) do
       Map.merge(
         %{
           "event" => "user.state_change",
           "scope" => "user",
           "id" => "call-abc",
-          "user_uuid" => @user_uuid,
-          "meta" => %{"CC-Agent" => @user_uuid, "CC-Agent-State" => "In a queue call"}
+          "user_uuid" => @powerlink,
+          "meta" => %{"CC-Agent" => @powerlink, "CC-Agent-State" => "In a queue call"}
         },
         overrides
       )
@@ -303,7 +307,7 @@ defmodule Connectix.Realtime.ScreenPopTest do
     test "pops for the signed-in agent named by CC-Agent", %{state: state} do
       online = fn _uuid -> true end
 
-      ScreenPop.process_user_event(state, @user_uuid, state_event(), online)
+      ScreenPop.process_user_event(state, @user_uuid, state_event(), online, [@powerlink])
 
       assert_receive {:realtime, %{type: "notification", message: message}}
       assert message["action"] == "tab:new"
@@ -369,7 +373,7 @@ defmodule Connectix.Realtime.ScreenPopTest do
       online = fn _uuid -> true end
       event = state_event(%{"data" => %{"caller_id_number" => "0501234567"}})
 
-      ScreenPop.process_user_event(state, @user_uuid, event, online)
+      ScreenPop.process_user_event(state, @user_uuid, event, online, [@powerlink])
 
       assert_receive {:realtime, %{type: "notification", message: %{"url" => url}}}
       assert url =~ "search_phone=0501234567"
@@ -385,7 +389,7 @@ defmodule Connectix.Realtime.ScreenPopTest do
       ScreenPop.process_user_event(state, @user_uuid, state_event(%{
         "user_uuid" => other,
         "meta" => %{"CC-Agent" => other}
-      }), online)
+      }), online, [@powerlink])
 
       refute_receive {:realtime, %{type: "notification"}}
     end
@@ -393,7 +397,7 @@ defmodule Connectix.Realtime.ScreenPopTest do
     test "does not pop when the agent has no live socket", %{state: state} do
       offline = fn _uuid -> false end
 
-      ScreenPop.process_user_event(state, @user_uuid, state_event(), offline)
+      ScreenPop.process_user_event(state, @user_uuid, state_event(), offline, [@powerlink])
 
       refute_receive {:realtime, %{type: "notification"}}
     end
@@ -401,7 +405,7 @@ defmodule Connectix.Realtime.ScreenPopTest do
     test "ignores state events that are not call-shaped", %{state: state} do
       online = fn _uuid -> true end
 
-      ScreenPop.process_user_event(state, @user_uuid, state_event(%{"event" => "user.logged_in"}), online)
+      ScreenPop.process_user_event(state, @user_uuid, state_event(%{"event" => "user.logged_in"}), online, [@powerlink])
 
       refute_receive {:realtime, %{type: "notification"}}
     end
@@ -409,11 +413,66 @@ defmodule Connectix.Realtime.ScreenPopTest do
     test "pops once for the same event, not twice", %{state: state} do
       online = fn _uuid -> true end
 
-      after_first = ScreenPop.process_user_event(state, @user_uuid, state_event(), online)
+      after_first = ScreenPop.process_user_event(state, @user_uuid, state_event(), online, [@powerlink])
       assert_receive {:realtime, %{type: "notification"}}
 
-      ScreenPop.process_user_event(after_first, @user_uuid, state_event(), online)
+      ScreenPop.process_user_event(after_first, @user_uuid, state_event(), online, [@powerlink])
       refute_receive {:realtime, %{type: "notification"}}
+    end
+  end
+
+  describe "one call pops exactly one user" do
+    # The agent id from the real production frame further down; module
+    # attributes are read where they are written, so it is restated here.
+    @popped_agent "fdc47399-1a8b-4ecb-8751-891edf6b9e32"
+    # As reported from production: every signed-in user popped on every call.
+    # The identity list a session answered to used to include the portal uuid
+    # as a fallback, the node stamps `user_uuid` on every frame of a user's
+    # own stream, and the rule's `agent_fields` fall back to that field — so
+    # each recipient matched their own uuid on a call that was not theirs.
+    # The identity is the powerlink token, or nothing.
+
+    test "a frame on a user's own stream stamped with their uuid does not pop a user with no token" do
+      online = fn _uuid -> true end
+
+      frame = %{
+        "event" => "user.ringing",
+        "scope" => "user",
+        "id" => "call-someone-elses",
+        "user_uuid" => @user_uuid
+      }
+
+      # `[]`: the token lookup failed or the record carries none. This used to
+      # default to `[@user_uuid]` and match.
+      ScreenPop.process_user_event(%ScreenPop{}, @user_uuid, frame, online, [])
+      refute_receive {:realtime, %{type: "notification"}}, 200
+    end
+
+    test "the same real frame on a second user's stream does not pop that user" do
+      online = fn _uuid -> true end
+      # A second signed-in user, with their own token, receiving the frame that
+      # names the first user's agent — the N× delivery the node does.
+      ScreenPop.process_user_event(%ScreenPop{}, @user_uuid, real_frame(), online, ["someone-elses-token"])
+      refute_receive {:realtime, %{type: "notification"}}, 200
+    end
+
+    test "with two users signed in, a node-wide frame pops only the one whose token it names" do
+      popped = connect_agent(@popped_agent)
+
+      bystander = "user-#{System.unique_integer([:positive])}"
+      Registry.register(Connectix.Realtime.SessionRegistry, bystander, nil)
+      Registry.register(Connectix.Realtime.SessionRegistry, {:agent, "bystander-token"}, {bystander, ["bystander-token"]})
+      Phoenix.PubSub.subscribe(Connectix.PubSub, "realtime:user:#{bystander}")
+
+      ScreenPop.route_event(%ScreenPop{}, real_frame())
+
+      assert_receive {:realtime, %{type: "notification", message: message}}
+      assert message["url"] =~ "search_phone=0522463424"
+      refute_receive {:realtime, %{type: "notification"}}, 200
+
+      # Whose topic it went to is not visible from one mailbox, so ask the
+      # registry the same question the dispatcher did.
+      assert {^popped, [@popped_agent]} = ScreenPop.user_for_agent(@popped_agent)
     end
   end
 
@@ -441,7 +500,7 @@ defmodule Connectix.Realtime.ScreenPopTest do
       Registry.register(
         Connectix.Realtime.SessionRegistry,
         {:agent, agent_id},
-        {user, [user, agent_id]}
+        {user, [agent_id]}
       )
 
       Phoenix.PubSub.subscribe(Connectix.PubSub, "realtime:user:#{user}")
@@ -459,10 +518,10 @@ defmodule Connectix.Realtime.ScreenPopTest do
       assert ScreenPop.user_for_agent("nobody-claims-this") == nil
     end
 
-    test "user_for_agent/1 returns the user and every id they answer to" do
+    test "user_for_agent/1 returns the user and the ids they answer to" do
       user = connect_agent(@real_agent_id)
 
-      assert ScreenPop.user_for_agent(@real_agent_id) == {user, [user, @real_agent_id]}
+      assert ScreenPop.user_for_agent(@real_agent_id) == {user, [@real_agent_id]}
     end
 
     test "pops the real frame at the user who answers to its CC-Agent" do

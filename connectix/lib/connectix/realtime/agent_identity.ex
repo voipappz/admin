@@ -26,31 +26,46 @@ defmodule Connectix.Realtime.AgentIdentity do
   alias Connectix.Realtime.ApiProxy
 
   @doc """
-  Every id an event may use to name this user: the portal uuid, plus the
-  `powerlink_token` when the user record carries one.
+  The ids an event may use to name this user: the `powerlink_token` on the
+  user record, and nothing else. Empty when the record has none or cannot be
+  fetched — logged at warning, because it means pops are off for this session
+  and nothing else would say so.
 
-  Never fewer than `[user_uuid]`, so a failed lookup degrades to the old
-  behaviour rather than to a user nobody can match. The failure is logged at
-  warning because it means callcenter pops are off for this session and
-  nothing else would say so.
+  The portal uuid is deliberately NOT in the list. It used to be, as a
+  "never fewer than `[user_uuid]`" fallback, and that fallback popped every
+  call at every user: the node stamps `user_uuid` on the frames of a user's
+  own state stream, the rule's `agent_fields` fall back from `meta.CC-Agent`
+  to `user_uuid`, and so every recipient's own uuid matched every recipient.
+  An identity that cannot be matched must yield no pop, never a pop for all.
   """
-  @spec resolve(String.t(), String.t()) :: [String.t()]
+  @spec resolve(String.t(), String.t() | nil) :: [String.t()]
   def resolve(user_uuid, token) when is_binary(user_uuid) and is_binary(token) do
     case fetch_record(user_uuid, token) do
       {:ok, record} ->
-        ids([user_uuid | List.wrap(powerlink_token(record))])
+        case ids(List.wrap(powerlink_token(record))) do
+          [] ->
+            Logger.warning(
+              "agent identity: user #{user_uuid} has no powerlink_token — " <>
+                "callcenter pops will not fire for this session"
+            )
+
+            []
+
+          tokens ->
+            tokens
+        end
 
       {:error, reason} ->
         Logger.warning(
           "agent identity: could not load user #{user_uuid} (#{inspect(reason)}) — " <>
-            "matching on user uuid only; callcenter pops will not fire for this session"
+            "callcenter pops will not fire for this session"
         )
 
-        [user_uuid]
+        []
     end
   end
 
-  def resolve(user_uuid, _token), do: List.wrap(user_uuid)
+  def resolve(_user_uuid, _token), do: []
 
   @doc """
   The `powerlink_token` on a user record, whichever of the API's two shapes it

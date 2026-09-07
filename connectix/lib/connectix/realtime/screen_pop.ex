@@ -304,7 +304,13 @@ defmodule Connectix.Realtime.ScreenPop do
   # time, because the row id is a digest that includes `src` — so the same
   # event would appear once as CallEvents and once as StateChannel.
   defp pop_for_user(state, user_uuid, event, online?, agent_ids) do
-    accepted = agent_ids || [user_uuid]
+    # The identities this user answers to are their powerlink token(s) — what
+    # `CC-Agent` carries — and never the portal uuid. `nil` means the caller
+    # resolved none, and none is what it must stay: this used to default to
+    # `[user_uuid]`, and because the node stamps `user_uuid` on every frame of
+    # a user's own stream and the rule falls back to that field, every user
+    # matched every call. See `Connectix.Realtime.AgentIdentity.resolve/2`.
+    accepted = agent_ids || []
 
     with true <- is_map(event),
          name when is_binary(name) <- event_name(event),
