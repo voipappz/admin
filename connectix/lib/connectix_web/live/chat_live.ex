@@ -112,7 +112,10 @@ defmodule ConnectixWeb.ChatLive do
      |> assign(:is_phone_open, true)
      # Only meaningful below the `md` breakpoint, where the rail is hidden and
      # the hamburger reveals it; above it the rail is always shown.
-     |> assign(:is_rail_open, false)
+     # Open by default: the rail is the app's navigation, and starting hidden
+     # would put a new session in front of a screen with no way to move around
+     # it but the hamburger. Closing it is now possible at every width.
+     |> assign(:is_rail_open, true)
      |> load_conversations()}
   end
 
@@ -1204,6 +1207,8 @@ defmodule ConnectixWeb.ChatLive do
         is_phone_open={@is_phone_open}
         sidebar_collapsed={@sidebar_collapsed}
         sidebar_active_tab={@sidebar_active_tab}
+        current_scope={@current_scope}
+        debug_mode={@debug_mode}
       />
 
 

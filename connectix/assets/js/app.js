@@ -27,6 +27,28 @@ import topbar from "../vendor/topbar"
 
 // Custom hooks
 const Hooks = {
+  // Appearance, cycled by one button: system -> light -> dark -> system.
+  //
+  // The state lives in localStorage and on <html data-theme>, both written by
+  // the inline script in root.html.heex — this only decides which state comes
+  // next and hands it over as the same `phx:set-theme` event the old
+  // three-button control dispatched. Keeping one writer means the theme
+  // survives a reload, where this hook has not run yet.
+  //
+  // Reading `data-theme` rather than localStorage: the attribute is absent for
+  // "system", which is exactly the third state, and localStorage would need a
+  // null check that means the same thing less clearly.
+  ThemeCycle: {
+    mounted() {
+      const order = ["system", "light", "dark"]
+      this.el.addEventListener("click", () => {
+        const current = document.documentElement.getAttribute("data-theme") || "system"
+        const next = order[(order.indexOf(current) + 1) % order.length]
+        this.el.setAttribute("data-phx-theme", next)
+        this.el.dispatchEvent(new CustomEvent("phx:set-theme", {bubbles: true}))
+      })
+    }
+  },
   ChatContainer: {
     mounted() {
       this.handleEvent("scroll-to-bottom", () => {

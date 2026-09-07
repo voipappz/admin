@@ -31,12 +31,16 @@
   --color-base-200: oklch(25.26% 0.014 253.1);
   --color-base-300: oklch(20.15% 0.012 254.09);
   --color-base-content: oklch(97.807% 0.029 256.847);
-  --color-primary: oklch(58% 0.233 277.117);
-  --color-primary-content: oklch(96% 0.018 272.314);
-  --color-secondary: oklch(58% 0.233 277.117);
-  --color-secondary-content: oklch(96% 0.018 272.314);
-  --color-accent: oklch(60% 0.25 292.717);
-  --color-accent-content: oklch(96% 0.016 293.756);
+  /* Brand, not the daisyUI default. These blocks compile to `[data-theme=…]`
+     rules, which outrank the `:root` palette further down — so leaving the
+     stock purple here meant the brand tokens applied only until a theme was
+     stamped, and the toggle changed the accent from slate to violet. */
+  --color-primary: #71c4e0;
+  --color-primary-content: #0e1319;
+  --color-secondary: #8fcdd0;
+  --color-secondary-content: #0e1319;
+  --color-accent: #71c4e0;
+  --color-accent-content: #0e1319;
   --color-neutral: oklch(37% 0.044 257.287);
   --color-neutral-content: oklch(98% 0.003 247.858);
   --color-info: oklch(58% 0.158 241.966);
@@ -45,8 +49,8 @@
   --color-success-content: oklch(98% 0.014 180.72);
   --color-warning: oklch(66% 0.179 58.318);
   --color-warning-content: oklch(98% 0.022 95.277);
-  --color-error: oklch(58% 0.253 17.585);
-  --color-error-content: oklch(96% 0.015 12.422);
+  --color-error: #e65348;
+  --color-error-content: #ffffff;
   --radius-selector: 0.25rem;
   --radius-field: 0.25rem;
   --radius-box: 0.5rem;
@@ -66,12 +70,13 @@
   --color-base-200: oklch(96% 0.001 286.375);
   --color-base-300: oklch(92% 0.004 286.32);
   --color-base-content: oklch(21% 0.006 285.885);
-  --color-primary: oklch(70% 0.213 47.604);
-  --color-primary-content: oklch(98% 0.016 73.684);
-  --color-secondary: oklch(55% 0.027 264.364);
-  --color-secondary-content: oklch(98% 0.002 247.839);
-  --color-accent: oklch(0% 0 0);
-  --color-accent-content: oklch(100% 0 0);
+  /* Brand — see the note in the dark block above. */
+  --color-primary: #65758e;
+  --color-primary-content: #ffffff;
+  --color-secondary: #71c4e0;
+  --color-secondary-content: #12303c;
+  --color-accent: #71c4e0;
+  --color-accent-content: #12303c;
   --color-neutral: oklch(44% 0.017 285.786);
   --color-neutral-content: oklch(98% 0 0);
   --color-info: oklch(62% 0.214 259.815);
@@ -80,8 +85,8 @@
   --color-success-content: oklch(98% 0.014 180.72);
   --color-warning: oklch(66% 0.179 58.318);
   --color-warning-content: oklch(98% 0.022 95.277);
-  --color-error: oklch(58% 0.253 17.585);
-  --color-error-content: oklch(96% 0.015 12.422);
+  --color-error: #e65348;
+  --color-error-content: #ffffff;
   --radius-selector: 0.25rem;
   --radius-field: 0.25rem;
   --radius-box: 0.5rem;
@@ -105,24 +110,40 @@
 
 /* This file is for your main application CSS */
 
-/* Agents Demo Custom CSS Variables and Styles */
+/* ---------------------------------------------------------------------------
+   The VoipAppz palette, taken from the marketing site rather than invented.
+   Two colours carry it, and they are the two the site actually leans on:
+
+     #65758e  slate   — 619 uses across the site's CSS, its dominant surface
+     #71c4e0  cyan    —  52 uses, and always ON the slate: it is the accent
+
+   The app shipped with a dark-teal primary and lavender accents (#ebe8fe,
+   #d0c9fe) that appear nowhere in the brand, so the product and the site it
+   is sold from looked like different companies.
+
+   NEUTRALS ARE SLATE-BIASED, not pure grey. A true grey beside #65758e reads
+   as a mistake — the eye sees the hue difference as dirt. Every neutral below
+   carries a little of the brand's blue, which is what makes a palette look
+   chosen rather than assembled.
+   --------------------------------------------------------------------------- */
 :root {
   /* App-specific color variables */
-  --color-primary: #1c3c3c;
-  --color-user-message: #076699;
-  --color-avatar-bg: #ebe8fe;
-  --color-secondary: #1c3c3c;
+  --color-primary: #65758e;
+  --color-user-message: #505c70;
+  --color-avatar-bg: #dbe9f0;
+  --color-secondary: #71c4e0;
   --color-success: #10b981;
   --color-warning: #f59e0b;
-  --color-error: #ef4444;
-  --color-background: #f9f9f9;
-  --color-subagent-hover: #d0c9fe;
-  --color-surface: #f9fafb;
-  --color-border: #e5e7eb;
-  --color-border-light: #f3f4f6;
-  --color-text-primary: #111827;
-  --color-text-secondary: #6b7280;
-  --color-text-tertiary: #9ca3af;
+  /* The site's own red, not a generic one. */
+  --color-error: #e65348;
+  --color-background: #f7f8fa;
+  --color-subagent-hover: #cfe3ee;
+  --color-surface: #fbfcfd;
+  --color-border: #e2e6ec;
+  --color-border-light: #f1f3f6;
+  --color-text-primary: #1b2430;
+  --color-text-secondary: #65758e;
+  --color-text-tertiary: #909cb0;
 
   /* Spacing system */
   --spacing-xs: 0.25rem;
@@ -151,24 +172,69 @@
   --radius-lg: 0.5rem;
 }
 
+/* THREE THEME STATES, NOT TWO.
+   An explicit choice stamps data-theme="dark"/"light" on <html>; the default
+   "system" setting stamps NOTHING, and only prefers-color-scheme separates
+   light from dark there. So the dark palette has to be written twice, once for
+   each way of arriving at it.
+
+   It was written once, inside the media query alone — which follows the OS and
+   knows nothing about the toggle. On a dark-mode machine the app was dark
+   whatever the toggle said: picking Light lit the daisyUI tokens (they are
+   [data-theme] scoped) while every surface, border and text colour below
+   stayed dark, so the theme button looked broken.
+
+   `:not([data-theme="light"])` on the media query is the other half: without
+   it a dark OS would beat an explicit Light choice. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --color-primary: #2dd4bf;
-    --color-user-message: #0ea5e9;
-    --color-avatar-bg: #4c1d95;
-    --color-secondary: #2dd4bf;
+  :root:not([data-theme="light"]) {
+    /* Cyan leads on dark: #65758e is a mid slate and has too little contrast
+       against a dark ground to carry emphasis, while the cyan the site sets
+       ON that slate is exactly the value that reads there. Same relationship
+       as the site, one ground darker. */
+    --color-primary: #71c4e0;
+    --color-user-message: #4a90ad;
+    --color-avatar-bg: #23384a;
+    --color-secondary: #8fcdd0;
     --color-success: #34d399;
     --color-warning: #fbbf24;
-    --color-error: #f87171;
-    --color-background: #0f0f0f;
-    --color-subagent-hover: #6d28d9;
-    --color-surface: #1a1a1a;
-    --color-border: #2d2d2d;
-    --color-border-light: #232323;
-    --color-text-primary: #f3f4f6;
-    --color-text-secondary: #9ca3af;
-    --color-text-tertiary: #6b7280;
+    --color-error: #e87a71;
+    /* Slate-biased darks, not neutral greys — see the light block. */
+    --color-background: #0e1319;
+    --color-subagent-hover: #2b4b63;
+    --color-surface: #161c24;
+    --color-border: #28313d;
+    --color-border-light: #1f2731;
+    --color-text-primary: #eef2f6;
+    --color-text-secondary: #909cb0;
+    --color-text-tertiary: #65758e;
+  
   }
+}
+
+/* The same palette, reached by the toggle instead of the OS. */
+:root[data-theme="dark"] {
+  /* Cyan leads on dark: #65758e is a mid slate and has too little contrast
+     against a dark ground to carry emphasis, while the cyan the site sets
+     ON that slate is exactly the value that reads there. Same relationship
+     as the site, one ground darker. */
+  --color-primary: #71c4e0;
+  --color-user-message: #4a90ad;
+  --color-avatar-bg: #23384a;
+  --color-secondary: #8fcdd0;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-error: #e87a71;
+  /* Slate-biased darks, not neutral greys — see the light block. */
+  --color-background: #0e1319;
+  --color-subagent-hover: #2b4b63;
+  --color-surface: #161c24;
+  --color-border: #28313d;
+  --color-border-light: #1f2731;
+  --color-text-primary: #eef2f6;
+  --color-text-secondary: #909cb0;
+  --color-text-tertiary: #65758e;
+  
 }
 
 /* Base styles matching NextJS reference */
