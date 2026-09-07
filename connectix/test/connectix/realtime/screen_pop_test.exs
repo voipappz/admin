@@ -53,6 +53,13 @@ defmodule Connectix.Realtime.ScreenPopTest do
 
   setup do
     Phoenix.PubSub.subscribe(Connectix.PubSub, @topic)
+
+    # The environment path resolves its recipient exactly as the agent path
+    # does — the event's agent id must be one a signed-in user answers to.
+    # This session answers to `@user_uuid` as its token, so the events below,
+    # which name that id, reach this test's topic; an event naming any other
+    # id reaches nobody. The registry entry dies with the test process.
+    Registry.register(Connectix.Realtime.SessionRegistry, {:agent, @user_uuid}, {@user_uuid, [@user_uuid]})
     :ok
   end
 

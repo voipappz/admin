@@ -57,8 +57,9 @@ defmodule Connectix.Realtime.Instruction do
   defp normalize(%{} = instruction, requested_environment) do
     with {:ok, service_uuid} <- present(instruction["service_uuid"]),
          "screen_pop" <- instruction["service_type"],
-         triggers when is_list(triggers) <- instruction["triggers"],
-         true <- "user.answer" in triggers,
+         # Which events pop is the rule file's decision, not a fixed list here.
+         # Requiring `user.answer` refused any rule that named other triggers.
+         [_ | _] = triggers <- instruction["triggers"],
          ^requested_environment <- instruction["environment_uuid"],
          %{} = profile <- instruction["profile"],
          pop_on when pop_on in ["answer", "both"] <- profile["pop_on"],

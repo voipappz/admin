@@ -138,38 +138,67 @@ defmodule Connectix.Realtime.ScreenPop do
   def handle_info({:instructions_loaded, environment_uuid, result}, state),
     do: {:noreply, finish_load(state, environment_uuid, result)}
 
+  # The environment-scoped path. Who receives the pop is decided the same way
+  # as on the agent path: the event names an agent (`agent_fields` in the rule
+  # — `CC-Agent`, or the node's copy of it in `user_uuid`), and a signed-in
+  # user answers to that id through their powerlink token. The `user_uuid`
+  # the match returns is NOT used as the recipient: on the wire it is the
+  # agent's token, not a portal user, and treating it as one either reached
+  # nobody or — when the node stamped the recipient's own uuid — everybody.
   @doc false
   def process_event(state, event, online? \\ &online?/2) do
     environment_uuid = if is_map(event), do: event["environment_uuid"], else: nil
     instructions = Map.get(state.instructions, environment_uuid, [])
 
-    case Instruction.match(instructions, event) do
-      {:ok, dedupe_id, user_uuid, command} ->
-        cond do
-          seen?(state, dedupe_id) ->
-            Telemetry.screen_pop_event(:duplicate)
-            state
+    with {:ok, dedupe_id, _event_user, command} <- Instruction.match(instructions, event),
+         agent when is_binary(agent) <- agent_uuid(event),
+         {user_uuid, _agent_ids} <- user_for_agent(agent) do
+      cond do
+        seen?(state, dedupe_id) ->
+          Telemetry.screen_pop_event(:duplicate)
+          state
 
-          not online?.(user_uuid, environment_uuid) ->
-            Telemetry.screen_pop_event(:offline)
-            state
+        not online?.(user_uuid, environment_uuid) ->
+          Telemetry.screen_pop_event(:offline)
+          state
 
-          true ->
-            Phoenix.PubSub.broadcast(
-              Connectix.PubSub,
-              "realtime:user:#{user_uuid}",
-              {:realtime, %{type: "notification", message: command}}
-            )
+        true ->
+          command = Map.update(command, "url", nil, &fill_url(&1, event))
 
-            Telemetry.screen_pop_event(:dispatched)
-            remember(state, dedupe_id)
-        end
+          Phoenix.PubSub.broadcast(
+            Connectix.PubSub,
+            "realtime:user:#{user_uuid}",
+            {:realtime, %{type: "notification", message: command}}
+          )
 
+          Telemetry.screen_pop_event(:dispatched)
+          remember(state, dedupe_id)
+      end
+    else
       {:error, _reason} ->
         Telemetry.screen_pop_event(:rejected)
         state
+
+      # No agent named, or nobody signed in here answers to it.
+      _nobody ->
+        Telemetry.screen_pop_event(:unloaded)
+        state
     end
   end
+
+  # `{phone}` and `{call_id}` in a rule's URL, filled from the event. An absent
+  # number becomes the rule's `unknown_caller` rather than being dropped: the
+  # CRM opens a blank search on an empty phone, and a blank form beats a
+  # silent no-pop. A URL without placeholders passes through unchanged.
+  defp fill_url(template, event) when is_binary(template) do
+    phone = caller_number(event) || PopRule.unknown_caller()
+
+    template
+    |> String.replace("{phone}", URI.encode_www_form(phone))
+    |> String.replace("{call_id}", URI.encode_www_form(call_id(event) || ""))
+  end
+
+  defp fill_url(other, _event), do: other
 
   # Public only so a test can drive the routing decision without a GenServer,
   # the same reason `process_event/3` and `process_user_event/5` are. It is the
@@ -414,13 +443,7 @@ defmodule Connectix.Realtime.ScreenPop do
   # modelled yet. The number falls back to @unknown_caller rather than being
   # omitted, because the CRM opens a blank search on an empty phone and a blank
   # form is a clearer "no number" than a silent no-pop.
-  defp pop_url(event) do
-    phone = caller_number(event) || PopRule.unknown_caller()
-
-    PopRule.record_url()
-    |> String.replace("{phone}", URI.encode_www_form(phone))
-    |> String.replace("{call_id}", URI.encode_www_form(call_id(event) || ""))
-  end
+  defp pop_url(event), do: fill_url(PopRule.record_url(), event)
 
   defp begin_load(state, environment_uuid, refresh?)
        when is_binary(environment_uuid) and environment_uuid != "" do

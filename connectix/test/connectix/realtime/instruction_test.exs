@@ -36,22 +36,40 @@ defmodule Connectix.Realtime.InstructionTest do
     )
   end
 
-  describe "the temporary static production instruction" do
-    test "builds user.answer -> Google for every verified environment" do
+  describe "the instruction comes from the rule file" do
+    alias Connectix.Realtime.PopRule
+
+    # One rule decides every pop. A hardcoded stand-in used to answer here —
+    # `user.answer` → https://google.com for every environment — and it
+    # reached production. What loads now is the yaml, in instruction shape,
+    # for whichever environment asks.
+    test "presents the yaml rule for every environment that asks" do
       another_environment = "ffffffff-1111-2222-3333-444444444444"
 
       for environment <- [@environment_uuid, another_environment] do
         assert {:ok, payload} = InstructionLoader.load(environment)
         assert [loaded] = Instruction.load(payload, environment)
         assert loaded["service_uuid"] == InstructionLoader.service_uuid()
-        assert loaded["triggers"] == ["user.answer"]
+        assert loaded["triggers"] == PopRule.triggers()
         assert loaded["environment_uuid"] == environment
-        assert loaded["profile"]["record_url"] == "https://google.com"
+        assert loaded["profile"]["record_url"] == PopRule.record_url()
+        refute loaded["profile"]["record_url"] =~ "google.com"
 
-        assert {:ok, _dedupe_id, @user_uuid, command} =
+        assert {:ok, _dedupe_id, @user_uuid, %{"action" => "tab:new", "url" => url}} =
                  Instruction.match([loaded], event(%{"environment_uuid" => environment}))
 
-        assert command == %{"action" => "tab:new", "url" => "https://google.com"}
+        assert url == PopRule.record_url()
+      end
+    end
+
+    test "every trigger the rule names can match, not only user.answer" do
+      assert {:ok, payload} = InstructionLoader.load(@environment_uuid)
+      [loaded] = Instruction.load(payload, @environment_uuid)
+
+      for trigger <- PopRule.triggers() do
+        assert {:ok, _dedupe_id, @user_uuid, _command} =
+                 Instruction.match([loaded], event(%{"action" => trigger})),
+               "rule trigger #{inspect(trigger)} did not match"
       end
     end
 
