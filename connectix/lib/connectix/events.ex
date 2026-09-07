@@ -49,9 +49,18 @@ defmodule Connectix.Events do
   ## Where it lives
 
   `EVENTS_DB`, else `<EVENTS_DIR>/events.duckdb`, else `<data dir>/events`.
-  NOTE: on nimbus the portal has no persistent volume, so that path is inside
-  the container and a deploy starts an empty file. Mount a volume before
-  treating this as durable.
+
+  **A path inside the container is not storage.** Every deployment has to mount
+  a volume and point `EVENTS_DIR` (or `AGENTS_DEMO_DATA_DIR`) at it, or the
+  file is created fresh in the container's own filesystem and every deploy
+  starts an empty store — with no error, because an empty DuckDB is a perfectly
+  valid one. That was true of nimbus until 2026-09-07, which is why this
+  paragraph exists; both deployments now mount `/var/lib/connectix:/data` and
+  set `EVENTS_DIR=/data/events`. The same mount carries Mnesia
+  (`MNESIA_DIR=/data/mnesia`), which fails the same silent way.
+
+  In development the repo is bind-mounted, so `connectix/user_files/events/`
+  survives container restarts without anything extra.
   """
 
   use GenServer
