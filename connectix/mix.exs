@@ -23,7 +23,35 @@ defmodule Connectix.MixProject do
     [
       connectix: [
         include_executables_for: [:unix],
-        applications: [runtime_tools: :permanent],
+        applications: [
+          runtime_tools: :permanent,
+          # PORTAUDIO IS NOT SHIPPED. It arrives transitively through
+          # parrot_platform, and `Membrane.PortAudio.Devices.Nif` enumerates
+          # sound devices in its `on_load`. On a server there are none, so the
+          # NIF aborts, `on_load` fails, and the failure propagates out of
+          # `kernel` start — the whole BEAM terminates before Phoenix binds a
+          # port:
+          #
+          #     on_load_function_failed, 'Elixir.Membrane.PortAudio.Devices.Nif'
+          #     Kernel pid terminated (application_controller)
+          #
+          # It crash-looped every container on the first deploy to
+          # nimbus-connectix. Nothing here uses it: the SIP leg's media is
+          # `Connectix.WebRtcMediaPipeline` over UDP and the softphone's mic is
+          # the browser's `getUserMedia`, so PortAudio has been dead weight
+          # since the WebRTC bridge replaced device audio.
+          #
+          # `:none` rather than `:load`: `on_load` runs when the MODULE is
+          # loaded, and a release loads every module at boot, so `:load` would
+          # abort in exactly the same place. `:none` leaves the application out
+          # of the release entirely.
+          #
+          # A DESKTOP BUILD WOULD WANT THE OPPOSITE. There, PortAudio is how a
+          # local softphone reaches the mic and speakers — same dependency,
+          # opposite answer, which is why this is a release-level decision and
+          # not a removed dep.
+          membrane_portaudio_plugin: :none
+        ],
         steps: [:assemble, &strip_runtime_state/1]
       ]
     ]
