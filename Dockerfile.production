@@ -60,6 +60,17 @@ RUN mix deps.get --only $MIX_ENV
 RUN mkdir -p config
 
 COPY connectix/config/config.exs connectix/config/${MIX_ENV}.exs config/
+
+# THE PARROT PATCHES, BEFORE parrot IS COMPILED. `priv/` is copied further
+# down, after `deps.compile` — so until now the production image built parrot
+# PRISTINE while every developer ran a patched one. The four source fixes real
+# SIP interop depends on (stacked-Via received/rport, inbound INVITE using
+# transaction.request, Transaction implementing Access, and the mono capture)
+# were simply absent from what shipped, and nothing said so: the image builds,
+# boots and answers /health exactly the same either way.
+COPY connectix/priv/parrot_patches priv/parrot_patches
+RUN bash priv/parrot_patches/apply.sh
+
 RUN mix deps.compile
 
 RUN mix assets.setup
