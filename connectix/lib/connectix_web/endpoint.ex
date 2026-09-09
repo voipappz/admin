@@ -143,12 +143,12 @@ defmodule ConnectixWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
-  # The React SPA plug is unmounted: the restored LiveView UI (WelcomeLive at
-  # "/", ChatLive at "/chat") is the UI now, and ConnectixWeb.Plugs.Spa would
-  # otherwise shadow both — it serves index.html unconditionally at "/" and
-  # for any extensionless path a browser navigates to. The module itself is
-  # untouched (see connectix/lib/connectix_web/plugs/spa.ex) in case a
-  # deployment still needs it; it's just no longer in this pipeline.
+  # NOTHING SERVES A BUNDLE HERE. The LiveView UI (WelcomeLive at "/", ChatLive
+  # at "/chat") is the UI. A React SPA plug used to sit at this point in the
+  # pipeline and was unmounted when LiveView took the origin; the module is now
+  # deleted rather than kept "in case", because a plug nothing mounts is a plug
+  # nobody maintains, and this one would shadow both routes the moment someone
+  # put it back — it answered "/" and every extensionless path unconditionally.
 
   plug ConnectixWeb.Router
 

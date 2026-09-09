@@ -71,11 +71,10 @@ defmodule ConnectixWeb.Router do
     post "/bots/:id/versions/:number/retire", BotController, :retire_version
   end
 
-  # The agent-chat LiveView UI. The React portal (Vite build, served by
-  # `ConnectixWeb.Plugs.Spa`) is the primary one — same call as
-  # `connectix.io/phone`, which runs headless for the same reason — but this
-  # one is a real, in-use surface now, not dev-only scaffolding, so it is
-  # mounted unconditionally rather than behind a compile-time flag.
+  # The agent-chat LiveView UI, and THE only UI. It was the second of two while
+  # a React portal served the origin; that bundle and the plug that served it
+  # are gone, so this is not a fallback or dev-only scaffolding and is mounted
+  # unconditionally rather than behind a compile-time flag.
   #
   # It was previously gated behind `Application.compile_env(:connectix,
   # :liveview_ui?, false)`, on/off only by editing `config/dev.exs` /

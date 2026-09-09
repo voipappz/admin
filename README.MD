@@ -1,9 +1,13 @@
 # VoIPAppz portal
 
-A **React + Vite** portal for VoIP/telecom tenants, built as reusable components
-on top of the **voipappz-api mothership**. A tenant fork changes **env, not
-code**; the browser always reaches that API through the same-origin Elixir
-portal.
+A **pure-BEAM** portal for VoIP/telecom tenants: one Elixir process serves the
+LiveView UI, the realtime socket, and the Chrome extension, and forwards
+`/auth`, `/api/` and `/tasks/` to the **voipappz-api mothership**. One origin,
+so the browser needs no CORS and no second host.
+
+There is no Node, no Vite and no React anywhere in this repo's own build. The
+Chrome extension in `chrome/` has its own Node toolchain, used only inside a
+build stage — see [The Chrome extension](#the-chrome-extension).
 
 - **Documentation index** → [docs/README.md](./docs/README.md)
 - **Building a feature?** → [docs/modules.md](./docs/modules.md)
@@ -13,51 +17,29 @@ portal.
 
 ---
 
-## Start a tenant fork (this repo is a GitHub template)
-
-```bash
-gh repo create my-tenant-portal --template voipappz/app --private --clone
-cd my-tenant-portal
-make env                      # writes .env without overwriting an existing one
-make dev                      # the whole stack in Docker
-```
-
-(Or click **Use this template** on GitHub.) A tenant fork changes **env, not
-code** — branding, endpoints, and features are all `.env`-driven, and the
-included GitHub Actions CI works out of the box in the new repo.
-
----
-
 ## Quick start
 
 ```bash
-cp .env.example .env          # defaults expect the local API on :5000
-make dev                      # → http://localhost:4200  (everything runs in Docker)
+make env                      # writes .env without overwriting an existing one
+make dev                      # the whole stack in Docker → http://localhost:4001
 ```
 
-**Docker is the only requirement for the Makefile workflow** — no local
-node/npm needed. Start the sibling mothership stack first so `va-app`, NATS and
-Postgres are available, then log in with its user. For frontend-only work,
-`VITE_MOCK_LOGIN=1 make up` provides an offline login with any email + OTP
-`123456`. Prefer host tooling? `npm install && npm run dev` works too.
+**Docker is the only requirement.** No host Elixir needed; `make mise` installs
+the pinned toolchain if you want one anyway. Start the sibling mothership stack
+first so the API, NATS and cable are reachable, then sign in with its user.
 
-Every push is guarded by the repository's `.githooks/pre-push` hook. `npm
-install` configures it automatically. Run the identical gate manually with
-`npm run verify:push`. It covers ESLint, frontend unit tests, a clean Elixir
-compile, a production build, and the mock-login browser flow through Dashboard,
-Calls, and Reports.
+`make dev` refuses to start if the upstream API is unreachable. That is a gate,
+not a nuisance: a stack whose engine is down fails in ways that read as broken
+authentication.
 
 ## How it works
 
-The browser always uses relative, same-origin URLs. In development Vite proxies
-them to the Elixir portal; in production that same portal serves the built React
-app and forwards the same routes. One origin, either way.
-
 ```text
-Browser ──► Vite :4200 (dev only) ──► Elixir portal :4001
-                                        ├─ /auth, /api/, /tasks/ ─► voipappz-api mothership
-                                        ├─ /ws/events ────────────► its own socket
-                                        └─ everything else ───────► the SPA from dist/
+Browser ──► Elixir portal :4001
+              ├─ /                    LiveView UI (WelcomeLive, ChatLive)
+              ├─ /auth, /api/, /tasks/ ─► voipappz-api mothership
+              ├─ /ws/events ────────────► its own socket
+              └─ /release ──────────────► the Chrome extension this node ships
 
 Elixir portal ─┬─ NATS request/reply ──► voipappz-api   (ASK: is this token real?)
                └─ one cable connection ► va-crystal     (LISTEN: events, fanned
@@ -68,117 +50,119 @@ Two transports, two jobs: *ask* on NATS, *listen* on cable. The portal never
 reaches the API over HTTP to verify a credential. See
 [the architecture guide](./docs/architecture.md) for the full contract.
 
+## The Chrome extension
+
+`chrome/` holds the extension — screen pops, call state and agent availability.
+It posts to `/auth/user_login` on this portal and opens its socket on
+`/ws/events` here, so it lives in this repo and is only ever changed alongside
+the portal it talks to.
+
+**It ships inside the portal image.** A node stage in `Dockerfile.production`
+builds it and copies the package into the release; `kamal deploy` therefore
+deploys the extension, with no second artifact to publish and no tag to
+remember. Node exists only in that build stage — the image that ships carries
+no node, no npm and no `node_modules`.
+
+Each node publishes its own build:
+
+| Path | What |
+|---|---|
+| `/release` | the release page — download, version, SHA-256, install guide |
+| `/release/info` | the same facts as JSON, for the post-deploy check |
+| `/release/download` | the package, named `voipappz-extension-<version>-<sha>.zip` |
+
+The version comes from `connectix/mix.exs`, so the extension and the portal
+serving it always carry the same number. The post-deploy hook fails a deploy
+whose extension is missing or whose version disagrees.
+
+```bash
+make extension                # build it locally into chrome/angular/dist
+```
+
 ## Two ways to run
 
 | Mode | Command | When |
 |---|---|---|
-| **Attached** | `make dev` | Day-to-day work: stack up + Vite logs following. Ctrl-C detaches; the stack keeps running. |
-| **Detached** | `make up` / `make down` | Same stack in the background. Vite :4200 + portal :4001 + cable :4100. |
+| **Attached** | `make dev` | Day-to-day work: stack up, portal logs following. Ctrl-C detaches; the stack keeps running. |
+| **Detached** | `make up` / `make down` | Same stack in the background. Portal :4001, cable :4100. |
 
 > **Gotcha:** editing `.env` and running `docker compose restart` does *not*
 > re-read env vars. Use `docker compose up -d --force-recreate <service>`.
 
-## Surfaces the Deno BFF used to serve
-
-A Deno BFF used to sit behind the portal with a local DuckDB projection of call
-events. It was deleted when Elixir took over the origin. A smaller audit-only
-DuckDB store now records the Cable frames this portal actually receives and
-serves authenticated `/api/events`, `/api/events/timeline`,
-`/api/events/search`, and `/api/events/stats` reads.
-
-The old Dashboard projection, Raw events screen adapter, transcript reads,
-optional PostgREST plane and read-only MCP surface remain unserved until each
-lands deliberately in Elixir. Everything else the SPA calls is `/api/*`, which
-goes to the mothership and never went through Deno.
-
 ## Configuration
 
-All configuration is env (see **[.env.example](./.env.example)** — copy it to
-`.env`). The browser uses relative URLs and reaches the mothership through the
-Elixir portal in both development and production. The local stack defaults to
-the API on port 5000; override it with:
+All configuration is env — copy **[.env.example](./.env.example)** to `.env`.
+The browser uses relative, same-origin URLs in both development and production.
+The local stack defaults to the API on port 5000; override it with:
 
 ```bash
 PORTAL_ENGINE_URL=https://tenant.example
 CABLE_API_URL=https://tenant.example     # keep cable on the same API
 ```
 
-`MOTHERSHIP_URL` remains the fallback for the local production Compose profile.
-Kamal destinations set their production `ENGINE_URL` in mothership's deploy
-configuration.
-
-Everything else (softphone SIP, dashboard extras, branding, mocks) is optional
-and documented inline in `.env.example`. Do **not** set `VITE_API_BASE_URL` in
-dev — it bypasses the Vite proxy and trips CORS.
+Each Kamal destination sets its own production `ENGINE_URL` in
+`config/deploy.<dest>.yml`. There is no `VITE_*` namespace — nothing in this
+repo reads one.
 
 ## Make commands
 
 ```
-make            # list targets
+make            # list every target
 ```
 
 | Command | Description |
 |---|---|
-| `make dev` | Run the app in Docker (attached logs) |
-| `make up` / `make down` | Start / stop the full Docker stack (web + portal + cable) |
-| `make logs` | Follow every local-stack log, including cable |
-| `make build` | Production build (`dist/`, in Docker) |
-| `make lint` / `make unit` | ESLint / Vitest in Docker |
-| `make portal-compile` / `make portal-test` | Compile or test the Elixir portal in the running container |
-| `make test` | Playwright E2E (needs the app running) |
-| `make act-portal` | Run the Elixir portal CI job locally; installs `act` into `/tmp` if needed |
-| `make act` | Run the complete GitHub Actions workflow locally |
-| `make verify` | Health check: the portal's probes, Vite and the cable |
-| `make status` | Local git + production health (set `PROD_URL`) |
-| `cd ../mothership && make portal-deploy DEST=nimbus` | Deploy Nimbus through Kamal |
-
-## Project layout
-
-```
-src/
-  lib/          # auth (token/session) + clients/ (mothership api, login, portal)
-  services/     # feature APIs (one module per backend feature)
-  hooks/        # cross-cutting hooks (useFeatures, useACL)
-  components/   # Calls, Reports, Dashboard, Raw Event Explorer, Phone, common/
-  context/      # Auth, Direction
-  i18n/         # react-i18next (Hebrew RTL default + English)
-  theme/        # MUI theme
-connectix/    # the Elixir portal: the origin — SPA, /ws/events, forwarder
-.agents/skills/ # repository-scoped Codex workflows shared by the team
-tests/          # Playwright E2E
-```
-
-To add a feature, follow the **service → hook → component** recipe with `Calls`
-as the blueprint — see [DEVELOPING.md](./DEVELOPING.md).
+| `make dev` | Run the local stack in Docker, attached logs |
+| `make up` / `make down` | Start / stop the stack in the background |
+| `make logs` | Follow the portal log |
+| `make health` | Where it is, whether it answers, whether events arrive |
+| `make test` | The Elixir suite (`TEST=` narrows it) |
+| `make extension` | Build the Chrome extension |
+| `make ci JOB=<job>` | Run a GitHub Actions job locally with `act` |
+| `make probe` | Drive `/ws/events` with a real session |
+| `make iex` / `make tui` / `make tmux` | Attach to, watch, or lay out the running portal |
+| `make kamal-config DEST=x` | Render a destination's resolved config, change nothing |
+| `make deploy DEST=x` | Build, push and swap the container |
 
 ## Testing
 
 ```bash
-make unit           # Vitest unit tests (services, hooks) — in Docker
-make test           # Playwright E2E in Docker (app must be running: VITE_MOCK_LOGIN=1 make up)
-make lint           # ESLint — in Docker
-make build          # must be clean before shipping
-npm run verify:push # complete local gate, including a production browser smoke
-make act-portal     # execute the Elixir portal CI job locally
+make test                    # the Elixir suite, in Docker
+make test TEST=path/or/pattern
+make ci JOB=portal           # the same suite the way CI runs it
+make ci JOB=extension        # build the extension and check its manifest
+make ci JOB=prod-image       # build the release image, boot it, probe every surface
 ```
 
-## Developer skill
+Every push runs `.githooks/pre-push` → `scripts/verify-before-push.sh`: a clean
+compile with `--warnings-as-errors`, plus a check that the deploy config still
+agrees with the app. See [docs/testing.md](./docs/testing.md).
 
-Codex discovers the checked-in `$develop-voipappz-portal` skill from
-`.agents/skills/`. Invoke it explicitly when implementing or verifying changes;
-it routes developers to the canonical architecture, the portal/Vite
-invariants, and the correct test matrix. Codex can also select it automatically when a task
-matches its description. See the official [OpenAI skill documentation](https://developers.openai.com/codex/skills).
+## Project layout
 
-## Internationalization
-
-Hebrew (default, RTL) + English via `react-i18next`. Locales in
-`src/i18n/locales/`. Use `useTranslation()` for copy and `useDirection()` for
-layout direction.
+```
+connectix/        the portal: LiveView UI, /ws/events, the API forwarder
+  lib/            application + web
+  assets/         css and js compiled by esbuild/tailwind into priv/static
+  test/           the ExUnit suite
+chrome/           the Chrome extension (its own package.json and node:20 build)
+config/           Kamal: deploy.yml plus one file per destination
+.kamal/hooks/     pre-build and post-deploy gates
+docs/             architecture, modules, testing, deployment
+scripts/          health, probes, the pre-push gate, local CI
+```
 
 ## Deploy
 
-`make prod` runs the production image on this box (:8000). Production deploy
-policy belongs to the sibling mothership repository; from there,
-`make portal-deploy DEST=nimbus` builds, pushes and swaps the container through
-Kamal. See the [deployment guide](./docs/deployment.md).
+Kamal, from this repo. `config/deploy.yml` holds what every destination shares
+and `config/deploy.<dest>.yml` holds what it does not.
+
+```bash
+make kamal-config DEST=connectix   # render and verify, change nothing
+make deploy DEST=connectix         # build, push, swap
+```
+
+The post-deploy hook probes the live host before calling it a success: TLS,
+liveness, readiness, the dependency report, and the extension it just shipped.
+A failure names the cause and points at `kamal rollback`. See the
+[deployment guide](./docs/deployment.md).
