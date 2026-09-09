@@ -1,0 +1,68 @@
+.login-container {
+  height: 100%;
+  width: 100%;
+  align-items: center;
+  display: flex;
+  z-index: 1;
+}
+
+form {
+  width: 100%;
+}
+
+.login-content {
+  width: 400px;
+  display: block;
+  margin: 0 auto;
+}
+
+.login-toolbar {
+  justify-content: center;
+}
+
+// `contain` so a logo of any aspect ratio fits the box instead of stretching:
+// this is a tenant asset and the next one will not be square.
+.login-logo {
+  display: block;
+  margin: 16px auto 8px;
+  max-width: 160px;
+  max-height: 96px;
+  object-fit: contain;
+}
+
+.mat-form-field {
+  width: 100%;
+  display: block;
+}
+
+.mat-raised-button {
+  width: 100%;
+  margin-top: 15px;
+}
+.loading {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.2);
+  div {
+    mat-spinner {
+
+    }
+  }
+}
+
+// The build stamp: readable when looked for, ignorable otherwise. Hover gives
+// the endpoint, which is the thing actually needed during a support call.
+.build-stamp {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: rgba(0, 0, 0, 0.42);
+  cursor: default;
+  user-select: text;
+}

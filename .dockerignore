@@ -51,3 +51,12 @@ connectix/deps
 connectix/.elixir_ls
 connectix/priv/static/assets
 connectix/erl_crash.dump
+
+# The Chrome extension: its build output and its own node tree. The BEAM
+# image has no Node stage and never copies chrome/, but a 650MB node_modules
+# in the build context is paid on every deploy regardless.
+chrome/node_modules
+chrome/angular/dist
+chrome/extension-build.zip
+chrome/test-results
+chrome/playwright-report
