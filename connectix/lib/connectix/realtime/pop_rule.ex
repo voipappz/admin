@@ -24,18 +24,13 @@ defmodule Connectix.Realtime.PopRule do
   # than silently going quiet, which is the failure nobody notices.
   @fallback %{
     "triggers" => [
-      "agent-state-change",
-      "agent-offering",
-      "bridge-agent-start",
-      "user.state_change",
-      "user.ringing",
-      "user.answer"
+      "bridge-agent-start"
     ],
-    "agent_states" => [],
+    "agent_states" => ["In a queue call"],
     "agent_fields" => ["meta.CC-Agent", "user_uuid", "data.user_uuid"],
     "profile" => %{
       "record_url" =>
-        "https://pardeshk.moked-binaa.co.il/ims/system/?view=custom&module=moked-add&search_phone={phone}&callId={call_id}",
+        "https://pardeshk.moked-binaa.co.il/api/insert_number.php?CallerNumber={phone}",
       "unknown_caller" => "0000"
     }
   }

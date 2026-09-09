@@ -443,10 +443,21 @@ defmodule Connectix.Realtime.ScreenPop do
   defp caller_number(%{"data" => %{"caller_id_number" => n}}) when is_binary(n) and n != "",
     do: n
 
+  # The callcenter's own spelling. Every queue frame carries it, and a frame
+  # that has it ONLY here would otherwise send `unknown_caller` — the CRM would
+  # open on 0000 for a call whose number the event was holding all along.
+  defp caller_number(%{"meta" => %{"CC-Member-CID-Number" => n}})
+       when is_binary(n) and n != "",
+       do: n
+
+  defp caller_number(%{"metadata" => %{"CC-Member-CID-Number" => n}})
+       when is_binary(n) and n != "",
+       do: n
+
   defp caller_number(_event), do: nil
 
-  # The CRM record to open. `search_phone` and `callId` come from the EVENT, not
-  # from the user's profile — the profile token selects WHICH crm, which is not
+  # The CRM record to open. The caller's number comes from the EVENT, not from
+  # the user's profile — the profile token selects WHICH crm, which is not
   # modelled yet. The number falls back to @unknown_caller rather than being
   # omitted, because the CRM opens a blank search on an empty phone and a blank
   # form is a clearer "no number" than a silent no-pop.

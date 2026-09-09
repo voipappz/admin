@@ -69,10 +69,16 @@ defmodule Connectix.Realtime.PopRuleTest do
     assert "In a queue call" in PopRule.agent_states()
   end
 
-  test "the url template has both placeholders the builder fills" do
+  # The customer's endpoint takes ONE parameter: the caller's number. `callId`
+  # used to be appended and was not part of their contract — and its value came
+  # from `call_id/1` falling back to the event's own id, so it silently carried
+  # the action name and changed whenever the trigger did.
+  test "the url template takes the caller number and nothing else" do
     url = PopRule.record_url()
-    assert url =~ "{phone}"
-    assert url =~ "{call_id}"
+
+    assert url =~ "CallerNumber={phone}"
+    refute url =~ "{call_id}"
+    refute url =~ "callId"
   end
 
   test "a missing rule file falls back rather than going silent" do
@@ -81,7 +87,7 @@ defmodule Connectix.Realtime.PopRuleTest do
 
     # Still pops for the real frame's action — a lost file must not quietly
     # switch screen pops off.
-    assert "agent-state-change" in PopRule.triggers()
+    assert PopRule.triggers() == ["bridge-agent-start"]
     assert PopRule.record_url() =~ "{phone}"
   after
     System.delete_env("SCREEN_POP_RULE")

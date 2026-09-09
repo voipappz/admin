@@ -318,8 +318,8 @@ defmodule Connectix.Realtime.ScreenPopTest do
 
       assert_receive {:realtime, %{type: "notification", message: message}}
       assert message["action"] == "tab:new"
-      assert message["url"] =~ "search_phone="
-      assert message["url"] =~ "callId=call-abc"
+      assert message["url"] =~ "CallerNumber="
+      refute message["url"] =~ "callId"
     end
 
     # THE CASE THAT WAS FAILING IN PRODUCTION. The callcenter names an agent by
@@ -378,7 +378,7 @@ defmodule Connectix.Realtime.ScreenPopTest do
       assert_receive {:realtime, %{type: "notification", message: message}}
       assert message["action"] == "tab:new"
       # Dispatched to the USER's topic even though the event named the token.
-      assert message["url"] =~ "callId="
+      assert message["url"] =~ "CallerNumber=0545234585"
     end
 
     test "uses the caller number when the event carries one", %{state: state} do
@@ -388,7 +388,7 @@ defmodule Connectix.Realtime.ScreenPopTest do
       ScreenPop.process_user_event(state, @user_uuid, event, online, [@powerlink])
 
       assert_receive {:realtime, %{type: "notification", message: %{"url" => url}}}
-      assert url =~ "search_phone=0501234567"
+      assert url =~ "CallerNumber=0501234567"
     end
 
     # The whole point of the rule: the agent in the event must be the agent
@@ -479,7 +479,7 @@ defmodule Connectix.Realtime.ScreenPopTest do
       ScreenPop.route_event(%ScreenPop{}, real_frame())
 
       assert_receive {:realtime, %{type: "notification", message: message}}
-      assert message["url"] =~ "search_phone=0522463424"
+      assert message["url"] =~ "CallerNumber=0522463424"
       refute_receive {:realtime, %{type: "notification"}}, 200
 
       # Whose topic it went to is not visible from one mailbox, so ask the

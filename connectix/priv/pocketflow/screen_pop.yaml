@@ -80,7 +80,13 @@ profile:
   # `{phone}` and `{call_id}` are filled from the event; an absent number
   # becomes `unknown_caller` rather than being dropped, because the CRM opens a
   # blank search on an empty phone and a blank form beats a silent no-pop.
-  record_url: "https://pardeshk.moked-binaa.co.il/ims/system/?view=custom&module=moked-add&search_phone={phone}&callId={call_id}"
+  # The customer's endpoint, verbatim. Only `{phone}` is substituted — nothing
+  # is appended. `callId` used to be added here and was wrong twice over: it is
+  # not part of this contract, and its value came from `call_id/1` falling back
+  # to the event's own `id`, which the switch builds as
+  # "<action>_<session>_<member>_<agent>" — so it changed meaning whenever the
+  # trigger changed.
+  record_url: "https://pardeshk.moked-binaa.co.il/api/insert_number.php?CallerNumber={phone}"
   unknown_caller: "0000"
   pop_on: answer
 
