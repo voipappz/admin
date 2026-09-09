@@ -24,7 +24,7 @@ defmodule Connectix.MixProject do
       connectix: [
         include_executables_for: [:unix],
         applications: [runtime_tools: :permanent],
-        steps: [:assemble, &strip_runtime_state/1, &strip_portaudio/1]
+        steps: [:assemble, &strip_runtime_state/1]
       ]
     ]
   end
@@ -44,58 +44,16 @@ defmodule Connectix.MixProject do
     release
   end
 
-  # PORTAUDIO MUST NOT BE IN THE RELEASE, and cannot be excluded the obvious
-  # way. `Membrane.PortAudio.Devices.Nif` enumerates sound devices in its
-  # `on_load`; a server has none, so the NIF aborts, `on_load` fails, and the
-  # failure comes out of `kernel` start and terminates the BEAM before Phoenix
-  # binds a port:
+  # PortAudio is kept out of the release by a patch to parrot_platform's own
+  # mix.exs (priv/parrot_patches/mix.exs.patch), applied before parrot is
+  # compiled — see that patch for why every later exclusion fails.
   #
-  #     on_load_function_failed, 'Elixir.Membrane.PortAudio.Devices.Nif', abort
-  #     Kernel pid terminated (application_controller)
-  #
-  # That crash-looped every container on the first deploy to nimbus-connectix.
-  #
-  # `applications: [membrane_portaudio_plugin: :none]` is what you reach for and
-  # Mix refuses it — parrot_platform is `:permanent` and depends on it, and Mix
-  # will not let a running application depend on an excluded one. `:load` does
-  # not help either: `on_load` runs when the MODULE is loaded, and a release
-  # pre-loads every module.
-  #
-  # So it is removed after assembly: delete the application directory and take
-  # it out of parrot_platform's own `applications` list, which is the thing the
-  # boot script reads. Nothing calls it — the SIP leg's media is
-  # `Connectix.WebRtcMediaPipeline` over UDP and the softphone's mic is the
-  # browser's `getUserMedia`, so PortAudio has been dead weight since the
-  # WebRTC bridge replaced device audio.
-  #
-  # A DESKTOP BUILD WOULD WANT THE OPPOSITE — there PortAudio is how a local
-  # softphone reaches the mic and speakers. Hence a release step, not a removed
-  # dependency: same dep, opposite answer per target.
-  defp strip_portaudio(release) do
-    lib = Path.join(release.path, "lib")
-
-    removed =
-      lib
-      |> Path.join("membrane_portaudio_plugin-*")
-      |> Path.wildcard()
-      |> Enum.map(&tap(&1, fn dir -> File.rm_rf!(dir) end))
-
-    # parrot_platform still lists it, and the boot script would fail on an
-    # application it cannot find. Rewrite the one term.
-    for app <- Path.wildcard(Path.join(lib, "parrot_platform-*/ebin/parrot_platform.app")) do
-      app
-      |> File.read!()
-      |> String.replace("membrane_portaudio_plugin,", "")
-      |> String.replace("membrane_portaudio_plugin", "")
-      |> then(&File.write!(app, &1))
-    end
-
-    if removed == [] do
-      Mix.shell().info("strip_portaudio: nothing to remove (already absent)")
-    end
-
-    release
-  end
+  # This is where a `strip_portaudio` release step used to be, and it did not
+  # work: `steps:` run AFTER `:assemble`, which has already written
+  # `start.boot` naming every module of every included application. Deleting
+  # the directory then left the boot script pointing at modules that were
+  # gone, and the BEAM terminated with `load_failed` instead of
+  # `on_load_function_failed` — a different message for the same dead node.
 
   # Configuration for the OTP application.
   #

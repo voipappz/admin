@@ -1,0 +1,27 @@
+--- a/mix.exs
++++ b/mix.exs
+@@ -52,7 +52,23 @@
+       {:membrane_mp3_mad_plugin, "~> 0.18"},
+       {:membrane_ffmpeg_swresample_plugin, "~> 0.20"},
+       {:membrane_realtimer_plugin, "~> 0.10.1"},
+-      {:membrane_portaudio_plugin, "~> 0.19.2"},
++      # PATCH: membrane_portaudio_plugin REMOVED.
++      #
++      # `Membrane.PortAudio.Devices.Nif` enumerates sound devices in its
++      # `on_load`. A server has none, so the NIF aborts, `on_load` fails, and
++      # the failure comes out of `kernel` start and terminates the BEAM before
++      # Phoenix binds a port. It crash-looped every container on
++      # nimbus-connectix.
++      #
++      # Removing it HERE, before parrot is compiled, is what keeps it out of
++      # parrot's .app and therefore out of the release's boot script. Excluding
++      # it later cannot work: `applications: [... :none]` is refused while
++      # parrot is `:permanent`, and deleting the directory after `:assemble`
++      # leaves `start.boot` naming modules that are gone (`load_failed`).
++      #
++      # Nothing uses it: the SIP leg's media is
++      # `Connectix.WebRtcMediaPipeline` over UDP, and the softphone's mic is
++      # the browser's `getUserMedia`. A DESKTOP build would want it back.
+ 
+       # Documentation
+       {:ex_doc, "~> 0.31", only: :dev, runtime: false}
