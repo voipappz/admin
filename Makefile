@@ -15,7 +15,7 @@ SHELL := bash
 # working target. `make check-make` fails on any that is missing.
 PHONY_TARGETS := help check-make iex tui tmux tmux-kill mise env dev \
                  up down logs health test ci probe status extension \
-                 kamal-config kamal-push deploy
+                 kamal-config kamal-push deploy deployed
 
 .PHONY: $(PHONY_TARGETS)
 
@@ -320,4 +320,11 @@ status: ## Local git + the kamal destinations this repo can deploy to
 	  img=$${img:-(inherits deploy.yml)}; \
 	  printf "  %-10s %-24s %s\n" "$$d" "$$host" "$$img"; \
 	done
-	@echo "  make deploy DEST=<one of the above>"
+	@$(M) deployed
+
+# WHAT IS ACTUALLY RUNNING, asked of the nodes themselves rather than inferred
+# from a deploy log or from whoever last remembers deploying. Every release
+# serves its build commit at /release/info, so drift is a question with an
+# answer. Read-only, so it is safe to run on a whim.
+deployed: ## Which build each destination is running, and how far behind HEAD
+	@bash scripts/deployed-versions.sh
