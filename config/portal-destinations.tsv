@@ -1,0 +1,38 @@
+# Per-destination deploy policy for `voipappz portal deploy`.
+#
+# A CATALOG, not conditionals. This was `$(filter mtn pbx20 nimbus,$(DEST))`
+# twice over in the Makefile, and both rows below record a production incident
+# — the kind of knowledge that has to be readable by whoever adds the fourth
+# destination, at the moment they write config/deploy.<dest>.yml next door.
+# Same reason config/services.tsv and config/deploy-manifest.tsv are files.
+#
+# scripts/check-portal-destinations.sh keeps this in step with the deploy files.
+#
+# dest      stop_first  healthcheck_url
+#
+# stop_first — the destination publishes a FIXED host port with `proxy: false`,
+#   so the outgoing container still holds it when kamal starts the incoming one:
+#       docker: Bind for 0.0.0.0:8888 failed: port is already allocated (125)
+#   There is no proxy to hand traffic over, so the old container must let go
+#   first; a few seconds of downtime is the cost of publishing a fixed port.
+#   The default and nimbus destinations front with kamal-proxy and hand over
+#   cleanly — stopping either one would add an outage for nothing.
+#
+# healthcheck_url — where the post-deploy hook probes FROM THE DEPLOY BOX.
+#   `-` means DELIBERATELY UNSET (the hook then skips itself), not "unknown".
+#   mtn and pbx20 publish on 8888 behind someone else's nginx and firewall that
+#   port off the public internet, so every probe returned 000 and failed a
+#   deploy that had in fact succeeded. Verify those on the host instead:
+#       ssh <host> 'curl -sk -o /dev/null -w "%{http_code}\n" https://127.0.0.1:8888/test'
+#   nimbus IS probed: unlike the other two its published port answers from
+#   outside (measured on 8888; the portal moved to 10444 because
+#   va_dashboard_1 already holds 10443) —
+#   measured, not assumed. Skipping it is what let a TLS downgrade ship
+#   unnoticed, so it gets the checks the others cannot have.
+#   $PROD_URL reads that key from the portal's .env.
+#
+(default)	no	$PROD_URL
+mtn	yes	-
+pbx20	yes	-
+nimbus	no	https://nimbus-prod.voipappz.io:10444
+connectix	no	https://nimbus-connectix.voipappz.io

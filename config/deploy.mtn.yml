@@ -1,0 +1,95 @@
+# Kamal DESTINATION override for MTN — mtnunicom.mtn.com.gh (81.199.146.152).
+#
+# Same non-disruptive posture as pbx20: the MTN box is a live production host
+# running nginx on 80/443 + the voipappz-api on :8000, so we do NOT run
+# kamal-proxy (proxy: false) and publish ONLY on 127.0.0.1:8888. The existing
+# nginx reverse-proxies to :8888; TLS stays with nginx. The frontend logs in
+# against the MTN API on the same box.
+#
+#     kamal config -d mtn      # render + verify (read-only)
+#     kamal deploy -d mtn
+
+servers:
+  web:
+    hosts:
+      - 81.199.146.152
+    # The portal (va_portal_1 nginx) owns 80/443 here — role-level proxy:false
+    # runs our container directly on 8888. We terminate TLS ourselves on 8888
+    # using the host's OWN cert, mounted read-only. Nothing on 80/443/the portal
+    # is touched.
+    proxy: false
+    options:
+      env-file: /home/voipappz/voipappz-app.env
+      # Run as root so the server can read the 0600 host key (owned by voipappz
+      # uid 1000, and not by the image's own user). Container-root is namespaced
+      # — no host access, and the cert mount is read-only.
+      user: "0:0"
+      publish:
+        - "0.0.0.0:8888:3000"   # https://mtnunicom.mtn.com.gh:8888/
+
+# Destination overrides the base volume list, so retain both the live TLS
+# certificate mount and the persistent Dashboard event store.
+volumes:
+  - "/opt/va/certs:/certs:ro"
+  - "voipappz-events:/data"
+
+env:
+  clear:
+    TLS_CERT_FILE: /certs/mtn.crt
+    TLS_KEY_FILE: /certs/mtn.key
+    # Without PHX_SERVER the release boots but never listens; without PHX_HOST it
+    # advertises example.com. PORT (3000) is inherited from the base deploy.yml.
+    PHX_SERVER: "true"
+    PHX_HOST: mtnunicom.mtn.com.gh
+    # The relay goes extension -> portal -> CABLE -> mothership. CABLE_URL is the
+    # cable node on the LAN (its own host, not this box); the portal opens one
+    # application connection to it and every user login rides over that socket.
+    CABLE_URL: ws://192.168.165.21:4000/cable
+    # ENGINE_URL is the HTTP FALLBACK EngineProxy uses only when the cable hop
+    # fails (or the relay is off). The mothership API is a SEPARATE LAN host at
+    # 192.168.165.18:5000 — reachable directly from the container (verified),
+    # unlike host.docker.internal which the bridge could not route to and which
+    # made every /auth forward 502 "upstream unavailable".
+    ENGINE_URL: http://192.168.165.18:5000
+  secret:
+    # SECRET_KEY_BASE lives in .kamal/secrets.mtn (this app's cookie-signing
+    # secret). The old host env-file was a stale Deno file with none of this, so
+    # the release raised "SECRET_KEY_BASE is missing" and crash-looped.
+    - SECRET_KEY_BASE
+
+ssh:
+  user: voipappz
+  port: 22
+  # MTN's :22 is filtered from the open internet and OPEN from cloud.voipappz.io,
+  # so every hop JUMPS through cloud. The jump is spelled out below rather than
+  # left to ~/.ssh/config, because kamal runs inside a container that mounts
+  # ~/.ssh owned by uid 1000 while running as root: any jump that invokes the
+  # ssh BINARY (both a config `ProxyJump` AND kamal's own `proxy:`, which shells
+  # out to `ssh -W`) makes that binary read /root/.ssh/config, reject it as
+  # "Bad owner or permissions", and abort before connecting. proxy_command with
+  # `-F none` is the escape: the binary ignores ~/.ssh/config, so ownership is
+  # never checked, and we pass the jump key inline. MTN then authenticates as
+  # voipappz with mtn_deploy (the key MTN trusts; the local ~/.ssh/kamal_deploy
+  # is the CLOUD key, which MTN refuses).
+  # `proxy:` (net-ssh Proxy::Jump) STILL shells out to the ssh binary as
+  # `ssh -W ... cloud`, and that binary reads /root/.ssh/config — owned by uid
+  # 1000 inside the root container — and dies "Bad owner or permissions". So we
+  # spell the jump out as proxy_command with `-F none`: the binary then ignores
+  # ~/.ssh/config entirely (no ownership check) and we hand it the jump key
+  # directly. %h:%p is the MTN target; the jump logs in as ubuntu@cloud with
+  # api.key. known_hosts already carries both host keys (mounted read-only), so
+  # accept-new never has to write.
+  proxy_command: "ssh -F none -W %h:%p -l ubuntu -i ~/.ssh/api.key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new cloud.voipappz.io"
+  keys_only: true
+  keys:
+    - "~/.ssh/mtn_deploy"
+
+# Same Elixir portal image as nimbus (Dockerfile.production). mtn had been
+# inheriting the base deploy.yml's nirlevi/bots — the old Deno repo name.
+image: nirlevi/voipappz-portal-elixir
+
+builder:
+  arch: amd64
+  args:
+    # Same-origin: the app is served from the MTN host and talks to its own API.
+    VITE_MOTHERSHIP_URL: https://mtnunicom.mtn.com.gh

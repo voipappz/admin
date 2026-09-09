@@ -237,41 +237,79 @@ probe: ## [AUTH=<localStorage.auth>] Probe /ws/events with a real session
 ci: ## [JOB=portal|stress|browser|prod-image|all] Run CI locally with act
 	ACT_BIN="$(ACT)" ACT_RUNNER_IMAGE="$(ACT_PLATFORM)" scripts/ci-local.sh $(or $(JOB),all)
 
-##@ Deploy — kamal, from the mothership policy
+##@ Deploy — kamal, from this repo
 
-portal-print: ## Print the exact Kamal commands, change nothing — make portal-print DEST=mtn
-	$(portal_cli_guard)
-	$(PORTAL_CLI) portal deploy --print $(if $(DEST),-d $(DEST))
+# THE DEPLOY POLICY LIVES HERE NOW. It used to live in the mothership
+# (config/portal/) on the reasoning that choosing where the portal lands needs
+# the view of every destination at once. In practice that split cost more than
+# it bought: two repos to keep in step, a compiled CLI in a third whose only
+# job was to mount one into the other, and a `--path`/`VA_PORTAL_DIR` dance
+# that broke outright when this app stopped having a package.json.
+#
+# config/deploy*.yml and .kamal/ are kamal's OWN layout, relative to the
+# project root — so kamal needs no mounts of anywhere else and `kamal` run by
+# hand from this directory does exactly what these targets do.
+#
+# SECRETS AND TLS MATERIAL ARE NOT IN GIT. .kamal/secrets*, *.key and *.pem are
+# ignored; .kamal/secrets.example says which names each destination needs.
+
+KAMAL_IMAGE ?= ghcr.io/basecamp/kamal:v2.12.0
+
+# `~/.docker` is mounted READ-WRITE on purpose: buildx writes builder activity
+# files there, and a read-only mount fails the build with
+# "read-only file system" long after the image has been built.
+KAMAL = docker run --rm \
+	  -v "$(CURDIR):/workdir" -w /workdir \
+	  -v "$(HOME)/.ssh:/root/.ssh:ro" \
+	  -v "$(HOME)/.docker:/root/.docker" \
+	  -v /var/run/docker.sock:/var/run/docker.sock \
+	  -e KAMAL_REGISTRY_PASSWORD -e KAMAL_HEALTHCHECK_URL \
+	  -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
+	  $(KAMAL_IMAGE)
 
 # DEST IS REQUIRED, and the guard is not pedantry. Without `-d`, kamal uses
-# config/portal/deploy.yml — a DIFFERENT live host (212.199.160.156) with a
-# DIFFERENT image (nirlevi/bots) from every named destination. A dropped
-# `DEST=` therefore does not fail; it deploys, somewhere else, and the first
-# sign is a timeout against a host you did not mean to touch.
-portal-deploy: ## Build, push and swap the portal container — make portal-deploy DEST=nimbus
-	@test -n "$(DEST)" || { 	  echo "!! DEST is required — a bare deploy targets the DEFAULT host, not yours." >&2; 	  echo "   make portal-deploy DEST=<$(shell ls $(VA_MOTHERSHIP)/config/portal/deploy.*.yml 2>/dev/null | sed 's|.*deploy\.||;s|\.yml||' | paste -sd'|')>" >&2; 	  exit 1; }
-	$(portal_cli_guard)
-	$(PORTAL_CLI) portal deploy -d $(DEST)
+# config/deploy.yml — a DIFFERENT live host with a DIFFERENT image from every
+# named destination. A dropped `DEST=` therefore does not fail; it deploys,
+# somewhere else, and the first sign is a timeout against a host you did not
+# mean to touch.
+define require_dest
+	@test -n "$(DEST)" || { \
+	  echo "!! DEST is required — a bare deploy targets the DEFAULT host, not yours." >&2; \
+	  echo "   make $@ DEST=<$$(ls config/deploy.*.yml 2>/dev/null | sed 's|.*deploy\.||;s|\.yml||' | paste -sd'|')>" >&2; \
+	  exit 1; }
+endef
+
+kamal-config: ## [DEST=x] Render the resolved config and change nothing
+	$(require_dest)
+	$(KAMAL) config -d $(DEST)
+
+# Separate from deploy because the image push is the step this network fails:
+# Docker Hub answers `invalid content range` on an interrupted layer upload,
+# and retrying the whole deploy to get past it wastes the container swap too.
+# Build layers are cached, so a retry here costs minutes.
+kamal-push: ## [DEST=x] Build and push the image only, no container swap
+	$(require_dest)
+	$(KAMAL) build push -d $(DEST)
+
+deploy: ## [DEST=x] Build, push and swap the container — make deploy DEST=connectix
+	$(require_dest)
+	$(KAMAL) deploy -d $(DEST)
 
 # There is no single "production". Kamal has a destination per customer, each
-# with its own host and image, which is exactly why a bare `portal-deploy` was
-# able to ship to the wrong one. So this lists them rather than pretending one
-# PROD_URL speaks for all.
+# with its own host and image, which is exactly why a bare deploy was able to
+# ship to the wrong one. So this lists them rather than pretending one PROD_URL
+# speaks for all.
 status: ## Local git + the kamal destinations this repo can deploy to
 	@echo "=== Local git ==="
 	@git log --oneline -1
 	@git status -sb
 	@echo
-	@echo "=== Destinations (mothership config/portal) ==="
-	@if [ -d "$(VA_MOTHERSHIP)/config/portal" ]; then \
-	  for f in $(VA_MOTHERSHIP)/config/portal/deploy.*.yml; do \
-	    d=$$(basename $$f .yml | sed 's/deploy\.//'); \
-	    host=$$(grep -A3 'hosts:' $$f | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+|[a-z0-9.-]+\.(io|com)' | head -1 || true); \
-	    img=$$(grep -m1 '^image:' $$f | sed 's/image: *//' || true); \
-	    img=$${img:-(inherits deploy.yml)}; \
-	    printf "  %-8s %-24s %s\n" "$$d" "$$host" "$$img"; \
-	  done; \
-	  echo "  make portal-deploy DEST=<one of the above>"; \
-	else \
-	  echo "  no mothership checkout at $(VA_MOTHERSHIP)"; \
-	fi
+	@echo "=== Destinations (config/) ==="
+	@for f in config/deploy.*.yml; do \
+	  d=$$(basename $$f .yml | sed 's/deploy\.//'); \
+	  host=$$(grep -A3 'hosts:' $$f | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+|[a-z0-9.-]+\.(io|com)' | head -1 || true); \
+	  img=$$(grep -m1 '^image:' $$f | sed 's/image: *//' || true); \
+	  img=$${img:-(inherits deploy.yml)}; \
+	  printf "  %-10s %-24s %s\n" "$$d" "$$host" "$$img"; \
+	done
+	@echo "  make deploy DEST=<one of the above>"

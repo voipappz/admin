@@ -51,6 +51,14 @@ api/mock/captured_calls.json
 .kamal/secrets-common
 .kamal/secrets.*
 
+# TLS material for destinations that cannot use ACME. nimbus runs behind Kong,
+# which owns port 80, so Let's Encrypt's HTTP-01 challenge is unavailable there
+# and the certificate is passed to kamal-proxy as PEM secrets instead. The
+# private key must never be committed; the cert is ignored with it so the pair
+# cannot drift.
+.kamal/*.key
+.kamal/*.pem
+
 # Agent worktrees — isolated checkouts, never part of the tree
 .claude/worktrees/
 

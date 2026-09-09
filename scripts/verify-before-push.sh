@@ -23,4 +23,11 @@ else
   exit 1
 fi
 
+# The deploy files and the app are one repo now, so this is a same-commit
+# contract and belongs in the same gate as compilation. It catches a
+# destination that names a data directory nothing mounts — the failure that
+# boots green and has silently lost every conversation.
+echo '==> Deploy config agrees with the app'
+bash scripts/check-deploy-contract.sh
+
 echo '==> Pre-push verification passed'

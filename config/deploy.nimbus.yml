@@ -1,0 +1,168 @@
+# Kamal DESTINATION override for nimbus — nimbus-prod.voipappz.io (194.36.89.216).
+#
+# This destination runs the ELIXIR portal (Phoenix + the React bundle in one
+# image, built from Dockerfile.production) rather than the Deno one in deploy.yml.
+# One process answers the SPA, /auth and /api (forwarded to the mothership API
+# on this same box) and the /ws/events realtime socket the Chrome extension
+# connects to.
+#
+# kamal-proxy TERMINATES TLS here and upgrades the /ws/events websocket, so the
+# app container speaks plain HTTP internally and nothing hand-rolls TLS.
+#
+# It cannot use the standard ports: Kong owns 80 and 443 on this box (its
+# embedded openresty, on host networking). So the proxy is published on
+# alternate ports, which has one consequence worth knowing — Let's Encrypt's
+# HTTP-01 challenge needs port 80, so ACME is not available and the cert is
+# supplied explicitly from the host's existing certbot material.
+#
+# The ports are NOT set here; they are proxy-wide boot config, set once per host:
+#
+#     kamal proxy boot_config set --http-port 8880 --https-port 10444 -d nimbus
+#
+# 10444, not 8888: va_dashboard_1 already publishes 10443 on this host, and the
+# portal sits beside it rather than on the port the Deno portal used.
+#
+#     kamal config -d nimbus     # render + verify (read-only)
+#     kamal deploy -d nimbus
+
+image: nirlevi/voipappz-portal-elixir
+
+builder:
+  arch: amd64
+  # Built from the app checkout one level up, because the image needs BOTH the
+  # connectix/ source. See the note at the top of that file.
+  #
+  # Dockerfile.production IS the Elixir build — it replaced the Deno one it used
+  # to be: same file, same name, different server. The app repo has no
+  # `Dockerfile.elixir`, and a build pointed at one fails before it starts.
+  dockerfile: Dockerfile.production
+  args:
+    VITE_APP_VERSION: <%= "#{Time.now.strftime('%Y.%m.%d')}-#{`git rev-parse --short HEAD`.strip}" %>
+
+servers:
+  web:
+    hosts:
+      - 194.36.89.216
+    options:
+      # Runtime secrets. This file must EXIST ON THE HOST before the first
+      # deploy: Kamal mounts it, it does not create it, and a missing --env-file
+      # stops the container from starting at all.
+      env-file: /etc/voipappz/secrets.env
+      # The cable node runs on the host (port 4000), not in this network.
+      add-host: host.docker.internal:host-gateway
+
+# No cert mount: kamal-proxy holds the certificate now, not the app.
+
+proxy:
+  # Custom certificate rather than ACME, because port 80 is Kong's.
+  #
+  # These are SECRET NAMES resolved from .kamal/secrets — kamal reads the PEM
+  # CONTENT and writes it into the proxy container. It is not a path, and it is
+  # baked in at deploy time: a certbot renewal on the host is NOT picked up
+  # until the next deploy, so redeploy after a renewal.
+  ssl:
+    certificate_pem: NIMBUS_TLS_CERT
+    private_key_pem: NIMBUS_TLS_KEY
+  # `hosts`, not `host`: the base deploy.yml uses the plural, and kamal
+  # refuses a config that carries both.
+  hosts:
+    - nimbus-prod.voipappz.io
+  # The port PHOENIX listens on inside the container. The host-facing ports are
+  # the proxy's boot config (see the header).
+  app_port: 4000
+  healthcheck:
+    # READY, not alive. /health/alive answers 200 for as long as the BEAM
+    # responds, so a node that booted but cannot serve passes it and kamal
+    # calls the deploy good — after `stop_first: true` has already removed the
+    # one that worked. connectix/CLAUDE.md: "The deploy gate is
+    # /health/ready, not /health/alive."
+    #
+    # No auth, no content negotiation — a probe that sends no Accept header
+    # must not be answered 406 and read as an unhealthy node.
+    path: /health/ready
+    interval: 3
+    timeout: 5
+
+# NO DATABASE ACCESSORY. This used to run Postgres 17 beside the app for "the
+# Phoenix app's own tables"; the app has not had any since 39c92198 dropped
+# Ecto. State is Mnesia and a DuckDB event store, both on the volume below —
+# so what stood here was a database nothing opened.
+#
+# Removing it stops kamal MANAGING that container; it does not delete the one
+# already running on 194.36.89.216, nor its data volume. Both can be removed by
+# hand once you are satisfied nothing wants them:
+#
+#     docker rm -f portal-db && docker volume rm portal-db-data
+
+env:
+  clear:
+    # Phoenix binds this port INSIDE the container; kamal-proxy fronts it.
+    PORT: 4000
+    PHX_SERVER: "true"
+    PHX_HOST: nimbus-prod.voipappz.io
+    # A REACHABLE NODE NAME, so `bin/connectix remote` and `rpc` work on this
+    # box. Without these the release falls back to sname distribution, and kamal
+    # names the container `<ip>-<hash>` — Erlang takes the part before the first
+    # dot, so the node came up as `connectix@194` and nothing resolved `194`.
+    # Both rpc and remote then failed with :noconnection, which is indisting-
+    # uishable from "distribution is off" and left production uninspectable.
+    # Loopback because the node is not clustered; it only has to find itself.
+    RELEASE_DISTRIBUTION: name
+    RELEASE_NODE: connectix@127.0.0.1
+    # WHERE THE INHERITED VOLUME IS, as the app reads it. The base deploy.yml
+    # mounts `voipappz-events:/data`; until 2026-09-07 nothing told the app to
+    # use it, so Mnesia ran ram_copies and DuckDB wrote inside the container.
+    # Every restart began with an empty, perfectly healthy-looking database.
+    # Mounting a volume without these three does nothing.
+    CONNECTIX_DATA_DIR: /data
+    MNESIA_DIR: /data/mnesia
+    EVENTS_DIR: /data/events
+    # TLS_CERT_FILE/TLS_KEY_FILE are deliberately UNSET: kamal-proxy terminates
+    # TLS. config/runtime.exs then serves plain http, which is correct behind a
+    # proxy — and it still raises rather than downgrading if they are ever set
+    # and unreadable.
+    # Where Phoenix forwards /auth, /api and /tasks — server-side, so the
+    # browser's origin rules never apply. Stated explicitly and never inherited:
+    # inheriting a default would quietly authenticate this tenant's users
+    # against the wrong mothership.
+    ENGINE_URL: https://nimbus-prod.voipappz.io
+    # NATS_URL is required by the Elixir portal's token-verification request/reply
+    # path. It contains credentials and therefore comes from the host's
+    # /etc/voipappz/secrets.env above, never from clear Kamal config. The
+    # post-deploy /health body check fails if it is missing.
+    #
+    # For this to work the node's SECRET_KEY must equal the mothership's token
+    # signing secret. Cable verifies mothership USER tokens against it, and
+    # when it is empty the node refuses EVERY connection
+    # (va-crystal node/realtime/app.cr:90) — which presents as a socket that
+    # closes before `welcome`, indistinguishable from a dead network.
+    # NOT localhost: this container runs on the `kamal` bridge network, so
+    # localhost is the container itself and the node listens on the HOST. The
+    # add-host below maps host.docker.internal to the host gateway.
+    CABLE_URL: ws://host.docker.internal:4000/cable
+  secret:
+    # DATABASE_URL was here until 2026-09-07. 39c92198 dropped Ecto; nothing
+    # read it, and a declared-but-missing secret fails the whole deploy — so
+    # it was a tripwire guarding a database that no longer exists.
+    - SECRET_KEY_BASE
+    # The CABLE NODE's signing secret (agent_rec's SECRET_KEY), not this app's.
+    #
+    # CABLE_URL alone is not enough to reach the node: `ApiProxy.enabled?` is
+    # `CABLE_URL and CableToken.account()`, and `account()` needs a secret to
+    # mint with (or a literal CABLE_TOKEN). Without it the relay is off, and
+    # because `TokenAuth` has no HTTP fallback the portal refuses EVERY
+    # /ws/events upgrade while /auth keeps working over EngineProxy's fallback
+    # — a login that succeeds followed by a socket that 401s.
+    #
+    # Two things hide it. The health report says `api_relay: ok` when the relay
+    # is merely DISABLED (`not enabled? or ready?`), and the log line blames
+    # "CABLE_URL is not set" for any :disabled, including this case where it is
+    # set. Check the container's env, not the message.
+    - CABLE_SECRET_KEY
+
+ssh:
+  # Verified against the host: this key/user pair is the one authorised there.
+  user: root
+  port: 22
+  keys:
+    - "~/.ssh/connectix_deploy_new"

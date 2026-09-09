@@ -1,0 +1,119 @@
+#!/bin/sh
+#
+# Kamal post-deploy hook — runs after the new container is healthy.
+# Lightweight wiring smoke checks against the live Elixir deploy: liveness,
+# readiness and the frontend must answer, and the dependency report must say
+# "ok" rather than merely returning its always-200 report response.
+#
+# POSIX sh and curl-optional, because hooks run INSIDE the kamal image
+# (ghcr.io/basecamp/kamal — Alpine): no bash, no bash arrays, no curl — only
+# busybox wget. See the shebang note in pre-build.
+#
+# Probes ONLY when KAMAL_HEALTHCHECK_URL names the deployed host. Unset = skip:
+# a hardcoded default probes whichever tenant it was written for and then fails
+# the deploy of every other one. `make deploy DEST=<dest>` sets it per
+# destination.
+set -eu
+
+BASE_URL="${KAMAL_HEALTHCHECK_URL:-}"
+if [ -z "$BASE_URL" ]; then
+  echo "=== Post-deploy: KAMAL_HEALTHCHECK_URL unset — skipping smoke checks ==="
+  exit 0
+fi
+
+FAIL=0
+
+# Status code for a GET, via whichever client the image has.
+# -k / --no-check-certificate: MTN terminates TLS on :8888 with the host's own
+# cert and we are probing our own box by name — a chain check adds nothing.
+http_code() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -sk -o /dev/null -w '%{http_code}' --max-time 10 "$1"
+  else
+    wget --no-check-certificate -S -q -O /dev/null -T 10 "$1" 2>&1 \
+      | awk '/^ *HTTP\//{c=$2} END{print (c ? c : "000")}'
+  fi
+}
+
+probe() {
+  _name="$1"; _path="$2"; _expected="$3"
+  _code=$(http_code "$BASE_URL$_path")
+  if [ "$_code" = "$_expected" ]; then
+    echo "  ✓  $_name → $_code"
+  else
+    echo "  ✗  $_name → expected $_expected, got $_code"
+    FAIL=1
+  fi
+}
+
+http_body() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -sk --fail --max-time 10 "$1"
+  else
+    wget --no-check-certificate -q -O - -T 10 "$1"
+  fi
+}
+
+echo "=== Post-deploy: Waiting 5s for proxy to settle ==="
+sleep 5
+
+echo "=== Post-deploy: Smoke checks against $BASE_URL ==="
+
+# TLS is checked first so a proxy/certificate failure is distinguished from an
+# application health failure.
+case "$BASE_URL" in
+  https://*)
+    _tls=$(http_code "$BASE_URL/health/alive")
+    if [ "$_tls" = "000" ]; then
+      _plain=$(http_code "$(echo "$BASE_URL" | sed 's|^https://|http://|')/health/alive")
+      if [ "$_plain" = "200" ]; then
+        echo "  ✗  TLS NOT SERVED — the same port answers over plain HTTP."
+        echo "     Check kamal-proxy's certificate and port configuration."
+      else
+        echo "  ✗  TLS handshake failed and http did not answer either — is the container up?"
+      fi
+      FAIL=1
+    else
+      echo "  ✓  TLS handshake                → serving https"
+    fi
+    ;;
+esac
+# Process and traffic gates.
+probe "GET  /health/alive            (liveness)" "/health/alive" 200
+probe "GET  /health/ready            (readiness)" "/health/ready" 200
+
+# /health deliberately returns 200 even when its JSON status is "degraded".
+# Check both the HTTP surface and the body so a missing NATS_URL, cable or
+# engine cannot pass the deploy smoke.
+probe "GET  /health                  (dependency report)" "/health" 200
+_health_ok=0
+_attempt=0
+while [ "$_attempt" -lt 10 ]; do
+  _health=$(http_body "$BASE_URL/health" || true)
+  if printf '%s' "$_health" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'; then
+    _health_ok=1
+    break
+  fi
+  _attempt=$((_attempt + 1))
+  sleep 3
+done
+if [ "$_health_ok" = "1" ]; then
+  echo "  ✓  GET  /health body             → status ok"
+else
+  echo "  ✗  GET  /health body             → status did not become ok"
+  FAIL=1
+fi
+
+# React bundle is served (the SPA shell / login page loads).
+probe "GET  /                        (frontend)" "/" 200
+
+if [ "$FAIL" = "1" ]; then
+  echo
+  echo "❌  One or more smoke checks failed. The deploy is live but an integration"
+  echo "    is mis-wired. Inspect the container log on the deployed host:"
+  echo "      docker logs \$(docker ps --filter label=role=web -q | head -1) --tail 60"
+  exit 1
+fi
+
+echo
+echo "=== Post-deploy: All smoke checks passed ==="

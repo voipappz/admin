@@ -1,0 +1,226 @@
+# Kamal DESTINATION override for connectix — nimbus-connectix.voipappz.io
+# (185.47.173.106).
+#
+# A DEDICATED HOST, and that is the whole difference from `nimbus`. Nothing
+# else runs here: no Kong, no va_dashboard, no mothership API. Three things
+# that destination has to work around therefore do not apply, and this file is
+# shorter than deploy.nimbus.yml because of it, not because it is less
+# finished:
+#
+#   * Standard ports. Kong owns 80 and 443 on nimbus, so its proxy was booted
+#     on 8880/10444 and every client had to carry `:10444` in the URL. Here the
+#     proxy takes 80 and 443, so the address is just the hostname — which is
+#     what the Chrome extension's CONFIG.API_ENDPOINT now says.
+#
+#   * ACME, not a hand-supplied certificate. Let's Encrypt's HTTP-01 challenge
+#     needs port 80; nimbus could not give it one, so the cert is passed in as
+#     PEM secrets and BAKED IN at deploy time — meaning a renewal on the host
+#     does nothing until someone redeploys. Port 80 is free here, so
+#     kamal-proxy obtains and renews the certificate itself and that trap is
+#     gone. `proxy.ssl: true` with `hosts` is all it takes.
+#
+#   * No database accessory. deploy.nimbus.yml runs Postgres 17 beside the app
+#     for "the Phoenix app's own tables" — the app has not had any since
+#     39c92198 dropped Ecto. State is Mnesia (durable, on the volume below) and
+#     a DuckDB event store. Provisioning Postgres here would be provisioning a
+#     database nothing opens, on a box with 2.5 GiB of RAM.
+#
+#     THE VOLUME IS THE DATABASE, and it is inherited: the base deploy.yml
+#     mounts the named volume `voipappz-events:/data` for every destination.
+#     What the base does NOT do is tell the app to use it — so /data was
+#     mounted and empty while Mnesia and DuckDB wrote inside the container,
+#     and every deploy silently started fresh. The three env vars below
+#     (CONNECTIX_DATA_DIR, MNESIA_DIR, EVENTS_DIR) are what point the app at
+#     the mount. Mounting without them is the failure that looks like success.
+#
+#     kamal config -d connectix     # render + verify (read-only)
+#     kamal deploy -d connectix
+
+image: nirlevi/voipappz-portal-elixir
+
+builder:
+  arch: amd64
+  # The Elixir release. No frontend build: the portal is pure BEAM and serves
+  # its own LiveView UI — there is no bundle to compile and no Node in the
+  # image.
+  dockerfile: Dockerfile.production
+  args:
+    # THE DEPENDENCY LAYER, AND IT MUST BE PULLABLE. Dockerfile.production
+    # defaults BASE_IMAGE to `connectix:base`, which is a LOCAL tag — and
+    # kamal builds inside a buildx container with its own image store, so a
+    # base sitting in the host daemon is invisible to it. The build fails
+    # `pull access denied ... connectix:base`, which reads as a credentials
+    # problem and is really a visibility one.
+    #
+    # Built with `docker build -f Dockerfile.base -t connectix:base .` and
+    # pushed. Rebuild and re-push when connectix/mix.lock changes; a stale
+    # base silently ships yesterday's dependencies.
+    BASE_IMAGE: nirlevi/connectix-base:latest
+
+servers:
+  web:
+    hosts:
+      - 185.47.173.106
+    options:
+      # Runtime secrets. /etc/connectix, not /etc/voipappz: this host runs the
+      # connectix portal and nothing else, so the directory is named for what
+      # is actually on it rather than for the company. nimbus shares its box
+      # with the mothership stack and keeps /etc/voipappz for that reason.
+      #
+      # THIS FILE MUST EXIST ON THE HOST BEFORE THE FIRST DEPLOY: kamal mounts
+      # it, it does not create it, and a missing --env-file stops the container
+      # from starting at all. See the checklist at the bottom.
+      env-file: /etc/connectix/secrets.env
+
+proxy:
+  hosts:
+    - nimbus-connectix.voipappz.io
+  # Automatic certificate. Port 80 is free on this host, so kamal-proxy answers
+  # the HTTP-01 challenge itself and renews without a deploy.
+  ssl: true
+  # The port Phoenix listens on INSIDE the container.
+  app_port: 4000
+  healthcheck:
+    # READY, not alive. /health/alive answers 200 for as long as the BEAM
+    # responds, so a node that booted but cannot host agent sessions passes it
+    # — and kamal would call the deploy good after the working container was
+    # already gone. connectix/CLAUDE.md: "The deploy gate is /health/ready,
+    # not /health/alive."
+    path: /health/ready
+    interval: 3
+    timeout: 5
+
+# The base deploy.yml puts SSH on 2228 with ~/.ssh/kamal_deploy — that is the
+# mothership fleet's convention and it is NOT this host's: it answers on 22,
+# and the key authorised in root's authorized_keys is id_ed25519. Kamal reads
+# the base for anything a destination does not override, so without this block
+# every command fails `Connection refused ... 185.47.173.106:2228` — which
+# reads as the host being down rather than as the port being wrong.
+ssh:
+  user: root
+  port: 22
+  keys:
+    - "~/.ssh/id_ed25519"
+
+env:
+  clear:
+    PORT: 4000
+    PHX_SERVER: "true"
+    PHX_HOST: nimbus-connectix.voipappz.io
+
+    # A REACHABLE NODE NAME, so `bin/connectix remote` and `rpc` work on this
+    # box. Without these the release falls back to sname distribution and kamal
+    # names the container `<ip>-<hash>`; Erlang takes the part before the first
+    # dot, so the node comes up as `connectix@185` and nothing resolves `185`.
+    # Both rpc and remote then fail with :noconnection, indistinguishable from
+    # "distribution is off", which leaves production uninspectable.
+    RELEASE_DISTRIBUTION: name
+    RELEASE_NODE: connectix@127.0.0.1
+
+    # Durable state, on the mounted volume. Mnesia persists ONLY when this is
+    # set — unset, it runs ram_copies and every restart is a fresh database.
+    CONNECTIX_DATA_DIR: /data
+    MNESIA_DIR: /data/mnesia
+    EVENTS_DIR: /data/events
+
+    # TLS_CERT_FILE/TLS_KEY_FILE deliberately UNSET: kamal-proxy terminates
+    # TLS, so the app speaks plain HTTP inside the container. runtime.exs
+    # serves http when they are absent, and still raises rather than
+    # downgrading if they are ever set and unreadable.
+
+    # Where the portal forwards /auth, /api and /tasks. Stated explicitly and
+    # never inherited: a default here would quietly authenticate this
+    # deployment's users against a different mothership.
+    ENGINE_URL: https://nimbus-prod.voipappz.io
+
+    # The cable this portal listens on for CallEvents and per-user state — the
+    # stream screen pop reads. It runs on the nimbus box, not this one.
+    CABLE_URL: wss://nimbus-prod.voipappz.io:4000/cable
+
+    # Which model, and therefore which provider key above is the live one.
+    # Stated rather than defaulted: the default is a Sonnet, and a deployment
+    # should not discover its own model by reading the source.
+    CONNECTIX_MODEL: claude-sonnet-4-6
+
+    # SIP. The registrar and the domain are not secrets; the credentials are,
+    # and are declared below.
+    CONNECTIX_SIP_DOMAIN: 2safenet.voipappz.io
+    CONNECTIX_SIP_SERVER: 2safenet.voipappz.io
+    CONNECTIX_SIP_PORT: "5060"
+
+    # THE ADDRESS PUT IN VIA/CONTACT/SDP. The container sees a private address;
+    # what the registrar and the far end must send RTP to is this host's public
+    # one. Unset, the UA advertises the container's address, registration looks
+    # like it worked, and the call is one-way silent — audio leaves and nothing
+    # comes back.
+    CONNECTIX_SIP_PUBLIC_IP: 185.47.173.106
+
+    # The environment switcher in the UI: name:domain:wss_url triples.
+    CONNECTIX_ENVIRONMENTS: nimbus:2safenet.voipappz.io:wss://2safenet.voipappz.io:8443
+
+  # NO `secret:` LIST, DELIBERATELY — and this is the distinction that cost a
+  # deploy. There are two ways to get a secret into the container and they
+  # read from different machines:
+  #
+  #   options.env-file:  docker --env-file, read on the HOST when the
+  #                      container starts. That is /etc/connectix/secrets.env
+  #                      above, and it is what this destination uses.
+  #   env.secret:        kamal resolves each name on the DEPLOY MACHINE from
+  #                      .kamal/secrets-common and .kamal/secrets.<dest>, then
+  #                      passes it through.
+  #
+  # Declaring both means every value has to exist in both places; kamal
+  # resolves its list first and aborts with
+  # `Secret 'SECRET_KEY_BASE' not found in .kamal/secrets-common` — after the
+  # image is built and pushed, which makes it look like a runtime failure.
+  #
+  # Everything secret therefore lives ONLY on the host, in that one file:
+  # SECRET_KEY_BASE, PORTAL_UI_USER/PASS, the model provider key,
+  # DEEPGRAM_API_KEY, CARTESIA_API_KEY, CONNECTIX_SIP_USER/PASS.
+  #
+  # NOT THERE YET: CABLE_SECRET_KEY — the cable NODE's signing secret
+  # (agent_rec's SECRET_KEY on the nimbus box). Without it the realtime socket
+  # refuses every /ws/events upgrade, so SCREEN POP is off, while /auth keeps
+  # working over EngineProxy's HTTP fallback. A login that succeeds followed
+  # by a socket that 401s is the symptom; the health report says
+  # `api_relay: ok` when the relay is merely DISABLED, and the log blames
+  # "CABLE_URL is not set" even when it is set. Check the container's env.
+  # Chat, the LiveView UI and voice do not need it.
+
+# ---------------------------------------------------------------------------
+# BEFORE THE FIRST DEPLOY, on the host (it is bare as of 2026-09-07: Ubuntu
+# 26.04, 4 CPU, 2.5 GiB RAM, no Docker, no /etc/connectix, ufw inactive):
+#
+#   1. Docker.        kamal needs it on the target and will not install it.
+#   2. Secrets.       mkdir -p /etc/connectix && chmod 700 /etc/connectix
+#                     write secrets.env (chmod 600) with the keys listed above.
+#   3. Volume.        mkdir -p /var/lib/connectix
+#   4. Ports.         80 and 443 reachable from the internet. ufw is inactive,
+#                     so anything blocking them is upstream of the host — and
+#                     80 must be open BEFORE the first deploy or ACME cannot
+#                     issue the certificate.
+#   5. DNS.           nimbus-connectix.voipappz.io → 185.47.173.106. Already
+#                     correct.
+#
+# OPTIONAL, add a `secret:` line AND the value together when wanted — a name
+# here with no value on the host fails the deploy:
+#
+#   CONNECTIX_API_KEY + CONNECTIX_API_USER_EMAIL  the public HTTP API (/api).
+#                       Without the key the API refuses every request, which
+#                       is the safe default for an agent that browses and
+#                       writes files.
+#   FIREBERRY_TOKEN     the CRM lookup capability. Unconfigured is
+#                       {:error, :not_configured}, never a crash.
+#   TURN_USERNAME/TURN_PASSWORD (+ clear TURN_URLS, STUN_URLS)
+#                       WebRTC through symmetric NAT. STUN alone is enough on
+#                       many networks; TURN is the fallback that always works.
+#   SCREEN_POP_URL      the customer's CRM record URL, overriding
+#                       priv/pocketflow/screen_pop.yaml without a rebuild.
+#   WHATSAPP_*          the WhatsApp channel (six variables; a wrong
+#                       APP_SECRET fails signature checks SILENTLY).
+#
+# DELIBERATELY ABSENT: VA_INFLUXDB_* and VA_MONITOR_TOKEN. Logs stay on stdout.
+#
+# AFTER:  scripts/verify-release.sh https://nimbus-connectix.voipappz.io
+#         in the app repo — TLS, /health/ready, and the /ws/events upgrade the
+#         Chrome extension lives on. All green before the extension is tagged.
