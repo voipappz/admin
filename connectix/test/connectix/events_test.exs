@@ -65,6 +65,62 @@ defmodule Connectix.EventsTest do
 
   defp sync(store), do: Events.stats(store)
 
+  describe "a file it cannot open yet" do
+    # The store used to give up permanently on a failed open, and the failure
+    # that actually happens is transient by construction: kamal starts the new
+    # container, health-checks it, and only THEN stops the old one, so both run
+    # for a few seconds and DuckDB is single-writer. The loser logged
+    # "Conflicting lock is held in PID 0" and stored NOTHING for the life of
+    # the container — every deploy, silently, until someone restarted it.
+    #
+    # That exact lock cannot be staged here: DuckDB permits several connections
+    # to one file from within a single OS process, so two stores in this BEAM
+    # both open it happily. A directory where the file belongs fails the same
+    # way — `open/1` gets past `mkdir_p` and `Duckdbex.open/1` refuses — and it
+    # is the retry, not the particular errno, that is under test.
+    test "starts inert rather than crashing, and opens once the obstruction clears" do
+      path =
+        Path.join(System.tmp_dir!(), "events-blocked-#{System.unique_integer([:positive])}.duckdb")
+
+      File.mkdir_p!(path)
+      on_exit(fn -> File.rm_rf(path) end)
+
+      name = :"events_blocked_#{System.unique_integer([:positive])}"
+      store = start_supervised!({Events, name: name, path: path})
+
+      # Inert, but alive and still accepting casts: a broken store must never
+      # take the realtime path down with it.
+      assert Process.alive?(store)
+      refute Events.stats(store).open?
+
+      Events.insert(store, ev(%{"sid" => "dropped"}))
+      assert Process.alive?(store)
+      refute Events.stats(store).open?
+
+      File.rm_rf!(path)
+
+      assert eventually(fn -> Events.stats(store).open? end),
+             "the store never reopened after the obstruction was cleared"
+
+      # And it works, rather than merely reporting itself open.
+      Events.insert(store, ev(%{"sid" => "after-reopen"}))
+      sync(store)
+      {:ok, rows} = Events.recent(store, [])
+      assert Enum.any?(rows, &(&1["sid"] == "after-reopen"))
+    end
+  end
+
+  defp eventually(fun, attempts \\ 60) do
+    Enum.reduce_while(1..attempts, false, fn _i, _acc ->
+      if fun.() do
+        {:halt, true}
+      else
+        Process.sleep(250)
+        {:cont, false}
+      end
+    end)
+  end
+
   describe "insert/2 and recent/2" do
     test "an inserted event comes back", %{store: store} do
       Events.insert(store, ev(%{"label" => "number.answer", "raw" => ~s({"a":1})}))

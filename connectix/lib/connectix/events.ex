@@ -93,6 +93,16 @@ defmodule Connectix.Events do
   @default_recent_limit 100
   @default_search_limit 50
 
+  # How long to wait before trying to open the file again.
+  #
+  # The store gave up permanently on a failed open, and the one failure that
+  # actually happens is transient by construction: kamal starts the new
+  # container, health-checks it, and only THEN stops the old one, so for a few
+  # seconds both are running — and DuckDB is single-writer. The new container
+  # lost the race, logged "Conflicting lock is held in PID 0", and stored
+  # nothing at all until someone restarted it by hand. Every deploy, silently.
+  @reopen_after_ms 5_000
+
   # Keys never copied into `headers`: they are the bulk, and `raw` already has
   # them. Everything else the frame carries is small and worth filtering on.
   @bulk_keys ~w(payload body data raw)
@@ -217,10 +227,33 @@ defmodule Connectix.Events do
         # the realtime path with it. Logged once, here, and never again per
         # dropped write — a store that cannot open drops every frame, and one
         # line per frame is how a disk fills.
-        Logger.error("events: cannot open #{path} (#{inspect(reason)}) — not storing events")
-        {:ok, %__MODULE__{db: nil, conn: nil, path: path}}
+        Logger.error("events: cannot open #{path} (#{inspect(reason)}) — retrying")
+        {:ok, %__MODULE__{db: nil, conn: nil, path: path}, {:continue, :retry_open}}
     end
   end
+
+  @impl true
+  def handle_continue(:retry_open, state) do
+    Process.send_after(self(), :retry_open, @reopen_after_ms)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info(:retry_open, %{conn: nil, path: path} = state) do
+    case open(path) do
+      {:ok, db, conn} ->
+        Logger.info("events: storing to #{path} (opened on retry)")
+        {:noreply, %{state | db: db, conn: conn}}
+
+      {:error, _reason} ->
+        # Quiet from here on. The first failure was logged at :error; repeating
+        # it every few seconds turns a recoverable condition into noise.
+        Process.send_after(self(), :retry_open, @reopen_after_ms)
+        {:noreply, state}
+    end
+  end
+
+  def handle_info(:retry_open, state), do: {:noreply, state}
 
   @impl true
   def handle_cast(_request, %{conn: nil} = state), do: {:noreply, state}
