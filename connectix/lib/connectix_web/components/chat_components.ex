@@ -557,7 +557,7 @@ defmodule ConnectixWeb.ChatComponents do
           phx-value-tab={tab}
           class={[
             "py-2 flex flex-col items-center gap-0.5 text-[11px] font-medium transition-colors border-b-2",
-            @tab == tab && "text-[var(--color-primary)] border-[var(--color-primary)]",
+            @tab == tab && "text-amber-500 border-amber-500",
             @tab != tab &&
               "text-[var(--color-text-secondary)] border-transparent hover:text-[var(--color-text-primary)]"
           ]}
@@ -599,11 +599,11 @@ defmodule ConnectixWeb.ChatComponents do
                  always there and a hamburger would toggle nothing visible. --%>
             <button
               id="rail-hamburger"
-              phx-click="toggle_sidebar"
+              phx-click="toggle_rail"
               type="button"
               aria-label="Menu"
               title="Menu"
-              class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors"
+              class="md:hidden p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors"
             >
               <.icon name="hero-bars-3" class="w-5 h-5" />
             </button>
@@ -626,16 +626,64 @@ defmodule ConnectixWeb.ChatComponents do
           </button>
         </div>
 
-        <%!-- Nothing on the right. Debug, appearance, API docs and log out moved
-             to the FOOT of the navigation rail (see `nav_rail/1`), the way
-             WhatsApp and Slack place settings and profile: navigation reads
-             top-down, and controls touched once a session belong under the
-             ones touched constantly. They were spending the app bar's whole
-             width up here.
+        <div class="flex items-center gap-4">
+          <div class="flex items-center gap-2">
 
-             The environment picker lives on the phone card's Settings tab —
-             it selects which SIP environment a call goes through, so it
-             belongs with the phone rather than in the chat chrome. --%>
+            <button
+              phx-click="toggle_debug_mode"
+              class={[
+                "p-2 rounded-md border-none transition-colors",
+                @debug_mode && "bg-purple-600 text-white hover:bg-purple-700",
+                !@debug_mode &&
+                  "bg-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)]"
+              ]}
+              type="button"
+              title={
+                if @debug_mode,
+                  do: "Debug Mode: On (Click to disable)",
+                  else: "Debug Mode: Off (Click to enable)"
+              }
+            >
+              <.icon name="hero-bug-ant" class="w-5 h-5" />
+            </button>
+
+          </div>
+
+          <Layouts.theme_toggle />
+
+          <%!-- The environment picker moved to the phone card's Settings tab:
+               it selects which SIP environment a call goes through, so it
+               belongs with the phone rather than in the chat chrome. --%>
+
+          <%= if @current_scope do %>
+            <div class="flex items-center gap-2 pl-4 border-l border-[var(--color-border)]">
+              <span class="text-xs text-[var(--color-text-secondary)] px-2">
+                {@current_scope.user.email}
+              </span>
+              <.link
+                href="/api/docs"
+                target="_blank"
+                class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors no-underline inline-flex items-center justify-center"
+                title="API docs"
+              >
+                <.icon name="hero-code-bracket" class="w-5 h-5" />
+              </.link>
+              <%!-- Voice lives on the phone card in the sidebar, not up here:
+                   the target is one screen, so the affordance sits with the
+                   other call actions rather than as navigation. --%>
+              <%!-- No server-side session to end — /logout answers 401 with a
+                   fresh WWW-Authenticate challenge so the browser drops the
+                   cached Basic Auth credential. See LogoutController. --%>
+              <.link
+                href="/logout"
+                class="p-2 bg-transparent border-none text-[var(--color-text-secondary)] rounded-md hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border)] transition-colors no-underline inline-flex items-center justify-center"
+                title="Log out"
+              >
+                <.icon name="hero-arrow-right-on-rectangle" class="w-5 h-5" />
+              </.link>
+            </div>
+          <% end %>
+        </div>
       </header>
 
       <div class="flex flex-1 relative overflow-hidden">
@@ -669,10 +717,7 @@ defmodule ConnectixWeb.ChatComponents do
         <%= if @sidebar_collapsed and @is_thread_history_open do %>
           <%!-- `min-h-0` so the list can claim the full height: without it the
                column floors at its content size and collapses to a sliver. --%>
-          <%!-- Wider than Tasks/Files: a conversation title is a sentence
-                ("Call 0545234585", a generated summary) and truncating it
-                loses the only thing distinguishing one row from the next. --%>
-          <div class="w-[22rem] border-r border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0 flex flex-col min-h-0">
+          <div class="w-80 border-r border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0 flex flex-col min-h-0">
             <.conversation_history_sidebar
               conversation_list={@streams.conversation_list}
               conversation_id={@conversation_id}
@@ -743,10 +788,7 @@ defmodule ConnectixWeb.ChatComponents do
         </div>
 
         <%= if @is_phone_open do %>
-          <%!-- The widest column, deliberately: it holds a 3-wide grid of
-                touch targets plus the identity line, the call button and the
-                tab strip. Everything else here is text, which wraps. --%>
-          <div class="w-[26rem] border-l border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0 flex flex-col min-h-0 overflow-y-auto">
+          <div class="w-80 border-l border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0 flex flex-col min-h-0 overflow-y-auto">
             <.phone_panel
               status={@phone_status}
               error={@phone_error}
@@ -2079,8 +2121,6 @@ defmodule ConnectixWeb.ChatComponents do
   attr :is_phone_open, :boolean, required: true
   attr :sidebar_collapsed, :boolean, required: true
   attr :sidebar_active_tab, :string, required: true
-  attr :current_scope, :map, default: nil
-  attr :debug_mode, :boolean, default: false
 
   @doc """
   The app's navigation: a narrow permanent icon rail, the leftmost thing on
@@ -2105,18 +2145,12 @@ defmodule ConnectixWeb.ChatComponents do
       class={[
         "w-16 flex-shrink-0 flex-col items-center gap-1 py-3",
         "border-r border-[var(--color-border)] bg-[var(--color-surface)]",
-        # ALWAYS VISIBLE. The rail is the navigation and costs 4rem; the
-        # hamburger beside it now opens the BIG left menu (Tasks/Files)
-        # instead, so nothing toggles the rail — a conditional here could only
-        # ever hide the nav with no way to bring it back.
-        "flex"
+        if(@is_rail_open, do: "flex", else: "hidden md:flex")
       ]}
     >
-      <%!-- The product mark, not a generic chat glyph. Same file the marketing
-            site serves, so the rail and the site cannot drift apart. --%>
-      <a href="/" class="mb-3 flex h-10 w-10 items-center justify-center" title="Connectix">
-        <img src={~p"/images/connectix-mark.svg"} alt="Connectix" class="h-8 w-8" />
-      </a>
+      <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl">
+        <.icon name="hero-chat-bubble-left-right" class="w-7 h-7 text-[var(--color-primary)]" />
+      </div>
 
       <.rail_button
         event="toggle_thread_history"
@@ -2140,47 +2174,6 @@ defmodule ConnectixWeb.ChatComponents do
       />
       <.rail_button event="toggle_phone" icon="hero-phone" label="Phone" active={@is_phone_open} />
       <.rail_button event="new_thread" icon="hero-document-plus" label="New thread" active={false} />
-
-      <%!-- Account and appearance at the FOOT of the rail, the way WhatsApp,
-            Slack and Discord all place them: navigation reads top-down, and
-            the things you touch once a session belong under the things you
-            touch constantly. They were in the top-right of the header, which
-            spent the app bar's whole width on controls nobody uses twice.
-
-            `mt-auto` is what pins them down there — the rail is a flex column,
-            so this claims the slack above rather than needing a fixed height. --%>
-      <div class="mt-auto flex flex-col items-center gap-1 pt-3 w-full border-t border-[var(--color-border)]">
-        <.rail_button
-          event="toggle_debug_mode"
-          icon="hero-bug-ant"
-          label={if @debug_mode, do: "Debug: on", else: "Debug: off"}
-          active={@debug_mode}
-        />
-
-        <Layouts.theme_toggle />
-
-        <%= if @current_scope do %>
-          <.link
-            href="/api/docs"
-            target="_blank"
-            title="API docs"
-            class="flex h-10 w-10 items-center justify-center rounded-xl text-[var(--color-text-secondary)] no-underline transition-colors hover:bg-[var(--color-border)] hover:text-[var(--color-text-primary)]"
-          >
-            <.icon name="hero-code-bracket" class="w-5 h-5" />
-          </.link>
-
-          <%!-- No server-side session to end — /logout answers 401 with a fresh
-               WWW-Authenticate challenge so the browser drops the cached Basic
-               Auth credential. See LogoutController. --%>
-          <.link
-            href="/logout"
-            title={"Log out " <> @current_scope.user.email}
-            class="flex h-10 w-10 items-center justify-center rounded-xl text-[var(--color-text-secondary)] no-underline transition-colors hover:bg-[var(--color-border)] hover:text-[var(--color-text-primary)]"
-          >
-            <.icon name="hero-arrow-right-on-rectangle" class="w-5 h-5" />
-          </.link>
-        <% end %>
-      </div>
     </nav>
     """
   end

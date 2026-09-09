@@ -116,46 +116,39 @@ defmodule ConnectixWeb.Layouts do
   end
 
   @doc """
-  Appearance, as ONE button that cycles system → light → dark.
+  Provides dark vs light theme toggle based on themes defined in app.css.
 
-  It was a three-state segmented control, which is the right shape in a wide
-  header and the wrong one in a 4rem navigation rail: three targets side by
-  side inside 64px are ~18px each, too small to hit and too small to read.
-  One button is one 40px target and still reaches all three states.
-
-  Cycling rather than toggling keeps "system" reachable. A plain
-  light/dark switch strands anyone who wants the OS to decide, and "follow the
-  system" is the default every OS-level dark mode assumes.
-
-  The icon shows the state you are IN, not the one you would move to — a
-  control that displays its own destination reads as mislabelled every time
-  the page loads.
-
-  No server round trip: `phx:set-theme` is handled by the inline script in
-  `root.html.heex`, which writes localStorage and stamps `data-theme` on
-  `<html>`. The theme therefore survives a reload and a LiveView reconnect,
-  neither of which the server is party to.
+  See <head> in root.html.heex which applies the theme before page load.
   """
   def theme_toggle(assigns) do
     ~H"""
-    <button
-      id="theme-cycle"
-      type="button"
-      phx-hook="ThemeCycle"
-      title="Appearance"
-      aria-label="Appearance"
-      class="flex h-10 w-10 items-center justify-center rounded-xl text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border)] hover:text-[var(--color-text-primary)] cursor-pointer bg-transparent border-none"
-    >
-      <%!-- All three ship; CSS shows the one matching the current state, so
-           the button is correct on first paint with no JS having run. The
-           unstamped document is "system". --%>
-      <.icon
-        name="hero-computer-desktop"
-        class="size-5 [[data-theme=light]_&]:hidden [[data-theme=dark]_&]:hidden"
-      />
-      <.icon name="hero-sun" class="size-5 hidden [[data-theme=light]_&]:block" />
-      <.icon name="hero-moon" class="size-5 hidden [[data-theme=dark]_&]:block" />
-    </button>
+    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
+      <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 transition-[left]" />
+
+      <button
+        class="flex p-2 cursor-pointer w-1/3"
+        phx-click={JS.dispatch("phx:set-theme")}
+        data-phx-theme="system"
+      >
+        <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
+      </button>
+
+      <button
+        class="flex p-2 cursor-pointer w-1/3"
+        phx-click={JS.dispatch("phx:set-theme")}
+        data-phx-theme="light"
+      >
+        <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
+      </button>
+
+      <button
+        class="flex p-2 cursor-pointer w-1/3"
+        phx-click={JS.dispatch("phx:set-theme")}
+        data-phx-theme="dark"
+      >
+        <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
+      </button>
+    </div>
     """
   end
 end
