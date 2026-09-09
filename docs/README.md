@@ -18,6 +18,12 @@ here.
 - The Elixir portal is the origin. It serves the SPA and `/ws/events`, and
   forwards `/auth`, `/api/` and `/tasks/` to the mothership so the browser and
   the Chrome extension only ever need one host.
+- The Chrome extension lives in `chrome/` and ships INSIDE the portal image.
+  A node stage in `Dockerfile.production` builds it, stamps it with the
+  portal's own `mix.exs` version, and the release serves it from `/release`.
+  Node exists only in that build stage; the image that ships is still pure
+  BEAM. Deploying the portal therefore deploys the extension, and the
+  post-deploy hook fails the deploy if the two versions disagree.
 - It uses two platform transports and no HTTP: *ask* on NATS (token
   verification, request/reply), *listen* on the va-crystal cable (events, one
   connection fanned out over PubSub).

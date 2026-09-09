@@ -54,6 +54,19 @@ http_body() {
   fi
 }
 
+# The same, WITHOUT --fail. A 404 from /release/info carries the JSON that says
+# why it is a 404 ("available": false, and a reason); --fail discards the body
+# and leaves the caller unable to tell "no extension in this build" from "the
+# node did not answer at all". Those need different fixes, so they must not
+# produce the same message.
+http_body_any() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -sk --max-time 10 "$1"
+  else
+    wget --no-check-certificate -q -O - -T 10 "$1" 2>/dev/null || true
+  fi
+}
+
 echo "=== Post-deploy: Waiting 5s for proxy to settle ==="
 sleep 5
 
@@ -107,11 +120,54 @@ fi
 # React bundle is served (the SPA shell / login page loads).
 probe "GET  /                        (frontend)" "/" 200
 
+# THE RELEASE ASSETS. The Chrome extension is built INTO this image (see the
+# node stage in Dockerfile.production) and served from the node it talks to, so
+# a deploy that cannot hand it out has shipped a portal its own agents cannot
+# install against. That failure is invisible until someone tries — which is
+# why it is checked here and not left to be discovered.
+#
+# The version comparison is the point. Both numbers come from connectix/mix.exs
+# — one via the release, one stamped into the manifest inside the zip — so they
+# can only disagree if the image carries an extension it did not build, which
+# is precisely the stale-artifact case that a zip in git used to cause.
+probe "GET  /release                 (release page)" "/release" 200
+
+_info=$(http_body_any "$BASE_URL/release/info" || true)
+_ext=$(printf '%s' "$_info" | sed -n 's/.*"extension_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+_app=$(printf '%s' "$_info" | sed -n 's/.*"app_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+
+if [ -z "$_app" ]; then
+  # No app_version at all means the ROUTE is absent, not the asset — this
+  # image predates the release page. Different fix from a missing extension,
+  # so it gets a different message.
+  echo "  ✗  GET  /release/info            → not answered (image older than the release page?)"
+  FAIL=1
+elif printf '%s' "$_info" | grep -q '"available"[[:space:]]*:[[:space:]]*false'; then
+  echo "  ✗  extension                     → MISSING from this build"
+  echo "     The image was built without the node stage, or the zip did not"
+  echo "     reach priv/extension/. Rebuild from Dockerfile.production."
+  FAIL=1
+elif [ -z "$_ext" ] || [ "$_ext" = "null" ]; then
+  echo "  ✗  extension                     → present but its manifest has no version"
+  FAIL=1
+elif [ "$_ext" != "$_app" ]; then
+  echo "  ✗  extension                     → version drift: package $_ext, portal $_app"
+  echo "     The image is serving an extension it did not build."
+  FAIL=1
+else
+  echo "  ✓  extension                    → v$_ext, same version as the portal"
+  # Only worth probing once the info endpoint says there is something to get.
+  probe "GET  /release/download        (package)" "/release/download" 200
+fi
+
 if [ "$FAIL" = "1" ]; then
   echo
   echo "❌  One or more smoke checks failed. The deploy is live but an integration"
   echo "    is mis-wired. Inspect the container log on the deployed host:"
   echo "      docker logs \$(docker ps --filter label=role=web -q | head -1) --tail 60"
+  echo
+  echo "    The previous container is still available — to go back:"
+  echo "      kamal rollback${KAMAL_DESTINATION:+ -d $KAMAL_DESTINATION}"
   exit 1
 fi
 

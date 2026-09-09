@@ -105,6 +105,76 @@ jobs:
       - run: mix deps.get
       - run: mix test --only wallaby
 
+  # The Chrome extension, built by the SAME stage the release image uses, so a
+  # green run here means `kamal deploy` can build it too. Its own job rather
+  # than a step inside prod-image because it needs no BASE_IMAGE and no BEAM:
+  # it fails in ~2 minutes on its own terms, instead of after the Elixir build.
+  extension:
+    name: Chrome extension (build + manifest + version)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # --target: build ONLY the node stage. Nothing else in this workflow
+      # needs node, and nothing in the shipped image contains it.
+      - name: Build the extension stage
+        run: docker build -f Dockerfile.production --target extension -t connectix-extension:ci .
+
+      - name: Take the package out of the stage
+        run: |
+          id=$(docker create connectix-extension:ci)
+          docker cp "$id:/ext/extension-build.zip" ./extension-build.zip
+          docker rm "$id" > /dev/null
+          ls -l extension-build.zip
+
+      # A zip that unpacks is not the same as an extension Chrome will load,
+      # and the difference only shows in front of a user. Assert the fields
+      # that make it loadable, and that the version is the PORTAL's — a zip
+      # carrying its own number is how the two drifted before.
+      - name: It is loadable, and it carries this portal's version
+        run: |
+          want=$(sed -n 's/^ *version: "\([^"]*\)".*/\1/p' connectix/mix.exs | head -1)
+          test -n "$want" || { echo "::error::no version in connectix/mix.exs"; exit 1; }
+
+          unzip -p extension-build.zip manifest.json > manifest.json
+          jq empty manifest.json
+
+          test "$(jq -r .manifest_version manifest.json)" = "3" \
+            || { echo "::error::expected manifest_version 3"; exit 1; }
+
+          for f in name version action; do
+            jq -e ".$f" manifest.json > /dev/null \
+              || { echo "::error::manifest missing $f"; exit 1; }
+          done
+          jq -e '.background.service_worker' manifest.json > /dev/null \
+            || { echo "::error::manifest missing background.service_worker"; exit 1; }
+
+          got=$(jq -r .version manifest.json)
+          test "$got" = "$want" \
+            || { echo "::error::extension says $got, connectix/mix.exs says $want"; exit 1; }
+
+          # The files the manifest names must actually be in the archive. A
+          # manifest that points at a service worker the build never emitted
+          # loads and then does nothing.
+          for f in backgroundPage.js contentPage.js index.html; do
+            unzip -l extension-build.zip | grep -q " $f\$" \
+              || { echo "::error::$f missing from the package"; exit 1; }
+          done
+
+          echo "ok: $(jq -r .name manifest.json) $got — same version as the portal"
+
+      # `!env.ACT` skips this under nektos/act, which has no artifact service:
+      # the step dies with "Unable to get the ACTIONS_RUNTIME_TOKEN env
+      # variable" and turns a locally-green job red for a reason that does not
+      # exist on a real runner. Everything that actually PROVES anything ran
+      # above this line, so `make ci JOB=extension` still checks all of it.
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && !env.ACT }}
+        with:
+          name: extension-build
+          path: extension-build.zip
+          if-no-files-found: error
+
   # The exact artifact Kamal deploys: the Phoenix release alone — pure BEAM,
   # no Vite build, no Node anywhere in this image.
   prod-image:
@@ -112,8 +182,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # BASE_IMAGE must be PULLABLE here. The Dockerfile defaults it to
+      # `connectix:base`, which is a LOCAL tag on a developer's machine and
+      # resolves to docker.io/library/connectix:base on a runner — a repository
+      # that does not exist, so the build failed at `pull access denied`, which
+      # reads as a credentials problem and is really a visibility one.
       - name: Build Dockerfile.production
-        run: docker build -f Dockerfile.production -t voipappz-app:ci .
+        run: |
+          docker build -f Dockerfile.production \
+            --build-arg BASE_IMAGE=nirlevi/connectix-base:latest \
+            -t voipappz-app:ci .
       - name: Boot and probe every surface
         run: |
           # SECRET_KEY_BASE or the release refuses to boot — `runtime.exs`
@@ -146,4 +224,29 @@ jobs:
           # ENGINE_URL is unset in this container, so the forwarder is inert and
           # the router owns the path. Proves the plug does not swallow it.
           probe /auth/user_login 404 -X POST -H 'content-type: application/json' -d '{}'
+
+          # THE EXTENSION IS PART OF THE RELEASE, so a release that cannot
+          # serve it is not a release. These three prove the node stage ran,
+          # the zip survived into the release, and the routes are reachable
+          # without a portal session — the same three things the post-deploy
+          # hook checks against a real host.
+          probe /release            200   # the release page
+          probe /release/info       200   # the same facts, for machines
+          probe /release/download   200   # the package itself
+
+          want=$(sed -n 's/^ *version: "\([^"]*\)".*/\1/p' connectix/mix.exs | head -1)
+          info=$(curl -s localhost:3000/release/info)
+          got=$(echo "$info" | jq -r .extension_version)
+          app=$(echo "$info" | jq -r .app_version)
+          if [ "$got" != "$want" ] || [ "$app" != "$want" ]; then
+            echo "  ✗ version drift: manifest=$got app=$app mix.exs=$want"
+            echo "$info"; docker logs app | tail -30; exit 1
+          fi
+          echo "  ✓ extension $got matches the portal it ships with"
+
+          # It must be a real zip, not an error page with a 200 on it.
+          curl -s -o ext.zip localhost:3000/release/download
+          unzip -t ext.zip > /dev/null || { echo "  ✗ /release/download is not a valid zip"; exit 1; }
+          echo "  ✓ package unpacks ($(wc -c < ext.zip) bytes)"
+
           docker rm -f app

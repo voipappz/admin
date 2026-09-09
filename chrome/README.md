@@ -4,58 +4,26 @@
 Screen pops, call state and agent availability, live in the browser.
 
 ## Install
-#
 
-```mermaid
-flowchart TD
-    A["⬇️  Download extension-build.zip<br/>from Releases"] --> B
-    B["📂  Unzip to a folder you keep<br/>~/voipappz-extension"] --> C
-    C["🌐  Open chrome://extensions<br/>type it — links don't work"] --> D
-    D["🛠️  Toggle Developer mode<br/>top right"] --> E
-    E["📦  Load unpacked → pick the folder<br/>the one holding manifest.json"] --> F
-    F["📌  Pin Nimbus<br/>puzzle-piece icon"] --> G
-    G["🔑  Click the icon and sign in"]
+**The install guide lives on the node you are installing against**, at
+`https://<your-node>/release` — because the two things people get wrong there
+are which build this is and which address it talks to, and only the node
+serving the package can answer either.
 
-    style A fill:#e8f0fe,stroke:#4285f4,color:#111
-    style G fill:#e6f4ea,stroke:#34a853,color:#111
+That page carries the download, the version, the SHA-256, the sign-in fields
+with the domain already filled in, and the troubleshooting table. This file
+used to hold a copy of all of it, pointing at a GitHub release that was the
+same zip for every customer.
+
+```
+https://<your-node>/release           the page
+https://<your-node>/release/download  the package
+https://<your-node>/release/info      the same facts, as JSON
 ```
 
-[**Download the latest release →**](https://github.com/voipappz/chrome/releases/latest)
-
-Chrome loads the extension *from* that folder every start — it does not copy it.
-Move or delete the folder and the extension breaks.
-
-### Two things that look like failures but aren't
-
-- **Chrome asks at every start whether to keep it.** Deliberate: it's how Chrome
-  stops extensions being installed behind your back. Applies to every unpacked
-  extension. Choose keep.
-- **A standing "disable developer mode extensions" warning.** Expected.
-
-Both stop only for Web Store installs.
-
-### If it doesn't work
-
-| Symptom | Cause |
-|---|---|
-| No **Load unpacked** button | Developer mode is off |
-| "Manifest file is missing or unreadable" | You picked the zip, or the wrong folder level — pick the one directly holding `manifest.json` |
-| Gone after restarting Chrome | Folder moved or deleted, or the startup prompt was declined |
-| No icon in the toolbar | Not pinned |
-
-## Sign in
-
-| Field | Value |
-|---|---|
-| **Domain** | Your node, e.g. `https://pbx.example.com` |
-| **Username** | Your **user** email address |
-| **Password** | That user's password |
-
-Both of these return a generic `Invalid email or password`:
-
-- **It's the user login, not your portal account** — different credential,
-  different table. Admins: `make onboard` prints it as **Extension login**.
-- **`+` in the address is rejected** before the password is even checked.
+The extension is built into the portal image (the node stage in
+`Dockerfile.production`) and stamped with the portal's own version, so the
+build a node hands out is always the one it is running.
 
 ## Realtime feed
 

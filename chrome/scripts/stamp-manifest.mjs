@@ -35,10 +35,25 @@ if (!/^\d{1,5}(\.\d{1,5}){0,3}$/.test(version)) {
   process.exit(1);
 }
 
-// "Nimbus07" ← 0.0.7: the display name carries the patch, zero-padded to two.
-// Derived rather than stored so the two cannot disagree.
-const patch = version.split(".").at(-1);
-const name = `Nimbus${patch.padStart(2, "0")}`;
+// THE NAME NO LONGER FOLLOWS THE VERSION, and that is a deliberate reversal.
+//
+// It used to: "Nimbus07" was derived from 0.0.7, so the two could not disagree
+// while the extension owned its own version line. It does not own it any more
+// — the version now comes from the portal's mix.exs, because both ship from
+// one commit — and deriving from THAT produces "Nimbus00" for app version
+// 0.1.0. An installed "Nimbus10" would appear to go BACKWARDS to "Nimbus00" in
+// chrome://extensions, which reads as a downgrade and is the one thing a
+// version stamp exists to prevent.
+//
+// So the name is carried from the source manifest, and EXT_NAME overrides it
+// for a deliberate rename. The version alone answers "which build is this?",
+// which is what it was always for.
+const name = process.env.EXT_NAME?.trim() || source.name;
+
+if (!name) {
+  console.error("stamp-manifest: no name in the source manifest and no EXT_NAME");
+  process.exit(1);
+}
 
 const built = JSON.parse(readFileSync(BUILT, "utf8"));
 built.version = version;

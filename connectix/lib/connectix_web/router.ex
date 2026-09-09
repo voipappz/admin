@@ -183,6 +183,25 @@ defmodule ConnectixWeb.Router do
     get "/metrics", MetricsController, :index
   end
 
+  # WHAT THIS NODE SHIPS — the release page, and the assets on it.
+  #
+  # `/release`, not `/extension`: the Chrome extension is one ASSET of this
+  # release, not a product of its own, and the version on the page is the
+  # PORTAL's. A second client (mobile, desktop) becomes another asset on the
+  # same page rather than another top-level path — which is the shape a GitHub
+  # release has, and the reason that page is legible.
+  #
+  # In NO pipeline, for the same two reasons as `/health` above: it must not
+  # require a portal session, and it must not content-negotiate — someone
+  # fetching the zip sends whatever Accept header their browser feels like, and
+  # a 406 there would read as a missing download. See
+  # `ConnectixWeb.ReleaseController` for why it is unauthenticated.
+  scope "/release", ConnectixWeb do
+    get "/", ReleaseController, :index
+    get "/info", ReleaseController, :info
+    get "/download", ReleaseController, :download
+  end
+
   # Inbound WhatsApp. No pipeline: Meta sends neither a session nor a CSRF
   # token, and `Anu.Webhook.Plug` does its own work — the verify-token
   # challenge on GET, HMAC signature validation on POST — before handing the
