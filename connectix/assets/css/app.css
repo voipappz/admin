@@ -151,8 +151,28 @@
   --radius-lg: 0.5rem;
 }
 
+/* THREE STATES, NOT TWO — and this is the bug that made the theme toggle look
+   broken. These tokens used to be defined once in `:root` (light) and once
+   inside `@media (prefers-color-scheme: dark)`, a query that follows the OS
+   and knows nothing about the toggle. daisyUI's own tokens are `[data-theme]`
+   scoped, so on a dark-mode machine choosing Light lit those while every
+   surface, border and text colour here stayed dark — and on a light machine
+   choosing Dark did nothing at all.
+
+   A theme has three states: an explicit choice stamps `data-theme` on <html>
+   (see the inline script in root.html.heex), and "system" stamps nothing. So
+   the dark palette has to be written for BOTH ways of arriving at it:
+
+     1. the OS says dark AND the user has not explicitly chosen light
+     2. the user explicitly chose dark, whatever the OS says
+
+   The values are duplicated because CSS cannot share a declaration block
+   across a media-query boundary. Edit both, or neither. */
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  /* :not([data-theme="light"]) is what lets an explicit Light beat a dark OS.
+     Without it the media query wins and the choice is silently ignored. */
+  :root:not([data-theme="light"]) {
     --color-primary: #2dd4bf;
     --color-user-message: #0ea5e9;
     --color-avatar-bg: #4c1d95;
@@ -169,6 +189,26 @@
     --color-text-secondary: #9ca3af;
     --color-text-tertiary: #6b7280;
   }
+}
+
+/* Explicit Dark, which must win on a light-mode machine — where the media
+   query above never matches. */
+:root[data-theme="dark"] {
+    --color-primary: #2dd4bf;
+    --color-user-message: #0ea5e9;
+    --color-avatar-bg: #4c1d95;
+    --color-secondary: #2dd4bf;
+    --color-success: #34d399;
+    --color-warning: #fbbf24;
+    --color-error: #f87171;
+    --color-background: #0f0f0f;
+    --color-subagent-hover: #6d28d9;
+    --color-surface: #1a1a1a;
+    --color-border: #2d2d2d;
+    --color-border-light: #232323;
+    --color-text-primary: #f3f4f6;
+    --color-text-secondary: #9ca3af;
+    --color-text-tertiary: #6b7280;
 }
 
 /* Base styles matching NextJS reference */

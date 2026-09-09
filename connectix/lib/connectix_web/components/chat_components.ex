@@ -607,8 +607,18 @@ defmodule ConnectixWeb.ChatComponents do
             >
               <.icon name="hero-bars-3" class="w-5 h-5" />
             </button>
-          <%!-- Wordmark only. The rail already carries the mark at its top, and
-               showing it again here read as two logos side by side. --%>
+          <%!-- Mark AND wordmark. This comment used to say "wordmark only,
+               the rail already carries the mark" — true until the brand commit
+               was reverted, which took the rail's mark with it and left the
+               product showing no logo at all while Phoenix's stock one sat in
+               the scaffold layout. The header is where it goes now. --%>
+          <img
+            src={~p"/images/connectix-mark.svg"}
+            alt=""
+            width="32"
+            height="32"
+            class="w-8 h-8 flex-shrink-0"
+          />
           <h1 class="text-2xl font-semibold m-0">Connectix</h1>
 
           <%!-- Gated on liveness, not on status. `@agent_status == :not_running`

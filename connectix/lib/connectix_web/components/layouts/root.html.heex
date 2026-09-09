@@ -4,6 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
+    <%!-- The product mark. SVG first with the .ico as the fallback, so a
+         browser that will not take SVG still gets something rather than the
+         framework default. --%>
+    <link rel="icon" href={~p"/images/connectix-mark.svg"} type="image/svg+xml" />
+    <link rel="alternate icon" href={~p"/favicon.ico"} sizes="any" />
     <.live_title default="Connectix">
       {assigns[:page_title] || "Connectix"}
     </.live_title>
