@@ -53,6 +53,9 @@ builder:
     # Version stamp shown in the app footer. Format: YYYY.MM.DD-<short-sha>
     # so multiple deploys on the same day are still distinguishable.
     VITE_APP_VERSION: <%= "#{Time.now.strftime('%Y.%m.%d')}-#{`git rev-parse --short HEAD`.strip}" %>
+    # The commit this image was built from, surfaced at /release/info and on
+    # the release page. Same ERB shell-out as the line above.
+    RELEASE_SHA: <%= `git rev-parse --short HEAD`.strip %>
 
 proxy:
   ssl: false

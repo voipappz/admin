@@ -57,6 +57,12 @@ builder:
     # base silently ships yesterday's dependencies.
     BASE_IMAGE: nirlevi/connectix-base:latest
 
+    # The commit this image was built from. Surfaced at /release/info and on
+    # the release page, because mix.exs is bumped deliberately and two deploys
+    # a week apart are both "0.1.0" -- the version cannot tell you whether this
+    # node is running what you just pushed. The sha can.
+    RELEASE_SHA: <%= `git rev-parse --short HEAD`.strip %>
+
 servers:
   web:
     hosts:
@@ -135,7 +141,18 @@ env:
 
     # The cable this portal listens on for CallEvents and per-user state — the
     # stream screen pop reads. It runs on the nimbus box, not this one.
-    CABLE_URL: wss://nimbus-prod.voipappz.io:4000/cable
+    # ws://, NOT wss://. Port 4000 on the cable node is plain HTTP — a TLS
+    # handshake against it comes back as `{unsupported_record_type,72}`, where
+    # 72 is the "H" of "HTTP/1.1", which reads as a certificate problem and is
+    # really a scheme problem. nimbus uses ws:// to the same port.
+    #
+    # THE TOKEN THEREFORE CROSSES THE INTERNET IN CLEAR. On nimbus that hop is
+    # localhost (host.docker.internal) so plaintext costs nothing; here the
+    # cable is on a different machine. The node offers no TLS listener on that
+    # port today, so the options are a TLS terminator in front of it or a
+    # tunnel between the hosts — worth doing, and named here so it is not
+    # forgotten.
+    CABLE_URL: ws://nimbus-prod.voipappz.io:4000/cable
 
     # Which model, and therefore which provider key above is the live one.
     # Stated rather than defaulted: the default is a Sonnet, and a deployment

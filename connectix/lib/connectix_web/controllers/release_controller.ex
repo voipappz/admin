@@ -29,7 +29,8 @@ defmodule ConnectixWeb.ReleaseController do
   use ConnectixWeb, :controller
 
   @relative_path "extension/voipappz-extension.zip"
-  @filename "voipappz-extension.zip"
+  @sha_path "extension/build-sha"
+  @basename "voipappz-extension"
 
   @doc """
   The release page. What a GitHub release page is for, served by the node the
@@ -42,19 +43,19 @@ defmodule ConnectixWeb.ReleaseController do
   downloaded. `/extension/info` is the same facts for a machine.
   """
   def index(conn, _params) do
-    {version, digest, size} =
+    {version, digest, size, name} =
       case read() do
         {:ok, zip} ->
           {manifest_version(zip) || "unknown",
-           Base.encode16(:crypto.hash(:sha256, zip), case: :lower), byte_size(zip)}
+           Base.encode16(:crypto.hash(:sha256, zip), case: :lower), byte_size(zip), filename(zip)}
 
         :error ->
-          {nil, nil, 0}
+          {nil, nil, 0, nil}
       end
 
     conn
     |> put_resp_content_type("text/html")
-    |> send_resp(200, page(version, digest, size, origin(conn)))
+    |> send_resp(200, page(version, digest, size, name, origin(conn)))
   end
 
   @doc """
@@ -73,7 +74,8 @@ defmodule ConnectixWeb.ReleaseController do
           available: true,
           app_version: app_version(),
           extension_version: manifest_version(zip),
-          filename: @filename,
+          build_sha: build_sha(),
+          filename: filename(zip),
           bytes: byte_size(zip),
           sha256: Base.encode16(:crypto.hash(:sha256, zip), case: :lower),
           download: "/release/download"
@@ -90,19 +92,45 @@ defmodule ConnectixWeb.ReleaseController do
     end
   end
 
-  @doc "The zip itself."
+  @doc """
+  The zip itself, under a name that says WHICH BUILD it is.
+
+  The file is stored under a stable path so the code can find it, and served
+  under `voipappz-extension-<version>-<sha>.zip` so it is still identifiable
+  once it is sitting in someone's Downloads folder next to four others. A
+  support conversation that starts "I have voipappz-extension.zip" establishes
+  nothing; one that starts with the version and the commit establishes
+  everything.
+  """
   def download(conn, _params) do
     case read() do
       {:ok, zip} ->
         conn
         |> put_resp_content_type("application/zip")
-        |> put_resp_header("content-disposition", ~s(attachment; filename="#{@filename}"))
+        |> put_resp_header("content-disposition", ~s(attachment; filename="#{filename(zip)}"))
         |> send_resp(200, zip)
 
       :error ->
         conn
         |> put_resp_content_type("text/plain")
         |> send_resp(404, "no extension in this build\n")
+    end
+  end
+
+  # voipappz-extension-0.1.0-a1b2c3d.zip. Each part is dropped rather than
+  # written as a placeholder when it is unknown: "unknown" in a filename is
+  # noise, and a name that is merely shorter is still correct.
+  defp filename(zip) do
+    [@basename, manifest_version(zip), build_sha()]
+    |> Enum.reject(&(&1 in [nil, "", "unknown"]))
+    |> Enum.join("-")
+    |> Kernel.<>(".zip")
+  end
+
+  defp build_sha do
+    case File.read(Path.join(:code.priv_dir(:connectix), @sha_path)) do
+      {:ok, sha} -> String.trim(sha)
+      {:error, _} -> nil
     end
   end
 
@@ -142,7 +170,7 @@ defmodule ConnectixWeb.ReleaseController do
   # no pipeline (see the router), so it has no root layout to render into — and
   # a download page that depends on the rest of the app rendering correctly is
   # exactly the page you cannot reach on the day you need it.
-  defp page(version, digest, size, origin) do
+  defp page(version, digest, size, name, origin) do
     {status, body} =
       if version do
         {"v#{version}",
@@ -195,9 +223,10 @@ defmodule ConnectixWeb.ReleaseController do
     download =
       if version do
         """
-        <a class="dl" href="/release/download">Download #{@filename}</a>
+        <a class="dl" href="/release/download">Download #{name}</a>
         <dl>
           <dt>Version</dt><dd>#{version} <span class="note">— same version as this portal</span></dd>
+          <dt>Build</dt><dd>#{build_sha() || "unknown"} <span class="note">— the commit this node was built from</span></dd>
           <dt>Size</dt><dd>#{bytes(size)}</dd>
           <dt>SHA-256</dt><dd><code class="sha">#{digest}</code></dd>
           <dt>Serves</dt><dd><code>#{origin}</code></dd>

@@ -131,6 +131,18 @@ COPY connectix/lib lib
 # a content-hashed name is a file no install instruction can name.
 COPY --from=extension /ext/extension-build.zip priv/extension/voipappz-extension.zip
 
+# WHICH BUILD, as opposed to which version. mix.exs is bumped deliberately and
+# therefore rarely: two deploys a week apart are both "0.1.0", so the version
+# alone cannot answer "is this node running what I just pushed?" -- and the
+# post-deploy version check passes either way, which makes it feel more
+# informative than it is.
+#
+# The sha is written to a FILE rather than compiled in, so it costs no
+# recompilation and an image can be inspected without booting it. `unknown` is
+# the honest answer for a `docker build` run by hand, not a failure.
+ARG RELEASE_SHA=unknown
+RUN echo "${RELEASE_SHA}" > priv/extension/build-sha
+
 RUN mix compile
 
 COPY connectix/assets assets
