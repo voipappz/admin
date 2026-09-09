@@ -81,6 +81,39 @@ defmodule Connectix.Realtime.CableClient do
     :exit, _ -> false
   end
 
+  @doc """
+  Teach a running client the agent ids a later connect resolved.
+
+  The cable connection deliberately outlives one browser socket, so the FIRST
+  connect is the only one that ever supplied `agent_ids` — and the first
+  connect is exactly the one that may not have them. A user whose record grew
+  a `powerlink_token` after they first opened the portal (or whose record was
+  briefly unreachable) started a client with `agent_ids: []`, subscribed to
+  `state.user.<portal uuid>` alone, and then refused every pop for as long as
+  that client lived: `ScreenPop.pop_for_user/5` matches against this list, and
+  an empty one accepts nothing. Re-logging in did not help, because
+  `ensure_cable/1` sees `{:error, {:already_started, _}}` and had nothing to do
+  with the ids it had just resolved.
+
+  Adopting is additive and idempotent: ids already held are ignored, and the
+  `state.user.<id>` streams that are new are subscribed to on the live
+  connection as well as recorded for the next reconnect.
+  """
+  def adopt_agent_ids(user_uuid, agent_ids)
+
+  def adopt_agent_ids(_user_uuid, []), do: :ok
+
+  def adopt_agent_ids(user_uuid, agent_ids) when is_binary(user_uuid) and is_list(agent_ids) do
+    case Registry.lookup(Connectix.Realtime.CableRegistry, user_uuid) do
+      [{pid, _}] -> GenServer.cast(pid, {:adopt_agent_ids, agent_ids})
+      [] -> :ok
+    end
+  catch
+    :exit, _ -> :ok
+  end
+
+  def adopt_agent_ids(_user_uuid, _agent_ids), do: :ok
+
   @doc "Cable's base URL, or nil when not configured — then this whole module is inert."
   def url, do: System.get_env("CABLE_URL")
 
@@ -111,6 +144,33 @@ defmodule Connectix.Realtime.CableClient do
   @impl true
   def handle_call(:registered?, _from, state),
     do: {:reply, MapSet.size(state.confirmed) > 0, state}
+
+  @impl true
+  def handle_cast({:adopt_agent_ids, ids}, state) do
+    case Enum.reject(ids, &(&1 in state.agent_ids)) do
+      [] ->
+        {:noreply, state}
+
+      fresh ->
+        agent_ids = state.agent_ids ++ fresh
+        identifiers = identifiers_for(state.user_uuid, agent_ids)
+        added = identifiers -- state.identifiers
+        state = %{state | agent_ids: agent_ids, identifiers: identifiers}
+
+        Logger.info(
+          "cable: #{state.user_uuid} adopted agent ids #{inspect(fresh)} " <>
+            "(#{length(added)} new stream(s))"
+        )
+
+        # Only once welcomed: before that there is no connection to subscribe
+        # on, and the `welcome` handler subscribes to the whole list anyway.
+        if state.welcomed? do
+          {:noreply, Enum.reduce(added, state, &send_frame(&2, %{command: "subscribe", identifier: &1}))}
+        else
+          {:noreply, state}
+        end
+    end
+  end
 
   @impl true
   def handle_info(:reconnect, state), do: {:noreply, connect(state)}

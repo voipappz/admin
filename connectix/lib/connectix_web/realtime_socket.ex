@@ -191,7 +191,12 @@ defmodule ConnectixWeb.RealtimeSocket do
           :ok
 
         {:error, {:already_started, _pid}} ->
-          :ok
+          # The client outlives one socket, so it may predate this identity.
+          # If the first connect resolved no agent ids — a record without a
+          # `powerlink_token` yet, or one the relay could not reach — the
+          # client subscribed to the portal uuid alone and accepts no pop.
+          # Hand it what this connect resolved rather than discarding it.
+          Connectix.Realtime.CableClient.adopt_agent_ids(user_uuid, agent_ids)
 
         {:error, reason} ->
           require Logger

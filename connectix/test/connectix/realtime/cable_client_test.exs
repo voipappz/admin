@@ -45,6 +45,60 @@ defmodule Connectix.Realtime.CableClientTest do
     end
   end
 
+  describe "adopting agent ids resolved by a later connect" do
+    # The cable client outlives one browser socket, so the FIRST connect is the
+    # only one that ever passed `agent_ids` — and it is the one most likely to
+    # have none: a record whose `powerlink_token` was not set yet, or a relay
+    # that could not be reached. That left a live client with `agent_ids: []`,
+    # subscribed to the portal uuid alone, refusing every pop for as long as it
+    # lived — and logging in again did not fix it, because `ensure_cable/1` saw
+    # `{:already_started, _}` and dropped the ids it had just resolved.
+    @powerlink "88309e98-f698-4b57-898d-a6056c37dd55"
+
+    test "an empty client takes on the token and its state stream" do
+      state = %CableClient{
+        user_uuid: @user_uuid,
+        environment_uuid: @environment_uuid,
+        agent_ids: [],
+        identifiers: CableClient.identifiers_for(@user_uuid, [])
+      }
+
+      refute Enum.any?(state.identifiers, &(&1 =~ @powerlink))
+
+      {:noreply, adopted} = CableClient.handle_cast({:adopt_agent_ids, [@powerlink]}, state)
+
+      assert adopted.agent_ids == [@powerlink]
+
+      assert Jason.encode!(%{channel: "StateChannel", scope: "user", id: @powerlink}) in
+               adopted.identifiers
+
+      # The uuid's own streams are kept, not replaced.
+      assert @state_channel in adopted.identifiers
+      assert @notifications in adopted.identifiers
+    end
+
+    test "is additive and idempotent" do
+      state = %CableClient{
+        user_uuid: @user_uuid,
+        environment_uuid: @environment_uuid,
+        agent_ids: [@powerlink],
+        identifiers: CableClient.identifiers_for(@user_uuid, [@powerlink])
+      }
+
+      {:noreply, again} = CableClient.handle_cast({:adopt_agent_ids, [@powerlink]}, state)
+
+      assert again == state
+    end
+
+    test "adopting nothing is a no-op on a client that has ids" do
+      assert CableClient.adopt_agent_ids(@user_uuid, []) == :ok
+    end
+
+    test "adopting for a user with no running client does not raise" do
+      assert CableClient.adopt_agent_ids("no-such-user", [@powerlink]) == :ok
+    end
+  end
+
   describe "notification relay" do
     test "relays current agent notifications verbatim", %{state: state} do
       ringing = %{
