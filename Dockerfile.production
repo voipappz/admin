@@ -39,6 +39,53 @@ ARG RUNNER_DEBIAN_VERSION=trixie-slim
 # makes the build still CORRECT against a stale or absent one — a base image
 # that silently ships yesterday's dependencies is the failure this pattern
 # invites, and `make base` checks the lockfile for exactly that reason.
+# ---------------------------------------------------------------------------
+# The Chrome extension.
+# ---------------------------------------------------------------------------
+# A SEPARATE STAGE, and that is the whole point: node lives and dies here. The
+# final image below copies ONE FILE out of it -- a zip -- and carries no node,
+# no npm and no node_modules. "Pure BEAM" is a property of what SHIPS, and it
+# still holds.
+#
+# It is built HERE rather than committed as a binary because a zip in git is a
+# thing nobody can review and everybody forgets to rebuild: the extension went
+# out stale for a whole release that way. Building it beside the portal it
+# talks to means the two cannot drift.
+#
+# NODE 20, NOT a current one. Angular 11 + webpack 4 need
+# --openssl-legacy-provider (already set inside chrome/package.json's scripts)
+# and do not build on newer node even with it.
+FROM node:20 AS extension
+WORKDIR /ext
+
+# Dependencies first, so a source-only change to the extension reuses this
+# layer. --legacy-peer-deps: the Angular 11 tree does not satisfy npm 7+ peer
+# resolution.
+COPY chrome/package.json chrome/package-lock.json ./
+RUN npm ci --legacy-peer-deps --no-audit --no-fund
+
+COPY chrome/ ./
+
+# THE VERSION COMES FROM THE APP, not from the extension's own manifest. Both
+# artifacts ship from one commit, so "which extension goes with this portal?"
+# must not be answerable only by unpacking the zip. mix.exs is the single
+# source; scripts/stamp-manifest.mjs writes it into the built manifest.
+COPY connectix/mix.exs /tmp/app-mix.exs
+RUN EXT_VERSION="$(sed -n 's/^ *version: "\([^"]*\)".*/\1/p' /tmp/app-mix.exs | head -1)"; \
+    test -n "$EXT_VERSION" || { echo "could not read version from connectix/mix.exs"; exit 1; }; \
+    echo "extension version <- mix.exs: $EXT_VERSION"; \
+    EXT_VERSION="$EXT_VERSION" npm run build:production
+
+# A malformed manifest still "builds" -- the failure only shows when Chrome
+# refuses to load it, which is after a deploy and in front of a user. Assert
+# the fields that make it loadable, here, where it costs nothing.
+RUN test -f extension-build.zip && \
+    node -e 'const m=require("./angular/dist/manifest.json"); \
+      if (m.manifest_version!==3) throw new Error("expected manifest_version 3"); \
+      for (const f of ["name","version","action"]) if(!m[f]) throw new Error("manifest missing "+f); \
+      if(!m.background||!m.background.service_worker) throw new Error("manifest missing background.service_worker"); \
+      console.log("manifest ok:", m.name, m.version)'
+
 FROM ${BASE_IMAGE} AS builder
 
 WORKDIR /app
@@ -78,6 +125,12 @@ RUN mix assets.setup
 COPY connectix/priv priv
 COPY connectix/lib lib
 
+# The extension, into the release. priv/extension/ and NOT priv/static/: this
+# is served by ReleaseController, not by Plug.Static, so it needs no entry in
+# `static_paths()` and `mix phx.digest` leaves it alone -- a digested zip under
+# a content-hashed name is a file no install instruction can name.
+COPY --from=extension /ext/extension-build.zip priv/extension/voipappz-extension.zip
+
 RUN mix compile
 
 COPY connectix/assets assets
@@ -110,6 +163,20 @@ ENV LC_ALL=C.UTF-8
 
 WORKDIR "/app"
 RUN chown nobody /app
+
+# THE DATA DIRECTORY, OWNED BY THE USER THAT RUNS. The release runs as
+# `nobody` and every destination mounts a volume at /data for Mnesia and the
+# DuckDB event store. A named volume inherits ownership from the image the
+# FIRST time it is populated — so creating and chowning it here is what makes
+# a fresh host work.
+#
+# Without it the app boots, reaches Connectix.Portal.Store, and dies on
+# `File.mkdir_p!("/data/mnesia")` with :eacces — which reads as a code bug
+# rather than a mount owned by root.
+#
+# An ALREADY-EXISTING volume keeps its old ownership and this cannot fix it:
+#   docker run --rm -v <volume>:/data alpine chown -R 65534:0 /data
+RUN mkdir -p /data/mnesia /data/events && chown -R nobody:root /data
 
 ENV MIX_ENV="prod"
 
