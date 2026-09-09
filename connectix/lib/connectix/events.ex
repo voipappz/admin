@@ -103,6 +103,17 @@ defmodule Connectix.Events do
   # nothing at all until someone restarted it by hand. Every deploy, silently.
   @reopen_after_ms 5_000
 
+  # How often to drop events past the retention window. Hourly: the window is
+  # measured in days, so the exact moment a row leaves does not matter, and a
+  # DELETE over a few hundred thousand rows should not run more often than the
+  # data it removes accumulates.
+  @prune_every_ms :timer.hours(1)
+
+  # Compact only when the file is both big enough to matter and mostly dead
+  # space, because compaction rewrites every live row.
+  @compact_min_bytes 256 * 1_048_576
+  @compact_ratio 2
+
   # Keys never copied into `headers`: they are the bulk, and `raw` already has
   # them. Everything else the frame carries is small and worth filtering on.
   @bulk_keys ~w(payload body data raw)
@@ -220,6 +231,7 @@ defmodule Connectix.Events do
     case open(path) do
       {:ok, db, conn} ->
         Logger.info("events: storing to #{path}")
+        schedule_prune()
         {:ok, %__MODULE__{db: db, conn: conn, path: path}}
 
       {:error, reason} ->
@@ -243,6 +255,7 @@ defmodule Connectix.Events do
     case open(path) do
       {:ok, db, conn} ->
         Logger.info("events: storing to #{path} (opened on retry)")
+        schedule_prune()
         {:noreply, %{state | db: db, conn: conn}}
 
       {:error, _reason} ->
@@ -254,6 +267,16 @@ defmodule Connectix.Events do
   end
 
   def handle_info(:retry_open, state), do: {:noreply, state}
+
+  def handle_info(:prune, %{conn: nil} = state) do
+    schedule_prune()
+    {:noreply, state}
+  end
+
+  def handle_info(:prune, state) do
+    schedule_prune()
+    {:noreply, prune(state)}
+  end
 
   @impl true
   def handle_cast(_request, %{conn: nil} = state), do: {:noreply, state}
@@ -483,6 +506,120 @@ defmodule Connectix.Events do
   end
 
   # ── opening ──────────────────────────────────────────────────────────────
+
+  # ── retention ────────────────────────────────────────────────────────────
+
+  defp schedule_prune, do: Process.send_after(self(), :prune, @prune_every_ms)
+
+  # Drop everything past the window, then reclaim the file if enough of it is
+  # now dead.
+  #
+  # DELETE alone does NOT give the disk back. Measured on a copy of the live
+  # store, DuckDB v1.5.5: 39,865 real rows occupied 348MB, deleting half left
+  # it at 348MB, and CHECKPOINT and VACUUM changed nothing. The space is reused
+  # by later inserts, so deleting DOES bound growth at roughly
+  # `retention_days` worth — but a store that has already ballooned stays
+  # ballooned, and the only way back is to rewrite the file.
+  defp prune(%{conn: conn, path: path} = state) do
+    case Connectix.Config.events_retention_days() do
+      0 ->
+        state
+
+      days ->
+        cutoff = System.system_time(:microsecond) - days * 86_400 * 1_000_000
+
+        with {:ok, _} <- Duckdbex.query(conn, "DELETE FROM events WHERE create_date < ?", [cutoff]),
+             {:ok, _} <- Duckdbex.query(conn, "CHECKPOINT") do
+          Logger.info("events: pruned rows older than #{days}d")
+          maybe_compact(state)
+        else
+          {:error, reason} ->
+            Logger.warning("events: prune failed (#{inspect(reason)}) — #{path}")
+            state
+        end
+    end
+  end
+
+  # Rewrite the file when most of it is dead space.
+  #
+  # `CREATE TABLE ... AS SELECT` into a freshly attached file writes only live
+  # rows, so the copy is the size the data actually needs. Swapping it in means
+  # closing the current handles, renaming, and reopening — which is why this is
+  # here in the owning process and nowhere else.
+  defp maybe_compact(%{conn: conn, path: path} = state) do
+    with {:ok, live} <- live_bytes(conn),
+         {:ok, %{size: on_disk}} <- File.stat(path),
+         true <- on_disk > @compact_min_bytes and on_disk > live * @compact_ratio do
+      compact(state, on_disk, live)
+    else
+      _no_need -> state
+    end
+  end
+
+  defp compact(%{conn: conn, path: path} = state, on_disk, live) do
+    tmp = path <> ".compacting"
+    File.rm(tmp)
+    File.rm(tmp <> ".wal")
+
+    Logger.info(
+      "events: compacting #{path} — #{div(on_disk, 1_048_576)}MB on disk for " <>
+        "#{div(live, 1_048_576)}MB of rows"
+    )
+
+    with {:ok, _} <- Duckdbex.query(conn, "ATTACH '#{tmp}' AS compacted"),
+         {:ok, _} <- Duckdbex.query(conn, "CREATE TABLE compacted.events AS SELECT * FROM events"),
+         {:ok, _} <- Duckdbex.query(conn, "CHECKPOINT compacted"),
+         {:ok, _} <- Duckdbex.query(conn, "DETACH compacted") do
+      # Drop the handles before moving the file underneath them.
+      state = %{state | db: nil, conn: nil}
+      :erlang.garbage_collect()
+
+      File.rm(path <> ".wal")
+
+      case File.rename(tmp, path) do
+        :ok ->
+          case open(path) do
+            {:ok, db, conn} ->
+              size = with {:ok, %{size: s}} <- File.stat(path), do: s
+              Logger.info("events: compacted to #{div(size, 1_048_576)}MB")
+              %{state | db: db, conn: conn}
+
+            {:error, reason} ->
+              # The file is intact; the handle is not. The retry loop reopens.
+              Logger.error("events: compacted but could not reopen (#{inspect(reason)}) — retrying")
+              Process.send_after(self(), :retry_open, @reopen_after_ms)
+              state
+          end
+
+        {:error, reason} ->
+          Logger.error("events: could not swap compacted file (#{inspect(reason)})")
+          File.rm(tmp)
+          Process.send_after(self(), :retry_open, @reopen_after_ms)
+          state
+      end
+    else
+      {:error, reason} ->
+        Logger.warning("events: compaction failed (#{inspect(reason)}) — keeping the file as is")
+        Duckdbex.query(conn, "DETACH compacted")
+        File.rm(tmp)
+        state
+    end
+  end
+
+  defp live_bytes(conn) do
+    case Duckdbex.query(conn, "SELECT sum(length(raw) + length(headers) + 80) FROM events") do
+      {:ok, ref} ->
+        case Duckdbex.fetch_all(ref) do
+          # DuckDB hands back a HUGEINT as {high, low}.
+          [[{_high, low}]] -> {:ok, low}
+          [[n]] when is_integer(n) -> {:ok, n}
+          _ -> :error
+        end
+
+      _ ->
+        :error
+    end
+  end
 
   defp open(path) do
     with :ok <- File.mkdir_p(Path.dirname(path)),

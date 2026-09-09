@@ -509,6 +509,22 @@ defmodule Connectix.Config do
   def events_dir, do: env("EVENTS_DIR") || Path.join(data_dir(), "events")
 
   @doc """
+  How many days of events the store keeps (`EVENTS_RETENTION_DAYS`), default 7.
+
+  The store had no retention at all, and this is not a tidiness question: a
+  live switch writes ~146,000 rows and ~556MB of raw JSON a DAY, so an
+  unattended portal fills its volume in days and takes Mnesia — the durable
+  conversation store sharing that volume — down with it. Measured on
+  nimbus-connectix: 557MB of DuckDB file after six hours.
+
+  `0` disables pruning, for a deployment that keeps events elsewhere and wants
+  this file to grow. It is deliberately not the default: the default has to be
+  the one that cannot fill a disk unattended.
+  """
+  @spec events_retention_days() :: non_neg_integer()
+  def events_retention_days, do: int_env("EVENTS_RETENTION_DAYS", 7, 0..3_650)
+
+    @doc """
   The event store's DuckDB file (`EVENTS_DB`), or `nil` for
   `<events_dir/0>/events.duckdb`.
 

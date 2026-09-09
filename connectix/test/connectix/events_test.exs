@@ -63,7 +63,95 @@ defmodule Connectix.EventsTest do
     )
   end
 
+  defp with_env(key, value, fun) do
+    previous = System.get_env(key)
+    System.put_env(key, value)
+
+    try do
+      fun.()
+    after
+      if previous, do: System.put_env(key, previous), else: System.delete_env(key)
+    end
+  end
+
   defp sync(store), do: Events.stats(store)
+
+  describe "retention" do
+    # A live switch writes ~146,000 rows and ~556MB of raw JSON a DAY — measured
+    # on nimbus-connectix, where the file reached 557MB in six hours against
+    # 5.7GB of free space. Without a window this fills the volume in days and
+    # takes Mnesia, which shares it, down too.
+    test "drops what is past the window and keeps what is not", %{store: store} do
+      old = System.system_time(:microsecond) - 30 * 86_400 * 1_000_000
+      now = System.system_time(:microsecond)
+
+      Events.insert(store, ev(%{"sid" => "ancient", "create_date" => old}))
+      Events.insert(store, ev(%{"sid" => "today", "create_date" => now}))
+      sync(store)
+
+      with_env("EVENTS_RETENTION_DAYS", "7", fn ->
+        send(store, :prune)
+        sync(store)
+      end)
+
+      {:ok, rows} = Events.recent(store, [])
+      sids = Enum.map(rows, & &1["sid"])
+
+      assert "today" in sids
+      refute "ancient" in sids
+    end
+
+    test "0 keeps everything, for a deployment that stores events elsewhere", %{store: store} do
+      old = System.system_time(:microsecond) - 365 * 86_400 * 1_000_000
+      Events.insert(store, ev(%{"sid" => "ancient", "create_date" => old}))
+      sync(store)
+
+      with_env("EVENTS_RETENTION_DAYS", "0", fn ->
+        send(store, :prune)
+        sync(store)
+      end)
+
+      {:ok, rows} = Events.recent(store, [])
+      assert "ancient" in Enum.map(rows, & &1["sid"])
+    end
+
+    # Pruning bounds growth; it does not shrink the file. Measured against a
+    # copy of the live store on DuckDB v1.5.5: 39,865 rows occupied 348MB,
+    # deleting half left it at 348MB, and CHECKPOINT and VACUUM changed
+    # nothing. So a store that has already ballooned needs the file rewritten,
+    # and this is the guard that keeps that fact from being forgotten.
+    test "deleting rows does not reclaim the file, which is why compaction exists" do
+      path = Path.join(System.tmp_dir!(), "events-reclaim-#{System.unique_integer([:positive])}.duckdb")
+      name = :"events_reclaim_#{System.unique_integer([:positive])}"
+      store = start_supervised!({Events, name: name, path: path})
+      on_exit(fn -> File.rm(path); File.rm(path <> ".wal") end)
+
+      blob = String.duplicate("abcdefghij", 400)
+
+      for i <- 1..2_000 do
+        Events.insert(store, ev(%{"sid" => "s#{i}", "create_date" => i, "raw" => blob <> "#{i}"}))
+      end
+
+      sync(store)
+      Events.stats(store)
+      before = File.stat!(path).size
+
+      # NOT `recent/2` — it caps at #{1_000} rows, which is exactly the cap that
+      # made a production search look empty earlier.
+      assert Events.stats(store).count == 2_000
+
+      # Delete nearly everything the way prune does.
+      state = :sys.get_state(store)
+      Duckdbex.query(state.conn, "DELETE FROM events WHERE create_date < 1900")
+      Duckdbex.query(state.conn, "CHECKPOINT")
+      Duckdbex.query(state.conn, "VACUUM")
+
+      after_delete = File.stat!(path).size
+
+      assert after_delete >= before * 0.9,
+             "DuckDB started reclaiming on DELETE — compaction may no longer be needed"
+    end
+  end
 
   describe "a file it cannot open yet" do
     # The store used to give up permanently on a failed open, and the failure
