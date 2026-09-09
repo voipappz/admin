@@ -87,10 +87,27 @@ defmodule ConnectixWeb.HealthController do
       # every login then works over the HTTP fallback with nothing visible to
       # say so. A check that only reported CABLE_URL would be green for exactly
       # the state worth seeing.
+      #
+      # `enabled? and ready?`, NOT `not enabled? or ready?`. The old spelling
+      # passed whenever the relay was DISABLED — the one state where nothing
+      # can possibly work — so a portal with no relay reported `api_relay: ok`.
+      # That is what hid a dead socket on nimbus-connectix: the secret to mint
+      # cable tokens was missing, every /ws/events upgrade was refused, and
+      # health said fine.
+      #
+      # NO RELAY MEANS NO EVENTS. CallEvents and the per-user state streams
+      # both arrive over it, so a portal without it cannot pop a screen, cannot
+      # verify a token, and cannot open a socket — while /auth keeps working
+      # over the HTTP fallback, which is why the failure presents as "login
+      # succeeds, then the socket 401s".
       api_relay:
         check(
-          not Connectix.Realtime.ApiProxy.enabled?() or Connectix.Realtime.ApiProxy.ready?(),
-          "the node has not confirmed the ApiProxy channel — /auth is falling back to HTTP"
+          Connectix.Realtime.ApiProxy.enabled?() and Connectix.Realtime.ApiProxy.ready?(),
+          "no cable relay — cannot consume events, verify tokens, or open /ws/events" <>
+            unless(Connectix.Realtime.ApiProxy.enabled?(),
+              do: " (relay disabled: CABLE_URL unset, or no secret to mint with)",
+              else: " (the node has not confirmed the ApiProxy channel)"
+            )
         ),
       engine: check(engine?(), "ENGINE_URL is not set — /auth and /api are not forwarded")
     }
