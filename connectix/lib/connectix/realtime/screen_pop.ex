@@ -250,9 +250,14 @@ defmodule Connectix.Realtime.ScreenPop do
       agent when is_binary(agent) and agent != "" ->
         case user_for_agent(agent) do
           {user_uuid, agent_ids} ->
-            Logger.debug(fn ->
-              "screen pop: CallEvents names agent #{agent} → user #{user_uuid}"
-            end)
+            # INFO, not debug: this only fires for an agent a signed-in user
+            # here owns, so it is bounded by who is logged in rather than by
+            # how busy the switch is. It is also the first half of the only
+            # trail that answers "why did/didn't my screen pop?" — the second
+            # half is the decision logged in `pop_for_user/5`.
+            Logger.info(
+              "screen pop: #{event_name(event) || "?"} names agent #{agent} → user #{user_uuid}"
+            )
 
             pop_for_user(state, user_uuid, event, &online_user?/1, agent_ids)
 
@@ -373,10 +378,12 @@ defmodule Connectix.Realtime.ScreenPop do
       reason ->
         Telemetry.screen_pop_event(:rejected)
 
-        # Say WHICH precondition failed. Every one of them is silence otherwise,
-        # and they are the four questions anyone debugging a missing pop asks.
-        Logger.debug(fn ->
-          "screen pop: no state pop for #{user_uuid} — " <>
+        # Say WHICH precondition failed, at INFO. Every one of them is silence
+        # otherwise, and they are the four questions anyone debugging a missing
+        # pop asks. Reaching here already means the event named an agent this
+        # user owns, so the volume is bounded by their calls, not the switch's.
+        Logger.info(
+          "screen pop: no pop for #{user_uuid} — " <>
             cond do
               not is_map(event) -> "event is not a map"
               not state_allowed?(event) -> "agent state #{inspect(PopRule.dig(event, "user_state"))} is not one that pops"
@@ -386,7 +393,7 @@ defmodule Connectix.Realtime.ScreenPop do
                 "event names agent #{agent_uuid(event)}, not one of #{inspect(accepted)}"
               true -> "agent has no live /ws/events socket (#{inspect(reason)})"
             end
-        end)
+        )
 
         state
     end

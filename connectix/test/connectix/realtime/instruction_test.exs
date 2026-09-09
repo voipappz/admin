@@ -55,8 +55,13 @@ defmodule Connectix.Realtime.InstructionTest do
         assert loaded["profile"]["record_url"] == PopRule.record_url()
         refute loaded["profile"]["record_url"] =~ "google.com"
 
+        # The action must be one the SHIPPED rule triggers on — the fixture's
+        # default `user.answer` is not, now that the rule pops on answer only.
         assert {:ok, _dedupe_id, @user_uuid, %{"action" => "tab:new", "url" => url}} =
-                 Instruction.match([loaded], event(%{"environment_uuid" => environment}))
+                 Instruction.match(
+                   [loaded],
+                   event(%{"environment_uuid" => environment, "action" => "bridge-agent-start"})
+                 )
 
         assert url == PopRule.record_url()
       end

@@ -22,22 +22,48 @@ service_type: screen_pop
 #    "user_state":"In a queue call",
 #    "meta":{"CC-Agent":"cb1b0a46…","CC-Agent-State":"In a queue call"}}
 #
+# ONLY THE TWO THAT MEAN "THE AGENT IS NOW ON THE CALL".
+#
+# The tab opens on ANSWER, never on ringing. `bridge-agent-start` is the
+# callcenter bridging the caller to the agent — the answer itself — and an
+# `agent-state-change` into "In a queue call" is the same fact stated as a
+# state. Everything else was removed after watching a real call:
+#
+#   * `agent-offering` fires while the phone is still RINGING, and fires once
+#     per agent the queue tries. One caller rang four agents, so four people
+#     would have had a CRM tab opened for a call three of them never took.
+#   * `user.ringing` is the same mistake in the mapped spelling.
+#   * `user.answer` and `user.state_change` are the non-queue spellings; this
+#     deployment's calls arrive as callcenter frames, and accepting both
+#     spellings pops twice for one answer.
+# ONE event, so one call cannot open two tabs.
+#
+# The dedupe key is per (event name, agent, call), so accepting two spellings
+# of the same fact pops twice: `agent-offering` and `bridge-agent-start` for
+# one call produced two different keys and two tabs. `agent-state-change` into
+# "In a queue call" is that same fact a third time, and it carries no call id
+# to dedupe against, so it is out too until the key is call-scoped rather than
+# name-scoped.
+#
+# `bridge-agent-start` is the answer itself — the callcenter bridging caller to
+# agent — and the switch emits exactly one per call per agent.
 triggers:
-  - agent-state-change
-  - agent-offering
   - bridge-agent-start
-  - user.state_change
-  - user.ringing
-  - user.answer
 
 # WHICH AGENT STATES COUNT AS "on a call".
 #
 # Empty means every state passes. Listed, an `agent-state-change` only pops
 # when `user_state` (or meta CC-Agent-State) is one of these — so going Idle
 # does not open a CRM tab.
+#
+# "Receiving" is deliberately NOT here. It is the state an agent enters while
+# their phone RINGS, so it opened the tab before the call was taken — and for
+# every agent the queue offered, not just the one who answered. "In a queue
+# call" is the state after the bridge, which is what answering means.
+# Observed states for one agent across a real call: Waiting -> Receiving ->
+# In a queue call -> Waiting.
 agent_states:
   - In a queue call
-  - Receiving
 
 # HOW AN EVENT NAMES THE AGENT, in priority order.
 #

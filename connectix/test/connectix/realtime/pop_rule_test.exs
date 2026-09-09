@@ -18,15 +18,31 @@ defmodule Connectix.Realtime.PopRuleTest do
     assert %{"service_type" => "screen_pop"} = PopRule.rule()
   end
 
-  # Both spellings: sessions.cr maps the callcenter action to a `user.*` name
-  # when it folds a state frame, but a relayed raw frame keeps the original.
-  test "accepts the raw callcenter action AND the mapped name" do
+  # ANSWER, not ringing. `bridge-agent-start` is the callcenter bridging caller
+  # to agent; an `agent-state-change` into "In a queue call" is the same fact
+  # as a state. `agent-offering` and `user.ringing` are deliberately absent —
+  # they fire while the phone rings, once per agent the queue tries, so one
+  # caller ringing four agents opened a CRM tab for three people who never
+  # took the call.
+  # ONE trigger, because the dedupe key is per (event name, agent, call): two
+  # spellings of the same fact produce two keys and two tabs. Observed live —
+  # `agent-offering` and `bridge-agent-start` for one call opened two.
+  test "exactly one event pops, so one call cannot open two tabs" do
+    assert PopRule.triggers() == ["bridge-agent-start"]
+  end
+
+  test "never pops while the phone is still ringing" do
     triggers = PopRule.triggers()
 
-    assert "agent-state-change" in triggers
-    assert "user.state_change" in triggers
-    assert "bridge-agent-start" in triggers
-    assert "user.answer" in triggers
+    refute "agent-offering" in triggers
+    refute "user.ringing" in triggers
+    refute "user.answer" in triggers
+  end
+
+  # "Receiving" is the ringing state; "In a queue call" is the answered one.
+  test "only the answered agent state pops" do
+    assert "In a queue call" in PopRule.agent_states()
+    refute "Receiving" in PopRule.agent_states()
   end
 
   # The agent is named by powerlink_token, and CC-Agent is where it lands.

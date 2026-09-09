@@ -301,7 +301,7 @@ defmodule Connectix.Realtime.ScreenPopTest do
     defp state_event(overrides \\ %{}) do
       Map.merge(
         %{
-          "event" => "user.state_change",
+          "event" => "bridge-agent-start",
           "scope" => "user",
           "id" => "call-abc",
           "user_uuid" => @powerlink,
@@ -350,21 +350,26 @@ defmodule Connectix.Realtime.ScreenPopTest do
     # `action` (not `event`), the raw callcenter name (not the mapped
     # `user.state_change`), and CC-Agent = the user's powerlink_token. Each of
     # those three refused the pop on its own at some point.
-    test "pops for the raw agent-state-change frame the node pushes" do
+    # The shape copied from a real answered call on nimbus-connectix: no
+    # `call_uuid` and no `environment_uuid`, the agent named three times over
+    # (meta.CC-Agent, user_uuid, and the id's last segment), and the caller's
+    # number only under `CC-Member-CID-Number`.
+    test "pops for the raw bridge-agent-start frame the node pushes" do
       online = fn _uuid -> true end
       powerlink = "cb1b0a46-77d5-4b3a-92d8-31768fea74e4"
 
       raw = %{
-        "id" => "agent-state-change_53beb321-4c10-454b-8e49-1ca449c94c3d_53beb321-4c10-454b-8e49-1ca449c94c3d",
-        "uuid" => "53beb321-4c10-454b-8e49-1ca449c94c3d",
-        "action" => "agent-state-change",
+        "id" => "bridge-agent-start_ac8cf994-50e2-4124-8d54-b208ab76b88f_857850d9-d66e-4b87-b973-f769a55e55a8_#{powerlink}",
+        "uuid" => "ac8cf994-50e2-4124-8d54-b208ab76b88f",
+        "action" => "bridge-agent-start",
         "type" => "callcenter",
         "user_uuid" => powerlink,
-        "user_state" => "In a queue call",
         "meta" => %{
           "CC-Agent" => powerlink,
-          "CC-Action" => "agent-state-change",
-          "CC-Agent-State" => "In a queue call"
+          "CC-Action" => "bridge-agent-start",
+          "CC-Member-CID-Number" => "0545234585",
+          "CC-Member-Session-UUID" => "ac8cf994-50e2-4124-8d54-b208ab76b88f",
+          "CC-Queue" => "11106@328.nimbusip.com"
         }
       }
 
@@ -443,7 +448,7 @@ defmodule Connectix.Realtime.ScreenPopTest do
       online = fn _uuid -> true end
 
       frame = %{
-        "event" => "user.ringing",
+        "event" => "bridge-agent-start",
         "scope" => "user",
         "id" => "call-someone-elses",
         "user_uuid" => @user_uuid
@@ -494,11 +499,11 @@ defmodule Connectix.Realtime.ScreenPopTest do
     #
     # Kept as the raw JSON rather than a hand-built map so it cannot quietly
     # drift from what the switch actually sends.
-    @real_agent_offering ~s({"action":"agent-offering","caller_id_number":"0522463424","id":"agent-offering_e3dd4aa6-d602-4ae6-ac29-f58e961e921f_53beb321-4c10-454b-8e49-1ca449c94c3d_fdc47399-1a8b-4ecb-8751-891edf6b9e32","meta":{"CC-Action":"agent-offering","CC-Agent":"fdc47399-1a8b-4ecb-8751-891edf6b9e32","CC-Agent-System":"single_box","CC-Agent-Type":"callback","CC-Member-CID-Name":"0522463424","CC-Member-CID-Number":"0522463424","CC-Member-DNIS":"503","CC-Member-Session-UUID":"e3dd4aa6-d602-4ae6-ac29-f58e961e921f","CC-Member-UUID":"9312fae3-5923-4c29-b7a2-36c6f62f2c8c","CC-Queue":"11106@328.nimbusip.com"},"queue_name":"11106@328.nimbusip.com","type":"callcenter","user_uuid":"fdc47399-1a8b-4ecb-8751-891edf6b9e32","uuid":"e3dd4aa6-d602-4ae6-ac29-f58e961e921f"})
+    @real_bridge_start ~s({"action":"bridge-agent-start","caller_id_number":"0522463424","id":"bridge-agent-start_e3dd4aa6-d602-4ae6-ac29-f58e961e921f_53beb321-4c10-454b-8e49-1ca449c94c3d_fdc47399-1a8b-4ecb-8751-891edf6b9e32","meta":{"CC-Action":"bridge-agent-start","CC-Agent":"fdc47399-1a8b-4ecb-8751-891edf6b9e32","CC-Agent-System":"single_box","CC-Agent-Type":"callback","CC-Member-CID-Name":"0522463424","CC-Member-CID-Number":"0522463424","CC-Member-DNIS":"503","CC-Member-Session-UUID":"e3dd4aa6-d602-4ae6-ac29-f58e961e921f","CC-Member-UUID":"9312fae3-5923-4c29-b7a2-36c6f62f2c8c","CC-Queue":"11106@328.nimbusip.com"},"queue_name":"11106@328.nimbusip.com","type":"callcenter","user_uuid":"fdc47399-1a8b-4ecb-8751-891edf6b9e32","uuid":"e3dd4aa6-d602-4ae6-ac29-f58e961e921f"})
 
     @real_agent_id "fdc47399-1a8b-4ecb-8751-891edf6b9e32"
 
-    defp real_frame, do: Jason.decode!(@real_agent_offering)
+    defp real_frame, do: Jason.decode!(@real_bridge_start)
 
     defp connect_agent(agent_id) do
       user = "user-#{System.unique_integer([:positive])}"
@@ -553,7 +558,7 @@ defmodule Connectix.Realtime.ScreenPopTest do
     end
 
     test "does not pop when the frame names neither an environment nor an agent" do
-      state = ScreenPop.route_event(%ScreenPop{}, %{"action" => "agent-offering"})
+      state = ScreenPop.route_event(%ScreenPop{}, %{"action" => "bridge-agent-start"})
 
       assert state == %ScreenPop{}
       refute_receive {:realtime, _}, 50
