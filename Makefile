@@ -14,8 +14,8 @@ SHELL := bash
 # prints "Nothing to be done" and exits 0, so a deleted rule looks like a
 # working target. `make check-make` fails on any that is missing.
 PHONY_TARGETS := help check-make iex tui tmux tmux-kill mise env dev \
-                 up down logs health test ci probe status \
-                 portal-print portal-deploy
+                 up down logs health test ci probe status extension \
+                 kamal-config kamal-push deploy
 
 .PHONY: $(PHONY_TARGETS)
 
@@ -186,7 +186,7 @@ dev: ## Run the local stack in Docker (portal :4001), attached logs
 	  esac
 	@$(STACK_UP) elixir
 	@echo "portal → $(PORTAL) · cable → $(PORTAL_CABLE_URL) · engine → $(PORTAL_ENGINE_URL)"
-	@echo "extension → ../chrome (make -C ../chrome build, then Load unpacked)"
+	@echo "extension → chrome/angular/dist (make extension, then Load unpacked)"
 	@echo "Ctrl-C detaches; stack keeps running"
 	docker compose logs -f elixir
 
@@ -199,6 +199,14 @@ down: ## Stop all services
 
 logs: ## Follow logs for the portal
 	docker compose logs -f elixir
+
+# The Chrome extension. It lives HERE now, not in its own repo: it posts to
+# this portal and opens its socket on this portal, and the two are only ever
+# changed together. Its own package.json and node:20 container stay inside
+# chrome/ — nothing about this app becomes a Node app, and the BEAM image
+# never sees it.
+extension: ## Build the Chrome extension into chrome/angular/dist
+	$(MAKE) -C chrome build
 
 ##@ Check
 
