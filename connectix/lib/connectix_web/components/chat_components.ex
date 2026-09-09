@@ -607,17 +607,13 @@ defmodule ConnectixWeb.ChatComponents do
             >
               <.icon name="hero-bars-3" class="w-5 h-5" />
             </button>
-          <%!-- Mark AND wordmark. This comment used to say "wordmark only,
-               the rail already carries the mark" — true until the brand commit
-               was reverted, which took the rail's mark with it and left the
-               product showing no logo at all while Phoenix's stock one sat in
-               the scaffold layout. The header is where it goes now. --%>
-          <img
-            src={~p"/images/connectix-mark.svg"}
-            alt=""
-            width="32"
-            height="32"
-            class="w-8 h-8 flex-shrink-0"
+          <%!-- The mark lives at the top of the RAIL, not here — showing it in
+               both places read as two logos side by side. This slot carries
+               the surface icon instead, so the header says what you are
+               looking at rather than repeating who made it. --%>
+          <.icon
+            name="hero-chat-bubble-left-right"
+            class="w-7 h-7 flex-shrink-0 text-[var(--color-primary)]"
           />
           <h1 class="text-2xl font-semibold m-0">Connectix</h1>
 
@@ -2158,8 +2154,17 @@ defmodule ConnectixWeb.ChatComponents do
         if(@is_rail_open, do: "flex", else: "hidden md:flex")
       ]}
     >
+      <%!-- The product mark, at the top of the rail: the leftmost thing on the
+            page, above the navigation it belongs to. A chat bubble sat here
+            and read as a nav item you could not click. --%>
       <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl">
-        <.icon name="hero-chat-bubble-left-right" class="w-7 h-7 text-[var(--color-primary)]" />
+        <img
+          src={~p"/images/connectix-mark.svg"}
+          alt=""
+          width="28"
+          height="28"
+          class="w-7 h-7"
+        />
       </div>
 
       <.rail_button
