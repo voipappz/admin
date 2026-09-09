@@ -40,6 +40,19 @@ image: nirlevi/voipappz-portal-elixir
 
 builder:
   arch: amd64
+  # Build with the DAEMON, not a bridged buildkit container.
+  #
+  # The default `docker-container` driver runs buildkit in its own container
+  # and uploads to the registry from inside it. On this network that upload
+  # stalls dead — three deploys in a row froze at `exporting to registry`
+  # with 0 bytes of traffic and 0% CPU for minutes, having built the release
+  # successfully. The same image pushed first try with `docker push`, which
+  # uploads from the daemon in the host's network namespace. MTU is 1500
+  # everywhere, so it is the container's egress, not fragmentation.
+  #
+  # `driver: docker` gives up cross-architecture builds and inline cache, and
+  # this destination needs neither: it is amd64 on an amd64 host.
+  driver: docker
   # The Elixir release. No frontend build: the portal is pure BEAM and serves
   # its own LiveView UI — there is no bundle to compile and no Node in the
   # image.

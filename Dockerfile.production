@@ -154,6 +154,37 @@ COPY connectix/config/runtime.exs config/
 COPY connectix/rel rel
 RUN mix release
 
+# Slim the release before it is copied into the runtime image.
+#
+# Two things make it 1.4GB, and neither is code we wrote:
+#
+#   * Precompiled FFmpeg ships as REAL FILES at every soname — `libavcodec.so`,
+#     `.so.60` and `.so.60.3.100` are three identical 71MB copies, not the
+#     symlinks a distribution would use — and bundlex keeps its own second copy
+#     of the whole set under `priv/shared/precompiled`. libavcodec alone
+#     accounted for six copies, ~426MB.
+#   * The precompiled NIFs arrive unstripped: mdex_native 146MB, lumis 141MB,
+#     duckdb 49MB, almost all of it debug symbols nothing in production reads.
+#
+# Deduplicating with HARD LINKS rather than deleting keeps every path valid —
+# a NIF's RPATH, a soname lookup, anything that expects a file where it found
+# one — while the layer stores the content once. `strip --strip-unneeded`
+# keeps the dynamic symbol table, which is what dlopen and the NIF entry point
+# need; only debug and local symbols go.
+RUN set -eu; \
+    rel="/app/_build/${MIX_ENV}/rel/connectix"; \
+    before=$(du -sm "$rel" | cut -f1); \
+    find "$rel" -type f -name '*.so*' -exec strip --strip-unneeded {} + 2>/dev/null || true; \
+    find "$rel" -type f -size +1M -exec sha256sum {} + \
+      | sort \
+      | awk '{ h = substr($0, 1, 64); f = substr($0, 67); \
+               if (h == prev) { print prevfile; print f } else { prev = h; prevfile = f } }' \
+      | while read -r keep && read -r dup; do \
+          [ "$keep" = "$dup" ] || ln -f "$keep" "$dup"; \
+        done; \
+    after=$(du -sm "$rel" | cut -f1); \
+    echo "release slimmed: ${before}MB -> ${after}MB"
+
 # ---------------------------------------------------------------------------
 # Final: the release, standalone.
 # ---------------------------------------------------------------------------
