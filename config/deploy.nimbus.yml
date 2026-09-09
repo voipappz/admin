@@ -37,7 +37,6 @@ builder:
   # `Dockerfile.elixir`, and a build pointed at one fails before it starts.
   dockerfile: Dockerfile.production
   args:
-    VITE_APP_VERSION: <%= "#{Time.now.strftime('%Y.%m.%d')}-#{`git rev-parse --short HEAD`.strip}" %>
     # The commit this image was built from, surfaced at /release/info and on
     # the release page. Same ERB shell-out as the line above.
     RELEASE_SHA: <%= `git rev-parse --short HEAD`.strip %>

@@ -4,7 +4,8 @@
 # NOT run kamal-proxy (proxy: false) and publish ONLY on 127.0.0.1:8888 — the
 # host's 80/443 (Kong) are never touched. itdroot is in the docker group, so no
 # root is needed. The browser logs in against the MTN API directly
-# (VITE_MOTHERSHIP_URL baked below); the portal just serves the bundle.
+# The portal is pure BEAM and serves its own LiveView UI; there is no bundle
+# to bake an API host into. The upstream API is ENGINE_URL, set at runtime.
 #
 #     kamal config -d pbx20     # render + verify (read-only)
 #     kamal deploy -d pbx20
@@ -32,5 +33,5 @@ ssh:
 
 builder:
   arch: amd64
-  args:
-    VITE_MOTHERSHIP_URL: https://mtnunicom.mtn.com.gh
+  # No args of its own: RELEASE_SHA is inherited from the base deploy.yml.
+  # See the note in deploy.mtn.yml for why VITE_MOTHERSHIP_URL is gone.

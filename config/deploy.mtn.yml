@@ -90,6 +90,7 @@ image: nirlevi/voipappz-portal-elixir
 
 builder:
   arch: amd64
-  args:
-    # Same-origin: the app is served from the MTN host and talks to its own API.
-    VITE_MOTHERSHIP_URL: https://mtnunicom.mtn.com.gh
+  # No args of its own: RELEASE_SHA is inherited from the base deploy.yml.
+  # VITE_MOTHERSHIP_URL was here to bake an API host into the React bundle,
+  # which this image has not built since the portal became pure BEAM. The
+  # upstream API is ENGINE_URL, set at runtime below.
