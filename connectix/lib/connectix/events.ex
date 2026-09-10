@@ -691,6 +691,7 @@ defmodule Connectix.Events do
     with :ok <- File.mkdir_p(Path.dirname(path)),
          {:ok, db} <- Duckdbex.open(path),
          {:ok, conn} <- Duckdbex.connection(db),
+         :ok <- constrain(conn, Path.dirname(path)),
          :ok <- validate_schema(conn),
          {:ok, _} <- Duckdbex.query(conn, @schema, []) do
       {:ok, db, conn}
@@ -698,6 +699,44 @@ defmodule Connectix.Events do
       {:error, reason} -> {:error, reason}
       other -> {:error, other}
     end
+  end
+
+  # Bound what DuckDB takes, before it takes it.
+  #
+  # DuckDB's default memory limit is roughly 80% of SYSTEM memory, and NONE of
+  # it is visible to the BEAM — `:erlang.memory/0` reported 164MB total while
+  # the container held 1.75GB RSS, the difference being this buffer pool over a
+  # 3.7GB file. On a 2.5GB host that exhausted the swap, spiked the load, and
+  # broke every deploy: kamal overlaps the old and new containers, and there
+  # was no room for a second one. Every Elixir-side metric looked healthy
+  # throughout, which is what made it hard to see.
+  #
+  # Threads too: the default is one per core, and this store's work is a stream
+  # of small inserts rather than analytics, so the parallelism buys nothing and
+  # competes with the schedulers serving requests.
+  #
+  # Spills go beside the database rather than to the container's filesystem, so
+  # a big scan cannot fill the image layer.
+  defp constrain(conn, dir) do
+    settings = [
+      "SET memory_limit='#{Connectix.Config.events_db_memory_limit()}'",
+      "SET threads TO #{Connectix.Config.events_db_threads()}",
+      "SET temp_directory='#{Path.join(dir, "tmp")}'"
+    ]
+
+    Enum.reduce_while(settings, :ok, fn sql, :ok ->
+      case Duckdbex.query(conn, sql) do
+        {:ok, _} ->
+          {:cont, :ok}
+
+        {:error, reason} ->
+          # A refused setting must not stop the store opening: an unbounded
+          # store still records events, and the health check reports the
+          # memory it costs.
+          Logger.warning("events: could not apply #{inspect(sql)} (#{inspect(reason)})")
+          {:cont, :ok}
+      end
+    end)
   end
 
   # An existing file written by another column set would survive

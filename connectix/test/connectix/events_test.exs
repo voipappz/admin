@@ -157,6 +157,34 @@ defmodule Connectix.EventsTest do
     end
   end
 
+  describe "resource limits" do
+    # DuckDB's default memory limit is ~80% of SYSTEM memory and none of it is
+    # visible to the BEAM: `:erlang.memory/0` reported 164MB total while the
+    # container held 1.75GB RSS. On a 2.5GB host that exhausted the swap and
+    # broke every deploy, because kamal overlaps two containers and there was
+    # no room for the second.
+    test "the store bounds DuckDB's memory rather than taking the host's", %{store: store} do
+      state = :sys.get_state(store)
+
+      {:ok, ref} = Duckdbex.query(state.conn, "SELECT current_setting('memory_limit')")
+      [[limit]] = Duckdbex.fetch_all(ref)
+
+      # DuckDB normalises the units, so assert it is small rather than equal to
+      # the literal we sent.
+      assert limit =~ ~r/^\d+(\.\d+)?\s*(KiB|MiB)$/,
+             "memory_limit is #{inspect(limit)} — expected a bounded value, not the host default"
+    end
+
+    test "threads are bounded too — this store does inserts, not analytics", %{store: store} do
+      state = :sys.get_state(store)
+
+      {:ok, ref} = Duckdbex.query(state.conn, "SELECT current_setting('threads')")
+      [[threads]] = Duckdbex.fetch_all(ref)
+
+      assert String.to_integer(to_string(threads)) <= 8
+    end
+  end
+
   describe "retention" do
     # A live switch writes ~146,000 rows and ~556MB of raw JSON a DAY — measured
     # on nimbus-connectix, where the file reached 557MB in six hours against

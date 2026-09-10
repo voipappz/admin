@@ -544,6 +544,33 @@ defmodule Connectix.Config do
   def disk_min_free_percent, do: int_env("DISK_MIN_FREE_PERCENT", 15, 0..99)
 
     @doc """
+  Memory ceiling for the DuckDB buffer pool (`EVENTS_DB_MEMORY_LIMIT`),
+  default `"512MB"`.
+
+  DuckDB defaults to roughly 80% of SYSTEM memory, and none of it is visible to
+  the BEAM: on nimbus-connectix the VM reported 164MB total while the container
+  held 1.75GB RSS, all of the difference being DuckDB's buffer pool over a
+  3.7GB file. On a 2.5GB host that starves everything else — it exhausted the
+  swap, spiked the load, and made every deploy fail, because kamal overlaps the
+  old and new containers and there was no room for a second one.
+
+  A ceiling costs query speed on large scans and spills to `temp_directory`
+  instead of failing.
+  """
+  @spec events_db_memory_limit() :: String.t()
+  def events_db_memory_limit, do: env("EVENTS_DB_MEMORY_LIMIT") || "512MB"
+
+  @doc """
+  Threads DuckDB may use (`EVENTS_DB_THREADS`), default 2.
+
+  It defaults to one per core and this store's work is a stream of small
+  inserts, not analytics — the parallelism buys nothing here and competes with
+  the schedulers actually serving requests.
+  """
+  @spec events_db_threads() :: pos_integer()
+  def events_db_threads, do: int_env("EVENTS_DB_THREADS", 2, 1..64)
+
+    @doc """
   Whether to store FreeSWITCH channel variables
   (`EVENTS_KEEP_CHANNEL_VARIABLES`), default `false`.
 
