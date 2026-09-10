@@ -127,8 +127,10 @@ fi
 probe "GET  /metrics                 (must refuse: 401)" "/metrics" 401
 probe "GET  /chat                    (must refuse: 401)" "/chat" 401
 
-# React bundle is served (the SPA shell / login page loads).
-probe "GET  /                        (frontend)" "/" 200
+# `/` is a LiveView behind Basic Auth (`live "/", WelcomeLive` on `:browser`),
+# not the old React login page this once expected to serve anonymously. A 200
+# here would mean the gate had come off.
+probe "GET  /                       (must refuse: 401)" "/" 401
 
 # THE RELEASE ASSETS. The Chrome extension is built INTO this image (see the
 # node stage in Dockerfile.production) and served from the node it talks to, so
