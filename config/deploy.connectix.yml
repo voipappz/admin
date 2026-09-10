@@ -106,8 +106,18 @@ proxy:
     # already gone. connectix/CLAUDE.md: "The deploy gate is /health/ready,
     # not /health/alive."
     path: /health/ready
-    interval: 3
-    timeout: 5
+    # Patient, because this host is small: 2.5GB of RAM, and kamal overlaps the
+    # old and new containers, so for a few seconds two BEAMs (~420MB each) plus
+    # a 1.18GB image pull share it. A deploy under load once took 507s
+    # wall-clock and the new container was declared unhealthy while still
+    # booting — which leaves BOTH containers running, fighting over the
+    # single-writer DuckDB lock, and needs a human to clear it.
+    #
+    # 5s between attempts and 10s to answer: slower to notice a genuinely dead
+    # container, which `deploy_timeout: 180` still bounds, and far less likely
+    # to abandon a live one mid-boot.
+    interval: 5
+    timeout: 10
 
 # The base deploy.yml puts SSH on 2228 with ~/.ssh/kamal_deploy — that is the
 # mothership fleet's convention and it is NOT this host's: it answers on 22,
