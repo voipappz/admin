@@ -36,6 +36,15 @@ defmodule ConnectixWeb.Router do
     plug OpenApiSpex.Plug.PutApiSpec, module: ConnectixWeb.ApiSpec
   end
 
+  # Operator surfaces: Basic Auth, and deliberately NO `:accepts`.
+  #
+  # A scraper sends `Accept: */*` or nothing at all, and content negotiation
+  # would answer it 406 — which reads as a broken endpoint rather than a
+  # refused one. Same reason `/health` negotiates nothing.
+  pipeline :admin do
+    plug ConnectixWeb.Plugs.BasicAuth
+  end
+
   # The spec and its UI are unauthenticated on purpose: they describe the API
   # rather than expose it, and a customer needs to read them before they have
   # a key.
@@ -130,6 +139,14 @@ defmodule ConnectixWeb.Router do
   # Served here rather than forwarded — see Portal.StatusController for why the
   # relay currently cannot carry it, and why a static list is the right
   # stand-in until it can. `Plugs.EngineProxy` knows to let this one through.
+  # STILL UNAUTHENTICATED, and it was reconsidered rather than overlooked.
+  #
+  # It is a vocabulary — no user, no customer, nothing derived from the caller
+  # — so a gate protects nothing. And token auth here routes it through the
+  # verification that fails when the token was issued by a different platform,
+  # which is the failure this route exists to avoid: the picker would empty in
+  # exactly the case it was built to survive. `StatusControllerTest` asserts
+  # the openness on purpose, so changing it stays a deliberate act.
   scope "/api", ConnectixWeb.Portal do
     pipe_through :api
 
@@ -178,7 +195,13 @@ defmodule ConnectixWeb.Router do
     get "/ready", HealthController, :ready
   end
 
+  # WAS WIDE OPEN, in no pipeline at all. It now publishes the host's disk,
+  # CPU, load, memory and BEAM internals (see `Connectix.SystemMetrics`), so
+  # anyone who found the URL learned how full the volume was and how loaded
+  # the box was. Prometheus and friends all speak Basic Auth.
   scope "/", ConnectixWeb do
+    pipe_through :admin
+
     get "/metrics", MetricsController, :index
   end
 
