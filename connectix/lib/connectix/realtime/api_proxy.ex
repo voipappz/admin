@@ -104,6 +104,13 @@ defmodule Connectix.Realtime.ApiProxy do
   # on. Without this the symptom is only that logins quietly take the HTTP path.
   @subscribe_timeout 5_000
 
+  # Cable pings every few seconds. A minute of total silence means the socket
+  # is gone whatever TCP still believes — no close frame arrives when a NAT or
+  # load balancer drops a connection, so Mint reports nothing and the process
+  # would hold a dead socket until the next restart. Two hours of default TCP
+  # keepalive is why the symptom is "it stops after a few hours".
+  @recv_timeout 60_000
+
   defstruct [
     :conn,
     :websocket,
@@ -118,7 +125,11 @@ defmodule Connectix.Realtime.ApiProxy do
     # Set when the node answers `verify` with its unknown-action 400. It is
     # reset on reconnect, because a node that has just restarted may be running
     # an image that has the action.
-    verify_unsupported?: false
+    verify_unsupported?: false,
+    # Monotonic ms of the last inbound frame — see the liveness check. This
+    # connection carries CallEvents for EVERY user, so when it dies silently
+    # nobody's screen pops, and nothing said so.
+    last_frame_at: nil
   ]
 
   # ── API ──────────────────────────────────────────────────────────────────
@@ -338,6 +349,23 @@ defmodule Connectix.Realtime.ApiProxy do
   @impl true
   def handle_info(:reconnect, state), do: {:noreply, connect(state)}
 
+  def handle_info(:liveness, %{conn: nil} = state), do: {:noreply, state}
+
+  def handle_info(:liveness, state) do
+    schedule_liveness_check()
+
+    if now_ms() - (state.last_frame_at || now_ms()) > @recv_timeout do
+      Logger.warning(
+        "api proxy: no frame for #{div(@recv_timeout, 1000)}s — the relay is dead, reconnecting"
+      )
+
+      safe_close(state.conn)
+      {:noreply, schedule_reconnect(state)}
+    else
+      {:noreply, state}
+    end
+  end
+
   def handle_info(:subscribe_deadline, %{subscribed?: true} = state), do: {:noreply, state}
 
   def handle_info(:subscribe_deadline, state) do
@@ -371,7 +399,8 @@ defmodule Connectix.Realtime.ApiProxy do
   def handle_info(message, %{conn: conn} = state) when not is_nil(conn) do
     case Mint.WebSocket.stream(conn, message) do
       {:ok, conn, responses} ->
-        {:noreply, Enum.reduce(responses, %{state | conn: conn}, &handle_response/2)}
+        state = %{state | conn: conn, last_frame_at: now_ms()}
+        {:noreply, Enum.reduce(responses, state, &handle_response/2)}
 
       {:error, conn, reason, _responses} ->
         Logger.warning("api proxy: stream error — #{inspect(reason)}")
@@ -392,7 +421,8 @@ defmodule Connectix.Realtime.ApiProxy do
          uri = URI.parse(url),
          {:ok, conn} <- open(uri),
          {:ok, conn, ref} <- upgrade(conn, uri, token) do
-      %{state | conn: conn, ref: ref, uri: uri, subscribed?: false}
+      schedule_liveness_check()
+      %{state | conn: conn, ref: ref, uri: uri, subscribed?: false, last_frame_at: now_ms()}
     else
       nil ->
         state
@@ -622,6 +652,23 @@ defmodule Connectix.Realtime.ApiProxy do
   end
 
   # ── reconnect ────────────────────────────────────────────────────────────
+
+  defp schedule_liveness_check,
+    do: Process.send_after(self(), :liveness, div(@recv_timeout, 3))
+
+  defp now_ms, do: System.monotonic_time(:millisecond)
+
+  # Closing is best effort. The whole point of this path is that the socket is
+  # in a state nobody understands, and Mint raises on a connection it does not
+  # recognise — so a failure here must not take down the process whose job is
+  # to reconnect.
+  defp safe_close(conn) do
+    Mint.HTTP.close(conn)
+  rescue
+    _ -> :ok
+  catch
+    _, _ -> :ok
+  end
 
   defp schedule_reconnect(state) do
     # Every in-flight request is answered before the socket is dropped. They

@@ -99,6 +99,53 @@ defmodule Connectix.Realtime.CableClientTest do
     end
   end
 
+  describe "a connection that dies without saying so" do
+    # THE "notifications stop after a few hours" BUG. `@recv_timeout` was
+    # declared and never armed. Cable pings every few seconds, so frames never
+    # legitimately stop — but when a NAT or load balancer drops an established
+    # connection there is no close frame and no error: Mint reports nothing,
+    # `schedule_reconnect/1` never runs, and the process holds a dead socket
+    # until something restarts it. Default TCP keepalive is two hours, which is
+    # what set the timescale.
+    test "a minute of silence is treated as death, and reconnects" do
+      state = %CableClient{
+        user_uuid: @user_uuid,
+        environment_uuid: @environment_uuid,
+        conn: :a_dead_but_open_looking_conn,
+        welcomed?: true,
+        last_frame_at: System.monotonic_time(:millisecond) - CableClient.recv_timeout() - 1
+      }
+
+      {:noreply, after_check} = CableClient.handle_info(:liveness, state)
+
+      # Torn down and queued for reconnect rather than left to rot.
+      assert after_check.conn == nil
+      refute after_check.welcomed?
+      assert_receive :reconnect, 5_000
+    end
+
+    test "a connection still receiving frames is left alone" do
+      state = %CableClient{
+        user_uuid: @user_uuid,
+        environment_uuid: @environment_uuid,
+        conn: :a_live_conn,
+        welcomed?: true,
+        last_frame_at: System.monotonic_time(:millisecond)
+      }
+
+      {:noreply, after_check} = CableClient.handle_info(:liveness, state)
+
+      assert after_check.conn == :a_live_conn
+      assert after_check.welcomed?
+      refute_receive :reconnect, 100
+    end
+
+    test "the check is inert before there is a connection" do
+      state = %CableClient{user_uuid: @user_uuid, environment_uuid: @environment_uuid, conn: nil}
+      assert {:noreply, ^state} = CableClient.handle_info(:liveness, state)
+    end
+  end
+
   describe "notification relay" do
     test "relays current agent notifications verbatim", %{state: state} do
       ringing = %{

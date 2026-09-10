@@ -59,7 +59,14 @@ defmodule Connectix.Realtime.CableClient do
     view: nil,
     welcomed?: false,
     confirmed: MapSet.new(),
-    attempts: 0
+    attempts: 0,
+    # Monotonic ms of the last inbound frame. `@recv_timeout` was declared and
+    # never armed, so a connection that died WITHOUT a close frame — a NAT or
+    # load-balancer dropping it, the node wedging — was never noticed: Mint
+    # reports nothing, `schedule_reconnect/1` never runs, and the socket sits
+    # there dead. Default TCP keepalive is two hours, which is why the symptom
+    # was "notifications stop after a few hours".
+    last_frame_at: nil
   ]
 
   # ── API ──────────────────────────────────────────────────────────────────
@@ -175,10 +182,32 @@ defmodule Connectix.Realtime.CableClient do
   @impl true
   def handle_info(:reconnect, state), do: {:noreply, connect(state)}
 
+  # Cable pings every few seconds, so silence for a whole minute means the
+  # socket is gone whatever TCP still believes. Reconnecting is safe: the
+  # subscriptions are rebuilt from `identifiers` on the next welcome.
+  def handle_info(:liveness, %{conn: nil} = state), do: {:noreply, state}
+
+  def handle_info(:liveness, state) do
+    schedule_liveness_check()
+
+    if now_ms() - (state.last_frame_at || now_ms()) > @recv_timeout do
+      Logger.warning(
+        "cable: no frame for #{div(@recv_timeout, 1000)}s on #{state.user_uuid} — " <>
+          "treating the connection as dead and reconnecting"
+      )
+
+      safe_close(state.conn)
+      {:noreply, schedule_reconnect(state)}
+    else
+      {:noreply, state}
+    end
+  end
+
   def handle_info(message, %{conn: conn} = state) when not is_nil(conn) do
     case Mint.WebSocket.stream(conn, message) do
       {:ok, conn, responses} ->
-        {:noreply, Enum.reduce(responses, %{state | conn: conn}, &handle_response/2)}
+        state = %{state | conn: conn, last_frame_at: now_ms()}
+        {:noreply, Enum.reduce(responses, state, &handle_response/2)}
 
       {:error, conn, reason, _responses} ->
         Logger.warning("cable: stream error for #{state.user_uuid} — #{inspect(reason)}")
@@ -198,7 +227,17 @@ defmodule Connectix.Realtime.CableClient do
          uri = URI.parse(url()),
          {:ok, conn} <- open(uri),
          {:ok, conn, ref} <- upgrade(conn, uri, state.token) do
-      %{state | conn: conn, ref: ref, uri: uri, welcomed?: false, confirmed: MapSet.new()}
+      schedule_liveness_check()
+
+      %{
+        state
+        | conn: conn,
+          ref: ref,
+          uri: uri,
+          welcomed?: false,
+          confirmed: MapSet.new(),
+          last_frame_at: now_ms()
+      }
     else
       false ->
         # No CABLE_URL: inert by design, not an error. Events still flow over
@@ -429,6 +468,23 @@ defmodule Connectix.Realtime.CableClient do
     Process.send_after(self(), :reconnect, delay)
 
     %{state | conn: nil, websocket: nil, ref: nil, welcomed?: false, attempts: attempts}
+  end
+
+  defp schedule_liveness_check,
+    do: Process.send_after(self(), :liveness, div(@recv_timeout, 3))
+
+  defp now_ms, do: System.monotonic_time(:millisecond)
+
+  # Closing is best effort. The whole point of this path is that the socket is
+  # in a state nobody understands, and Mint raises on a connection it does not
+  # recognise — so a failure here must not take down the process whose job is
+  # to reconnect.
+  defp safe_close(conn) do
+    Mint.HTTP.close(conn)
+  rescue
+    _ -> :ok
+  catch
+    _, _ -> :ok
   end
 
   @doc false
