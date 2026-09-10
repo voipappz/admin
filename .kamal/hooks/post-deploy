@@ -117,6 +117,16 @@ else
   FAIL=1
 fi
 
+# THE GATES, asserted as REFUSALS.
+#
+# Every check above asks "does it answer?", and a surface that answers when it
+# should refuse passes all of them. `/metrics` sat in no pipeline at all and
+# published the host's disk, CPU, load and BEAM internals to anyone who found
+# the URL — a 200 there is a failure, not a success, and nothing here would
+# have said so.
+probe "GET  /metrics                 (must refuse: 401)" "/metrics" 401
+probe "GET  /chat                    (must refuse: 401)" "/chat" 401
+
 # React bundle is served (the SPA shell / login page loads).
 probe "GET  /                        (frontend)" "/" 200
 

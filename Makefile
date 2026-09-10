@@ -299,9 +299,24 @@ kamal-push: ## [DEST=x] Build and push the image only, no container swap
 	$(require_dest)
 	$(KAMAL) build push -d $(DEST)
 
+# The address the post-deploy hook probes, derived from the destination's own
+# `proxy.hosts` rather than hardcoded.
+#
+# The hook has always existed and has always SKIPPED: it probes only when
+# KAMAL_HEALTHCHECK_URL names the deployed host, the Makefile only passed the
+# variable through (`-e KAMAL_HEALTHCHECK_URL`) and never set it, so every
+# deploy printed "skipping smoke checks" in 0.003s and nobody noticed. Paying
+# for smoke checks and not running them is worse than not having them, because
+# the deploy still reports success.
+#
+# Derived, not written down twice: a second copy of the hostname is a second
+# thing to forget when a destination moves.
+dest_url = https://$(shell awk '/^proxy:/{p=1} p&&/^ *- /{gsub(/^ *- /,"");print;exit}' config/deploy.$(DEST).yml)
+
 deploy: ## [DEST=x] Build, push and swap the container — make deploy DEST=connectix
 	$(require_dest)
-	$(KAMAL) deploy -d $(DEST)
+	@echo "==> post-deploy smoke checks will run against $(dest_url)"
+	KAMAL_HEALTHCHECK_URL=$(dest_url) $(KAMAL) deploy -d $(DEST)
 
 # There is no single "production". Kamal has a destination per customer, each
 # with its own host and image, which is exactly why a bare deploy was able to
