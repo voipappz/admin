@@ -203,3 +203,119 @@ lives elsewhere. Production Kamal destinations set `ENGINE_URL` in mothership.
 - Prefer simple solutions; exhaust existing patterns before introducing new
   ones. Never add fake/stub data outside tests. Never overwrite `.env` without
   confirmation.
+
+## Running this in production — what was measured
+
+Everything below was measured on the `connectix` destination
+(nimbus-connectix.voipappz.io), not reasoned about. Each item cost real
+debugging time; none of it is discoverable from the code alone.
+
+### The screen pop
+
+**Identity is the `powerlink_token`, and it is resolved once per socket
+connect.** The switch names an agent by `meta.CC-Agent` — which it also copies
+to `user_uuid` and into the event `id`'s last segment — and that value is the
+user's `profile.powerlink_token`, never the portal uuid.
+
+**The cable client outlives one browser socket, so the FIRST connect is the
+only one that ever supplied agent ids — and it is the one most likely to have
+none.** A user created minutes before they log in has no `powerlink_token`
+yet, so the client starts with `agent_ids: []` and refuses every pop for as
+long as it lives; logging in again does not help, because `ensure_cable/1` sees
+`{:already_started, _}`. It now hands the ids over instead. This was the "pops
+never fire" bug, and the symptom is total silence, not an error.
+
+**One trigger: `bridge-agent-start`.** The dedupe key is per
+`(event name, agent, call)`, so accepting two spellings of the same fact pops
+twice — `agent-offering` and `bridge-agent-start` for one call opened two tabs.
+`agent-offering` also fires once per agent the queue *tries*, so one caller
+ringing four agents would open a CRM record for three people who never took
+the call. `agent-state-change` into "In a queue call" is the same fact a third
+time and carries no call id to dedupe against, so it stays out until the key is
+call-scoped.
+
+**`call_id/1` falls back to the event's own `id`**, which the switch builds as
+`<action>_<session>_<member>_<agent>`. So anything derived from it silently
+changes meaning when the trigger changes. That is why the CRM URL carries only
+`{phone}`.
+
+A frame arriving does not mean it arrives promptly: the node delivered one
+call's entire event burst ~18 seconds AFTER the call ended.
+
+### The event store
+
+**Volume is the whole story.** A live switch produced ~146,000 rows and ~556MB
+of raw JSON a DAY. 86% of it was `complete` frames at 8.6KB each and another 7%
+`custom` — FreeSWITCH channel variables (`variable_*`), which nothing reads.
+Trimming them took `complete` from 8,953 to 320 bytes, a 28× cut. `headers`
+stored them too, so every frame counted twice.
+
+**DuckDB has no TTL and never returns disk.** Measured on a copy of the live
+store, v1.5.5: 39,865 rows occupied 348MB; deleting half left it at 348MB;
+`CHECKPOINT` and `VACUUM` changed nothing. Freed space is reused by later
+inserts, so pruning bounds growth but cannot shrink a file that has already
+ballooned — hence compaction, which rewrites live rows into a fresh file.
+
+**`Events.recent/1` silently caps at 1000 rows** and `search/2` does a `LIKE`
+scan that can exceed its own 15s call timeout — and when it does, every other
+call queues behind it and times out too, including `stats/0`, which then
+reports the store as closed. Both of these produced confidently wrong
+conclusions during debugging. Prefer `Events.open?/0` (a `:persistent_term`
+read) on any hot path.
+
+### Deploys
+
+**Kamal starts the new container, health-checks it, and only THEN stops the
+old one** — so both run for a few seconds and DuckDB, being single-writer,
+refuses the loser. It used to give up permanently and store nothing for the
+life of that container; it now retries every 5s and recovers in about one
+attempt, visible as `events: storing to … (opened on retry)`.
+
+**buildkit's push to the registry hangs on this network** — three deploys froze
+at `exporting to registry` with zero bytes of traffic and 0% CPU for minutes,
+each having built the release successfully. `docker push` moved the same image
+first try. Hence `builder: driver: docker` for this destination. MTU is 1500
+everywhere, so it is the builder container's egress, not fragmentation.
+
+**Kamal tags images by commit SHA**, so rewriting history orphans the tag of a
+running container. Redeploy afterwards to restore traceability.
+
+An SSH timeout while *releasing the deploy lock* is not a failed deploy — check
+what is actually running before retrying.
+
+### Monitoring
+
+`/health` (unauthenticated, no content negotiation) reports `cable`,
+`api_relay`, `engine`, `events` and `disk`, with numbers on the disk check so a
+monitor can alert BEFORE the floor. `/health/ready` deliberately does NOT fail
+on low disk: it is the deploy gate and the load-balancer signal, and failing it
+would take the site down and block the deploy that might fix it.
+
+`/metrics` is Basic Auth'd (`:admin` pipeline, no `:accepts` — a scraper sends
+no Accept header and would get 406). It carries host disk/CPU/load/memory and
+BEAM gauges from `:os_mon`, so the node is its own collector and needs no
+telegraf or node_exporter.
+
+`Connectix.Heartbeat` pushes to an Uptime Kuma **push** monitor with the reason
+attached (`down / disk: 8% free on /data`), which a `curl` healthcheck cannot
+express — and the release image has neither `curl` nor `wget`.
+
+**A connection can die without saying so.** `@recv_timeout` was declared and
+never armed: when a NAT or load balancer drops an established cable connection
+there is no close frame and no error, `Mint` reports nothing, and the process
+holds a dead socket until something restarts it. Default TCP keepalive is two
+hours, which is why the symptom was "notifications stop after a few hours".
+Both cable connections now treat 60s of silence as death. The singleton
+`ApiProxy` is the worse one to lose: it carries `CallEvents` for every user, so
+its death looks exactly like a quiet switch.
+
+### The host
+
+20GB volume shared by the DuckDB store, Mnesia and Docker's images. It reached
+95% used with 1GB free while `/health/ready` answered 200 — six deploys' worth
+of 1.18–2.17GB images plus an untrimmed event store. Prune images as well as
+events; `docker system df` shows what is reclaimable.
+
+Load reached 15 on 4 cores under event ingestion, with `ApiProxy` the dominant
+consumer — decoding the firehose, not writing it. The trim reduces write cost,
+not decode cost.
