@@ -73,6 +73,7 @@ defmodule Connectix.Application do
           Connectix.WebRtc.SipBridge
         ] ++
         Connectix.Realtime.ApiProxy.children() ++
+        Connectix.Heartbeat.children() ++
         [
           # Sagents infrastructure (registry + dynamic supervisors).
           #

@@ -509,6 +509,27 @@ defmodule Connectix.Config do
   def events_dir, do: env("EVENTS_DIR") || Path.join(data_dir(), "events")
 
   @doc """
+  Full Uptime Kuma **push** URL for this node (`UPTIME_KUMA_PUSH_URL`), or
+  `nil`.
+
+  Shaped `https://<kuma>/api/push/<token>` — the token IS the credential, so
+  it belongs in the environment beside the other secrets and never in a
+  manifest. Unset, `Connectix.Heartbeat` does not start.
+  """
+  @spec uptime_push_url() :: String.t() | nil
+  def uptime_push_url, do: env("UPTIME_KUMA_PUSH_URL")
+
+  @doc """
+  How often to push (`UPTIME_KUMA_PUSH_INTERVAL_MS`), default 60s.
+
+  Keep it comfortably under the monitor's own heartbeat interval in Kuma, or a
+  healthy node alarms for being slow rather than for being ill.
+  """
+  @spec uptime_push_interval_ms() :: pos_integer()
+  def uptime_push_interval_ms,
+    do: int_env("UPTIME_KUMA_PUSH_INTERVAL_MS", 60_000, 5_000..3_600_000)
+
+    @doc """
   Free-space floor for the data volume, as a percentage
   (`DISK_MIN_FREE_PERCENT`), default 15.
 
