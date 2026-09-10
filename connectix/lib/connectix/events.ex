@@ -386,16 +386,61 @@ defmodule Connectix.Events do
   end
 
   defp from_frame(source, event) do
+    trimmed = trim(event)
+
     %{
       "src" => source,
       "sid" => sid_of(event),
       "label" => dig(event, "action") || dig(event, "event"),
-      "headers" => Map.drop(event, @bulk_keys),
-      "raw" => Jason.encode!(event),
-      # The frame's identity, so a re-delivery is the same row.
+      "headers" => Map.drop(trimmed, @bulk_keys),
+      "raw" => Jason.encode!(trimmed),
+      # The frame's identity, so a re-delivery is the same row. Computed from
+      # the ORIGINAL event: trimming must not change which row a frame is.
       "id" => identity(event)
     }
   end
+
+  # Drop FreeSWITCH's channel variables before storing.
+  #
+  # They are the store, near enough. Measured on nimbus-connectix: `complete`
+  # frames were 143MB of 166MB — 86% — at 8.6KB each, and `custom` another 7%.
+  # A single frame carries hundreds of `variable_*` keys
+  # (`variable_rtp_audio_out_packet_count`, `variable_sofia_profile_name`, the
+  # whole channel), and NOTHING reads them: they are not triggers, they name
+  # no agent, and the pop path never looks at them. They were costing ~556MB
+  # of raw JSON a day on a volume shared with Mnesia.
+  #
+  # The frame is kept, not dropped — `complete` is the closest thing to a CDR
+  # here and its non-variable fields are small. `variables_dropped` records
+  # that something was removed, so a frame that looks thin is explained rather
+  # than mysterious.
+  defp trim(event) when is_map(event) do
+    if Connectix.Config.events_keep_channel_variables?() do
+      event
+    else
+      Enum.reduce(["meta", "metadata"], event, &trim_variables/2)
+    end
+  end
+
+  defp trim(event), do: event
+
+  defp trim_variables(key, event) do
+    case Map.get(event, key) do
+      %{} = meta ->
+        kept = Map.reject(meta, fn {k, _v} -> channel_variable?(k) end)
+
+        case map_size(meta) - map_size(kept) do
+          0 -> event
+          n -> Map.put(event, key, Map.put(kept, "variables_dropped", n))
+        end
+
+      _absent ->
+        event
+    end
+  end
+
+  defp channel_variable?("variable_" <> _rest), do: true
+  defp channel_variable?(_key), do: false
 
   # The call first — that is what makes `timeline/1` a call's story rather than
   # an agent's. Then the user, then the frame's own id, so an event is never

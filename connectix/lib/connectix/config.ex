@@ -544,6 +544,17 @@ defmodule Connectix.Config do
   def disk_min_free_percent, do: int_env("DISK_MIN_FREE_PERCENT", 15, 0..99)
 
     @doc """
+  Whether to store FreeSWITCH channel variables
+  (`EVENTS_KEEP_CHANNEL_VARIABLES`), default `false`.
+
+  They are 93% of what the store holds and nothing reads them — see
+  `Connectix.Events`. Set it to `1` to keep them while debugging a call, and
+  expect roughly fifteen times the disk.
+  """
+  @spec events_keep_channel_variables?() :: boolean()
+  def events_keep_channel_variables?, do: flag("EVENTS_KEEP_CHANNEL_VARIABLES", false)
+
+    @doc """
   How many days of events the store keeps (`EVENTS_RETENTION_DAYS`), default 7.
 
   The store had no retention at all, and this is not a tidiness question: a
@@ -708,6 +719,18 @@ defmodule Connectix.Config do
     case System.get_env(key) do
       value when is_binary(value) and value != "" -> value
       _unset_or_blank -> nil
+    end
+  end
+
+  @doc """
+  A boolean environment variable: `1`, `true`, `yes` and `on` are true, and
+  anything else — including unset and `""` — is the default.
+  """
+  @spec flag(String.t(), boolean()) :: boolean()
+  def flag(key, default) do
+    case env(key) do
+      nil -> default
+      value -> String.downcase(value) in ["1", "true", "yes", "on"]
     end
   end
 

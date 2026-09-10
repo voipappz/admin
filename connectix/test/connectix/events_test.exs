@@ -76,6 +76,87 @@ defmodule Connectix.EventsTest do
 
   defp sync(store), do: Events.stats(store)
 
+  describe "channel variables" do
+    # 86% of everything the store held was `complete` frames at 8.6KB each,
+    # and `custom` another 7% — hundreds of `variable_*` keys per frame, none
+    # of which anything reads. ~556MB of raw JSON a day, on a volume shared
+    # with Mnesia.
+    @channel_frame %{
+      "action" => "complete",
+      "call_uuid" => "call-trim",
+      "caller_id_number" => "0501234567",
+      "meta" => %{
+        "CC-Agent" => "agent-1",
+        "variable_rtp_audio_out_packet_count" => "1848",
+        "variable_sofia_profile_name" => "external",
+        "variable_playback_ms" => "7290"
+      }
+    }
+
+    test "are dropped, and the drop is recorded", %{store: store} do
+      Events.record(store, "CallEvents", @channel_frame)
+      sync(store)
+
+      {:ok, [row]} = Events.recent(store, [])
+      raw = Jason.decode!(row["raw"])
+
+      refute raw["meta"]["variable_rtp_audio_out_packet_count"]
+      refute raw["meta"]["variable_sofia_profile_name"]
+
+      # What matters is kept.
+      assert raw["meta"]["CC-Agent"] == "agent-1"
+      assert raw["caller_id_number"] == "0501234567"
+      assert raw["action"] == "complete"
+
+      # And a thinned frame says so rather than looking mysteriously sparse.
+      assert raw["meta"]["variables_dropped"] == 3
+    end
+
+    test "a frame with none is untouched — no marker, no change", %{store: store} do
+      Events.record(store, "CallEvents", %{
+        "action" => "bridge-agent-start",
+        "call_uuid" => "call-clean",
+        "meta" => %{"CC-Agent" => "agent-1"}
+      })
+
+      sync(store)
+      {:ok, [row]} = Events.recent(store, [])
+      raw = Jason.decode!(row["raw"])
+
+      assert raw["meta"] == %{"CC-Agent" => "agent-1"}
+      refute Map.has_key?(raw["meta"], "variables_dropped")
+    end
+
+    test "trimming does not change which row a frame is", %{store: store} do
+      # The id comes from the ORIGINAL event, so a re-delivery still dedupes.
+      Events.record(store, "CallEvents", @channel_frame)
+      Events.record(store, "CallEvents", @channel_frame)
+      sync(store)
+
+      assert Events.stats(store).count == 1
+    end
+
+    test "the escape hatch keeps them, for debugging a call", %{store: store} do
+      previous = System.get_env("EVENTS_KEEP_CHANNEL_VARIABLES")
+      System.put_env("EVENTS_KEEP_CHANNEL_VARIABLES", "1")
+
+      try do
+        Events.record(store, "CallEvents", @channel_frame)
+        sync(store)
+
+        {:ok, [row]} = Events.recent(store, [])
+        raw = Jason.decode!(row["raw"])
+
+        assert raw["meta"]["variable_sofia_profile_name"] == "external"
+        refute Map.has_key?(raw["meta"], "variables_dropped")
+      after
+        if previous,
+          do: System.put_env("EVENTS_KEEP_CHANNEL_VARIABLES", previous),
+          else: System.delete_env("EVENTS_KEEP_CHANNEL_VARIABLES")
+      end
+    end
+  end
+
   describe "retention" do
     # A live switch writes ~146,000 rows and ~556MB of raw JSON a DAY — measured
     # on nimbus-connectix, where the file reached 557MB in six hours against
