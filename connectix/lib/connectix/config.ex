@@ -509,6 +509,20 @@ defmodule Connectix.Config do
   def events_dir, do: env("EVENTS_DIR") || Path.join(data_dir(), "events")
 
   @doc """
+  Free-space floor for the data volume, as a percentage
+  (`DISK_MIN_FREE_PERCENT`), default 15.
+
+  Below this the `/health` report goes `degraded` with a `disk` check that
+  names the mount and what is left, which is the signal an external monitor
+  alerts on. It deliberately does NOT fail `/health/ready`: that is the deploy
+  gate and the load-balancer signal, and a node low on disk can still serve
+  traffic — failing it would take the site down AND block the deploy that
+  might fix it.
+  """
+  @spec disk_min_free_percent() :: non_neg_integer()
+  def disk_min_free_percent, do: int_env("DISK_MIN_FREE_PERCENT", 15, 0..99)
+
+    @doc """
   How many days of events the store keeps (`EVENTS_RETENTION_DAYS`), default 7.
 
   The store had no retention at all, and this is not a tidiness question: a

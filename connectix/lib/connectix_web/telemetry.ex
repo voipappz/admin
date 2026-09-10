@@ -106,6 +106,35 @@ defmodule ConnectixWeb.Telemetry do
         description: "SIP call lifecycle by outcome"
       ),
 
+      # HOST AND VM — the numbers an external monitor alerts on. `last_value`
+      # rather than `summary`: a gauge is what "how full is the disk right
+      # now" means, and averaging it across a scrape window hides the spike.
+      last_value("connectix.system.disk_free_percent",
+        description: "Free space on the data volume, percent"
+      ),
+      last_value("connectix.system.disk_free_bytes", description: "Free space on the data volume"),
+      last_value("connectix.system.disk_total_bytes", description: "Size of the data volume"),
+      last_value("connectix.system.disk_used_percent", description: "Used space, percent"),
+      last_value("connectix.system.cpu_load1", description: "1-minute load average"),
+      last_value("connectix.system.cpu_load5", description: "5-minute load average"),
+      last_value("connectix.system.cpu_load15", description: "15-minute load average"),
+      last_value("connectix.system.cpu_util_percent", description: "CPU busy since last sample"),
+      last_value("connectix.system.mem_system_total_bytes", description: "Host memory"),
+      last_value("connectix.system.mem_system_free_bytes", description: "Host memory free"),
+      last_value("connectix.system.mem_beam_total_bytes", description: "BEAM memory"),
+      last_value("connectix.system.mem_beam_processes_bytes", description: "BEAM process memory"),
+      last_value("connectix.system.mem_beam_binary_bytes", description: "BEAM binary memory"),
+      last_value("connectix.system.mem_beam_ets_bytes", description: "BEAM ETS memory"),
+      last_value("connectix.system.process_count", description: "Live processes"),
+      last_value("connectix.system.process_limit", description: "Process limit"),
+      last_value("connectix.system.port_count", description: "Open ports"),
+      last_value("connectix.system.run_queue", description: "Total run queue length"),
+      last_value("connectix.system.uptime_seconds", description: "Node uptime"),
+      last_value("connectix.system.events_store_open",
+        description: "1 when the DuckDB event store is open, 0 when it is not"
+      ),
+      last_value("connectix.system.events_db_bytes", description: "Size of the event store file"),
+
       # VM Metrics
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
       summary("vm.total_run_queue_lengths.total"),
@@ -117,15 +146,18 @@ defmodule ConnectixWeb.Telemetry do
   def prometheus_metrics do
     Enum.filter(metrics(), fn metric ->
       match?([:connectix, :screen_pop | _rest], metric.name) or
-        match?([:connectix, :call | _rest], metric.name)
+        match?([:connectix, :call | _rest], metric.name) or
+        match?([:connectix, :system | _rest], metric.name)
     end)
   end
 
   defp periodic_measurements do
     [
-      # A module, function and arguments to be invoked periodically.
-      # This function must call :telemetry.execute/3 and a metric must be added above.
-      # {ConnectixWeb, :count_users, []}
+      # Host and VM sampling — disk, CPU, memory, BEAM counts, event store.
+      # See `Connectix.SystemMetrics`: `:os_mon` is already measuring these on
+      # its own timers, so this reads them rather than shelling out, and the
+      # portal needs no telegraf or node_exporter beside it.
+      {Connectix.SystemMetrics, :dispatch, []}
     ]
   end
 end

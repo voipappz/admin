@@ -109,7 +109,24 @@ defmodule ConnectixWeb.HealthController do
               else: " (the node has not confirmed the ApiProxy channel)"
             )
         ),
-      engine: check(engine?(), "ENGINE_URL is not set — /auth and /api are not forwarded")
+      engine: check(engine?(), "ENGINE_URL is not set — /auth and /api are not forwarded"),
+
+      # THE ONE THAT ENDS A DEPLOYMENT. The event store and Mnesia share this
+      # volume; a live switch writes ~556MB of raw JSON a day, and when it
+      # fills, the conversation store goes with the events. nimbus-connectix
+      # sat at 71% used while this endpoint reported nothing at all.
+      #
+      # Reported here rather than in `ready/2` on purpose: that is the deploy
+      # gate and the load-balancer signal, and a node low on disk can still
+      # serve traffic. Failing it would take the site down AND block the
+      # deploy that might fix it.
+      disk: disk_check(),
+
+      # An event store that cannot open its file records nothing, silently. It
+      # happens on every deploy — kamal overlaps the containers and DuckDB is
+      # single-writer — and it now retries, so this being down means the retry
+      # is not winning and someone should look.
+      events: check(Connectix.Events.open?(), "the event store is not open — events are not recorded")
     }
 
     down? = Enum.any?(checks, fn {_name, check} -> check.status == "down" end)
@@ -123,6 +140,39 @@ defmodule ConnectixWeb.HealthController do
 
   defp check(true, _detail), do: %{status: "ok"}
   defp check(false, detail), do: %{status: "down", detail: detail}
+
+  # Numbers as well as a verdict: an external monitor wants to alert BEFORE
+  # the threshold ("free_percent < 25"), and a bare ok/down cannot say that.
+  defp disk_check do
+    case Connectix.Disk.usage() do
+      nil ->
+        # Unmeasurable is not full. Say so rather than paging someone.
+        %{status: "ok", detail: "disk usage could not be read"}
+
+      %{mount: mount, free_percent: free, free_bytes: bytes, total_bytes: total} = usage ->
+        floor = Connectix.Config.disk_min_free_percent()
+
+        base = %{
+          mount: mount,
+          free_percent: free,
+          used_percent: usage.used_percent,
+          free_bytes: bytes,
+          total_bytes: total,
+          min_free_percent: floor
+        }
+
+        if free >= floor do
+          Map.put(base, :status, "ok")
+        else
+          base
+          |> Map.put(:status, "down")
+          |> Map.put(
+            :detail,
+            "#{free}% free on #{mount} (floor #{floor}%) — the event store and Mnesia share it"
+          )
+        end
+    end
+  end
 
   defp engine? do
     (System.get_env("ENGINE_URL") || System.get_env("MOTHERSHIP_URL") || "") != ""

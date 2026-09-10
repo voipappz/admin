@@ -201,6 +201,14 @@ defmodule Connectix.Events do
   def search(server, q, opts) when is_binary(q), do: read(server, {:search, q, opts})
 
   @doc """
+  Whether the store currently has its file open, without calling the process.
+
+  For health checks and anything else on a hot path — see `mark_open/1`.
+  """
+  @spec open?() :: boolean()
+  def open?, do: :persistent_term.get({__MODULE__, :open?}, false)
+
+  @doc """
   What this store is doing: `:open?`, `:count`, `:written`, `:errors`, `:path`.
 
   Also the one synchronous point in the API, so tests use it to wait for casts
@@ -231,6 +239,7 @@ defmodule Connectix.Events do
     case open(path) do
       {:ok, db, conn} ->
         Logger.info("events: storing to #{path}")
+        mark_open(true)
         schedule_prune()
         {:ok, %__MODULE__{db: db, conn: conn, path: path}}
 
@@ -239,6 +248,7 @@ defmodule Connectix.Events do
         # the realtime path with it. Logged once, here, and never again per
         # dropped write — a store that cannot open drops every frame, and one
         # line per frame is how a disk fills.
+        mark_open(false)
         Logger.error("events: cannot open #{path} (#{inspect(reason)}) — retrying")
         {:ok, %__MODULE__{db: nil, conn: nil, path: path}, {:continue, :retry_open}}
     end
@@ -255,6 +265,7 @@ defmodule Connectix.Events do
     case open(path) do
       {:ok, db, conn} ->
         Logger.info("events: storing to #{path} (opened on retry)")
+        mark_open(true)
         schedule_prune()
         {:noreply, %{state | db: db, conn: conn}}
 
@@ -510,6 +521,16 @@ defmodule Connectix.Events do
   # ── retention ────────────────────────────────────────────────────────────
 
   defp schedule_prune, do: Process.send_after(self(), :prune, @prune_every_ms)
+
+  # Whether the store is writable, readable WITHOUT a call.
+  #
+  # `stats/0` answers the same question but is a GenServer call with a 15s
+  # timeout, and this store demonstrably blocks: one `search/2` over the raw
+  # column ran past 15s and every call queued behind it timed out, `stats/0`
+  # included. A health endpoint polled every few seconds must not be able to
+  # hang on a slow query — least of all to report that the thing it is
+  # querying is unhealthy.
+  defp mark_open(open?), do: :persistent_term.put({__MODULE__, :open?}, open?)
 
   # Drop everything past the window, then reclaim the file if enough of it is
   # now dead.
