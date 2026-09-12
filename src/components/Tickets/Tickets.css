@@ -1,0 +1,54 @@
+.tickets-container {
+  background-color: #f5f5f5;
+}
+
+.tickets-sidebar {
+  background-color: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.tickets-content {
+  background-color: #fff;
+}
+
+/* Stats bar */
+.tickets-stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background-color: #fafafa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.tickets-stats .MuiChip-root {
+  font-weight: 500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 960px) {
+  .tickets-container {
+    flex-direction: column !important;
+    height: auto !important;
+  }
+
+  .tickets-sidebar {
+    width: 100% !important;
+    max-height: 400px !important;
+  }
+
+  .tickets-stats {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 600px) {
+  .tickets-stats {
+    padding: 8px 12px;
+  }
+
+  .tickets-stats .MuiChip-root {
+    font-size: 0.75rem;
+  }
+}

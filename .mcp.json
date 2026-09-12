@@ -1,0 +1,14 @@
+{
+  "$comment": [
+    "The VoIPappz API exposes an MCP server over HTTP, so an agent can query the",
+    "live contract and live data instead of a copy that has drifted.",
+    "VA_API_URL overrides the host; it must match the VITE_API_BASE_URL in .env",
+    "for the agent and the app to be looking at the same instance."
+  ],
+  "mcpServers": {
+    "voipappz-api": {
+      "type": "http",
+      "url": "${VA_API_URL:-https://cloud.voipappz.io}/tasks/mcp"
+    }
+  }
+}

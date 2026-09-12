@@ -1,0 +1,520 @@
+/* Sidebar Container - LIGHT Theme inspired by Sentry */
+.sidebar-container {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 80px;
+  background: #f9fafb;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  z-index: 1200;
+  box-shadow: 1px 0 3px rgba(0, 0, 0, 0.05);
+  transition: width 0.25s ease, transform 0.25s ease;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.sidebar-container.collapsed {
+  width: 0;
+  border-right: none;
+  box-shadow: none;
+}
+
+/* Expanded (labeled) rail — toggled by the hamburger */
+.sidebar-container.expanded {
+  width: 210px;
+}
+
+/* Hamburger row at the top (replaces the logo) */
+.sidebar-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 6px 0;
+  flex-shrink: 0;
+}
+
+.sidebar-container.expanded .sidebar-top {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 6px 8px;
+}
+
+.sidebar-menu-toggle {
+  color: #6b7280 !important;
+  border-radius: 8px !important;
+}
+
+.sidebar-menu-toggle:hover {
+  background-color: #f3f4f6 !important;
+  color: #374151 !important;
+}
+
+.sidebar-brand-logo {
+  height: 22px;
+  opacity: 1;
+  display: block;
+}
+
+[data-theme="dark"] .sidebar-brand-logo {
+  filter: invert(1) brightness(2);
+}
+
+/* Expanded: nav rows become icon + label on one line, left-aligned */
+.sidebar-container.expanded .sidebar-nav-button {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 8px 12px;
+  margin: 1px 8px;
+}
+
+/* Compact (icon) mode: icons only — no label text next to the icon */
+.sidebar-container:not(.expanded) .sidebar-nav-text {
+  display: none;
+}
+
+/* Expanded: show the label inline, in the SAME font as the customer selector
+   (14px / weight 600 active) so the whole sidebar reads as one type system. */
+.sidebar-container.expanded .sidebar-nav-text {
+  max-width: none;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 1;
+}
+
+.sidebar-container.expanded .sidebar-bottom-tools {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+[data-theme="dark"] .sidebar-menu-toggle {
+  color: #a0aec0 !important;
+}
+
+[data-theme="dark"] .sidebar-menu-toggle:hover {
+  background-color: #2d3748 !important;
+  color: #e2e8f0 !important;
+}
+
+
+
+/* Support Menu Section */
+.sidebar-support-menu-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+[data-theme="dark"] .sidebar-support-menu-section {
+  border-bottom-color: #4a5568;
+}
+
+/* Navigation List — sizes to its content so the admin section flows directly
+   after it (no stretch-to-bottom gap between Bots and Services). */
+.sidebar-nav-list {
+  flex: 0 0 auto;
+  padding: 8px 0 4px;
+  overflow-x: hidden;
+}
+
+.sidebar-nav-list::-webkit-scrollbar {
+  width: 3px;
+}
+
+.sidebar-nav-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav-list::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 2px;
+}
+
+.sidebar-nav-list::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Navigation Items - Icon Only (Sentry Style) */
+.sidebar-nav-item {
+  margin-bottom: 0;
+}
+
+.sidebar-nav-button {
+  border-radius: 9px;
+  margin: 0 8px;
+  padding: 4px 4px;
+  color: #6b7280;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-height: 36px;
+}
+
+.sidebar-nav-button:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.sidebar-nav-button.active {
+  background-color: rgba(101, 117, 142, 0.14);
+  color: #65758E;
+  font-weight: 600;
+}
+
+.sidebar-nav-icon {
+  color: inherit;
+  min-width: auto;
+  justify-content: center;
+  margin: 0;
+}
+
+.sidebar-nav-icon svg {
+  font-size: 18px;
+}
+
+.sidebar-nav-text {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 400;
+  line-height: 1.15;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 64px;
+  color: inherit;
+  opacity: 0.9;
+}
+
+.sidebar-nav-button.active .sidebar-nav-text {
+  font-weight: 600;
+  opacity: 1;
+}
+
+/* Admin section — flows right after the day-to-day items (no gap, no divider) */
+.sidebar-admin-section {
+  padding: 0 0 6px;
+  flex-shrink: 0;
+}
+
+/* Group Labels */
+.sidebar-group-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px 2px;
+  margin-top: 4px;
+}
+
+.sidebar-group-text {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #9ca3af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-theme="dark"] .sidebar-group-text {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Bottom Section */
+.sidebar-top-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.sidebar-bottom-section {
+  padding: 0;
+  border-top: 1px solid #e5e7eb;
+  margin-top: auto;
+}
+
+.sidebar-bottom-list {
+  padding: 0;
+}
+
+/* Notifications Section */
+.sidebar-notifications-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+}
+
+.sidebar-notifications-section .sidebar-profile-button {
+  padding: 8px;
+}
+
+.sidebar-notifications-section .sidebar-profile-button:hover {
+  background-color: #f3f4f6;
+}
+
+/* Bottom tools — theme / help / docs, stacked above the account */
+.sidebar-bottom-tools {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 5px 4px;
+  border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+/* Inline vertical separator — keeps Monitoring/Syslog on the SAME line as the
+   theme/help/devzone/tickets tools (no line break). */
+.sidebar-tool-divider {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--border-light, #e5e7eb);
+}
+[data-theme="dark"] .sidebar-tool-divider { background: #4a5568; }
+
+.sidebar-tool-button {
+  color: #6b7280 !important;
+  border-radius: 8px !important;
+  padding: 4px !important;
+}
+
+.sidebar-tool-button:hover {
+  background-color: #f3f4f6 !important;
+  color: #374151 !important;
+}
+
+.sidebar-tool-button svg {
+  font-size: 16px;
+}
+
+[data-theme="dark"] .sidebar-bottom-tools {
+  border-top-color: #4a5568;
+}
+
+[data-theme="dark"] .sidebar-tool-button {
+  color: #a0aec0 !important;
+}
+
+[data-theme="dark"] .sidebar-tool-button:hover {
+  background-color: #2d3748 !important;
+  color: #e2e8f0 !important;
+}
+
+/* Profile Section */
+.sidebar-profile-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 0 8px;
+  border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.sidebar-profile-button {
+  padding: 4px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.sidebar-profile-button:hover {
+  background-color: #f3f4f6;
+}
+
+.sidebar-profile-avatar {
+  width: 30px;
+  height: 30px;
+  background-color: #65758E;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: none;
+  flex-shrink: 0;
+}
+
+/* Expanded: full profile row (avatar + name + email + chevron) */
+.sidebar-profile-section.expanded {
+  display: block;
+  padding: 6px 8px 8px;
+}
+.sidebar-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.sidebar-profile-row:hover {
+  background-color: #f3f4f6;
+}
+.sidebar-profile-meta {
+  flex: 1;
+  min-width: 0;
+}
+.sidebar-profile-name {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  line-height: 1.2;
+  color: #1f2733;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-profile-email {
+  font-size: 11px !important;
+  color: #6b7686;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-profile-chev {
+  font-size: 18px !important;
+  color: #9aa4b2;
+  flex-shrink: 0;
+}
+[data-theme="dark"] .sidebar-profile-row:hover { background-color: #2a3342; }
+[data-theme="dark"] .sidebar-profile-name { color: #e6ebf2; }
+
+/* Dark Mode Toggle Section (legacy — kept until cleanup) */
+.sidebar-theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* API status pill (replaces old user-profile slot at sidebar bottom) */
+.sidebar-api-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .sidebar-container {
+  background: #1a202c;
+  border-right: 1px solid #4a5568;
+}
+
+[data-theme="dark"] .sidebar-nav-button {
+  color: #a0aec0;
+}
+
+[data-theme="dark"] .sidebar-nav-button:hover {
+  background-color: #2d3748;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .sidebar-nav-button.active {
+  background-color: rgba(159, 122, 234, 0.18);
+  color: #9f7aea;
+}
+
+[data-theme="dark"] .sidebar-top-section {
+  border-bottom: 1px solid #4a5568;
+}
+
+[data-theme="dark"] .sidebar-bottom-section {
+  border-top: 1px solid #4a5568;
+}
+
+[data-theme="dark"] .sidebar-theme-toggle {
+  border-bottom: 1px solid #4a5568;
+}
+
+[data-theme="dark"] .sidebar-profile-section {
+  border-top: 1px solid #4a5568;
+}
+
+[data-theme="dark"] .sidebar-profile-button:hover {
+  background-color: #2d3748;
+}
+
+[data-theme="dark"] .sidebar-nav-list::-webkit-scrollbar-thumb {
+  background: #4a5568;
+}
+
+[data-theme="dark"] .sidebar-nav-list::-webkit-scrollbar-thumb:hover {
+  background: #718096;
+}
+
+/* Sidebar Footer Logo */
+.sidebar-footer-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 0 8px;
+}
+
+[data-theme="dark"] .sidebar-footer-logo img {
+  filter: grayscale(0.2);
+}
+
+/* Responsive Design */
+@media (max-width: 899px) {
+  .sidebar-container {
+    position: relative;
+    width: 80px;
+  }
+}
+
+/* Customer + environment trigger in the sidebar top (opens the combined box). */
+.sidebar-env-trigger {
+  width: 100%;
+  border-radius: 8px !important;
+  gap: 8px;
+  padding: 8px 10px !important;
+  color: var(--theme-text-primary);
+}
+.sidebar-env-trigger:hover { background: var(--theme-hover); }
+.sidebar-env-icon {
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  flex-shrink: 0;
+}
+
+/* Customer switcher avatar — mirrors the account avatar at the bottom so the
+   customer reads as text + avatar, consistent top and bottom. */
+.sidebar-env-avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background-color: #65758E;
+  flex-shrink: 0;
+}
+
+/* Collapsed rail: name/chevron hide (.sidebar-nav-text) — center the avatar so
+   it doesn't sit broken/left-aligned. */
+.sidebar-container:not(.expanded) .sidebar-env-trigger {
+  justify-content: center;
+  padding: 8px 0 !important;
+}

@@ -1,0 +1,124 @@
+# The gate. Everything here also runs from `make check`, so a red CI is
+# reproducible on a laptop without guessing which step differed.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # A new push to a branch cancels the run still in flight for the old commit.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: lint, unit, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      # A .PHONY target with no rule exits 0 and silently skips its step, so a
+      # deleted rule can make `make check` pass while doing less than it says.
+      - name: Makefile targets all have rules
+        run: make check-make
+
+      # A public repo makes a leaked credential permanent. Cheaper here than
+      # after a scraper finds it.
+      - name: No credentials in anything git would publish
+        run: make secrets
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit:run
+
+      - name: Production build
+        run: npm run build
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  e2e:
+    name: end-to-end (Playwright)
+    runs-on: ubuntu-latest
+    needs: check
+    timeout-minutes: 30
+    # The suite signs in to a real API, so it needs repository secrets.
+    #
+    # Two cases cannot have them, and both would fail for reasons nobody can fix
+    # in the PR: a fork (forks never receive secrets) and Dependabot (its runs
+    # get the separate `dependabot` secret scope, not this one -- which is what
+    # turned all twelve of its opening PRs red). `check` is the gate those can
+    # actually pass.
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install chromium --with-deps
+
+      # Absent secrets produce a login failure that reads like a product bug.
+      # Say which one is missing instead.
+      - name: Verify test credentials are configured
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          VA_TEST_OTP: ${{ secrets.VA_TEST_OTP }}
+        run: |
+          missing=""
+          for k in VITE_API_BASE_URL TEST_EMAIL TEST_PASSWORD VA_TEST_OTP; do
+            [ -n "${!k}" ] || missing="$missing $k"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::missing repository secrets:$missing"
+            echo "Settings -> Secrets and variables -> Actions"
+            exit 1
+          fi
+          echo "all four secrets present"
+
+      - name: Run Playwright
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          VA_TEST_OTP: ${{ secrets.VA_TEST_OTP }}
+        run: make test
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

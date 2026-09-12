@@ -1,0 +1,113 @@
+import React from 'react';
+import { Box, Paper, Typography } from '@mui/material';
+
+/**
+ * StatChips — the shared clickable counter-chip bar used across screens
+ * (extracted from the Calls summary counters so Calls / Users / Devices /
+ * live pop-outs all read the same). Each item is a small Paper "chip" with
+ * icon + value + label; clicking calls item.onClick. A `live` item gets a
+ * pulsing dot so real-time counters are visually distinct from historical ones.
+ *
+ * items: [{ key, label, value, icon, color?, colorVar?, active?, live?, onClick? }]
+ *   color:    an explicit hex (e.g. '#8b5cf6'); takes precedence
+ *   colorVar: a CSS var name (e.g. '--counter-total') matching the Calls theme
+ */
+const StatChips = ({ items = [], sx }) => {
+  if (!items.length) return null;
+
+  const colorOf = (item) =>
+    item.color || (item.colorVar ? `var(${item.colorVar})` : 'var(--theme-text-secondary)');
+
+  return (
+    <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', ...sx }}>
+      {items.map((item) => {
+        const clickable = typeof item.onClick === 'function';
+        const accent = colorOf(item);
+        return (
+          <Paper
+            key={item.key || item.label}
+            elevation={0}
+            role={clickable ? 'button' : undefined}
+            tabIndex={clickable ? 0 : undefined}
+            onClick={item.onClick}
+            onKeyDown={(e) => {
+              if (clickable && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                item.onClick(e);
+              }
+            }}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 1.5,
+              py: 0.75,
+              cursor: clickable ? 'pointer' : 'default',
+              userSelect: 'none',
+              border: '1px solid',
+              borderColor: item.active ? accent : 'var(--theme-border)',
+              borderRadius: '6px',
+              backgroundColor: item.active ? 'var(--theme-hover)' : 'var(--theme-bg-secondary)',
+              boxShadow: item.active ? 'var(--shadow-subtle)' : 'none',
+              transition: 'all 0.15s ease',
+              ...(clickable && {
+                '&:hover': {
+                  transform: 'translateY(-1px)',
+                  boxShadow: 'var(--shadow-subtle)',
+                  borderColor: accent,
+                  backgroundColor: 'var(--theme-hover)',
+                },
+              }),
+            }}
+          >
+            {item.live && (
+              <Box
+                component="span"
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: accent,
+                  flexShrink: 0,
+                  animation: 'statChipPulse 1.6s ease-in-out infinite',
+                  '@keyframes statChipPulse': {
+                    '0%, 100%': { opacity: 1, transform: 'scale(1)' },
+                    '50%': { opacity: 0.35, transform: 'scale(0.7)' },
+                  },
+                }}
+              />
+            )}
+            {item.icon &&
+              React.cloneElement(item.icon, {
+                sx: { fontSize: 18, color: accent, opacity: 0.9 },
+              })}
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                lineHeight: 1,
+                color: 'var(--theme-text-primary)',
+                fontFamily: 'Rubik, sans-serif',
+              }}
+            >
+              {item.value}
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                opacity: 0.9,
+                color: 'var(--theme-text-secondary)',
+                fontFamily: 'Rubik, sans-serif',
+              }}
+            >
+              {item.label}
+            </Typography>
+          </Paper>
+        );
+      })}
+    </Box>
+  );
+};
+
+export default StatChips;

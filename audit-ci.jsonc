@@ -1,0 +1,19 @@
+{
+  // audit-ci does NOT auto-discover this file — package.json's
+  // "security-scan" script passes it explicitly via --config. "moderate"
+  // is kept here too (redundant with the script's --moderate flag) so this
+  // file stays a complete, self-contained policy on its own.
+  "moderate": true,
+  //
+  // qs (transitive via body-parser -> express, a direct dependency used by
+  // server.js) has two moderate advisories with no non-breaking fix — the
+  // fix is Express 5, which changes server.js's SPA-fallback wildcard route
+  // (`app.get('*', ...)`) syntax (path-to-regexp v5 -> v6) and needs its own
+  // deliberate migration + testing, not a side effect of an unrelated change.
+  // Tracked, not silently ignored: remove this allowlist once that migration
+  // lands.
+  "allowlist": [
+    "GHSA-x5fp-wj9c-mxmx", // qs: array-limit bypass via bracket-key comma parsing
+    "GHSA-4mjr-xmp4-gh2g"  // qs: Denial of Service via Attacker Controlled isBuffer
+  ]
+}

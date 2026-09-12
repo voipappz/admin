@@ -1,0 +1,440 @@
+[
+  {
+    "id": 34576848986386,
+    "title": "Platform Overview",
+    "section": "What is Voipappz?",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576848986386-Platform-Overview"
+  },
+  {
+    "id": 34576853143314,
+    "title": "System Architecture Overview",
+    "section": "What is Voipappz?",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853143314-System-Architecture-Overview"
+  },
+  {
+    "id": 34576849024658,
+    "title": "Creating Your Account",
+    "section": "Your Account",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849024658-Creating-Your-Account"
+  },
+  {
+    "id": 34576849038866,
+    "title": "Logging In (2-Step OTP Authentication)",
+    "section": "Your Account",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849038866-Logging-In-2-Step-OTP-Authentication"
+  },
+  {
+    "id": 34576849047826,
+    "title": "Navigating the Admin Panel",
+    "section": "Your Account",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849047826-Navigating-the-Admin-Panel"
+  },
+  {
+    "id": 34576849062930,
+    "title": "Understanding the Dashboard",
+    "section": "Your Account",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849062930-Understanding-the-Dashboard"
+  },
+  {
+    "id": 34576849073810,
+    "title": "What is a DID?",
+    "section": "Key Concepts",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849073810-What-is-a-DID"
+  },
+  {
+    "id": 34576849092370,
+    "title": "What is an Extension?",
+    "section": "Key Concepts",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849092370-What-is-an-Extension"
+  },
+  {
+    "id": 34576853245714,
+    "title": "What is a Bridge?",
+    "section": "Key Concepts",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853245714-What-is-a-Bridge"
+  },
+  {
+    "id": 34576849133074,
+    "title": "What is an Environment?",
+    "section": "Key Concepts",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849133074-What-is-an-Environment"
+  },
+  {
+    "id": 34576849155218,
+    "title": "How a Call Flows Through the System",
+    "section": "Key Concepts",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849155218-How-a-Call-Flows-Through-the-System"
+  },
+  {
+    "id": 34576849168786,
+    "title": "Voipappz Glossary (A-Z)",
+    "section": "Glossary",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849168786-Voipappz-Glossary-A-Z"
+  },
+  {
+    "id": 34576849189394,
+    "title": "Admin Panel Walkthrough",
+    "section": "Portal Overview",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849189394-Admin-Panel-Walkthrough"
+  },
+  {
+    "id": 34576853325074,
+    "title": "Switching Between Environments",
+    "section": "Portal Overview",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853325074-Switching-Between-Environments"
+  },
+  {
+    "id": 34576853338130,
+    "title": "Users Screen Overview",
+    "section": "Users & Permissions",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853338130-Users-Screen-Overview"
+  },
+  {
+    "id": 34576853357842,
+    "title": "ACLs (Access Control Lists) — Defining Permissions",
+    "section": "Users & Permissions",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853357842-ACLs-Access-Control-Lists-Defining-Permissions"
+  },
+  {
+    "id": 34576853369106,
+    "title": "What are Environments?",
+    "section": "Environments",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853369106-What-are-Environments"
+  },
+  {
+    "id": 34576853385106,
+    "title": "Creating & Managing Environments",
+    "section": "Environments",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853385106-Creating-Managing-Environments"
+  },
+  {
+    "id": 34576849262226,
+    "title": "Account & Profile Settings",
+    "section": "Account Settings",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849262226-Account-Profile-Settings"
+  },
+  {
+    "id": 34576853404818,
+    "title": "DIDs Screen Walkthrough",
+    "section": "Phone Numbers Overview",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853404818-DIDs-Screen-Walkthrough"
+  },
+  {
+    "id": 34576849288594,
+    "title": "Creating a New DID",
+    "section": "Ordering & Setup",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849288594-Creating-a-New-DID"
+  },
+  {
+    "id": 34576853448466,
+    "title": "Editing DID Settings",
+    "section": "Ordering & Setup",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853448466-Editing-DID-Settings"
+  },
+  {
+    "id": 34576849319442,
+    "title": "Enabling, Disabling, and Deleting DIDs",
+    "section": "Ordering & Setup",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849319442-Enabling-Disabling-and-Deleting-DIDs"
+  },
+  {
+    "id": 34576849339154,
+    "title": "Bridge Types Overview",
+    "section": "Bridge Routing",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849339154-Bridge-Types-Overview"
+  },
+  {
+    "id": 34576849349522,
+    "title": "Number Bridge — Forward to Another Number",
+    "section": "Bridge Routing",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849349522-Number-Bridge-Forward-to-Another-Number"
+  },
+  {
+    "id": 34576853508114,
+    "title": "Extension Bridge — Route to a Phone",
+    "section": "Bridge Routing",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853508114-Extension-Bridge-Route-to-a-Phone"
+  },
+  {
+    "id": 34576853521938,
+    "title": "Queue Bridge — Route to Call Queue",
+    "section": "Bridge Routing",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853521938-Queue-Bridge-Route-to-Call-Queue"
+  },
+  {
+    "id": 34576849398290,
+    "title": "IVR Bridge — Route to Voice Menu",
+    "section": "Bridge Routing",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849398290-IVR-Bridge-Route-to-Voice-Menu"
+  },
+  {
+    "id": 34576853548690,
+    "title": "Announcement Bridge — Play a Message",
+    "section": "Bridge Routing",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853548690-Announcement-Bridge-Play-a-Message"
+  },
+  {
+    "id": 34576853566226,
+    "title": "Call Condition Bridge — Time/Caller-Based Routing",
+    "section": "Bridge Routing",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853566226-Call-Condition-Bridge-Time-Caller-Based-Routing"
+  },
+  {
+    "id": 34576849451922,
+    "title": "VML Bridge — Route via Script",
+    "section": "Bridge Routing",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849451922-VML-Bridge-Route-via-Script"
+  },
+  {
+    "id": 34576853586834,
+    "title": "Bot Bridge — Route to AI Voice Agent",
+    "section": "Bridge Routing",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853586834-Bot-Bridge-Route-to-AI-Voice-Agent"
+  },
+  {
+    "id": 34576853608082,
+    "title": "Caller ID Configuration",
+    "section": "Number Features",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853608082-Caller-ID-Configuration"
+  },
+  {
+    "id": 34576849513234,
+    "title": "What is an IVR?",
+    "section": "IVR (Interactive Voice Response)",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849513234-What-is-an-IVR"
+  },
+  {
+    "id": 34576849531538,
+    "title": "IVR Screen Walkthrough",
+    "section": "IVR (Interactive Voice Response)",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849531538-IVR-Screen-Walkthrough"
+  },
+  {
+    "id": 34576853667986,
+    "title": "Creating an IVR Menu",
+    "section": "IVR (Interactive Voice Response)",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853667986-Creating-an-IVR-Menu"
+  },
+  {
+    "id": 34576849566354,
+    "title": "Configuring Keypad Options (DTMF Routing)",
+    "section": "IVR (Interactive Voice Response)",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849566354-Configuring-Keypad-Options-DTMF-Routing"
+  },
+  {
+    "id": 34576849581842,
+    "title": "What is a Queue?",
+    "section": "Queues & Call Distribution",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849581842-What-is-a-Queue"
+  },
+  {
+    "id": 34576853712146,
+    "title": "Queue Screen Walkthrough",
+    "section": "Queues & Call Distribution",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853712146-Queue-Screen-Walkthrough"
+  },
+  {
+    "id": 34576853725202,
+    "title": "Creating a Queue",
+    "section": "Queues & Call Distribution",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853725202-Creating-a-Queue"
+  },
+  {
+    "id": 34576853737106,
+    "title": "What is a Call Condition?",
+    "section": "Call Conditions & Segments",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853737106-What-is-a-Call-Condition"
+  },
+  {
+    "id": 34576853752082,
+    "title": "Call Conditions Screen Walkthrough",
+    "section": "Call Conditions & Segments",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853752082-Call-Conditions-Screen-Walkthrough"
+  },
+  {
+    "id": 34576849651090,
+    "title": "Time-Based Routing (Business Hours)",
+    "section": "Call Conditions & Segments",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849651090-Time-Based-Routing-Business-Hours"
+  },
+  {
+    "id": 34576853793554,
+    "title": "What are Segments?",
+    "section": "Call Conditions & Segments",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853793554-What-are-Segments"
+  },
+  {
+    "id": 34576853801362,
+    "title": "What is an Announcement?",
+    "section": "Announcements",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853801362-What-is-an-Announcement"
+  },
+  {
+    "id": 34576853812882,
+    "title": "Announcements Screen Walkthrough",
+    "section": "Announcements",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853812882-Announcements-Screen-Walkthrough"
+  },
+  {
+    "id": 34576853826450,
+    "title": "Extensions Screen Walkthrough",
+    "section": "Extensions",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853826450-Extensions-Screen-Walkthrough"
+  },
+  {
+    "id": 34576853845266,
+    "title": "Extension Groups",
+    "section": "Extensions",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853845266-Extension-Groups"
+  },
+  {
+    "id": 34576849746450,
+    "title": "Yealink Phone Setup",
+    "section": "Desk Phones",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849746450-Yealink-Phone-Setup"
+  },
+  {
+    "id": 34576853886994,
+    "title": "ZoiPer Setup Guide",
+    "section": "Softphones",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853886994-ZoiPer-Setup-Guide"
+  },
+  {
+    "id": 34576853901842,
+    "title": "MicroSIP Setup Guide",
+    "section": "Softphones",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853901842-MicroSIP-Setup-Guide"
+  },
+  {
+    "id": 34576853914514,
+    "title": "WebRTC Portal Dialer",
+    "section": "Softphones",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576853914514-WebRTC-Portal-Dialer"
+  },
+  {
+    "id": 34576849807122,
+    "title": "What is a Bot?",
+    "section": "Bots (Voice AI Agents)",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849807122-What-is-a-Bot"
+  },
+  {
+    "id": 34576849827730,
+    "title": "Bots Screen Walkthrough",
+    "section": "Bots (Voice AI Agents)",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849827730-Bots-Screen-Walkthrough"
+  },
+  {
+    "id": 34576849840018,
+    "title": "What is VML?",
+    "section": "VML Scripts",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849840018-What-is-VML"
+  },
+  {
+    "id": 34576849850898,
+    "title": "VML Screen Walkthrough",
+    "section": "VML Scripts",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849850898-VML-Screen-Walkthrough"
+  },
+  {
+    "id": 34576849876498,
+    "title": "What is a Workflow?",
+    "section": "Workflows",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849876498-What-is-a-Workflow"
+  },
+  {
+    "id": 34576854030482,
+    "title": "Triggers Overview",
+    "section": "Triggers & Webhooks",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576854030482-Triggers-Overview"
+  },
+  {
+    "id": 34576849917714,
+    "title": "Dashboard Overview",
+    "section": "Dashboard",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849917714-Dashboard-Overview"
+  },
+  {
+    "id": 34576849928210,
+    "title": "Live Calls Screen",
+    "section": "Live Monitoring",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849928210-Live-Calls-Screen"
+  },
+  {
+    "id": 34576854082834,
+    "title": "Call Logs Screen",
+    "section": "Call Logs & CDR",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576854082834-Call-Logs-Screen"
+  },
+  {
+    "id": 34576849957906,
+    "title": "Reports Screen Walkthrough",
+    "section": "Reports",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849957906-Reports-Screen-Walkthrough"
+  },
+  {
+    "id": 34576849975954,
+    "title": "System Health Monitor",
+    "section": "System Health",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576849975954-System-Health-Monitor"
+  },
+  {
+    "id": 34576854133522,
+    "title": "Subscriptions Overview",
+    "section": "Subscriptions",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576854133522-Subscriptions-Overview"
+  },
+  {
+    "id": 34576850006290,
+    "title": "Tariff Configuration",
+    "section": "Tariffs & Rating",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576850006290-Tariff-Configuration"
+  },
+  {
+    "id": 34576854157202,
+    "title": "Wallet Management",
+    "section": "Wallets",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576854157202-Wallet-Management"
+  },
+  {
+    "id": 34576850031890,
+    "title": "Provider Management",
+    "section": "Providers & Routes",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576850031890-Provider-Management"
+  },
+  {
+    "id": 34576850042642,
+    "title": "Setting Up a New Customer (End-to-End)",
+    "section": "Setup Scenarios",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576850042642-Setting-Up-a-New-Customer-End-to-End"
+  },
+  {
+    "id": 34576850062738,
+    "title": "Configure Business Hours Routing",
+    "section": "Setup Scenarios",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576850062738-Configure-Business-Hours-Routing"
+  },
+  {
+    "id": 34576854225426,
+    "title": "Set Up Automatic Call Distribution (ACD)",
+    "section": "Setup Scenarios",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576854225426-Set-Up-Automatic-Call-Distribution-ACD"
+  },
+  {
+    "id": 34576850105362,
+    "title": "Click2Call Installation Guide",
+    "section": "Integrations",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576850105362-Click2Call-Installation-Guide"
+  },
+  {
+    "id": 34576854255890,
+    "title": "Why Can't I Make or Receive Calls?",
+    "section": "Troubleshooting",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576854255890-Why-Can-t-I-Make-or-Receive-Calls"
+  },
+  {
+    "id": 34576850126738,
+    "title": "Call Quality Issues (Jitter, Latency)",
+    "section": "Troubleshooting",
+    "html_url": "https://voipappz.zendesk.com/hc/en-us/articles/34576850126738-Call-Quality-Issues-Jitter-Latency"
+  }
+]

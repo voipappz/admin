@@ -1,0 +1,109 @@
+import React, { useState } from 'react';
+import { Box, Button, Paper, Stack, Typography, List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
+import StorageIcon from '@mui/icons-material/Storage';
+import FlagIcon from '@mui/icons-material/Flag';
+import DescriptionIcon from '@mui/icons-material/Description';
+import TuneIcon from '@mui/icons-material/Tune';
+import WidgetsIcon from '@mui/icons-material/Widgets';
+import RedisViewer from './RedisViewer.jsx';
+import FeatureFlags from './FeatureFlags.jsx';
+import SystemConfig from './SystemConfig.jsx';
+import AppConfig, { YamlView } from './AppConfig.jsx';
+
+const ProvisioningCatalog = () => (
+  <Box>
+    <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} gap={1} sx={{ mb: 2 }}>
+      <Box>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>API-owned provisioning catalog</Typography>
+        <Typography variant="body2" sx={{ color: 'var(--theme-text-secondary)' }}>
+          The live <code>config/schemas.yaml</code> source used by provisioning wizards and operational reference.
+        </Typography>
+      </Box>
+      <Button component="a" href="/schema" variant="outlined" size="small">Open provisioning wizard</Button>
+    </Stack>
+    <YamlView name="schemas" />
+  </Box>
+);
+
+// Settings option views — add a new entry here and it appears in the sidebar.
+const SECTIONS = [
+  {
+    key: 'app-config',
+    label: 'Config & Metrics',
+    description: 'YAML config, runtime settings, Yabeda metrics',
+    icon: <TuneIcon fontSize="small" />,
+    component: AppConfig,
+  },
+  {
+    key: 'features',
+    label: 'Feature Flags',
+    description: 'Per-user feature rollouts',
+    icon: <FlagIcon fontSize="small" />,
+    component: FeatureFlags,
+  },
+  {
+    key: 'provisioning-catalog',
+    label: 'Provisioning Catalog',
+    description: 'View the live schemas.yaml definitions',
+    icon: <WidgetsIcon fontSize="small" />,
+    component: ProvisioningCatalog,
+  },
+  {
+    key: 'system-config',
+    label: 'System Config',
+    description: 'View a node\'s va.yaml config',
+    icon: <DescriptionIcon fontSize="small" />,
+    component: SystemConfig,
+  },
+  {
+    key: 'redis',
+    label: 'Redis Viewer',
+    description: 'Browse and inspect Redis keys',
+    icon: <StorageIcon fontSize="small" />,
+    component: RedisViewer,
+  },
+];
+
+/**
+ * Settings — admin utility views, one section per tool (sidebar of option
+ * views on the left, the selected view on the right). First resident: the
+ * Redis Viewer, a general key browser (replaces the old Dashboard Data
+ * Explorer / Redis-TS view).
+ */
+const Settings = () => {
+  const [section, setSection] = useState(() => {
+    const requested = new URLSearchParams(window.location.search).get('section');
+    return SECTIONS.some((item) => item.key === requested) ? requested : SECTIONS[0].key;
+  });
+  const active = SECTIONS.find((s) => s.key === section) || SECTIONS[0];
+  const ActiveView = active.component;
+
+  return (
+    <Box sx={{ display: 'flex', gap: 2, p: { xs: 1, sm: 2, md: 3 }, height: '100%', overflow: 'hidden' }}>
+      {/* Option views */}
+      <Paper elevation={0} sx={{ width: 240, flexShrink: 0, border: '1px solid #e0e0e0', borderRadius: 2, overflow: 'auto' }}>
+        <Typography variant="subtitle2" sx={{ px: 2, pt: 2, pb: 1, fontWeight: 700, color: '#333' }}>
+          Settings
+        </Typography>
+        <List dense>
+          {SECTIONS.map((s) => (
+            <ListItemButton key={s.key} selected={section === s.key} onClick={() => setSection(s.key)}>
+              <ListItemIcon sx={{ minWidth: 34 }}>{s.icon}</ListItemIcon>
+              <ListItemText primary={s.label} secondary={s.description}
+                primaryTypographyProps={{ sx: { fontWeight: section === s.key ? 600 : 400 } }}
+                secondaryTypographyProps={{ sx: { fontSize: 11 } }} />
+            </ListItemButton>
+          ))}
+        </List>
+      </Paper>
+
+      {/* Active view */}
+      <Paper elevation={0} sx={{ flexGrow: 1, border: '1px solid #e0e0e0', borderRadius: 2, p: 2, overflow: 'auto' }}>
+        <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>{active.label}</Typography>
+        <ActiveView />
+      </Paper>
+    </Box>
+  );
+};
+
+export default Settings;

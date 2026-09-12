@@ -1,0 +1,26 @@
+.environments-container {
+  width: 100%;
+}
+
+.environments-container .MuiTableCell-head {
+  font-weight: 600;
+  background-color: #f5f5f5;
+}
+
+.environments-container .MuiTableRow-hover:hover {
+  background-color: #fafafa;
+}
+
+/* Responsive adjustments */
+@media (max-width: 960px) {
+  .environments-container {
+    padding: 1rem !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .environments-container .MuiTableCell-root {
+    padding: 8px;
+    font-size: 0.875rem;
+  }
+}

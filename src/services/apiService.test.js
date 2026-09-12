@@ -1,0 +1,227 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { apiService } from './apiService';
+
+// handleResponse is the single place every HTTP status becomes a thrown Error.
+// Callers discriminate on `error.status` — nodesApi falls back to a legacy read
+// on 404/405 and must NOT retry a 401 — so the status has to survive the throw.
+const fakeResponse = (status, body = '') => ({
+  status,
+  headers: { get: () => null },
+  json: async () => JSON.parse(body || '{}'),
+  text: async () => body,
+});
+
+describe('apiService.handleResponse — error.status', () => {
+  beforeEach(() => {
+    apiService.authInitializing = false;
+    apiService.authContextLogout = null;
+    apiService.errorHandler = null;
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  it('stamps 401 so callers can tell auth failure from a missing route', async () => {
+    await expect(apiService.handleResponse(fakeResponse(401), 'ctx', false))
+      .rejects.toMatchObject({ status: 401 });
+  });
+
+  it('stamps 404 — the "this API is too old" signal', async () => {
+    await expect(apiService.handleResponse(fakeResponse(404, 'not found'), 'ctx', false))
+      .rejects.toMatchObject({ status: 404 });
+  });
+
+  it('stamps 405', async () => {
+    await expect(apiService.handleResponse(fakeResponse(405, 'nope'), 'ctx', false))
+      .rejects.toMatchObject({ status: 405 });
+  });
+
+  // handleResponse deliberately has NO side effects on 401 any more -- #fetch
+  // owns recovery, so that one expired token is one refresh and at most one
+  // logout, not one of each per in-flight request.
+  it('does not log out from handleResponse — #fetch decides', async () => {
+    const logout = vi.fn();
+    apiService.authContextLogout = logout;
+
+    await expect(apiService.handleResponse(fakeResponse(401), 'ctx', false)).rejects.toThrow();
+
+    expect(logout).not.toHaveBeenCalled();
+  });
+
+  it('marks the 401 as recoverable so #fetch knows to try a refresh', async () => {
+    await expect(apiService.handleResponse(fakeResponse(401), 'ctx', false))
+      .rejects.toMatchObject({ status: 401, canRetryAfterRefresh: true });
+  });
+});
+
+// The production symptom: AuthContext refreshes 5 minutes before expiry via
+// setTimeout, which does not survive a backgrounded or suspended tab. A user
+// returning to an open dashboard had every panel 401 at once and was thrown to
+// the login screen -- with a valid 7-day refresh token sitting unused.
+describe('apiService.fetch — 401 recovery', () => {
+  let logout;
+
+  const respond = (status, body = {}) => ({
+    status,
+    headers: { get: () => null },
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  });
+
+  beforeEach(() => {
+    logout = vi.fn();
+    apiService.authInitializing = false;
+    apiService.authContextLogout = logout;
+    apiService.refreshHandler = null;
+    apiService.refreshInFlight = null;
+    apiService.pendingRequests.clear();
+    apiService.postRefreshRejections.clear();
+    apiService.clearCache?.();
+    apiService.rateLimitConfig.minRequestInterval = 0;
+    vi.spyOn(apiService, 'getToken').mockReturnValue('tok');
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('refreshes and replays the request instead of logging out', async () => {
+    const refresh = vi.fn(async () => true);
+    apiService.setRefreshHandler(refresh);
+
+    let call = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => (++call === 1 ? respond(401) : respond(200, { ok: 1 }))));
+
+    const result = await apiService.fetch('/api/nodes', {}, 'nodes', false, 0, true);
+
+    expect(result).toEqual({ ok: 1 });
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(logout).not.toHaveBeenCalled();
+    expect(call).toBe(2);              // the replay actually went out
+  });
+
+  it('does not let an empty caller auth header overwrite the stored token', async () => {
+    const fetchSpy = vi.fn(async () => respond(200, { ok: 1 }));
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await apiService.fetch(
+      '/api/events/stats',
+      { headers: { Authorization: '' } },
+      'events badge',
+      false,
+      0,
+      true
+    );
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer tok' })
+      })
+    );
+  });
+
+  it('omits Authorization instead of sending an empty header without a token', async () => {
+    apiService.getToken.mockReturnValue(null);
+    const fetchSpy = vi.fn(async () => respond(200, { ok: 1 }));
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await apiService.fetch('/health', {}, 'health', false, 0, true);
+
+    const requestOptions = fetchSpy.mock.calls[0][1];
+    expect(requestOptions.headers).not.toHaveProperty('Authorization');
+  });
+
+  // The Nodes panel polls an endpoint that 401s for its own reasons. Refreshing
+  // proves the session is good; the endpoint still says no. That must not wipe
+  // localStorage for the whole app.
+  it('does not log out when a refreshed token is still refused by one endpoint', async () => {
+    const refresh = vi.fn(async () => true);
+    apiService.setRefreshHandler(refresh);
+
+    let call = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => { call++; return respond(401); }));
+
+    await expect(apiService.fetch('/tasks/nodes', {}, 'fallback nodes', false, 0, true))
+      .rejects.toMatchObject({ status: 401 });
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(call).toBe(2);              // original + one replay, then it stops
+    expect(logout).not.toHaveBeenCalled();
+  });
+
+  it('logs out once when the refresh itself fails', async () => {
+    apiService.setRefreshHandler(vi.fn(async () => false));
+    vi.stubGlobal('fetch', vi.fn(async () => respond(401)));
+
+    await expect(apiService.fetch('/api/nodes', {}, 'nodes', false, 0, true))
+      .rejects.toMatchObject({ status: 401 });
+
+    expect(logout).toHaveBeenCalledTimes(1);
+  });
+
+  it('logs out rather than looping once a SECOND endpoint also rejects the refreshed token', async () => {
+    apiService.setRefreshHandler(vi.fn(async () => true));
+    const spy = vi.fn(async () => respond(401));
+    vi.stubGlobal('fetch', spy);
+
+    await expect(apiService.fetch('/api/nodes', {}, 'nodes', false, 0, true))
+      .rejects.toMatchObject({ status: 401 });
+    expect(logout).not.toHaveBeenCalled();      // one endpoint is not a dead session
+
+    await expect(apiService.fetch('/api/calls', {}, 'calls', false, 0, true))
+      .rejects.toMatchObject({ status: 401 });
+
+    expect(logout).toHaveBeenCalledTimes(1);    // everything refuses -> session is gone
+  });
+
+  it('forgets earlier rejections once a request succeeds', async () => {
+    apiService.setRefreshHandler(vi.fn(async () => true));
+
+    vi.stubGlobal('fetch', vi.fn(async () => respond(401)));
+    await expect(apiService.fetch('/tasks/nodes', {}, 'nodes', false, 0, true))
+      .rejects.toMatchObject({ status: 401 });
+
+    vi.stubGlobal('fetch', vi.fn(async () => respond(200, { ok: 1 })));
+    await apiService.fetch('/api/calls', {}, 'calls', false, 0, true);
+
+    vi.stubGlobal('fetch', vi.fn(async () => respond(401)));
+    await expect(apiService.fetch('/api/extensions', {}, 'extensions', false, 0, true))
+      .rejects.toMatchObject({ status: 401 });
+
+    expect(logout).not.toHaveBeenCalled();
+  });
+
+  it('logs out immediately when no refresh handler is wired', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => respond(401)));
+
+    await expect(apiService.fetch('/api/nodes', {}, 'nodes', false, 0, true))
+      .rejects.toMatchObject({ status: 401 });
+
+    expect(logout).toHaveBeenCalledTimes(1);
+  });
+
+  it('shares ONE refresh across concurrent 401s', async () => {
+    const refresh = vi.fn(async () => true);
+    apiService.setRefreshHandler(refresh);
+
+    const seen = new Set();
+    vi.stubGlobal('fetch', vi.fn(async (u) => {
+      if (seen.has(u)) return respond(200, { url: u });
+      seen.add(u);
+      return respond(401);
+    }));
+
+    await Promise.all([
+      apiService.fetch('/api/nodes', {}, 'a', false, 0, true),
+      apiService.fetch('/api/providers', {}, 'b', false, 0, true),
+      apiService.fetch('/api/events/stats', {}, 'c', false, 0, true),
+    ]);
+
+    // Without single-flight this is 3 refreshes racing, and the losers write a
+    // stale token over the winner's fresh one.
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(logout).not.toHaveBeenCalled();
+  });
+});

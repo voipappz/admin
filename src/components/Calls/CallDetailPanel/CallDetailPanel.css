@@ -1,0 +1,34 @@
+.call-detail-panel {
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--theme-bg-primary);
+  border-left: 1px solid var(--border-light);
+  border-radius: 8px;
+  overflow: hidden;
+  animation: slideInRight 0.25s ease-out;
+}
+
+.call-detail-panel.mobile {
+  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1200;
+  border-left: none;
+  border-radius: 0;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

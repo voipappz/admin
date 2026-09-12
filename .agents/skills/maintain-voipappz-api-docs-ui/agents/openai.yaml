@@ -1,0 +1,4 @@
+interface:
+  display_name: "Maintain VoipAppz API Docs UI"
+  short_description: "Keep Nimbus DevZone aligned with the API contract"
+  default_prompt: "Use $maintain-voipappz-api-docs-ui to update or verify Nimbus API DevZone and its VoipAppz OpenAPI integration."

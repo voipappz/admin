@@ -1,0 +1,20 @@
+/* Messages component styles */
+.messages-container {
+  height: 100%;
+  width: 100%;
+}
+
+.messages-header {
+  margin-bottom: 1rem;
+}
+
+.messages-grid {
+  flex-grow: 1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .messages-container {
+    padding: 0.5rem;
+  }
+}

@@ -1,0 +1,35 @@
+.conversation-dialog .MuiDialog-paper {
+  border-radius: 12px;
+  max-height: 80vh;
+  height: 80vh;
+}
+
+.conversation-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #f9fafb, #ffffff);
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.conversation-dialog-loading,
+.conversation-dialog-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 40px;
+  color: #9ca3af;
+}
+
+[data-theme='dark'] .conversation-dialog .MuiDialog-paper {
+  background-color: var(--bg-primary, #16162a);
+}
+
+[data-theme='dark'] .conversation-dialog-header {
+  background: var(--bg-secondary, #1a1a2e);
+  border-bottom-color: #374151;
+}

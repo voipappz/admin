@@ -1,0 +1,17 @@
+.sms-creator {
+  font-family: var(--font-family);
+}
+
+.sms-creator .MuiTextField-root,
+.sms-creator .MuiButton-root {
+  font-family: var(--font-family);
+}
+
+.sms-creator .MuiInputLabel-root {
+  font-family: var(--font-family);
+  font-weight: 500;
+}
+
+.sms-creator .MuiInputBase-input {
+  font-family: var(--font-family);
+}

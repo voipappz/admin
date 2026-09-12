@@ -1,0 +1,11 @@
+.star-rating-root {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.star-rating-star-filled {
+  color: var(--color-gold);
+}
+.star-rating-star-empty {
+  color: var(--border-dark);
+}

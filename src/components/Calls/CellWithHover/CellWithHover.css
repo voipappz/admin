@@ -1,0 +1,42 @@
+.cell-with-hover {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.cell-content {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hover-actions {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  padding-left: 4px;
+  background: linear-gradient(to right, transparent, var(--theme-bg-primary) 30%);
+}
+
+.cell-with-hover:hover .hover-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.hover-actions .MuiIconButton-root {
+  background-color: var(--theme-bg-primary);
+  border: 1px solid var(--theme-border);
+  box-shadow: var(--shadow-subtle);
+  width: 22px;
+  height: 22px;
+}

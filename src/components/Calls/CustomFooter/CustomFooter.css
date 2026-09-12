@@ -1,0 +1,26 @@
+.custom-footer-root {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 6px 12px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.custom-footer-pagination {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.custom-footer-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.custom-footer-clear {
+  font-size: 0.75rem;
+  min-height: auto;
+  padding: 4px 8px;
+}

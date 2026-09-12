@@ -1,0 +1,74 @@
+# ---------------------------------------------------------------------------
+# Secrets — nothing in here may ever reach a public remote.
+# `.env` is the only place real credentials belong; `.env.example` documents
+# the shape and is the ONLY env file that is tracked.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+secrets/
+
+# Machine-local agent state. settings.local.json accumulates approved shell
+# commands verbatim — including any API token ever typed into one.
+.claude/settings.local.json
+.claude/state/
+.codex/
+
+# ---------------------------------------------------------------------------
+# Build output and dependencies
+# ---------------------------------------------------------------------------
+node_modules/
+dist/
+dist-ssr/
+build/
+.vite/
+*.local
+
+# ---------------------------------------------------------------------------
+# Test artifacts
+# ---------------------------------------------------------------------------
+test-results/
+test-results.json
+playwright-report/
+playwright/.cache/
+.playwright/
+cypress/videos/
+cypress/screenshots/
+coverage/
+TEST*.xml
+
+# ---------------------------------------------------------------------------
+# Logs and runtime scratch
+# ---------------------------------------------------------------------------
+*.log
+npm-debug.log*
+yarn-error.log*
+.vite.pid
+*.pid
+tmp/
+
+# ---------------------------------------------------------------------------
+# Working notes. Planning docs and one-off verification write-ups live here so
+# they stay useful locally without shipping in a public template.
+# ---------------------------------------------------------------------------
+docs/notes/
+
+# ---------------------------------------------------------------------------
+# Legacy reference codebases. Kept on disk for migration reference (see
+# CLAUDE.md) but not ours to redistribute and not part of this app.
+# ---------------------------------------------------------------------------
+old-ionic-portal/
+va-voipbox-admin/
+reference/
+
+# ---------------------------------------------------------------------------
+# Editors and OS
+# ---------------------------------------------------------------------------
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+*.swp
+*~

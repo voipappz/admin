@@ -1,0 +1,113 @@
+/* SubscriptionDialog Styles */
+.subscription-dialog {
+  /* Custom styles for subscription dialog if needed */
+}
+
+.subscription-dialog .MuiDialogContent-root {
+  padding: 24px !important;
+}
+
+.subscription-dialog .MuiTextField-root {
+  margin-bottom: 8px;
+}
+
+.subscription-dialog .MuiFormControl-root {
+  margin-bottom: 8px;
+}
+
+/* Meta editor specific styles */
+.meta-editor-container {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  background-color: #fafafa;
+}
+
+.meta-editor-item {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+/* Items table specific styles */
+.items-table-container {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.items-table-container .MuiTable-root {
+  background-color: #fff;
+}
+
+.items-table-container .MuiTableHead-root {
+  background-color: #f5f5f5;
+}
+
+.items-table-container .MuiTableCell-root {
+  padding: 8px 12px;
+}
+
+.items-table-container .MuiTextField-root {
+  margin-bottom: 0;
+}
+
+/* Form section dividers */
+.form-section {
+  margin-bottom: 24px;
+}
+
+.form-section-title {
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #333;
+}
+
+/* Switch group styling */
+.switches-container {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.switches-container .MuiFormControlLabel-root {
+  margin-right: 0;
+}
+
+/* Error state styling */
+.field-error {
+  border-color: #d32f2f !important;
+}
+
+.field-error .MuiInputLabel-root {
+  color: #d32f2f !important;
+}
+
+/* Loading state */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .subscription-dialog .MuiDialog-paper {
+    margin: 16px;
+    max-height: calc(100vh - 32px);
+  }
+  
+  .meta-editor-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .switches-container {
+    flex-direction: column;
+    gap: 8px;
+  }
+}

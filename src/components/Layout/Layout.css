@@ -1,0 +1,110 @@
+.layout-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100vh;
+  height: 100vh;
+}
+
+/* Desktop sidebar - visible on md+ */
+.sidebar-desktop {
+  display: block;
+}
+
+/* Content area - offset by sidebar only (top bar removed → full height) */
+.content-container {
+  position: relative;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin-left: 80px;
+  margin-top: 0;
+  height: 100vh;
+  background-color: var(--theme-bg-secondary);
+  transition: background-color 0.2s ease, margin-left 0.25s ease;
+}
+
+/* Brand watermark — always visible at the lower-right of the content area */
+.app-watermark {
+  position: absolute;
+  right: 16px;
+  bottom: 10px;
+  height: 16px;
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+}
+[data-theme="dark"] .app-watermark { opacity: 0.45; }
+
+.content-container.sidebar-collapsed {
+  margin-left: 0;
+}
+
+.content-container.sidebar-expanded {
+  margin-left: 210px;
+}
+
+/* Login page specific styles */
+.login-left-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.login-content-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  height: 100vh;
+}
+
+/* App Footer */
+.app-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #fafafa;
+  min-height: 24px;
+  flex-shrink: 0;
+}
+
+.app-footer-text {
+  color: #9ca3af;
+  font-size: 0.65rem !important;
+  letter-spacing: 0.02em;
+}
+
+[data-theme="dark"] .app-footer {
+  background: #1a202c;
+  border-top-color: #4a5568;
+}
+
+[data-theme="dark"] .app-footer-text {
+  color: #6b7280;
+}
+
+/* Responsive layout fixes */
+@media (max-width: 899px) {
+  .sidebar-desktop {
+    display: none;
+  }
+
+  .content-container,
+  .content-container.sidebar-expanded {
+    margin-left: 0;
+    margin-top: 0;
+    height: 100vh;
+  }
+
+  .login-left-container {
+    display: none;
+  }
+
+  .login-content-container {
+    width: 100% !important;
+  }
+}

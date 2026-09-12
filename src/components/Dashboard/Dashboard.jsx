@@ -1,0 +1,330 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Box, Button, Chip, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from 'recharts';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
+import PageHeader from '../common/PageHeader.jsx';
+import StatCard from '../common/StatCard.jsx';
+import StatusChip from '../common/StatusChip.jsx';
+import CallsPerHourChart from '../common/CallsPerHourChart.jsx';
+import AddWidgetMenu from '../DashboardBuilder/AddWidgetMenu.jsx';
+import WidgetEditor from '../DashboardBuilder/WidgetEditor.jsx';
+import BuilderWidget from '../DashboardBuilder/BuilderWidget.jsx';
+import { useWidgetValue } from '../DashboardBuilder/useWidgetValue.js';
+import { formatWidgetValue, resolveIcon, thresholdColor } from '../DashboardBuilder/widgetPresentation.js';
+import {
+  getWidgets, createWidget, updateWidget, deleteWidget, setDashboardStorageScope
+} from '../../services/api/dashboardWidgetsApi.js';
+import { useDashboardSnapshot } from './useDashboardSnapshot.js';
+import { useUserAuth } from '../../context/UserAuthContext.jsx';
+import { hasPermission } from '../../utils/jwt.js';
+import CallReceivedIcon from '@mui/icons-material/CallReceived';
+import CallMadeIcon from '@mui/icons-material/CallMade';
+
+function fmtDuration(seconds) {
+  const s = Math.max(0, Math.round(seconds || 0));
+  const m = Math.floor(s / 60);
+  return `${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function fmtTime(value) {
+  const d = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(String(value)) ? value : `${value}Z`);
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+const CALL_COLUMNS = {
+  started_at: { key: 'Time', cell: (c) => fmtTime(c.started_at) },
+  direction: { key: 'Direction', cell: (c) => c.direction },
+  from_number: { key: 'From', cell: (c) => c.from_number || '—' },
+  to_number: { key: 'To', cell: (c) => c.to_number || '—' },
+  status: { key: 'Status', cell: (c) => <StatusChip status={c.status} variant="outlined" /> },
+  duration_sec: { key: 'Duration', align: 'right', cell: (c) => fmtDuration(c.duration_sec) }
+};
+const DEFAULT_CALL_FIELDS = Object.keys(CALL_COLUMNS);
+
+// "Calls in progress" — from `live_state`, the series CollectIdentities
+// samples once a minute, like everything else on this screen. There used to
+// be a second flavour reading /api/calls?action=live for admin sessions; the
+// screen is the portal's alone now and has one data path.
+const CALLS_IN_PROGRESS_TILE = {
+  title: 'Calls in progress',
+  type: 'counter',
+  measurement: 'live_state',
+  field: 'calls_total',
+  aggregation: 'last',
+  minutes: 15,
+  icon: 'Call',
+  color: 'success.main',
+  unit: 'calls'
+};
+
+// Custom tile/chart widgets are self-sufficient InfluxDB queries
+// ({measurement, field, aggregation}) — same model BuilderWidget.jsx uses
+// inside the builder dialog. Reading their value from the dashboard-level
+// `stats` (total/inbound/outbound only) would silently show 0 for any
+// widget pointed at a different field, so each widget queries itself here too.
+function DashboardStatTile({ widget }) {
+  const { value, error, loading } = useWidgetValue(widget);
+  // Never show a confident 0 for a number we failed to fetch — deployments
+  // differ (older APIs 404/500 on the monitoring and live endpoints), and a
+  // fabricated zero reads as "no calls" rather than "couldn't ask".
+  const display = error ? '—' : (loading && value === null ? '…' : formatWidgetValue(widget, value));
+  return (
+    <StatCard
+      label={widget.title}
+      value={display}
+      icon={resolveIcon(widget.icon)}
+      color={error ? undefined : thresholdColor(widget, value)}
+      deltaLabel={error ? 'unavailable' : undefined}
+    />
+  );
+}
+
+function DashboardTrendCard({ widget }) {
+  const { series } = useWidgetValue(widget);
+  const data = (Array.isArray(series) ? series : []).map((row, index) => ({
+    x: row.time ? new Date(row.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : index,
+    value: Number(row.value) || 0
+  }));
+  return (
+    <Paper elevation={0} sx={{ p: { xs: 1.75, sm: 2.5 }, height: '100%', minWidth: 0, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+      <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>{widget.title}</Typography>
+      {data.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 6, textAlign: 'center' }}>No data yet.</Typography>
+      ) : (
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="x" tick={{ fontSize: 11 }} />
+            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+            <RTooltip />
+            <Bar dataKey="value" fill="#5c6bc0" radius={[2, 2, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </Paper>
+  );
+}
+
+function RecentCallsTable({ calls, fields, title }) {
+  const columns = (fields?.length ? fields : DEFAULT_CALL_FIELDS).filter((f) => CALL_COLUMNS[f]);
+  return (
+    <Paper elevation={0} sx={{ p: { xs: 1.75, sm: 2.5 }, height: '100%', minWidth: 0, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+      <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>{title || 'Recent calls'}</Typography>
+      {calls.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 6, textAlign: 'center' }}>
+          No calls yet — events will appear here as they arrive.
+        </Typography>
+      ) : (
+        <Box sx={{ maxWidth: '100%', overflowX: 'auto' }}>
+          <Table size="small" sx={{ '& .MuiTableCell-root': { whiteSpace: 'nowrap' } }}>
+            <TableHead>
+              <TableRow>
+                {columns.map((field) => (
+                  <TableCell key={field} sx={{ fontWeight: 700 }} align={CALL_COLUMNS[field].align}>
+                    {CALL_COLUMNS[field].key}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {calls.map((call) => (
+                <TableRow key={call.id} hover>
+                  {columns.map((field) => (
+                    <TableCell key={field} align={CALL_COLUMNS[field].align} sx={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', unicodeBidi: 'isolate' }}>
+                      {CALL_COLUMNS[field].cell(call)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Box>
+      )}
+    </Paper>
+  );
+}
+
+/**
+ * The end-user portal's landing screen, and only the portal's — App.jsx's
+ * PortalRoute sends an admin session away. The account console answers the
+ * same questions with Calls, Reports and Monitoring, so there is no second
+ * dashboard to keep in step.
+ *
+ * Every number here comes from InfluxDB through /api/monitoring/*. The one
+ * agreed exception to that rule on this surface is the phone's own recent
+ * calls list, which lives in PhoneCallsTab.
+ */
+export default function Dashboard() {
+  const user = useUserAuth();
+
+  const environmentUuid = user.user?.environment?.uuid || null;
+  // localStorage widget definitions are scoped per-tenant so boards don't
+  // bleed across environments (see dashboardWidgetsApi.js).
+  const storageScope = environmentUuid || 'global';
+  useEffect(() => { setDashboardStorageScope(storageScope); }, [storageScope]);
+
+  const { snapshot, status } = useDashboardSnapshot({ environmentUuid });
+  const { stats, calls_per_hour: callsPerHour } = snapshot;
+
+  // Same gate app used (`can('dashboard:read')`) — read access shows the
+  // inline widget controls. Read access to the screen itself is already
+  // enforced one level up by App.jsx's PortalRoute. The plural is passed on
+  // purpose: hasPermission's fallback resolves it to the user ACL's singular
+  // 'dashboard' key.
+  const canEditDashboard = hasPermission(user.acl, 'dashboards', 'read');
+  const [editingWidget, setEditingWidget] = useState(null);
+  const [savingWidget, setSavingWidget] = useState(false);
+  const [dashboardId] = useState(() => {
+    try { return localStorage.getItem('selected-dashboard-id') || 'default'; } catch { return 'default'; }
+  });
+
+  const [customWidgets, setCustomWidgets] = useState([]);
+  const loadWidgets = useCallback(() => {
+    getWidgets(dashboardId).then(setCustomWidgets).catch(() => setCustomWidgets([]));
+  }, [dashboardId]);
+  useEffect(() => { loadWidgets(); }, [loadWidgets, storageScope]);
+
+  // Definitions live in localStorage (see dashboardWidgetsApi) — the store is
+  // the source of truth, so every mutation refetches rather than keeping
+  // optimistic copies that can drift.
+  const saveWidget = useCallback(async (draft) => {
+    setSavingWidget(true);
+    try {
+      const { uuid, ...definition } = draft;
+      if (uuid) await updateWidget(uuid, definition, dashboardId);
+      else await createWidget(definition, dashboardId);
+      loadWidgets();
+      setEditingWidget(null);
+    } finally {
+      setSavingWidget(false);
+    }
+  }, [dashboardId, loadWidgets]);
+
+  const removeWidget = useCallback(async (widget) => {
+    await deleteWidget(widget.uuid);
+    loadWidgets();
+  }, [loadWidgets]);
+
+  const duplicateWidget = useCallback(async (widget) => {
+    const definition = { ...widget };
+    delete definition.uuid;
+    delete definition.dashboard_uuid;
+    await createWidget({ ...definition, title: `${definition.title} copy` }, dashboardId);
+    loadWidgets();
+  }, [dashboardId, loadWidgets]);
+
+  const { tiles, charts, tables } = useMemo(() => ({
+    tiles: customWidgets.filter((w) => ['counter', 'gauge', 'stat'].includes(w.type)),
+    charts: customWidgets.filter((w) => ['trend', 'line', 'bar', 'pie'].includes(w.type)),
+    tables: customWidgets.filter((w) => w.type === 'table')
+  }), [customWidgets]);
+  const customPanels = charts.length > 0 || tables.length > 0;
+  // "Nothing configured AND nothing happened" — distinct from "something
+  // failed", which the Offline chip and the widgets' own "—" already say.
+  const isEmpty = customWidgets.length === 0
+    && callsPerHour.length === 0
+    && snapshot.recent_calls.length === 0;
+
+  return (
+    <Box data-testid="dashboard-page" sx={{ p: { xs: 2, md: 3 }, width: '100%', maxWidth: 1440, mx: 'auto' }}>
+      <PageHeader
+        title="Live dashboard"
+        subtitle="Live — last hour"
+        actions={
+          <>
+            {/* The builder lives HERE, not behind a modal: adding a widget is
+                the main thing anyone does on this screen, and presets (see
+                AddWidgetMenu) keep it a pick-something choice rather than a
+                query-writing one. */}
+            {canEditDashboard && <AddWidgetMenu onPick={setEditingWidget} />}
+            <Chip
+              size="small"
+              icon={<RadioButtonCheckedIcon fontSize="small" />}
+              label={status === 'error' ? 'Offline' : 'Live'}
+              color={status === 'error' ? 'default' : 'success'}
+              variant={status === 'live' ? 'filled' : 'outlined'}
+            />
+          </>
+        }
+      />
+
+      {/* The editor stays a dialog — it's a focused form — but it's reached
+          by picking a widget, and by the per-widget Edit action on the grid
+          below, not by entering a separate "builder mode". */}
+      <WidgetEditor
+        open={Boolean(editingWidget)}
+        widget={editingWidget?.uuid ? editingWidget : null}
+        initialDraft={editingWidget}
+        saving={savingWidget}
+        onClose={() => setEditingWidget(null)}
+        onSave={saveWidget}
+      />
+
+      <Box data-testid="dashboard-kpis" sx={{ display: 'grid', gap: 2, mb: 2, gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(3, 1fr)' } }}>
+        {tiles.length > 0 ? (
+          // Editable in place: BuilderWidget carries its own edit/duplicate/
+          // delete menu and queries its own live value, so there's no separate
+          // "builder mode" to enter just to change a tile.
+          tiles.map((widget) => (
+            canEditDashboard
+              ? <BuilderWidget
+                  key={widget.uuid} widget={widget} snapshot={snapshot} saving={savingWidget}
+                  onEdit={setEditingWidget} onDuplicate={duplicateWidget} onDelete={removeWidget}
+                />
+              : <DashboardStatTile key={widget.uuid} widget={widget} />
+          ))
+        ) : customPanels ? null : (
+          // All three read InfluxDB: the tile queries `live_state` directly,
+          // the two totals come from the same measurement via the snapshot's
+          // windowed chart.
+          <>
+            <DashboardStatTile widget={CALLS_IN_PROGRESS_TILE} />
+            <StatCard label="Inbound (1h)" value={stats.inbound} icon={CallReceivedIcon} color="info.main" />
+            <StatCard label="Outbound (1h)" value={stats.outbound} icon={CallMadeIcon} color="success.main" />
+          </>
+        )}
+      </Box>
+
+      {/* A dashboard with no widgets AND nothing to show is otherwise a wall
+          of zeroes, which reads as a broken screen rather than a quiet one.
+          Say which it is, and point at the thing that fixes it. */}
+      {isEmpty && canEditDashboard && (
+        <Paper
+          elevation={0} data-testid="dashboard-empty-state"
+          sx={{ p: { xs: 3, md: 5 }, mb: 2, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 3 }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>No calls in the last hour</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 520, mx: 'auto', mb: 2 }}>
+            Calls will show up here as they happen. In the meantime you can add a widget —
+            &ldquo;Calls in progress&rdquo; updates live, and the phone is always in the sidebar.
+          </Typography>
+          <AddWidgetMenu onPick={setEditingWidget} />
+        </Paper>
+      )}
+
+      <Box sx={{ display: 'grid', gap: 2, mb: 2, gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 7fr) minmax(0, 5fr)' }, alignItems: 'stretch' }}>
+        {customPanels ? (
+          <>
+            {charts.map((widget) => (
+              canEditDashboard
+                ? <BuilderWidget
+                    key={widget.uuid} widget={widget} snapshot={snapshot} saving={savingWidget}
+                    onEdit={setEditingWidget} onDuplicate={duplicateWidget} onDelete={removeWidget}
+                  />
+                : <DashboardTrendCard key={widget.uuid} widget={widget} />
+            ))}
+            {tables.map((widget) => (
+              <RecentCallsTable key={widget.uuid} calls={snapshot.recent_calls} fields={widget.fields} title={widget.title} />
+            ))}
+          </>
+        ) : (
+          <>
+            <CallsPerHourChart points={callsPerHour} title="Calls" />
+            <RecentCallsTable calls={snapshot.recent_calls} />
+          </>
+        )}
+      </Box>
+    </Box>
+  );
+}

@@ -1,0 +1,26 @@
+.extensions-container {
+  background-color: #f5f5f5;
+}
+
+.extensions-sidebar {
+  background-color: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.extensions-content {
+  background-color: #fff;
+}
+
+/* Responsive adjustments */
+@media (max-width: 960px) {
+  .extensions-container {
+    flex-direction: column !important;
+    height: auto !important;
+  }
+
+  .extensions-sidebar {
+    width: 100% !important;
+    max-height: 400px !important;
+  }
+}

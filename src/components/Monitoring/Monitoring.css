@@ -1,0 +1,44 @@
+/* Monitoring dashboard styles */
+.monitoring-container {
+  height: 100%;
+  width: 100%;
+}
+
+.monitoring-metric-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.monitoring-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Alert severity chip overrides */
+.alert-severity-critical {
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+}
+.alert-severity-warning {
+  border-color: #f59e0b !important;
+  color: #f59e0b !important;
+}
+.alert-severity-info {
+  border-color: #3b82f6 !important;
+  color: #3b82f6 !important;
+}
+
+/* Chart legend spacing */
+.recharts-legend-wrapper {
+  padding-top: 8px !important;
+}
+
+.recharts-legend-item {
+  margin-right: 12px !important;
+}
+
+/* Responsive: stack nav below content on small screens */
+@media (max-width: 900px) {
+  .monitoring-container {
+    padding: 0.5rem;
+  }
+}

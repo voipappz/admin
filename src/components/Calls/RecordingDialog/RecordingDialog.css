@@ -1,0 +1,46 @@
+.recording-dialog-player {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--gradient-player-bg);
+  border-radius: 12px;
+  border: 1px solid var(--accent-primary-alpha-15);
+}
+
+.recording-dialog-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.recording-dialog-player-progress {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recording-dialog-player-times {
+  display: flex;
+  justify-content: space-between;
+}
+
+.recording-dialog-meta {
+  display: flex;
+  gap: 24px;
+  padding: 12px 0;
+  flex-wrap: wrap;
+}
+
+.recording-dialog-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recording-dialog-speed-controls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}

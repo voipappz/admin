@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One PR per ecosystem cluster instead of thirty. A lockfile bump that
+      # touches twelve @mui packages is one review, not twelve.
+      mui:
+        patterns: ["@mui/*", "@emotion/*"]
+      react:
+        patterns: ["react", "react-dom", "react-router*", "@remix-run/*"]
+      testing:
+        patterns: ["@playwright/*", "playwright", "vitest", "@vitest/*", "@testing-library/*"]
+      dev-minor:
+        dependency-type: development
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: monthly

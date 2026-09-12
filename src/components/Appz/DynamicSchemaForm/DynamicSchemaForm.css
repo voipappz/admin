@@ -1,0 +1,23 @@
+.dynamic-schema-form {
+  font-family: var(--font-family);
+}
+
+.dynamic-schema-form .MuiTextField-root,
+.dynamic-schema-form .MuiFormControl-root {
+  font-family: var(--font-family);
+}
+
+.dynamic-schema-form .MuiInputLabel-root {
+  font-family: var(--font-family);
+  font-weight: 500;
+}
+
+.dynamic-schema-form .MuiInputBase-input {
+  font-family: var(--font-family);
+}
+
+.dynamic-schema-form .MuiButton-root {
+  font-family: var(--font-family);
+  font-weight: 600;
+  transition: var(--transition-base);
+}

@@ -1,0 +1,12 @@
+.render-cell-country {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.render-cell-recording {
+  cursor: pointer;
+  color: var(--accent-primary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

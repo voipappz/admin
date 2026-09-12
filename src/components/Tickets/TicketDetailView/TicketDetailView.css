@@ -1,0 +1,79 @@
+.ticket-detail-view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
+  overflow: hidden;
+}
+
+.ticket-detail-header {
+  padding: 16px;
+  background-color: #fafafa;
+}
+
+.ticket-detail-description {
+  padding: 16px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.ticket-detail-comments {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.comment-item {
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 3px solid #1976d2;
+}
+
+.comment-item.internal {
+  background-color: #fff8e1;
+  border-left-color: #ffa000;
+}
+
+.ticket-detail-reply {
+  padding: 16px;
+  border-top: 1px solid #e0e0e0;
+  background-color: #fafafa;
+}
+
+/* Responsive adjustments */
+@media (max-width: 960px) {
+  .ticket-detail-view {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1200;
+    border-radius: 0;
+  }
+
+  .ticket-detail-header {
+    padding: 12px;
+  }
+
+  .ticket-detail-description {
+    padding: 12px;
+    max-height: 120px;
+  }
+
+  .ticket-detail-comments {
+    padding: 12px;
+  }
+
+  .ticket-detail-reply {
+    padding: 12px;
+  }
+}

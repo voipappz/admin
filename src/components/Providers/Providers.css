@@ -1,0 +1,9 @@
+/* Providers Component Styles */
+.providers-container {
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.providers-container .MuiTableRow-hover:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}

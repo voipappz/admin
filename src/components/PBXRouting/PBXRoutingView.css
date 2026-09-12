@@ -1,0 +1,71 @@
+.pbx-routing-canvas {
+  flex: 1;
+  min-height: 0;
+}
+
+.pbx-routing-canvas .react-flow__node {
+  /* Remove ReactFlow default node padding/border */
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Node hover transition */
+.pbx-routing-canvas .react-flow__node .pbx-node {
+  transition: box-shadow 0.2s, outline-color 0.2s, transform 0.2s;
+}
+
+.pbx-routing-canvas .react-flow__node .pbx-node:hover {
+  transform: translateY(-1px);
+}
+
+/* Selection pulse animation */
+.pbx-routing-canvas .react-flow__node.selected .pbx-node {
+  animation: pbx-node-select 0.3s ease-out;
+}
+
+@keyframes pbx-node-select {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+.pbx-routing-canvas .react-flow__attribution {
+  display: none;
+}
+
+.pbx-routing-editor {
+  overflow: auto;
+  border-left: 1px solid var(--border-light, #e0e0e0);
+}
+
+/* Provider popover row hover actions */
+.pbx-provider-row .provider-row-actions {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.pbx-provider-row:hover .provider-row-actions {
+  opacity: 1;
+}
+
+/* ---- Mobile responsive ---- */
+@media (max-width: 899px) {
+  /* Compact ReactFlow controls */
+  .pbx-routing-canvas .react-flow__controls {
+    bottom: 8px;
+    left: 8px;
+  }
+
+  .pbx-routing-canvas .react-flow__controls button {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* Always show provider row actions on touch devices */
+  .pbx-provider-row .provider-row-actions {
+    opacity: 1;
+  }
+}

@@ -1,0 +1,11 @@
+.key-value-field {
+  width: 100%;
+}
+
+.key-value-row {
+  align-items: flex-start;
+}
+
+.key-value-row .MuiTextField-root {
+  flex: 1;
+}

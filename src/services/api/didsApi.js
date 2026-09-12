@@ -1,0 +1,294 @@
+import { apiService, toFormData } from '../apiService';
+
+/**
+ * DIDs API Service
+ * Handles all DID management operations including CRUD, provider management, and routing
+ */
+
+// Legacy API bridge type aliases - normalize to canonical names
+const BRIDGE_TYPE_ALIASES = {
+  'que': 'queue',
+};
+
+/**
+ * Normalize bridge_type from legacy API values to canonical names
+ */
+const normalizeDID = (did) => {
+  if (!did || !did.bridge_type) return did;
+  const alias = BRIDGE_TYPE_ALIASES[did.bridge_type];
+  if (alias) {
+    return { ...did, bridge_type: alias };
+  }
+  return did;
+};
+
+const normalizeDIDs = (dids) => {
+  if (!Array.isArray(dids)) return dids;
+  return dids.map(normalizeDID);
+};
+
+export const didsApi = {
+  /**
+   * Get all DIDs with optional filtering
+   * @param {Object} params - Query parameters (environment_id, page, per_page, search, provider, status, etc.)
+   * @returns {Promise<Object>} - DIDs list with pagination info
+   */
+  getDIDs: async (params = {}) => {
+    // Convert 'limit' to 'per_page' to match API format
+    if (params.limit) {
+      params.per_page = params.limit;
+      delete params.limit;
+    }
+
+    // Build query string manually to handle bracket notation properly for legacy API
+    // Keys like search[name] must NOT have brackets encoded
+    const queryParts = [];
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== '') {
+        // Keep brackets unencoded for legacy API format: search[name]=value
+        // Only encode the value, not the key (key already has proper format)
+        const encodedValue = encodeURIComponent(value);
+        queryParts.push(`${key}=${encodedValue}`);
+      }
+    }
+
+    const queryString = queryParts.join('&');
+    const url = `/api/dids${queryString ? `?${queryString}` : ''}`;
+    console.log('DID API URL:', url);
+    const response = await apiService.get(url, {}, 'fetching DIDs', false);
+    // Normalize bridge types from legacy API
+    if (Array.isArray(response)) {
+      return normalizeDIDs(response);
+    } else if (response?.data && Array.isArray(response.data)) {
+      return { ...response, data: normalizeDIDs(response.data) };
+    }
+    return response;
+  },
+
+  /**
+   * Get a single DID by ID
+   * @param {string} didId - The DID ID
+   * @returns {Promise<Object>} - DID object
+   */
+  getDID: async (didId) => {
+    const url = `/api/dids/${didId}`;
+    const response = await apiService.get(url, {}, `fetching DID ${didId}`, false);
+    return normalizeDID(response);
+  },
+
+  /**
+   * Create a new DID
+   * @param {Object} didData - DID data (number, provider, type, etc.)
+   * @returns {Promise<Object>} - Created DID object
+   */
+  createDID: async (didData) => {
+    const url = `/api/dids`;
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    };
+
+    // Use centralized toFormData helper for proper nested object encoding
+    const formData = toFormData(didData);
+
+    return apiService.post(url, formData, headers, 'creating DID', true);
+  },
+
+  /**
+   * Update an existing DID
+   * @param {string} didId - The DID ID
+   * @param {Object} didData - Updated DID data
+   * @returns {Promise<Object>} - Updated DID object
+   */
+  updateDID: async (didId, didData) => {
+    const url = `/api/dids/${didId}`;
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    };
+
+    // Use centralized toFormData helper for proper nested object encoding
+    const formData = toFormData(didData);
+
+    return apiService.patch(url, formData, headers, `updating DID ${didId}`, true);
+  },
+
+  /**
+   * Delete a DID
+   * @param {string} didId - The DID ID
+   * @returns {Promise<Object>} - Deletion confirmation
+   */
+  deleteDID: async (didId) => {
+    const url = `/api/dids/${didId}`;
+    return apiService.delete(url, {}, `deleting DID ${didId}`, true);
+  },
+
+  /**
+   * Check if a DID number already exists in the system
+   * @param {string} number - The DID number to check
+   * @returns {Promise<boolean>} - True if number exists, false otherwise
+   */
+  checkNumberExists: async (number) => {
+    try {
+      const params = {
+        page: 1,
+        per_page: 1,
+        'search[number]': number
+      };
+      // Build query string manually to handle bracket notation
+      const queryParts = [];
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null && value !== '') {
+          const encodedValue = encodeURIComponent(value);
+          queryParts.push(`${key}=${encodedValue}`);
+        }
+      }
+      const queryString = queryParts.join('&');
+      const url = `/api/dids?${queryString}`;
+      const response = await apiService.get(url, {}, 'checking DID number', false);
+
+      // Check if any DIDs were returned with this exact number
+      const dids = Array.isArray(response) ? response : (response?.data || []);
+      return dids.some(did => did.number === number);
+    } catch (error) {
+      console.error('Error checking DID number:', error);
+      return false; // On error, proceed with duplicate attempt (let server validate)
+    }
+  },
+
+  /**
+   * Duplicate a DID
+   * Creates a copy of an existing DID with a new number and optional name
+   * @param {string} didId - The source DID ID to duplicate
+   * @param {string} newNumber - The number for the new DID (required, must be unique)
+   * @param {string} newName - Optional name for the new DID (defaults to "Copy of {originalName}")
+   * @returns {Promise<Object>} - Created DID object
+   */
+  duplicateDID: async (didId, newNumber, newName = null) => {
+    const url = `/api/dids`;
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    };
+    const formData = new URLSearchParams();
+    formData.append('action', 'duplicate');
+    formData.append('uuid', didId);
+    formData.append('number', newNumber);
+    if (newName) {
+      formData.append('name', newName);
+    }
+    // showMessages = false to let component handle success/error display consistently
+    return apiService.post(url, formData, headers, 'duplicating DID', false);
+  },
+
+  /**
+   * Get available DID providers
+   * @returns {Promise<Array>} - Array of provider objects
+   */
+  getProviders: async () => {
+    const url = `/api/did-providers`;
+    return apiService.get(url, {}, 'fetching DID providers', false);
+  },
+
+  /**
+   * Get available DID types from action=types endpoint
+   * @returns {Promise<Array>} - Array of DID type strings
+   */
+  getTypes: async () => {
+    const url = `/api/dids?action=types`;
+    return apiService.get(url, {}, 'fetching DID types', false);
+  },
+
+  /**
+   * Get available DID statuses
+   * @returns {Promise<Array>} - Array of status objects
+   */
+  getStatuses: async () => {
+    const url = `/api/did-statuses`;
+    return apiService.get(url, {}, 'fetching DID statuses', false);
+  },
+
+  /**
+   * Get routing options for DIDs
+   * @param {string} environmentId - Environment ID
+   * @returns {Promise<Array>} - Array of routing options (extensions, queues, IVRs, etc.)
+   */
+  getRoutingOptions: async (environmentId) => {
+    const url = `/api/environments/${environmentId}/routing-options`;
+    return apiService.get(url, {}, 'fetching routing options', false);
+  },
+
+  /**
+   * Update DID routing
+   * @param {string} didId - The DID ID
+   * @param {Object} routingData - Routing configuration
+   * @returns {Promise<Object>} - Updated DID object
+   */
+  updateRouting: async (didId, routingData) => {
+    const url = `/api/dids/${didId}/routing`;
+    return apiService.patch(url, routingData, {}, `updating DID routing`, true);
+  },
+
+  /**
+   * Bulk create DIDs
+   * @param {Array} didsData - Array of DID objects
+   * @returns {Promise<Object>} - Bulk creation results
+   */
+  bulkCreateDIDs: async (didsData) => {
+    const url = `/api/dids/bulk`;
+    return apiService.post(url, { dids: didsData }, {}, 'bulk creating DIDs', true);
+  },
+
+  /**
+   * Search DIDs by query
+   * @param {string} query - Search query (number, description, etc.)
+   * @param {Object} filters - Additional filters
+   * @returns {Promise<Array>} - Array of matching DIDs
+   */
+  searchDIDs: async (query, filters = {}) => {
+    const params = { q: query, ...filters };
+    const queryString = new URLSearchParams(params).toString();
+    const url = `/api/dids/search?${queryString}`;
+    return apiService.get(url, {}, 'searching DIDs', false);
+  },
+
+  /**
+   * Get DID usage statistics
+   * @param {string} didId - The DID ID
+   * @param {Object} timeRange - Time range for statistics
+   * @returns {Promise<Object>} - Usage statistics
+   */
+  getDIDStats: async (didId, timeRange = {}) => {
+    const queryString = new URLSearchParams(timeRange).toString();
+    const url = `/api/dids/${didId}/stats${queryString ? `?${queryString}` : ''}`;
+    return apiService.get(url, {}, `fetching DID statistics`, false);
+  },
+
+  /**
+   * Test DID connectivity
+   * @param {string} didId - The DID ID
+   * @returns {Promise<Object>} - Connectivity test results
+   */
+  testDIDConnectivity: async (didId) => {
+    const url = `/api/dids/${didId}/test`;
+    return apiService.post(url, {}, {}, `testing DID connectivity`, true);
+  },
+
+  /**
+   * Import DIDs from CSV file
+   * @param {File} file - CSV file to import
+   * @param {string} environmentUuid - Environment UUID
+   * @returns {Promise<Object>} - Import result
+   */
+  importCSV: async (file, environmentUuid) => {
+    const url = `/api/dids/import`;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('environment_uuid', environmentUuid);
+
+    // showMessages = false to let component handle success/error display consistently
+    return apiService.fetch(url, {
+      method: 'POST',
+      body: formData
+    }, 'importing DIDs from CSV', false);
+  }
+};
+
+export default didsApi;

@@ -1,0 +1,21 @@
+/* Add any custom styles for the Reports component here */
+
+/* Example: Style for the DataGrid container if needed */
+/*
+.reports-datagrid-container {
+  height: 600px; 
+  width: 100%;
+}
+*/
+
+/* Styling for list items to indicate selection or hover states if not covered by MUI */
+/*
+.report-list-item:hover {
+  background-color: #f0f0f0;
+}
+
+.report-list-item.selected {
+  background-color: #e0e0e0;
+  font-weight: bold;
+}
+*/

@@ -1,0 +1,30 @@
+.account-container {
+  background-color: #f5f5f5;
+  min-height: 100%;
+}
+
+.account-container .MuiPaper-root {
+  border-radius: 8px;
+}
+
+.account-container .MuiTabs-root {
+  min-height: 48px;
+}
+
+.account-container .MuiTab-root {
+  min-height: 48px;
+  text-transform: none;
+  font-weight: 500;
+}
+
+.account-container .MuiTextField-root {
+  background-color: white;
+}
+
+.account-container .MuiTextField-root .MuiOutlinedInput-root {
+  background-color: white;
+}
+
+.account-container .MuiFormControl-root .MuiOutlinedInput-root {
+  background-color: white;
+}

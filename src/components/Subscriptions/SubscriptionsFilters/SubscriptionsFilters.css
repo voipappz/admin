@@ -1,0 +1,134 @@
+/* SubscriptionsFilters Styles */
+.subscriptions-filters {
+  margin-bottom: 16px;
+}
+
+.filters-accordion {
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.filters-accordion:before {
+  display: none;
+}
+
+.filters-summary {
+  min-height: 56px;
+  padding: 0 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.filters-summary.active {
+  background-color: #e3f2fd;
+}
+
+.filters-details {
+  padding: 24px;
+  background-color: #fafafa;
+}
+
+.filter-section-title {
+  font-weight: 600;
+  margin-bottom: 16px;
+  margin-top: 16px;
+  color: #333;
+}
+
+.filter-row {
+  margin-bottom: 16px;
+}
+
+.date-range-container {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.date-range-divider {
+  color: #666;
+  font-weight: 500;
+}
+
+.filter-actions {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  gap: 8px;
+}
+
+/* Active filter indicator */
+.active-filters-indicator {
+  background-color: #1976d2;
+  color: white;
+  font-size: 0.75rem;
+  height: 24px;
+  border-radius: 12px;
+}
+
+/* Search input styling */
+.search-input {
+  position: relative;
+}
+
+.search-input .MuiOutlinedInput-root {
+  padding-right: 8px;
+}
+
+.search-icon {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #666;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .filters-details {
+    padding: 16px;
+  }
+  
+  .date-range-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .filter-actions {
+    flex-direction: column;
+  }
+}
+
+/* Form control styling */
+.filter-form-control {
+  margin-bottom: 8px;
+}
+
+.filter-form-control .MuiInputLabel-root {
+  font-weight: 500;
+}
+
+/* Clear button styling */
+.clear-filter-btn {
+  color: #666;
+  border-color: #ccc;
+  min-width: 120px;
+}
+
+.clear-filter-btn:hover {
+  background-color: #f5f5f5;
+  border-color: #999;
+}
+
+/* Filter chip styling */
+.filter-chip {
+  background-color: #1976d2;
+  color: white;
+  font-weight: 600;
+}
+
+/* Loading state */
+.filters-loading .MuiSelect-root,
+.filters-loading .MuiTextField-root {
+  opacity: 0.7;
+}

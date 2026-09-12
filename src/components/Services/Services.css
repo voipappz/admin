@@ -1,0 +1,125 @@
+/* Services Screen Styles */
+
+.services-container {
+  padding: 24px;
+}
+
+.services-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.services-filters {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.services-table-container {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.service-type-chip {
+  font-weight: 500;
+}
+
+.service-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.service-dialog .service-form-section {
+  margin-bottom: 24px;
+}
+
+.service-dialog .service-form-section h6 {
+  margin-bottom: 16px;
+  color: #1976d2;
+  font-weight: 600;
+}
+
+.service-triggers-section,
+.service-conditions-section,
+.service-actions-section,
+.service-meta-section {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  background-color: #fafafa;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.empty-state-icon {
+  font-size: 64px !important;
+  color: #9e9e9e;
+  margin-bottom: 16px;
+}
+
+.loading-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 48px;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .services-container {
+    padding: 16px;
+  }
+  
+  .services-filters {
+    flex-direction: column;
+  }
+  
+  .services-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+  
+  .service-actions {
+    justify-content: center;
+  }
+}
+
+/* Service status styles */
+.service-status-enabled {
+  background-color: #4caf50 !important;
+  color: white !important;
+}
+
+.service-status-disabled {
+  background-color: #f44336 !important;
+  color: white !important;
+}
+
+/* Service type colors */
+.service-type-webhook {
+  background-color: #2196f3 !important;
+  color: white !important;
+}
+
+.service-type-report {
+  background-color: #ff9800 !important;
+  color: white !important;
+}
+
+.service-type-metric {
+  background-color: #9c27b0 !important;
+  color: white !important;
+}
+
+.service-type-gateway {
+  background-color: #607d8b !important;
+  color: white !important;
+}

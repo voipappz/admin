@@ -1,0 +1,41 @@
+name: Bug report
+description: Something behaves differently from what it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The observed behaviour, and what you expected instead.
+    validations: { required: true }
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See ...
+    validations: { required: true }
+
+  - type: input
+    id: screen
+    attributes:
+      label: Which screen
+      placeholder: Users, DIDs, Reports, Dashboard, ...
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Output of `make doctor` is ideal — it redacts credential values.
+      render: shell
+
+  - type: checkboxes
+    id: secrets
+    attributes:
+      label: Before you post
+      options:
+        - label: I have removed any password, token or customer data from this report
+          required: true

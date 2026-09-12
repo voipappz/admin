@@ -1,0 +1,236 @@
+# Dynamic CircleCI Configuration for Advanced Workflows
+# This file demonstrates advanced CircleCI patterns for complex testing scenarios
+
+version: 2.1
+
+# Setup for dynamic configuration (conditional workflows)
+setup: false
+
+# Orbs for enhanced functionality
+orbs:
+  cypress: cypress-io/cypress@3.3.1
+  slack: circleci/slack@4.12.5
+
+# Parameters for dynamic configuration
+parameters:
+  run-e2e-tests:
+    type: boolean
+    default: false
+  run-performance-tests:
+    type: boolean
+    default: false
+  deploy-environment:
+    type: string
+    default: "staging"
+
+# Advanced executors with different configurations
+executors:
+  cypress-large:
+    docker:
+      - image: cypress/browsers:node18.16.1-chrome114-ff114
+    resource_class: xlarge
+    environment:
+      NODE_OPTIONS: "--openssl-legacy-provider --max-old-space-size=8192"
+  
+  cypress-with-postgres:
+    docker:
+      - image: cypress/browsers:node16.16.0-chrome105-ff104
+      - image: postgres:13
+        environment:
+          POSTGRES_USER: testuser
+          POSTGRES_DB: test_db
+          POSTGRES_PASSWORD: testpass
+    resource_class: large
+
+# Advanced commands with conditional logic
+commands:
+  notify-slack:
+    parameters:
+      message:
+        type: string
+      webhook:
+        type: string
+        default: ${SLACK_WEBHOOK}
+    steps:
+      - slack/notify:
+          custom: |
+            {
+              "text": "<< parameters.message >>",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "🚀 *VoipAppz Dashboard*\n<< parameters.message >>"
+                  }
+                }
+              ]
+            }
+          webhook: << parameters.webhook >>
+
+  conditional-e2e:
+    parameters:
+      run-condition:
+        type: boolean
+        default: false
+    steps:
+      - when:
+          condition: << parameters.run-condition >>
+          steps:
+            - run:
+                name: Run E2E Tests
+                command: |
+                  echo "Running E2E tests..."
+                  npx cypress run --spec "cypress/e2e/**/*.cy.ts"
+      - unless:
+          condition: << parameters.run-condition >>
+          steps:
+            - run:
+                name: Skip E2E Tests
+                command: echo "E2E tests skipped - dev server not available"
+
+# Advanced jobs
+jobs:
+  # Matrix testing across different Node versions
+  test-matrix:
+    parameters:
+      node-version:
+        type: string
+    docker:
+      - image: cimg/node:<< parameters.node-version >>-browsers
+    steps:
+      - checkout
+      - run:
+          name: Test with Node << parameters.node-version >>
+          command: |
+            echo "Testing with Node << parameters.node-version >>"
+            npm ci
+            npm run test:cypress
+
+  # Performance testing job
+  test-performance:
+    executor: cypress-large
+    steps:
+      - checkout
+      - install_dependencies
+      - run:
+          name: Run Performance Tests
+          command: |
+            npx cypress run \
+              --spec "cypress/e2e/demo/comprehensive-test-suite.cy.ts" \
+              --config defaultCommandTimeout=30000 \
+              --reporter cypress-multi-reporters \
+              --reporter-options "configFile=reporter-config.json"
+      - store_artifacts:
+          path: cypress/reports
+          destination: performance-reports
+
+  # Security testing
+  test-security:
+    executor: node-browser-executor
+    steps:
+      - checkout
+      - install_dependencies
+      - run:
+          name: Run Security Audit
+          command: |
+            npm audit --audit-level=moderate
+            npx cypress run \
+              --spec "cypress/e2e/demo/comprehensive-test-suite.cy.ts" \
+              --grep "Security"
+      - store_artifacts:
+          path: security-reports
+
+  # Database integration testing
+  test-with-database:
+    executor: cypress-with-postgres
+    steps:
+      - checkout
+      - install_dependencies
+      - run:
+          name: Setup Database
+          command: |
+            dockerize -wait tcp://localhost:5432 -timeout 1m
+            psql -h localhost -U testuser -d test_db -c "CREATE TABLE IF NOT EXISTS test_data (id SERIAL PRIMARY KEY, data TEXT);"
+      - run:
+          name: Run Database Integration Tests
+          command: |
+            # These would be actual database integration tests
+            echo "Database integration tests would run here"
+
+# Advanced workflows with conditional logic
+workflows:
+  version: 2
+
+  # Main workflow with conditional steps
+  advanced-testing:
+    when:
+      not:
+        equal: [ scheduled_pipeline, << pipeline.trigger_source >> ]
+    jobs:
+      - test-cypress:
+          filters:
+            branches:
+              only: /.*/
+      
+      # Matrix testing (when enabled)
+      - test-matrix:
+          matrix:
+            parameters:
+              node-version: ["16.20.2", "18.16.1"]
+          filters:
+            branches:
+              only:
+                - /^feature.*/
+                - dev-claude
+
+      # Conditional E2E testing
+      - test-e2e-conditional:
+          name: "e2e-tests-<< matrix.parameters.browser >>"
+          matrix:
+            parameters:
+              browser: ["chrome", "firefox", "edge"]
+          filters:
+            branches:
+              only:
+                - master
+                - /^release.*/
+          requires:
+            - test-cypress
+
+      # Performance testing (manual approval required)
+      - hold-for-performance:
+          type: approval
+          filters:
+            branches:
+              only:
+                - master
+                - /^release.*/
+
+      - test-performance:
+          requires:
+            - hold-for-performance
+          filters:
+            branches:
+              only:
+                - master
+                - /^release.*/
+
+  # Scheduled workflow for comprehensive testing
+  nightly-comprehensive:
+    when:
+      equal: [ scheduled_pipeline, << pipeline.trigger_source >> ]
+    jobs:
+      - test-cypress
+      - test-performance
+      - test-security
+      - test-with-database
+      - notify-slack:
+          message: "🌙 Nightly tests completed for VoipAppz Dashboard"
+          requires:
+            - test-cypress
+            - test-performance
+            - test-security
+
+# This configuration demonstrates advanced patterns but may require
+# additional setup and configuration for full functionality

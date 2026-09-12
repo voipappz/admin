@@ -1,0 +1,136 @@
+/* DIDs Component Styles */
+.dids-container {
+  display: flex;
+  height: 100%;
+  background-color: #f5f5f5;
+}
+
+.dids-sidebar {
+  flex-shrink: 0;
+  background: white;
+  border-right: 1px solid #e0e0e0;
+}
+
+.dids-content {
+  flex: 1;
+  background: white;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .dids-container {
+    flex-direction: column;
+    height: auto;
+  }
+  
+  .dids-sidebar {
+    width: 100%;
+    max-height: 300px;
+    margin-bottom: 16px;
+  }
+  
+  .dids-content {
+    width: 100%;
+    min-height: 400px;
+  }
+}
+
+/* Table customizations */
+.dids-content .MuiTableContainer-root {
+  flex: 1;
+}
+
+.dids-content .MuiTable-root {
+  min-width: 800px;
+}
+
+.dids-content .MuiTableHead-root {
+  background-color: #f8f9fa;
+}
+
+.dids-content .MuiTableRow-root:hover {
+  background-color: #f5f5f5 !important;
+}
+
+/* Dialog customizations */
+.dids-content .MuiDialog-paper {
+  border-radius: 8px;
+}
+
+.dids-content .MuiDialogTitle-root {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+/* Chip customizations */
+.dids-content .MuiChip-root {
+  font-weight: 500;
+}
+
+/* Loading state */
+.dids-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+}
+
+/* Error state */
+.dids-error {
+  padding: 24px;
+  text-align: center;
+  color: #d32f2f;
+}
+
+/* Empty state */
+.dids-empty {
+  padding: 48px;
+  text-align: center;
+  color: #757575;
+}
+
+/* Action buttons */
+.dids-action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.dids-action-buttons .MuiIconButton-root {
+  padding: 4px;
+}
+
+/* Status indicators */
+.status-active {
+  color: #2e7d32;
+}
+
+.status-suspended {
+  color: #f57c00;
+}
+
+.status-cancelled {
+  color: #d32f2f;
+}
+
+.status-pending {
+  color: #1976d2;
+}
+
+/* Type indicators */
+.type-sip {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.type-pstn {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.type-toll-free {
+  background-color: #e8f5e8;
+  color: #388e3c;
+}

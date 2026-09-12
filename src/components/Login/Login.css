@@ -1,0 +1,380 @@
+/* Brand color defaults (fonts imported globally in index.css) */
+:root {
+  --accent-color: #EEA740;
+  --accent-hover: #E49728;
+  --navy-900: #1E2530;
+  --navy: #65758E;
+  --navy-dark: #3B4452;
+}
+
+/* ───── Page grid: hero | form ───── */
+.login-page {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
+  font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
+}
+
+/* ───── LEFT: Hero panel ───── */
+.login-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--navy-900);
+  background-image: linear-gradient(135deg, rgba(101,117,142,0.15) 0%, transparent 60%);
+  overflow: hidden;
+  padding: 3rem 2rem;
+}
+
+.hero-logo {
+  max-width: 220px;
+  height: auto;
+  position: relative;
+  z-index: 2;
+  margin-bottom: 16px;
+}
+
+.hero-welcome {
+  position: relative;
+  z-index: 2;
+  color: #fff;
+  font-family: 'Rubik', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  text-align: center;
+}
+
+.hero-tagline {
+  position: relative;
+  z-index: 2;
+  color: rgba(255,255,255,0.7);
+  font-family: 'Rubik', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  margin: 0 0 2rem;
+}
+
+.hero-footer {
+  position: absolute;
+  bottom: 24px;
+  z-index: 2;
+  color: rgba(255,255,255,0.35);
+  font-size: 0.78rem;
+}
+
+/* ── Decorative isometric blocks ── */
+.hero-blocks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hero-blocks .block {
+  position: absolute;
+  border-radius: 6px;
+  transform: rotate(45deg);
+}
+
+.hero-blocks .block--orange-lg {
+  width: 120px;
+  height: 120px;
+  background: rgba(238,167,64,0.18);
+  top: 12%;
+  left: 8%;
+}
+
+.hero-blocks .block--teal {
+  width: 80px;
+  height: 80px;
+  background: rgba(56,189,180,0.14);
+  top: 22%;
+  right: 14%;
+}
+
+.hero-blocks .block--white-sm {
+  width: 50px;
+  height: 50px;
+  background: rgba(255,255,255,0.07);
+  bottom: 28%;
+  left: 18%;
+}
+
+.hero-blocks .block--orange-sm {
+  width: 60px;
+  height: 60px;
+  background: rgba(238,167,64,0.12);
+  bottom: 14%;
+  right: 22%;
+}
+
+.hero-blocks .block--navy {
+  width: 90px;
+  height: 90px;
+  background: rgba(101,117,142,0.13);
+  top: 55%;
+  left: 60%;
+}
+
+.hero-blocks .block--white-lg {
+  width: 70px;
+  height: 70px;
+  background: rgba(255,255,255,0.05);
+  top: 70%;
+  left: 6%;
+}
+
+.hero-blocks .block--teal-sm {
+  width: 40px;
+  height: 40px;
+  background: rgba(56,189,180,0.10);
+  top: 8%;
+  right: 42%;
+}
+
+/* ───── RIGHT: Form panel ───── */
+.login-form-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  padding: 3rem 2rem;
+  min-height: 100vh;
+}
+
+.form-panel-logo {
+  max-width: 180px;
+  height: auto;
+  margin-bottom: 32px;
+}
+
+/* Clean card form */
+.login-paper {
+  width: 100%;
+  max-width: 420px;
+  padding: 48px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: none !important;
+  background: #fff !important;
+  border-radius: 12px !important;
+}
+
+/* Legacy compat wrapper */
+.login-content {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+/* ───── Typography ───── */
+.login-title,
+.form-title {
+  margin-bottom: 32px !important;
+  font-family: 'Rubik', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 1.6rem !important;
+  color: var(--navy-900);
+  text-align: center;
+}
+
+.forgot-description {
+  color: var(--navy);
+  font-size: 0.92rem;
+  text-align: center;
+  margin-bottom: 24px !important;
+  line-height: 1.5;
+}
+
+/* ───── Form ───── */
+.login-form {
+  width: 100%;
+}
+
+.form-group,
+.input-container,
+.email-container {
+  margin-bottom: 20px;
+}
+
+.password-container {
+  margin-bottom: 8px;
+}
+
+/* Error / helper text */
+.error-message,
+.help-block {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: #d32f2f;
+}
+
+/* Input styling */
+.login-input .MuiOutlinedInput-root,
+.form-control .MuiOutlinedInput-root {
+  border-radius: 8px;
+  background: #f8fafc;
+  transition: background 0.2s;
+  height: auto;
+  border: none;
+  font-family: 'Source Sans 3', sans-serif;
+}
+
+.login-input .MuiOutlinedInput-root:hover,
+.form-control .MuiOutlinedInput-root:hover {
+  background: #f1f5f9;
+}
+
+.login-input .MuiOutlinedInput-root.Mui-focused,
+.form-control .MuiOutlinedInput-root.Mui-focused {
+  background: #fff;
+}
+
+.login-input .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline,
+.form-control .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: var(--accent-color);
+  border-width: 2px;
+}
+
+.login-input .MuiInputLabel-root.Mui-focused,
+.form-control .MuiInputLabel-root.Mui-focused {
+  color: var(--accent-color);
+}
+
+.form-control .MuiOutlinedInput-notchedOutline {
+  border-color: #e2e8f0;
+}
+
+/* ───── Actions row ───── */
+.form-footer,
+.form-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 28px;
+  border: none;
+  padding: 0;
+}
+
+.forgot-password {
+  cursor: pointer;
+  text-decoration: none !important;
+  color: var(--accent-color) !important;
+  font-size: 0.82rem !important;
+  font-weight: 500 !important;
+  align-self: flex-end;
+}
+
+.forgot-password:hover {
+  text-decoration: underline !important;
+}
+
+/* ───── Buttons (voipappz.com style) ───── */
+.login-button {
+  width: 100% !important;
+  padding: 14px 32px !important;
+  background-color: var(--accent-color) !important;
+  color: #fff !important;
+  border-radius: 6px !important;
+  text-transform: none !important;
+  font-family: 'Rubik', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+  border: 2px solid var(--accent-color) !important;
+  box-shadow: none !important;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.login-button:hover {
+  background-color: var(--accent-hover) !important;
+  border-color: var(--accent-hover) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+.login-button:disabled {
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #fff !important;
+  opacity: 0.55;
+}
+
+/* Back button — navy outline */
+.back-button {
+  background-color: transparent !important;
+  color: var(--navy) !important;
+  border: 2px solid var(--navy) !important;
+  text-transform: none !important;
+  padding: 10px 24px !important;
+  border-radius: 6px !important;
+  font-family: 'Rubik', sans-serif !important;
+  font-weight: 500 !important;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.back-button:hover {
+  background-color: var(--navy-dark) !important;
+  border-color: var(--navy-dark) !important;
+  color: #fff !important;
+}
+
+/* Forgot submit button */
+.forgot-submit-button {
+  background-color: var(--accent-color) !important;
+  color: #ffffff !important;
+  text-transform: none !important;
+  padding: 14px 32px !important;
+  border-radius: 6px !important;
+  font-family: 'Rubik', sans-serif !important;
+  font-weight: 600 !important;
+  border: 2px solid var(--accent-color) !important;
+  box-shadow: none !important;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.forgot-submit-button:hover {
+  background-color: var(--accent-hover) !important;
+  border-color: var(--accent-hover) !important;
+}
+
+.forgot-submit-button:disabled {
+  opacity: 0.55;
+}
+
+/* Login alert */
+.login-alert {
+  margin-bottom: 16px !important;
+  border-radius: 8px !important;
+}
+
+/* ───── Responsive ───── */
+@media (max-width: 768px) {
+  .login-page {
+    grid-template-columns: 1fr;
+  }
+
+  .login-hero {
+    display: none;
+  }
+
+  .login-form-panel {
+    min-height: 100vh;
+    padding: 2rem 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-paper {
+    padding: 32px 24px;
+  }
+
+  .form-panel-logo {
+    max-width: 150px;
+  }
+}

@@ -1,0 +1,36 @@
+.commslog-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--theme-bg-primary, #fff);
+  position: relative;
+}
+
+.commslog-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-light, #e5e7eb);
+  flex-shrink: 0;
+}
+
+.commslog-table {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border-radius: 0 !important;
+}
+
+.commslog-loading {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--theme-bg-primary, #fff);
+  border: 1px solid var(--border-light, #e5e7eb);
+  box-shadow: var(--shadow-hover, 0 2px 8px rgba(0, 0, 0, 0.1));
+}

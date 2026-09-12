@@ -1,0 +1,63 @@
+.workflows-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background-color: #f5f5f5;
+}
+
+/* ── Workflow builder sidebar ─────────────────────────────── */
+.wf-sidebar {
+  width: 240px;
+  min-width: 200px;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-light, #e0e0e0);
+  background: var(--theme-bg-secondary, #fafafa);
+  overflow: hidden;
+}
+
+/* ── Workflow builder canvas ──────────────────────────────── */
+.wf-canvas {
+  flex: 1;
+  min-height: 0;
+}
+
+.wf-canvas .react-flow__node {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wf-canvas .react-flow__attribution {
+  display: none;
+}
+
+/* Edge label styling */
+.wf-canvas .react-flow__edge-text {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ── Workflow editor panel (right side) ───────────────────── */
+.wf-editor {
+  overflow: auto;
+  border-left: 1px solid var(--border-light, #e0e0e0);
+}
+
+/* ── Code block for viewer ────────────────────────────────── */
+.code-block {
+  background-color: #1e1e1e !important;
+  color: #d4d4d4;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 6px;
+}
+
+.code-block pre {
+  color: #d4d4d4;
+}

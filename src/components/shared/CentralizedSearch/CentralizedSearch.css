@@ -1,0 +1,76 @@
+.centralized-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 4px;
+}
+
+/* Single row: search bar (hero) + date picker + actions */
+.centralized-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+
+/* Search bar takes all available space */
+.centralized-search-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Action icons group */
+.centralized-search-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* Filter grid inside dialog */
+.centralized-search-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px 16px;
+}
+
+.centralized-search-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Inline filter panel (drops down from search bar) */
+.centralized-search-filter-panel {
+  background-color: var(--theme-bg-secondary, #fff);
+  border: 1px solid var(--theme-border, #e5e7eb);
+  border-top: none;
+  border-radius: 0 0 16px 16px;
+  margin-top: -4px;
+  padding: 16px 20px;
+  box-shadow: 0 6px 20px var(--shadow-hover);
+  animation: filterPanelSlideDown 0.15s ease-out;
+}
+
+@keyframes filterPanelSlideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.centralized-search-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--theme-border, #f3f4f6);
+}
+
+/* Active filter chips row */
+.centralized-search-active-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 0;
+}

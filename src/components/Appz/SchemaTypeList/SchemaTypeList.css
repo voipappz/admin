@@ -1,0 +1,19 @@
+.schema-type-list {
+  padding: 0;
+}
+
+.schema-type-list .MuiListItemButton-root {
+  font-family: var(--font-family);
+  transition: var(--transition-base);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+.schema-type-list .MuiListItemButton-root:hover {
+  background-color: var(--hover-bg);
+}
+
+.schema-type-list .MuiListItemText-primary {
+  font-size: var(--font-size-base);
+  font-weight: 500;
+}

@@ -1,0 +1,28 @@
+name: Nimbus auth regressions
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  auth-regression:
+    name: health 401 must not destroy the admin session
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run only the login incident regressions
+        run: >-
+          npm run test:unit:run --
+          src/services/apiService.test.js
+          src/services/authService.test.js
+          src/services/api/nodesApi.test.js
+          src/hooks/useGatusHealth.test.js

@@ -1,0 +1,169 @@
+/* DIDForm — DID-specific styles only (global form styles in global-forms.css) */
+
+/* ───── Dialog paper — rounded corners ───── */
+.did-dialog .MuiDialog-paper {
+  border-radius: 12px;
+}
+
+/* ───── Title area — branded header ───── */
+.did-dialog .MuiDialogTitle-root {
+  padding: 24px 32px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.did-dialog-subtitle {
+  font-family: 'Source Sans 3', sans-serif !important;
+  font-size: 0.85rem !important;
+  color: var(--navy, #65758E) !important;
+  font-weight: 400 !important;
+  margin-top: 2px;
+}
+
+/* ───── Section divider — dashed line with centered label ───── */
+.did-form-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
+}
+
+.did-form-section::before,
+.did-form-section::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.did-form-section-text {
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--navy, #65758E);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ───── Two-column row (Name + Number) ───── */
+.did-form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.did-form-row > * {
+  flex: 1;
+}
+
+/* ───── Routing card container — subtle background ───── */
+.did-form-routing-container {
+  background: var(--bg-secondary, #f9fafb);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+/* ───── Meta fields ───── */
+.did-form-meta-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.did-form-meta-empty {
+  font-family: 'Source Sans 3', sans-serif !important;
+  font-size: 0.88rem !important;
+  color: var(--navy, #65758E) !important;
+  font-style: italic !important;
+  padding: 4px 0;
+}
+
+/* ───── Action buttons (kept for WizardViewRenderer usage) ───── */
+.did-form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
+.did-form-save-btn {
+  padding: 12px 32px !important;
+  background-color: var(--accent-color, #EEA740) !important;
+  color: #fff !important;
+  border-radius: 6px !important;
+  text-transform: none !important;
+  font-family: 'Rubik', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 0.95rem !important;
+  border: 2px solid var(--accent-color, #EEA740) !important;
+  box-shadow: none !important;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.did-form-save-btn:hover {
+  background-color: var(--accent-hover, #E49728) !important;
+  border-color: var(--accent-hover, #E49728) !important;
+}
+
+.did-form-save-btn:disabled {
+  background-color: var(--accent-color, #EEA740) !important;
+  border-color: var(--accent-color, #EEA740) !important;
+  color: #fff !important;
+  opacity: 0.55;
+}
+
+.did-form-cancel-btn {
+  padding: 12px 24px !important;
+  background-color: transparent !important;
+  color: var(--navy, #65758E) !important;
+  border: 2px solid #e2e8f0 !important;
+  border-radius: 6px !important;
+  text-transform: none !important;
+  font-family: 'Rubik', sans-serif !important;
+  font-weight: 500 !important;
+  font-size: 0.95rem !important;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.did-form-cancel-btn:hover {
+  background-color: var(--navy-dark, #3B4452) !important;
+  border-color: var(--navy-dark, #3B4452) !important;
+  color: #fff !important;
+}
+
+/* ───── Add meta button ───── */
+.did-form-add-meta-btn {
+  border-radius: 6px !important;
+  text-transform: none !important;
+  font-family: 'Source Sans 3', sans-serif !important;
+  font-weight: 500 !important;
+  border-color: #e2e8f0 !important;
+  color: var(--navy, #65758E) !important;
+}
+
+.did-form-add-meta-btn:hover {
+  border-color: var(--accent-color, #EEA740) !important;
+  color: var(--accent-color, #EEA740) !important;
+}
+
+/* ───── Section label (for Meta Properties heading) ───── */
+.did-form-section-label {
+  font-family: 'Source Sans 3', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 0.82rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--navy, #65758E) !important;
+}
+
+/* ───── Dark mode ───── */
+[data-theme="dark"] .did-dialog .MuiDialogTitle-root {
+  border-bottom-color: var(--theme-border, #3c4043);
+}
+
+[data-theme="dark"] .did-form-section::before,
+[data-theme="dark"] .did-form-section::after {
+  border-bottom-color: var(--theme-border, #3c4043);
+}
+
+[data-theme="dark"] .did-form-routing-container {
+  background: var(--theme-bg-secondary, #292a2d);
+}

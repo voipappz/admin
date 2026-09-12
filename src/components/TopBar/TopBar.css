@@ -1,0 +1,358 @@
+/* TopBar - the visible strip is removed (minimal layout); the TopBar component
+   stays mounted for its shared popovers/modals, which the sidebar triggers. */
+.topbar-container {
+  display: none !important;
+}
+.topbar-container--legacy {
+  position: fixed;
+  top: 0;
+  left: 80px;
+  width: calc(100% - 80px);
+  height: 48px;
+  background-color: var(--topbar-bg, #f6f7f9);
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  z-index: 1100;
+  gap: 6px;
+  transition: left 0.25s ease, width 0.25s ease;
+  font-family: 'Rubik', sans-serif;
+}
+
+.topbar-container.sidebar-collapsed {
+  left: 0;
+  width: 100%;
+}
+
+.topbar-container.sidebar-expanded {
+  left: 210px;
+  width: calc(100% - 210px);
+}
+
+/* Hamburger */
+.topbar-hamburger {
+  color: #6b7280 !important;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.topbar-hamburger:hover {
+  color: #374151 !important;
+}
+
+.topbar-mobile-menu {
+  display: none !important;
+}
+
+/* Breadcrumb selectors */
+.topbar-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.topbar-breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--theme-text-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  text-transform: none;
+  min-width: auto;
+  line-height: 1.4;
+  transition: background-color 0.15s;
+}
+
+.topbar-breadcrumb-item:hover {
+  background-color: var(--theme-hover);
+}
+
+.topbar-breadcrumb-item.active {
+  background-color: var(--theme-hover);
+}
+
+.topbar-breadcrumb-divider {
+  color: var(--theme-text-secondary);
+  font-size: 1rem;
+  font-weight: 300;
+  opacity: 0.5;
+  user-select: none;
+  margin: 0 2px;
+  line-height: 1;
+}
+
+/* Global search wrapper - contains search bar, filter panel, and chips */
+.topbar-search-wrapper {
+  flex: 1;
+  margin: 0 12px;
+  min-width: 180px;
+  position: relative;
+}
+
+/* Inline global search (Algolia-Autocomplete style) — a real input, big and
+   right-aligned next to the action icons; the results panel attaches below. */
+.topbar-global-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 860px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light, #e5e7eb);
+  background: var(--theme-bg-primary, #fff);
+  color: var(--theme-text-secondary);
+  cursor: text;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.topbar-global-search:hover {
+  border-color: var(--accent-primary, #65758E);
+}
+
+.topbar-global-search:focus-within {
+  border-color: var(--accent-primary, #65758E);
+  box-shadow: 0 0 0 3px rgba(101, 117, 142, 0.18);
+}
+
+/* Results panel attached under the input */
+.topbar-search-panel {
+  width: 640px;
+  max-width: calc(100vw - 24px);
+  margin-top: 6px;
+  border-radius: 12px !important;
+  border: 1px solid var(--border-light, #e5e7eb);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18) !important;
+  background-color: var(--theme-bg-primary, #fff) !important;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar-global-search-kbd {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--theme-text-secondary);
+  border: 1px solid var(--border-light, #e5e7eb);
+  border-radius: 4px;
+  padding: 1px 5px;
+  opacity: 0.7;
+}
+
+[data-theme="dark"] .topbar-global-search {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .topbar-global-search:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Search bar input */
+.topbar-search-bar {
+  width: 100%;
+}
+
+/* Filter panel dropdown - positioned below search bar */
+.topbar-filter-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1200;
+  background-color: var(--theme-bg-primary, #fff);
+  border: 1px solid var(--border-light);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  animation: topbarFilterSlideDown 0.15s ease-out;
+}
+
+@keyframes topbarFilterSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.topbar-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px 12px;
+}
+
+.topbar-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.topbar-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light);
+}
+
+/* Active filter chips below the search bar */
+.topbar-active-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 0 0 0;
+}
+
+/* Environment popover content */
+.topbar-env-popover {
+  padding: 20px;
+  min-width: 480px;
+  max-width: 540px;
+}
+
+/* Node menu - uses MUI Menu, minimal custom styles */
+
+/* Actions area — tech nav icons + divider + utility icons */
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* Tech-nav icons get a tighter, toolbar feel */
+.topbar-actions .MuiIconButton-root {
+  border-radius: 6px;
+  padding: 4px;
+}
+
+/* Shrink the tool icons (fontSize="small") — leaves the Health dot (inline 12px)
+   and the Account avatar untouched */
+.topbar-actions .MuiSvgIcon-fontSizeSmall {
+  font-size: 18px;
+}
+
+/* ====== Dark Mode — full dark topbar ====== */
+[data-theme="dark"] .topbar-container {
+  background-color: #1e2028;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .topbar-hamburger {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+[data-theme="dark"] .topbar-hamburger:hover {
+  color: #fff !important;
+}
+
+[data-theme="dark"] .topbar-breadcrumb-item {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .topbar-breadcrumb-item:hover,
+[data-theme="dark"] .topbar-breadcrumb-item.active {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .topbar-breadcrumb-divider {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+
+[data-theme="dark"] .topbar-container .MuiIconButton-root {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .topbar-container .MuiIconButton-root:hover {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .topbar-filter-panel {
+  background-color: var(--theme-bg-primary);
+  border-color: var(--theme-border);
+}
+
+/* Responsive */
+@media (max-width: 899px) {
+  .topbar-container,
+  .topbar-container.sidebar-expanded {
+    left: 0;
+    width: 100%;
+  }
+
+  .topbar-mobile-menu {
+    display: inline-flex !important;
+  }
+
+  .topbar-breadcrumb {
+    display: none;
+  }
+
+  .topbar-actions {
+    gap: 1px;
+  }
+
+  .topbar-search-wrapper {
+    margin: 0 4px;
+    min-width: 0;
+  }
+
+  .topbar-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar-env-popover {
+    min-width: 320px;
+    max-width: calc(100vw - 32px);
+  }
+}
+
+[data-theme="dark"] .ai-assistant-trigger-button .trigger-shortcut {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 768px) {
+  .ai-assistant-trigger {
+    min-width: 40px;
+    max-width: 40px;
+    margin: 0 4px;
+  }
+
+  .ai-assistant-trigger-button .trigger-text,
+  .ai-assistant-trigger-button .trigger-shortcut {
+    display: none;
+  }
+
+  .ai-assistant-trigger-button {
+    justify-content: center;
+    padding: 6px;
+    border-radius: 50%;
+    min-width: 34px;
+    width: 34px;
+  }
+}

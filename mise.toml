@@ -1,0 +1,12 @@
+# Toolchain pin for this repo, in the same shape as voipappz-api/mise.toml.
+#
+# React 19 and Vite 6 need Node 20+, and this lockfile is lockfileVersion 3,
+# which npm 6 cannot read at all -- on Node 14 `npm ci` fails with
+# "Cannot read property '@dnd-kit/core' of undefined", which names no version
+# and reads as a broken repository rather than a stale toolchain.
+#
+# 22 is what .github/workflows/ci.yml runs, so local and CI agree.
+#
+# Task running stays in the Makefile (`make help`); this file pins tools only.
+[tools]
+node = "22"

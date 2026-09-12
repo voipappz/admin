@@ -1,0 +1,306 @@
+version: 2.1
+
+jobs:
+  install-deps:
+    docker:
+      - image: cimg/node:lts
+    steps:
+      - checkout
+      - run:
+          name: Clear previous node_modules and cache
+          command: |
+            rm -rf node_modules
+            npm cache clean --force
+      - run:
+          name: Install dependencies
+          command: |
+            # First attempt with npm ci
+            npm ci || true
+
+            # If rollup is missing, try installing with npm install
+            if [ ! -d "node_modules/@rollup" ]; then
+              echo "Rollup not found, installing with npm install..."
+              rm -rf node_modules
+              npm install
+            fi
+
+            # Explicitly install rollup if still missing
+            if [ ! -f "node_modules/@rollup/rollup-linux-x64-gnu/rollup.linux-x64-gnu.node" ]; then
+              echo "Installing specific rollup binary..."
+              npm install @rollup/rollup-linux-x64-gnu --save-optional
+            fi
+      - save_cache:
+          paths:
+            - node_modules
+          key: v2-node-deps-{{ checksum "package-lock.json" }}
+
+  test-quality:
+    docker:
+      - image: cimg/node:lts
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v2-node-deps-{{ checksum "package-lock.json" }}
+            - v2-node-deps-
+      - run:
+          name: Install dependencies if needed
+          command: |
+            if [ ! -f "node_modules/.bin/eslint" ] || [ ! -d "node_modules" ]; then
+              echo "Dependencies not found or incomplete, installing..."
+              npm ci
+            else
+              echo "Dependencies found, verifying ESLint..."
+              ls -la node_modules/.bin/eslint
+            fi
+      - run:
+          name: Run quality checks
+          command: npm run test-quality
+
+  nginx-config-test:
+    docker:
+      - image: cimg/base:24.04
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Validate nginx.conf syntax
+          command: |
+            # setup_remote_docker runs Docker on a separate host, so -v
+            # volume mounts can't access the job's filesystem. Build a
+            # temporary image with the config and mock certs baked in.
+            printf '%s\n' \
+              'FROM nginx:alpine' \
+              'RUN apk add --no-cache openssl && \' \
+              '    mkdir -p /opt/va/certs && \' \
+              '    openssl req -x509 -nodes -days 1 -newkey rsa:2048 \' \
+              '      -keyout /opt/va/certs/server.key -out /opt/va/certs/server.crt \' \
+              '      -subj "/CN=test" 2>/dev/null' \
+              'COPY nginx.conf /etc/nginx/nginx.conf' \
+              > /tmp/Dockerfile.nginx-test
+
+            docker build -f /tmp/Dockerfile.nginx-test -t nginx-test .
+            docker run --rm \
+              --add-host=cable:127.0.0.1 \
+              --add-host=api:127.0.0.1 \
+              nginx-test nginx -t
+
+            echo "nginx.conf syntax validation passed"
+
+  security-scan:
+    docker:
+      - image: cimg/node:lts
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v2-node-deps-{{ checksum "package-lock.json" }}
+      - run: npm run security-scan
+
+  test-reset-password-api:
+    docker:
+      - image: cimg/node:lts-browsers
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v2-node-deps-{{ checksum "package-lock.json" }}
+            - v2-node-deps-
+      - run:
+          name: Install dependencies if needed
+          command: |
+            if [ ! -d "node_modules" ]; then
+              npm ci
+            fi
+      - run:
+          name: Install Playwright
+          command: npx playwright install chromium --with-deps
+      - run:
+          name: Run Reset Password API Security tests
+          # VITE_API_BASE_URL, TEST_EMAIL, TEST_PASSWORD and VA_TEST_OTP come from
+          # the CircleCI project's environment variables -- never hardcoded here.
+          command: npx playwright test tests/reset-password-api.spec.ts --project=chromium --reporter=line --timeout=30000
+
+  build:
+    docker:
+      - image: cimg/node:lts
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v2-node-deps-{{ checksum "package-lock.json" }}
+      - run:
+          name: Verify dependencies and build
+          command: |
+            # Check if rollup binary exists
+            if [ ! -f "node_modules/@rollup/rollup-linux-x64-gnu/rollup.linux-x64-gnu.node" ]; then
+              echo "Rollup binary missing, reinstalling..."
+              npm install @rollup/rollup-linux-x64-gnu --save-optional || true
+
+              # If still missing, do full reinstall
+              if [ ! -f "node_modules/@rollup/rollup-linux-x64-gnu/rollup.linux-x64-gnu.node" ]; then
+                echo "Full reinstall of dependencies..."
+                rm -rf node_modules
+                npm install
+              fi
+            fi
+
+            # Build with injected build ID for cache busting.
+            # VITE_APP_VERSION (YYYY.MM.DD-<short-sha>) is shown in the app footer.
+            VITE_APP_VERSION="$(date -u +%Y.%m.%d)-${CIRCLE_SHA1:0:7}" \
+              VITE_BUILD_ID="${CIRCLE_BUILD_NUM}" npm run build
+
+            # Create version.json for client-side staleness detection
+            echo "{\"build\":\"${CIRCLE_BUILD_NUM}\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"commit\":\"${CIRCLE_SHA1:0:8}\"}" > dist/version.json
+            echo "Build ID: ${CIRCLE_BUILD_NUM}, version.json created"
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist
+
+  build-docker:
+    docker:
+      - image: cimg/base:24.04
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - setup_remote_docker
+      - run:
+          name: Build Docker image
+          command: |
+            TAG="release-${CIRCLE_BUILD_NUM}"
+            docker build -t nirlevi/va-admin:${TAG} .
+            echo "Docker images created:"
+            echo "- nirlevi/va-admin:${TAG}"
+      - run:
+          name: Build and push Docker image
+          command: |
+            docker login -u nirlevi -p $DOCKER_PASS
+
+            RELEASE_TAG="nirlevi/va-admin:release-${CIRCLE_BUILD_NUM}"
+            LATEST_TAG="nirlevi/va-admin:latest"
+
+            docker build \
+              --build-arg BUILDKIT_INLINE_CACHE=1 \
+              --cache-from ${LATEST_TAG} \
+              --tag ${RELEASE_TAG} \
+              --tag ${LATEST_TAG} \
+              .
+
+            docker push ${RELEASE_TAG} &
+            docker push ${LATEST_TAG} &
+            wait
+      - run: rm -rf Dockerfile
+
+
+workflows:
+  version: 2
+
+  # Main CI/CD workflow - production branches only
+  ci-cd:
+    jobs:
+      # Filtered like its siblings — unfiltered, a push to any feature branch
+      # spawned a ci-cd workflow that ran install-deps on its own and exited.
+      - install-deps:
+          filters:
+            branches:
+              only:
+                - main
+                - master
+      - nginx-config-test:
+          filters:
+            branches:
+              only:
+                - main
+                - master
+      - test-quality:
+          requires:
+            - install-deps
+          filters:
+            branches:
+              only:
+                - main
+                - master
+      - security-scan:
+          requires:
+            - test-quality
+          filters:
+            branches:
+              only:
+                - main
+                - master
+      - build:
+          requires:
+            - test-quality
+            - security-scan
+            - nginx-config-test
+          filters:
+            branches:
+              only:
+                - main
+                - master
+      - build-docker:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - main
+                - master
+
+  # Feature branch workflow - lint + build + API tests
+  #
+  # Every job here filters on `ignore: main/master` rather than an allowlist of
+  # branch-name patterns. The allowlist (/^feature.*/, /^fix.*/, /^rotem.*/, …)
+  # silently excluded any branch that didn't happen to match one of its
+  # prefixes: `customer-owns-its-profile` matched none of them, so all seven
+  # jobs were filtered out, CircleCI created the pipeline with ZERO workflows,
+  # and 12+ consecutive pushes reported no CI at all — not red, just absent.
+  # Ignoring main/master keeps the FinOps fix that motivated the allowlist (a
+  # push to main no longer spawns a second, no-op feature-testing workflow)
+  # while making coverage exhaustive: main/master run ci-cd, everything else
+  # runs this. A new branch cannot fall through the gap between the two.
+  feature-testing:
+    jobs:
+      - install-deps:
+          filters:
+            branches:
+              ignore:
+                - main
+                - master
+      - nginx-config-test:
+          filters:
+            branches:
+              ignore:
+                - main
+                - master
+      - test-quality:
+          requires:
+            - install-deps
+          filters:
+            branches:
+              ignore:
+                - main
+                - master
+      - security-scan:
+          requires:
+            - test-quality
+          filters:
+            branches:
+              ignore:
+                - main
+                - master
+      - build:
+          requires:
+            - test-quality
+            - security-scan
+            - nginx-config-test
+          filters:
+            branches:
+              ignore:
+                - main
+                - master
+      # build-docker deliberately absent: publishing from a feature branch
+      # overwrote nirlevi/va-admin:latest, so whatever branch pushed last became
+      # what production pulled. Images are published from main/master only.
