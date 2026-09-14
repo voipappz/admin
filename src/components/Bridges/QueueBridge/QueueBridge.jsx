@@ -38,7 +38,7 @@ import {
 import { useCustomerEnvironment } from '../../../context/CustomerEnvironmentContext';
 import { queuesApi } from '../../../services/api/queuesApi';
 import { bridgeApi } from '../../../services/api/bridgeApi';
-import { extensionsApi } from '../../../services/api/devicesApi';
+import { extensionsApi } from '../../../services/api/extensionsApi';
 import { usersApi } from '../../../services/api/usersApi';
 import { AnnouncementBridge } from '../AnnouncementBridge/AnnouncementBridge.jsx';
 import { Z, menuProps } from '../../../utils/zIndex.js';

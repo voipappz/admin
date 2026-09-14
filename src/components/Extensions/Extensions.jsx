@@ -38,8 +38,8 @@ import {
 } from '@mui/icons-material';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useExtensions } from './Extensions';
-import { extensionsApi } from '../../services/api/devicesApi';
-import { environmentsApi } from '../../services/api/applicationsApi';
+import { extensionsApi } from '../../services/api/extensionsApi';
+import { environmentsApi } from '../../services/api/environmentsApi';
 import { useNotification } from '../../context/NotificationContext';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import { usePermissions } from '../../hooks/usePermissions';

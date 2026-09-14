@@ -5,7 +5,7 @@ import { setDynamicApiBaseUrl } from '../config';
 import { useNotification } from './NotificationContext';
 import { useAuth } from './AuthContext';
 import { fetchCustomerPortalData, applyCustomerBranding } from '../services/customerService';
-import { environmentsApi } from '../services/api/applicationsApi';
+import { environmentsApi } from '../services/api/environmentsApi';
 
 const CustomerEnvironmentContext = createContext();
 
