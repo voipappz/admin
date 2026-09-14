@@ -88,7 +88,7 @@
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.41.0",
     "vite": "^6.4.2",
-    "vitest": "^4.1.8",
+    "vitest": "^4.1.11",
     "wait-on": "^8.0.1"
   },
   "optionalDependencies": {
@@ -100,7 +100,7 @@
     "shell-quote": "^1.9.0",
     "joi": "^18.2.1",
     "esbuild": "^0.28.1",
-    "js-yaml": "4.3.1"
+    "js-yaml": "4.3.2"
   },
   "description": "React admin and end-user portal for the VoIPappz telephony platform",
   "license": "MIT",
