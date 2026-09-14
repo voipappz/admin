@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { environmentsApi } from '../services/api/applicationsApi';
+import { environmentsApi } from '../services/api/environmentsApi';
 import { useCustomerEnvironment } from '../context/CustomerEnvironmentContext';
 
 /**

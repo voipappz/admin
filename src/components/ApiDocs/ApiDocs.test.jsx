@@ -50,7 +50,7 @@ const contract = {
       get: { tags: ['calls'], operationId: 'calls_get', summary: 'List calls' },
     },
     '/api/devices': {
-      get: { operationId: 'extensions_get', summary: 'List extensions' },
+      get: { operationId: 'devices_get', summary: 'List devices' },
     },
   },
 };
@@ -274,7 +274,8 @@ describe('ApiDocs', () => {
 
     expect(within(rail).getByText('Auth')).toBeVisible();
     expect(within(rail).getByText('Calls')).toBeVisible();
-    expect(within(rail).getByText('Extensions')).toBeVisible();
+    // Untagged operations group by path segment, so /api/devices is under Devices.
+    expect(within(rail).getByText('Devices')).toBeVisible();
     expect(within(rail).getByText('/api/devices')).toBeVisible();
   });
 

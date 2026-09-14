@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { extensionsApi } from '../../services/api/devicesApi';
+import { extensionsApi } from '../../services/api/extensionsApi';
 import { useNotification } from '../../context/NotificationContext';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
 
