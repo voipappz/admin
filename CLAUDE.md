@@ -20,43 +20,35 @@ Never hand-write a command this Makefile already has a target for.
 ## Build & Run Policy
 
 **NEVER run `npm run build`, `npm run dev`, or start the server locally.**
-All builds and test runs happen exclusively in CI (CircleCI).
+All builds and test runs happen exclusively in CI (GitHub Actions).
 The only local command allowed before pushing is `npm run lint`.
 
-## CircleCI Verification (REQUIRED after every push)
+## CI Verification (REQUIRED after every push)
 
-**IMPORTANT**: After every `git push`, you MUST verify that CircleCI passes:
+CI is GitHub Actions only (`.github/workflows/ci.yml`). CircleCI and the
+Bitbucket mirror it served were retired on 2026-09-14. After every `git push`,
+confirm the run passes. `gh` is all it takes; no CI token.
 
-**CircleCI Token** (set before running CI commands):
 ```bash
-# export CIRCLE_TOKEN="<your CircleCI personal API token>"   # keep it in .env, never here
+gh run list --branch "$(git branch --show-current)" --workflow ci.yml --limit 3
+gh run watch <run-id> --exit-status      # block until it finishes
+gh pr checks <pr-number>                 # the same result on a pull request
+gh run view <run-id> --log-failed        # output of the failing step
 ```
 
-### Check CircleCI Status
-```bash
-# Check latest pipeline status for current branch
-curl -s "https://circleci.com/api/v2/project/bitbucket/nir_levi/nimbus-admin (internal mirror only)/pipeline?branch=$(git branch --show-current)" \
-  -H "Circle-Token: $CIRCLE_TOKEN" | jq '.items[0] | {id: .id, state: .state, created_at: .created_at}'
-
-# Get workflow status for a pipeline
-curl -s "https://circleci.com/api/v2/pipeline/{PIPELINE_ID}/workflow" \
-  -H "Circle-Token: $CIRCLE_TOKEN" | jq '.items[] | {name: .name, status: .status}'
-
-# Or check via CircleCI web UI:
-# https://app.circleci.com/pipelines/bitbucket/nir_levi/nimbus-admin (internal mirror only)
-```
-
-### Quick Verification Command
-```bash
-# After pushing, wait 30 seconds then check status
-sleep 30 && curl -s "https://circleci.com/api/v2/project/bitbucket/nir_levi/nimbus-admin (internal mirror only)/pipeline?branch=$(git branch --show-current)" \
-  -H "Circle-Token: $CIRCLE_TOKEN" | jq '.items[0].state'
-```
+What runs:
+- every push and pull request: `lint, unit, build`, `dependency audit`
+  (`npm run security-scan`), `nginx.conf syntax`
+- `end-to-end (Playwright)`: only when the four test secrets exist; without them
+  it skips itself with a notice instead of failing
+- `Docker Hub image`: pushes to `main` only. Publishes
+  `nirlevi/va-admin:release-gh-<run>` and `:latest` with the `DOCKER_PASS`
+  repository secret (never `release-<n>`: CircleCI used those numbers)
 
 ### What to do if CI fails
-1. Check the CircleCI logs for the failing job
+1. `gh run view <run-id> --log-failed` for the failing step
 2. Fix the issue locally
-3. Run `npm run lint` and tests locally before pushing again
+3. Run `npm run lint` before pushing again
 4. Push the fix and verify CI passes
 
 ## Test Environment
@@ -110,7 +102,7 @@ const { access, refresh, csrf } = await otpResp.json();
 
 **CRITICAL: ALWAYS RUN TESTS ON CI, NOT LOCALLY**
 
-Do NOT run tests locally - always push changes and let CircleCI run the tests. This ensures:
+Do NOT run tests locally - always push changes and let GitHub Actions run the tests. This ensures:
 - Consistent test environment
 - No local resource constraints
 - Proper test isolation

@@ -179,46 +179,9 @@ EOF
 ## CI/CD Integration
 
 ### Branch Triggers
-```yaml
-# .circleci/config.yml
-workflows:
-  development:
-    jobs:
-      - test-quality:
-          filters:
-            branches:
-              only: 
-                - develop
-                - /feature\/phase.*/
-      - build-test:
-          filters:
-            branches:
-              only:
-                - develop
-                - /feature\/phase.*/
-      - deploy-staging:
-          requires: [test-quality, build-test]
-          filters:
-            branches:
-              only: develop
-
-  production:
-    jobs:
-      - test-quality:
-          filters:
-            branches:
-              only: main
-      - build-production:
-          requires: [test-quality]
-          filters:
-            branches:
-              only: main
-      - deploy-production:
-          requires: [build-production]
-          filters:
-            branches:
-              only: main
-```
+The real triggers live in `.github/workflows/ci.yml` (GitHub Actions): every
+push and pull request runs the gate, and pushes to `main` also publish the
+Docker Hub image.
 
 ## Agent Integration
 
