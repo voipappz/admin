@@ -224,7 +224,7 @@ jobs:
           username: nirlevi
           password: ${{ secrets.DOCKER_PASS }}
 
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           push: ${{ steps.hub.outputs.push == 'true' }}
