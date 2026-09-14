@@ -80,7 +80,7 @@ export const accountsApi = {
   getEnvironments: async (params = {}) => {
     const limit = params.per_page || 100; // Reasonable default
     const searchQuery = params.search ? `&search[name]=${encodeURIComponent(params.search)}` : '';
-    const url = `/api/environments?per_page=${limit}${searchQuery}`;
+    const url = `/api/applications?per_page=${limit}${searchQuery}`;
     return apiService.get(url, {}, 'fetching environments for accounts', false);
   },
 

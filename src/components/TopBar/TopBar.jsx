@@ -109,7 +109,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import CheckIcon from '@mui/icons-material/Check';
 import InfoPopover from './InfoPopover';
 import EnvironmentDialog from '../Environments/EnvironmentDialog/EnvironmentDialog';
-import { environmentsApi } from '../../services/api/environmentsApi';
+import { environmentsApi } from '../../services/api/applicationsApi';
 import { useNotification } from '../../context/NotificationContext';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import ArticleIcon from '@mui/icons-material/Article';

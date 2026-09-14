@@ -33,7 +33,7 @@ test.describe('Live Screen - Conditional API Fetching', () => {
     // Verify ONLY agents endpoints are called (not calls or extensions)
     const agentRequests = apiRequests.filter(url => url.includes('/api/users?action=live'));
     const callRequests = apiRequests.filter(url => url.includes('/api/calls?action=live'));
-    const extensionRequests = apiRequests.filter(url => url.includes('/api/extensions?action=live'));
+    const extensionRequests = apiRequests.filter(url => url.includes('/api/devices?action=live'));
 
     console.log('\n📊 API Request Summary:');
     console.log(`   Live Agents: ${agentRequests.length} requests`);
@@ -75,7 +75,7 @@ test.describe('Live Screen - Conditional API Fetching', () => {
     // Verify ONLY calls endpoints are called
     const callRequests = apiRequests.filter(url => url.includes('/api/calls?action=live'));
     const agentRequests = apiRequests.filter(url => url.includes('/api/users?action=live'));
-    const extensionRequests = apiRequests.filter(url => url.includes('/api/extensions?action=live'));
+    const extensionRequests = apiRequests.filter(url => url.includes('/api/devices?action=live'));
 
     console.log('\n📊 API Request Summary After Tab Switch:');
     console.log(`   Live Calls: ${callRequests.length} requests`);
@@ -115,7 +115,7 @@ test.describe('Live Screen - Conditional API Fetching', () => {
     await page.waitForTimeout(3000);
 
     // Verify ONLY extensions endpoints are called
-    const extensionRequests = apiRequests.filter(url => url.includes('/api/extensions?action=live'));
+    const extensionRequests = apiRequests.filter(url => url.includes('/api/devices?action=live'));
     const agentRequests = apiRequests.filter(url => url.includes('/api/users?action=live'));
     const callRequests = apiRequests.filter(url => url.includes('/api/calls?action=live'));
 
@@ -179,7 +179,7 @@ test.describe('Live Screen - Conditional API Fetching', () => {
     await page.click('button:has-text("SIP Registrations")');
     await page.waitForTimeout(2000);
 
-    const extensionsTabRequests = apiRequests.filter(r => r.url.includes('/api/extensions?action=live'));
+    const extensionsTabRequests = apiRequests.filter(r => r.url.includes('/api/devices?action=live'));
 
     // Switch back to Live Agents tab
     apiRequests.length = 0;

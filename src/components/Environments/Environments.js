@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { environmentsApi } from '../../services/api/environmentsApi';
+import { environmentsApi } from '../../services/api/applicationsApi';
 import { useNotification } from '../../context/NotificationContext';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
 
@@ -129,7 +129,7 @@ export const useEnvironments = () => {
 
   /**
    * Handle opening create/edit dialog
-   * For edit: fetches individual environment data via GET /api/environments/{uuid}
+   * For edit: fetches individual environment data via GET /api/applications/{uuid}
    * For create: opens empty dialog
    */
   const handleOpenDialog = useCallback(async (environment = null) => {

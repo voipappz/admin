@@ -154,9 +154,9 @@ test.describe('Other Screens Sorting', () => {
   });
 
   test('Extensions: clicking Created At sends order_by to API', async ({ authenticatedPage: page }) => {
-    await navigateAndWaitForTable(page, '/extensions', '/api/extensions');
+    await navigateAndWaitForTable(page, '/extensions', '/api/devices');
 
-    const requestUrl = await clickSortAndCaptureRequest(page, 'Created At', '/api/extensions', 'created_at');
+    const requestUrl = await clickSortAndCaptureRequest(page, 'Created At', '/api/devices', 'created_at');
     expect(requestUrl).toBeTruthy();
     expect(requestUrl).toContain('order_by=created_at');
     expect(requestUrl).toMatch(/order_type=(asc|desc)/);

@@ -27,7 +27,7 @@ export const extensionsApi = {
     }
 
     const queryString = queryParts.join('&');
-    const url = `/api/extensions${queryString ? `?${queryString}` : ''}`;
+    const url = `/api/devices${queryString ? `?${queryString}` : ''}`;
     return apiService.get(url, {}, 'fetching extensions', false);
   },
 
@@ -37,7 +37,7 @@ export const extensionsApi = {
    * @returns {Promise<Object>} - Extension object
    */
   getExtension: async (extensionId) => {
-    const url = `/api/extensions/${extensionId}`;
+    const url = `/api/devices/${extensionId}`;
     return apiService.get(url, {}, `fetching extension ${extensionId}`, false);
   },
 
@@ -47,7 +47,7 @@ export const extensionsApi = {
    * @returns {Promise<Object>} - Created extension object
    */
   createExtension: async (extensionData) => {
-    const url = `/api/extensions`;
+    const url = `/api/devices`;
     const headers = {
       'Content-Type': 'application/x-www-form-urlencoded'
     };
@@ -62,7 +62,7 @@ export const extensionsApi = {
    * @returns {Promise<Object>} - Updated extension object
    */
   updateExtension: async (extensionId, extensionData) => {
-    const url = `/api/extensions/${extensionId}`;
+    const url = `/api/devices/${extensionId}`;
     const headers = {
       'Content-Type': 'application/x-www-form-urlencoded'
     };
@@ -76,7 +76,7 @@ export const extensionsApi = {
    * @returns {Promise<Object>} - Deletion confirmation
    */
   deleteExtension: async (extensionId) => {
-    const url = `/api/extensions/${extensionId}`;
+    const url = `/api/devices/${extensionId}`;
     return apiService.delete(url, {}, `deleting extension ${extensionId}`, true);
   },
 
@@ -87,7 +87,7 @@ export const extensionsApi = {
    */
   getLiveRegistrations: async () => {
     // skipCircuitBreaker: FreeSwitch 500s are expected when no switch node is configured
-    return apiService.get('/api/extensions?action=live', {}, 'fetching live registrations', false, true);
+    return apiService.get('/api/devices?action=live', {}, 'fetching live registrations', false, true);
   },
 
   /**
@@ -96,7 +96,7 @@ export const extensionsApi = {
    * @returns {Promise<Object>} - Registration details
    */
   getRegistrationStatus: async (extensionId) => {
-    return apiService.get(`/api/extensions/${extensionId}?action=switch`, {}, 'checking registration status', false, true);
+    return apiService.get(`/api/devices/${extensionId}?action=switch`, {}, 'checking registration status', false, true);
   },
 
   /**
@@ -106,7 +106,7 @@ export const extensionsApi = {
    * @returns {Promise<Object>} - Import result
    */
   importCSV: async (file, environmentUuid) => {
-    // NOT /api/extensions/import — that route doesn't exist and 404s, which is
+    // NOT /api/devices/import — that route doesn't exist and 404s, which is
     // why importing never did anything. The importer is mounted at
     // /api/users/import (legacy naming: extensions are FreeSWITCH "users"),
     // defined outside the /extensions namespace in endpoints/extensions.rb.

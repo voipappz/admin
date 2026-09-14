@@ -172,7 +172,7 @@ export default function ApiDocs() {
   const publicIntegrationStatusUrl = new URL(integrationStatusUrl, window.location.origin).toString();
   const publicMcpUrl = new URL(mcpUrl, window.location.origin).toString();
   const aiPrompt = `Use the VoipAppz MCP server at ${publicMcpUrl} for the live contract and integration guidance. If your client cannot attach MCP, read the Skill at ${publicSkillUrl}, its readiness reference at ${publicIntegrationStatusUrl}, and the contract at ${publicOpenApiUrl} instead. Do not guess billing or provisioning rules, and never ask me to paste credentials into this chat.`;
-  const curlExample = `curl -s "${swaggerServerUrl}/api/extensions" \
+  const curlExample = `curl -s "${swaggerServerUrl}/api/devices" \
   -H "Authorization: Bearer $TOKEN"`;
 
   // Swagger UI gates its dark palette on `html.dark-mode`, while the app marks

@@ -187,7 +187,7 @@ const BridgeEditModal = ({
                 environment_uuid: environmentUuid
               })
             });
-            const agentsUrl = `/api/extensions?${agentsParams.toString()}`;
+            const agentsUrl = `/api/devices?${agentsParams.toString()}`;
             const agentsData = await apiService.get(agentsUrl, {}, 'fetching agents', false);
             setAgents(agentsData || []);
           } catch (error) {

@@ -19,7 +19,7 @@ test.describe('Extension QR code (token-gated)', () => {
     const authToken = await getAuthToken(page);
 
     // Grab an extension to test against
-    const extResp = await page.request.get(`${apiBaseUrl}/api/extensions?per_page=5`, {
+    const extResp = await page.request.get(`${apiBaseUrl}/api/devices?per_page=5`, {
       headers: { Authorization: `Bearer ${authToken}` },
     });
     expect(extResp.status()).toBe(200);

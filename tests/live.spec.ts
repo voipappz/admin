@@ -4,7 +4,7 @@ import { getAuthToken, getApiBaseUrl } from './crud-helpers';
 /**
  * Live Screen Tests
  * Tests for the Dashboard Builder (replaces old tabbed view)
- * API endpoints: /api/users?action=live, /api/calls?action=live, /api/extensions?action=live
+ * API endpoints: /api/users?action=live, /api/calls?action=live, /api/devices?action=live
  */
 
 test.describe('Live Screen API Tests', () => {
@@ -54,7 +54,7 @@ test.describe('Live Screen API Tests', () => {
     const apiBaseUrl = getApiBaseUrl();
     const authToken = await getAuthToken(page);
 
-    const response = await page.request.get(`${apiBaseUrl}/api/extensions?action=live`, {
+    const response = await page.request.get(`${apiBaseUrl}/api/devices?action=live`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
 

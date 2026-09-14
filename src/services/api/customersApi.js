@@ -67,7 +67,7 @@ export const customersApi = {
         'search[enabled]': 'true'
       });
 
-      const url = `/api/extensions?${params.toString()}`;
+      const url = `/api/devices?${params.toString()}`;
       const response = await apiService.get(url, {}, 'fetching extensions', false);
 
       // Extract extensions array from response
@@ -114,7 +114,7 @@ export const customersApi = {
       environment_uuid: environmentUuid
     });
 
-    const url = `/api/extensions/validate?${params.toString()}`;
+    const url = `/api/devices/validate?${params.toString()}`;
 
     try {
       const response = await apiService.get(url, {}, 'validating extension username', false);
@@ -141,7 +141,7 @@ export const customersApi = {
         'search[environment_uuid]': environmentUuid
       });
 
-      const url = `/api/extensions?${params.toString()}`;
+      const url = `/api/devices?${params.toString()}`;
       const response = await apiService.get(url, {}, 'checking extension existence', false);
 
       // Check if any extensions were returned with this exact username

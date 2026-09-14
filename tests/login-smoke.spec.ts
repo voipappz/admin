@@ -21,7 +21,7 @@ test.describe('Login smoke (real backend)', () => {
 
     // An authenticated API call works with the stored token.
     const apiBaseUrl = process.env.VITE_API_BASE_URL;
-    const resp = await page.request.get(`${apiBaseUrl}/api/environments?page=1&per_page=1`, {
+    const resp = await page.request.get(`${apiBaseUrl}/api/applications?page=1&per_page=1`, {
       headers: { Authorization: `Bearer ${page.authTokens.access}` },
     });
     expect(resp.status()).toBeGreaterThanOrEqual(200);

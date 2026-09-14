@@ -31,7 +31,7 @@ import { StatusSelect } from '../../common/StatusSelect';
 import SkillEditor from '../../common/SkillEditor/SkillEditor.jsx';
 import { parseServerErrors, is406Error } from '../../../utils/formValidation';
 import { customersApi } from '../../../services/api/customersApi';
-import { extensionsApi } from '../../../services/api/extensionsApi';
+import { extensionsApi } from '../../../services/api/devicesApi';
 import ResourcesManager from '../ResourcesManager/ResourcesManager';
 import { usePhoneContext } from '../../../context/PhoneContext';
 import { liveApi } from '../../../services/api/liveApi';

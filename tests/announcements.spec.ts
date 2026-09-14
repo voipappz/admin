@@ -105,7 +105,7 @@ test.describe('Announcements File Upload', () => {
     const authToken = await getAuthToken(page);
 
     // Get environment UUID
-    const envResponse = await page.request.get(`${apiBaseUrl}/api/environments?per_page=1`, {
+    const envResponse = await page.request.get(`${apiBaseUrl}/api/applications?per_page=1`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
     expect(envResponse.status()).toBe(200);
@@ -276,7 +276,7 @@ test.describe('Announcements TTS', () => {
     const authToken = await getAuthToken(page);
 
     // Get environment and TTS provider
-    const envResponse = await page.request.get(`${apiBaseUrl}/api/environments?per_page=1`, {
+    const envResponse = await page.request.get(`${apiBaseUrl}/api/applications?per_page=1`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
     const envs = await envResponse.json();

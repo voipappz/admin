@@ -28,7 +28,7 @@ class ApiService {
       '/api/acls': 300000,        // 5 minutes for ACLs
       '/api/statuses': 300000,    // 5 minutes for statuses
       '/api/customers': 60000,    // 1 minute for customers
-      '/api/environments': 60000, // 1 minute for environments
+      '/api/applications': 60000, // 1 minute for environments
       'default': 30000            // 30 seconds default
     };
 

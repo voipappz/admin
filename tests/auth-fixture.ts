@@ -295,7 +295,7 @@ export const apiHelpers = {
       schema: `${baseUrl}/api/schemas?action=default&type=user`
     },
     assets: {
-      environments: `${baseUrl}/api/environments`, acls: `${baseUrl}/api/acls`,
+      environments: `${baseUrl}/api/applications`, acls: `${baseUrl}/api/acls`,
       statuses: `${baseUrl}/api/statuses`, bridgeTypes: `${baseUrl}/api/assets/bridge_types`
     }
   }),

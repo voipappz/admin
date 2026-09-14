@@ -5,8 +5,8 @@ import { liveApi } from '../../services/api/liveApi';
  * Custom hook for Live SIP Registrations management
  *
  * Backend returns:
- *   GET /api/extensions?action=live_fields → {reg_user: {method: "reg_user"}, realm: {method: "realm"}, ...}
- *   GET /api/extensions?action=live → array of registration objects from FreeSwitch
+ *   GET /api/devices?action=live_fields → {reg_user: {method: "reg_user"}, realm: {method: "realm"}, ...}
+ *   GET /api/devices?action=live → array of registration objects from FreeSwitch
  *
  * @param {boolean} enabled - Only fetch data when this tab is active
  */
