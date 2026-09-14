@@ -234,6 +234,16 @@ the call. `agent-state-change` into "In a queue call" is the same fact a third
 time and carries no call id to dedupe against, so it stays out until the key is
 call-scoped.
 
+**The rule file is the gate, and it runs first.** `priv/pocketflow/screen_pop.yaml`
+names the events that pop, and a CallEvents or state frame whose name is not
+in `triggers` is dropped before it is stored, before the agent lookup and
+before any log line (`PopRule.trigger?/1`, counted as `ignored` in /metrics).
+Measured on nimbus-connectix: evaluating and logging "no pop — not one of
+[...]" for every `agent-offering`, `bridge-agent-fail` and `agent-state-change`
+of every signed-in agent was most of the log and a good share of the CPU, and
+it never changed an outcome. Add a name to `triggers` to make the portal look
+at that event at all.
+
 **`call_id/1` falls back to the event's own `id`**, which the switch builds as
 `<action>_<session>_<member>_<agent>`. So anything derived from it silently
 changes meaning when the trigger changes. That is why the CRM URL carries only

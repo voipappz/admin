@@ -599,4 +599,66 @@ defmodule Connectix.Realtime.ScreenPopTest do
       assert ScreenPop.user_for_agent(agent) == nil
     end
   end
+
+  describe "the rule file is the gate" do
+    # A live switch delivers thousands of frames a minute and the rule names
+    # one of them. Everything else used to be stored, looked up and logged as
+    # "no pop — not one of [...]" for every signed-in agent; now it is counted
+    # and dropped before any of that.
+    setup do
+      test_pid = self()
+      handler = "screen-pop-gate-#{System.unique_integer([:positive])}"
+
+      :telemetry.attach(
+        handler,
+        [:connectix, :screen_pop, :event],
+        fn _name, _measure, %{result: result}, _cfg -> send(test_pid, {:telemetry, result}) end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach(handler) end)
+      :ok
+    end
+
+    test "a node-wide frame the rule does not name is ignored, even for a signed-in agent" do
+      connect_agent(@real_agent_id)
+      offering = real_frame() |> Map.put("action", "agent-offering") |> put_in(["meta", "CC-Action"], "agent-offering")
+
+      state = ScreenPop.route_event(%ScreenPop{}, offering)
+
+      assert state == %ScreenPop{}
+      assert_receive {:telemetry, :ignored}
+      refute_receive {:telemetry, :received}, 50
+      refute_receive {:realtime, _}, 50
+    end
+
+    test "a node-wide frame the rule names is processed" do
+      connect_agent(@real_agent_id)
+
+      ScreenPop.route_event(%ScreenPop{}, real_frame())
+
+      assert_receive {:telemetry, :received}
+      assert_receive {:realtime, %{type: "notification"}}
+    end
+
+    test "a frame on the user's own stream the rule does not name is ignored" do
+      online = fn _uuid -> true end
+      frame = %{"event" => "agent-state-change", "user_state" => "Waiting", "user_uuid" => @real_agent_id}
+
+      ScreenPop.process_user_event(%ScreenPop{}, @user_uuid, frame, online, [@real_agent_id])
+
+      assert_receive {:telemetry, :ignored}
+      refute_receive {:telemetry, :received}, 50
+    end
+
+    test "trigger? reads both spellings and refuses a nameless frame" do
+      alias Connectix.Realtime.PopRule
+      assert PopRule.trigger?(%{"action" => "bridge-agent-start"})
+      assert PopRule.trigger?(%{"event" => "bridge-agent-start"})
+      refute PopRule.trigger?(%{"action" => "agent-offering"})
+      refute PopRule.trigger?(%{"caller_id_number" => "0501"})
+      refute PopRule.trigger?("not a map")
+    end
+  end
+
 end

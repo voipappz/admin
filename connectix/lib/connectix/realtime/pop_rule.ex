@@ -58,6 +58,32 @@ defmodule Connectix.Realtime.PopRule do
   def triggers, do: Map.get(rule(), "triggers", [])
 
   @doc """
+  Whether the rule names this event at all.
+
+  This is the gate on the firehose. A live switch delivers thousands of
+  CallEvents frames a minute — `agent-offering`, `bridge-agent-fail`,
+  `agent-state-change`, `member-queue-end` — and the rule names one of them.
+  Everything else is dropped HERE, before it is stored, before the agent
+  lookup, before any log line: evaluating and then logging "no pop — not one
+  of [...]" for every frame of every agent was most of the portal's CPU and
+  all of its log volume, and it never changed the outcome.
+  """
+  @spec trigger?(term()) :: boolean()
+  def trigger?(event) when is_map(event) do
+    case event_name(event) do
+      nil -> false
+      name -> name in triggers()
+    end
+  end
+
+  def trigger?(_event), do: false
+
+  @doc "The event's name, in either spelling the wire uses."
+  def event_name(%{"event" => name}) when is_binary(name) and name != "", do: name
+  def event_name(%{"action" => name}) when is_binary(name) and name != "", do: name
+  def event_name(_event), do: nil
+
+  @doc """
   Agent states that count as "on a call". Empty means every state passes, which
   is what a rule that omits the key gets.
   """

@@ -9,7 +9,7 @@ defmodule Connectix.Telemetry do
   @screen_pop_event [:connectix, :screen_pop, :event]
   @screen_pop_load [:connectix, :screen_pop, :instruction_load]
 
-  @event_results [:received, :queued, :unloaded, :dispatched, :duplicate, :offline, :rejected]
+  @event_results [:received, :ignored, :queued, :unloaded, :dispatched, :duplicate, :offline, :rejected]
   @load_results [:started, :loaded, :failed]
 
   @call_audio [:connectix, :call, :audio]

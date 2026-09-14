@@ -207,18 +207,31 @@ defmodule Connectix.Realtime.ScreenPop do
   @doc false
   def route_event(state, event) when is_map(event) do
     environment_uuid = event["environment_uuid"]
-    Telemetry.screen_pop_event(:received)
-    Connectix.Events.record("CallEvents", event)
 
     cond do
       MapSet.member?(state.loaded, environment_uuid) ->
+        Telemetry.screen_pop_event(:received)
+        Connectix.Events.record("CallEvents", event)
         process_event(state, event)
 
       MapSet.member?(state.loading, environment_uuid) ->
+        Telemetry.screen_pop_event(:received)
+        Connectix.Events.record("CallEvents", event)
         Telemetry.screen_pop_event(:queued)
         enqueue(state, environment_uuid, event)
 
+      not PopRule.trigger?(event) ->
+        # The rule file decides what this portal processes, and it decides it
+        # FIRST. A frame the rule does not name is not stored, not looked up
+        # and not logged — see `PopRule.trigger?/1` for why. Counted, so the
+        # firehose is still visible in /metrics as a number rather than as
+        # log lines.
+        Telemetry.screen_pop_event(:ignored)
+        state
+
       true ->
+        Telemetry.screen_pop_event(:received)
+        Connectix.Events.record("CallEvents", event)
         # No instructions for this environment — and for a node-wide CallEvents
         # frame there usually IS no environment: the relayed callcenter payloads
         # carry an agent and a call, not an environment_uuid. That used to end
@@ -324,9 +337,18 @@ defmodule Connectix.Realtime.ScreenPop do
         online? \\ &online_user?/1,
         agent_ids \\ nil
       ) do
-    Telemetry.screen_pop_event(:received)
-    Connectix.Events.record("StateChannel", event)
-    pop_for_user(state, user_uuid, event, online?, agent_ids)
+    if PopRule.trigger?(event) do
+      Telemetry.screen_pop_event(:received)
+      Connectix.Events.record("StateChannel", event)
+      pop_for_user(state, user_uuid, event, online?, agent_ids)
+    else
+      # Same gate as `route_event/2`: the user's own stream carries every
+      # state change and queue event, and the rule names the one that pops.
+      # The frame itself still reaches the browser — `CableClient.fanout/3`
+      # broadcast it before handing it here — only the pop evaluation stops.
+      Telemetry.screen_pop_event(:ignored)
+      state
+    end
   end
 
   # The pop decision on its own — no store write, no `:received` count.

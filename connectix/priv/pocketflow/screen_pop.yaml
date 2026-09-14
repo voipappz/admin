@@ -47,6 +47,11 @@ service_type: screen_pop
 #
 # `bridge-agent-start` is the answer itself — the callcenter bridging caller to
 # agent — and the switch emits exactly one per call per agent.
+#
+# THIS LIST IS ALSO THE GATE. A frame whose event/action is not named here is
+# dropped by the portal before it is stored, before the agent lookup and
+# before any log line (`PopRule.trigger?/1`). Add a name here to make the
+# portal look at that event at all; nothing else needs to change.
 triggers:
   - bridge-agent-start
 
