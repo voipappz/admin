@@ -3,7 +3,7 @@
 # built assets from /app/dist and dispatches API routes under /apps/*.
 
 # Stage 1: Build React app
-FROM node:24-alpine AS frontend-builder
+FROM node:26-alpine AS frontend-builder
 WORKDIR /build
 
 ARG VITE_SUPABASE_URL

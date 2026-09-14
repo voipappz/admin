@@ -4,7 +4,7 @@
 # in the one pipeline that happened to do that, and failed everywhere else.
 
 # --- Stage 1: build the bundle ---------------------------------------------
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /build
 
 # Vite inlines VITE_* values into the bundle AT BUILD TIME. The API host is
