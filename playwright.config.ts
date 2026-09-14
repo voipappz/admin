@@ -46,5 +46,5 @@ export default defineConfig({
     },
   ],
 
-  /* Vite server is handled by Makefile / CircleCI */
+  /* Vite server is handled by the Makefile, locally and in CI */
 });

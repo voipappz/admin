@@ -28,8 +28,9 @@ here is that nothing sensitive reaches the repository or the bundle.
 - **`make secrets`** scans every file git would publish for credential-shaped
   strings and fails on a hit. CI runs it on every push, and it is part of
   `make check`.
-- **CI credentials are repository secrets**, never literals in a workflow or in
-  `.circleci/config.yml`.
+- **CI credentials are repository secrets**, never literals in a workflow.
+  `DOCKER_PASS` is read only by the Docker Hub job on pushes to `main`, and
+  pull requests from forks never receive secrets.
 - **`VITE_*` values are inlined into the bundle at build time** and are therefore
   public to anyone who loads the app. Never put a secret in a `VITE_`-prefixed
   variable — it is client-side configuration, not a secret store.
