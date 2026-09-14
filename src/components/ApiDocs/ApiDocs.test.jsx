@@ -49,7 +49,7 @@ const contract = {
     '/api/calls': {
       get: { tags: ['calls'], operationId: 'calls_get', summary: 'List calls' },
     },
-    '/api/extensions': {
+    '/api/devices': {
       get: { operationId: 'extensions_get', summary: 'List extensions' },
     },
   },
@@ -275,7 +275,7 @@ describe('ApiDocs', () => {
     expect(within(rail).getByText('Auth')).toBeVisible();
     expect(within(rail).getByText('Calls')).toBeVisible();
     expect(within(rail).getByText('Extensions')).toBeVisible();
-    expect(within(rail).getByText('/api/extensions')).toBeVisible();
+    expect(within(rail).getByText('/api/devices')).toBeVisible();
   });
 
   it('shows an error when the backend contract cannot be loaded', async () => {

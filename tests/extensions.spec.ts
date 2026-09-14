@@ -32,7 +32,7 @@ test.describe('Extensions Management', () => {
     const authToken = await getAuthToken(page);
 
     // Test API returns 200
-    const response = await page.request.get(`${apiBaseUrl}/api/extensions?page=1&per_page=10`, {
+    const response = await page.request.get(`${apiBaseUrl}/api/devices?page=1&per_page=10`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
 
@@ -118,33 +118,33 @@ test.describe('Extensions Management', () => {
 });
 
 test.describe('Extensions API Tests', () => {
-  test('API: GET /api/extensions returns 200', async ({ authenticatedPage: page }) => {
+  test('API: GET /api/devices returns 200', async ({ authenticatedPage: page }) => {
     const apiBaseUrl = process.env.VITE_API_BASE_URL;
     const authToken = await getAuthToken(page);
 
-    const response = await page.request.get(`${apiBaseUrl}/api/extensions`, {
+    const response = await page.request.get(`${apiBaseUrl}/api/devices`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
 
     expect(response.status()).toBe(200);
   });
 
-  test('API: GET /api/extensions with pagination returns 200', async ({ authenticatedPage: page }) => {
+  test('API: GET /api/devices with pagination returns 200', async ({ authenticatedPage: page }) => {
     const apiBaseUrl = process.env.VITE_API_BASE_URL;
     const authToken = await getAuthToken(page);
 
-    const response = await page.request.get(`${apiBaseUrl}/api/extensions?page=1&per_page=10`, {
+    const response = await page.request.get(`${apiBaseUrl}/api/devices?page=1&per_page=10`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
 
     expect(response.status()).toBe(200);
   });
 
-  test('API: GET /api/extensions with search filter returns 200', async ({ authenticatedPage: page }) => {
+  test('API: GET /api/devices with search filter returns 200', async ({ authenticatedPage: page }) => {
     const apiBaseUrl = process.env.VITE_API_BASE_URL;
     const authToken = await getAuthToken(page);
 
-    const response = await page.request.get(`${apiBaseUrl}/api/extensions?search[name]=test`, {
+    const response = await page.request.get(`${apiBaseUrl}/api/devices?search[name]=test`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
 

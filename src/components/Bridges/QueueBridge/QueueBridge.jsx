@@ -38,7 +38,7 @@ import {
 import { useCustomerEnvironment } from '../../../context/CustomerEnvironmentContext';
 import { queuesApi } from '../../../services/api/queuesApi';
 import { bridgeApi } from '../../../services/api/bridgeApi';
-import { extensionsApi } from '../../../services/api/extensionsApi';
+import { extensionsApi } from '../../../services/api/devicesApi';
 import { usersApi } from '../../../services/api/usersApi';
 import { AnnouncementBridge } from '../AnnouncementBridge/AnnouncementBridge.jsx';
 import { Z, menuProps } from '../../../utils/zIndex.js';
@@ -102,7 +102,7 @@ export const QueueBridge = ({
   // Agents state
   const [allAgents, setAllAgents] = useState([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
-  // SIP usernames currently registered (online), from /api/extensions?action=live
+  // SIP usernames currently registered (online), from /api/devices?action=live
   const [registeredUsers, setRegisteredUsers] = useState(() => new Set());
   // uuid -> the user's SIP extension username. The /api/users LIST omits a user's
   // resources, so we enrich from each user's DETAIL (GET /api/users/<uuid>).

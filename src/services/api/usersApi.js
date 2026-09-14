@@ -22,7 +22,7 @@ export const usersApi = {
   },
 
   getEnvironments: async () => {
-    const url = `/api/environments`;
+    const url = `/api/applications`;
     return apiService.get(url, {}, 'fetching environments', false);
   },
 

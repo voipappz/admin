@@ -39,7 +39,7 @@ test.describe('VML CRUD', () => {
     const authToken = await getAuthToken(page);
 
     // Get environment for create
-    const envResponse = await page.request.get(`${apiBaseUrl}/api/environments?per_page=1`, {
+    const envResponse = await page.request.get(`${apiBaseUrl}/api/applications?per_page=1`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
     expect(envResponse.status()).toBe(200);

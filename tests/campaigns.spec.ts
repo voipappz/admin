@@ -36,7 +36,7 @@ test.describe('Campaigns API', () => {
     const token = await getAuthToken(page);
 
     // Get environment
-    const envResp = await page.request.get(`${apiBaseUrl}/api/environments?per_page=10`, {
+    const envResp = await page.request.get(`${apiBaseUrl}/api/applications?per_page=10`, {
       headers: authHeaders(token)
     });
     const envData = await envResp.json();

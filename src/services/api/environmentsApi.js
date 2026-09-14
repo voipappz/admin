@@ -13,7 +13,7 @@ export const environmentsApi = {
    */
   getEnvironments: async (params = {}) => {
     const queryString = new URLSearchParams(params).toString();
-    const url = `/api/environments${queryString ? `?${queryString}` : ''}`;
+    const url = `/api/applications${queryString ? `?${queryString}` : ''}`;
     return apiService.get(url, {}, 'fetching environments', false);
   },
 
@@ -26,7 +26,7 @@ export const environmentsApi = {
     // action=all returns [] on the backend — use a high per_page instead
     const params = new URLSearchParams({ page: '1', per_page: '999' });
     if (customerUuid) params.set('customer_uuid', customerUuid);
-    const url = `/api/environments?${params.toString()}`;
+    const url = `/api/applications?${params.toString()}`;
     return apiService.get(url, {}, 'fetching all environments', false);
   },
 
@@ -40,7 +40,7 @@ export const environmentsApi = {
       action: 'selected',
       customer_uuid: customerUuid
     });
-    const url = `/api/environments?${params.toString()}`;
+    const url = `/api/applications?${params.toString()}`;
     return apiService.get(url, {}, 'fetching selected environments', false);
   },
 
@@ -50,7 +50,7 @@ export const environmentsApi = {
    * @returns {Promise<Object>} - Environment object
    */
   getEnvironment: async (environmentId) => {
-    const url = `/api/environments/${environmentId}`;
+    const url = `/api/applications/${environmentId}`;
     return apiService.get(url, {}, `fetching environment ${environmentId}`, false);
   },
 
@@ -60,7 +60,7 @@ export const environmentsApi = {
    * @returns {Promise<Object>} - Created environment object
    */
   createEnvironment: async (environmentData) => {
-    const url = `/api/environments`;
+    const url = `/api/applications`;
     const headers = {
       'Content-Type': 'application/x-www-form-urlencoded'
     };
@@ -78,7 +78,7 @@ export const environmentsApi = {
    * @returns {Promise<Object>} - Updated environment object
    */
   updateEnvironment: async (environmentId, environmentData) => {
-    const url = `/api/environments/${environmentId}`;
+    const url = `/api/applications/${environmentId}`;
     const headers = {
       'Content-Type': 'application/x-www-form-urlencoded'
     };
@@ -95,7 +95,7 @@ export const environmentsApi = {
    * @returns {Promise<Object>} - Deletion confirmation
    */
   deleteEnvironment: async (environmentId) => {
-    const url = `/api/environments/${environmentId}`;
+    const url = `/api/applications/${environmentId}`;
     return apiService.delete(url, {}, `deleting environment ${environmentId}`, true);
   },
 
@@ -105,7 +105,7 @@ export const environmentsApi = {
    * @returns {Promise<Array>} - Array of user objects with roles
    */
   getEnvironmentUsers: async (environmentId) => {
-    const url = `/api/environments/${environmentId}/users`;
+    const url = `/api/applications/${environmentId}/users`;
     return apiService.get(url, {}, `fetching users for environment ${environmentId}`, false);
   },
 
@@ -115,7 +115,7 @@ export const environmentsApi = {
    * @returns {Promise<Object>} - Environment settings object
    */
   getEnvironmentSettings: async (environmentId) => {
-    const url = `/api/environments/${environmentId}/settings`;
+    const url = `/api/applications/${environmentId}/settings`;
     return apiService.get(url, {}, `fetching settings for environment ${environmentId}`, false);
   },
 
@@ -126,7 +126,7 @@ export const environmentsApi = {
    * @returns {Promise<Object>} - Updated settings
    */
   updateEnvironmentSettings: async (environmentId, settings) => {
-    const url = `/api/environments/${environmentId}/settings`;
+    const url = `/api/applications/${environmentId}/settings`;
     return apiService.patch(url, settings, {}, `updating settings for environment ${environmentId}`, true);
   },
 
@@ -136,7 +136,7 @@ export const environmentsApi = {
    * @returns {Promise<Object>} - Statistics object (users count, resources, etc.)
    */
   getEnvironmentStats: async (environmentId) => {
-    const url = `/api/environments/${environmentId}/stats`;
+    const url = `/api/applications/${environmentId}/stats`;
     return apiService.get(url, {}, `fetching stats for environment ${environmentId}`, false);
   },
 
@@ -147,7 +147,7 @@ export const environmentsApi = {
    * @returns {Promise<Object>} - Created environment object
    */
   cloneEnvironment: async (environmentId, newEnvironmentData) => {
-    const url = `/api/environments/${environmentId}/clone`;
+    const url = `/api/applications/${environmentId}/clone`;
     return apiService.post(url, newEnvironmentData, {}, `cloning environment ${environmentId}`, true);
   },
 
@@ -158,7 +158,7 @@ export const environmentsApi = {
    * @returns {Promise<Array>} - Array of resource objects
    */
   getEnvironmentResources: async (environmentId, resourceType) => {
-    const url = `/api/environments/${environmentId}/${resourceType}`;
+    const url = `/api/applications/${environmentId}/${resourceType}`;
     return apiService.get(url, {}, `fetching ${resourceType} for environment ${environmentId}`, false);
   },
 
@@ -169,7 +169,7 @@ export const environmentsApi = {
    * @returns {Promise<Object>} - Updated environment object
    */
   updateEnvironmentStatus: async (environmentId, status) => {
-    const url = `/api/environments/${environmentId}/status`;
+    const url = `/api/applications/${environmentId}/status`;
     return apiService.patch(url, { status }, {}, `updating environment status`, true);
   },
 
@@ -181,7 +181,7 @@ export const environmentsApi = {
    */
   getEnvironmentAuditLogs: async (environmentId, params = {}) => {
     const queryString = new URLSearchParams(params).toString();
-    const url = `/api/environments/${environmentId}/audit-logs${queryString ? `?${queryString}` : ''}`;
+    const url = `/api/applications/${environmentId}/audit-logs${queryString ? `?${queryString}` : ''}`;
     return apiService.get(url, {}, `fetching audit logs for environment ${environmentId}`, false);
   },
 
@@ -191,7 +191,7 @@ export const environmentsApi = {
    * @returns {Promise<Blob>} - Configuration file blob
    */
   exportEnvironmentConfig: async (environmentId) => {
-    const url = `/api/environments/${environmentId}/export`;
+    const url = `/api/applications/${environmentId}/export`;
     return apiService.get(url, {}, `exporting environment configuration`, true);
   },
 
@@ -205,7 +205,7 @@ export const environmentsApi = {
     const formData = new FormData();
     formData.append('config_file', configFile);
 
-    const url = `/api/environments/${environmentId}/import`;
+    const url = `/api/applications/${environmentId}/import`;
     return apiService.post(url, formData, {}, `importing environment configuration`, true);
   },
 
@@ -281,13 +281,13 @@ export const environmentsApi = {
 
     let merged;
     if (!trimmed) {
-      const url = `/api/environments?${buildParams().toString()}`;
+      const url = `/api/applications?${buildParams().toString()}`;
       const res = await apiService.get(url, {}, 'searching environments', false);
       merged = Array.isArray(res) ? res : (res?.data || []);
     } else {
       const requests = fields.map((col) => {
         const params = buildParams({ [`search[${col}]`]: trimmed });
-        const url = `/api/environments?${params.toString()}`;
+        const url = `/api/applications?${params.toString()}`;
         return apiService
           .get(url, {}, `searching environments by ${col}`, false)
           .catch(() => []);

@@ -156,7 +156,7 @@ function normalizeCall(c) {
 
 /** Environments the signed-in account can see. */
 export async function fetchEnvironments() {
-  const res = await apiService.get('/api/environments', {}, 'Fetching environments', false, true);
+  const res = await apiService.get('/api/applications', {}, 'Fetching environments', false, true);
   return Array.isArray(res) ? res : [];
 }
 

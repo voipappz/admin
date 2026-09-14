@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
  * Extension CSV import.
  *
  * The importer is mounted at /api/users/import (legacy naming — extensions are
- * FreeSWITCH "users"), NOT /api/extensions/import, which 404s. That mismatch is
+ * FreeSWITCH "users"), NOT /api/devices/import, which 404s. That mismatch is
  * what made importing silently do nothing, so the route is pinned here.
  *
  * Two things make this area easy to get wrong, and both are asserted:
@@ -31,13 +31,13 @@ test.describe('Extensions CSV import', () => {
 
     // The route the UI used to call must stay dead, so a regression back to it
     // is caught here rather than by users importing into the void.
-    const gone = await page.request.post(`${apiBaseUrl}/api/extensions/import`, {
+    const gone = await page.request.post(`${apiBaseUrl}/api/devices/import`, {
       headers: { Authorization: `Bearer ${token}` },
       multipart: { file: { name: 'e.csv', mimeType: 'text/csv', buffer: csv } },
     });
-    expect(gone.status(), 'old /api/extensions/import must not exist').toBe(404);
+    expect(gone.status(), 'old /api/devices/import must not exist').toBe(404);
 
-    const envsResp = await page.request.get(`${apiBaseUrl}/api/environments?page=1&per_page=1`, {
+    const envsResp = await page.request.get(`${apiBaseUrl}/api/applications?page=1&per_page=1`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const envs = await envsResp.json();
@@ -79,7 +79,7 @@ test.describe('Extensions CSV import', () => {
 
     // The import claimed success — prove the extension actually exists.
     const listResp = await page.request.get(
-      `${apiBaseUrl}/api/extensions?page=1&per_page=200&search[environment_uuid]=${envUuid}`,
+      `${apiBaseUrl}/api/devices?page=1&per_page=200&search[environment_uuid]=${envUuid}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     expect(listResp.ok()).toBeTruthy();
@@ -93,7 +93,7 @@ test.describe('Extensions CSV import', () => {
 
   test('the admin posts the CSV to the correct route and refreshes the list', async ({ authenticatedPage: page }) => {
     // This is the regression guard for the actual bug: the admin used to POST
-    // to /api/extensions/import. Intercepting the request proves the fix
+    // to /api/devices/import. Intercepting the request proves the fix
     // without needing a node to provision against.
     let importedUrl = '';
     let sawFile = false;
@@ -106,7 +106,7 @@ test.describe('Extensions CSV import', () => {
       });
     });
     // Any POST to the dead route fails the test loudly rather than silently.
-    await page.route('**/api/extensions/import*', async (route) => {
+    await page.route('**/api/devices/import*', async (route) => {
       importedUrl = route.request().url();
       await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
     });
@@ -162,7 +162,7 @@ test.describe('Extensions CSV import', () => {
     await expect
       .poll(() => importedUrl, { timeout: 20000, message: 'admin never posted the import' })
       .toContain(IMPORT_ROUTE);
-    expect(importedUrl, 'admin must not post to the dead /api/extensions/import').not.toContain('/api/extensions/import');
+    expect(importedUrl, 'admin must not post to the dead /api/devices/import').not.toContain('/api/devices/import');
     expect(sawFile, 'import payload must carry the CSV').toBeTruthy();
   });
 

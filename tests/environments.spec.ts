@@ -3,7 +3,7 @@ import { testList, testRead, testCreate, testUpdate, testDelete, getFirstItem } 
 
 /**
  * Environments Module - Full CRUD Tests
- * API: /api/environments
+ * API: /api/applications
  * Tests: LIST, READ, CREATE, UPDATE, DELETE, Page Load
  */
 

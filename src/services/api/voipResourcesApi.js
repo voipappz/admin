@@ -39,7 +39,7 @@ export const getBridgeResourceList = async (type, params = {}) => {
       queryParts.push(`search[environment_uuid]=${encodeURIComponent(params.environment_uuid)}`);
     }
 
-    // Use direct endpoint: /api/announcements, /api/extensions, etc.
+    // Use direct endpoint: /api/announcements, /api/devices, etc.
     const url = `/api/${type}?${queryParts.join('&')}`;
 
     return await apiService.get(url, {}, `fetching ${type}`, true);
@@ -54,7 +54,7 @@ export const getBridgeResourceList = async (type, params = {}) => {
  * Legacy: extensionsResource.filter() or bridgeList({type: 'extensions'})
  */
 export const getExtensions = async (params = {}) => {
-  return getBridgeResourceList('extensions', params);
+  return getBridgeResourceList('devices', params);
 };
 
 /**
@@ -104,7 +104,7 @@ export const getResourcesByBridgeType = async (bridgeType, params = {}) => {
   // Map bridge types to their plural API endpoints
   // Bridge types are fetched from server - this mapping provides endpoints
   const typeMapping = {
-    extension: 'extensions',
+    extension: 'devices', // /api/devices
     queue: 'queues',
     que: 'queues',  // Legacy alias for queue
     ivr: 'ivrs',

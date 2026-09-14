@@ -36,7 +36,7 @@ import { getAnnouncement } from '../../../services/api/announcementsApi';
 import { getVML } from '../../../services/api/vmlsApi';
 import { getCallCondition } from '../../../services/api/callConditionsApi';
 import { botsApi } from '../../../services/api/botsApi';
-import { extensionsApi } from '../../../services/api/extensionsApi';
+import { extensionsApi } from '../../../services/api/devicesApi';
 import { QueueBridge } from '../../Bridges/QueueBridge/QueueBridge';
 import { IVRBridge } from '../../Bridges/IVRBridge/IVRBridge';
 import { AnnouncementBridge } from '../../Bridges/AnnouncementBridge/AnnouncementBridge.jsx';

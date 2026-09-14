@@ -54,8 +54,8 @@ export const liveApi = {
   /**
    * ========================================
    * SIP REGISTRATIONS (LIVE DEVICES)
-   * GET /api/extensions?action=live → returns SIP registrations from FreeSwitch
-   * GET /api/extensions?action=live_fields → returns {field: {method: field}} hash
+   * GET /api/devices?action=live → returns SIP registrations from FreeSwitch
+   * GET /api/devices?action=live_fields → returns {field: {method: field}} hash
    * ========================================
    */
   getLiveRegistrations: async (params = {}) => {
@@ -65,11 +65,11 @@ export const liveApi = {
     };
     const queryString = new URLSearchParams(queryParams).toString();
     // skipCircuitBreaker: FreeSwitch 500s are expected when no switch node is configured
-    return apiService.get(`/api/extensions?${queryString}`, {}, 'fetching live registrations', true, true);
+    return apiService.get(`/api/devices?${queryString}`, {}, 'fetching live registrations', true, true);
   },
 
   getLiveRegistrationsFields: async () => {
-    return apiService.get('/api/extensions?action=live_fields', {}, 'fetching live registrations fields', true, true);
+    return apiService.get('/api/devices?action=live_fields', {}, 'fetching live registrations fields', true, true);
   },
 
   /**

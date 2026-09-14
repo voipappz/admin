@@ -11,7 +11,7 @@ import { apiService, toFormData } from '../apiService';
 // This mapping provides endpoints for each type
 const BRIDGE_TYPE_ENDPOINTS = {
   'user': '/api/users',  // Users for queue agents (user.uuid = agent.uuid)
-  'extension': '/api/extensions',
+  'extension': '/api/devices',
   'queue': '/api/queues',
   'que': '/api/queues',  // Legacy alias for queue
   'ivr': '/api/ivrs',
@@ -26,7 +26,7 @@ const BRIDGE_TYPE_ENDPOINTS = {
 
 const BRIDGE_TYPE_PLURAL = {
   'user': 'users',
-  'extension': 'extensions',
+  'extension': 'devices',
   'queue': 'queues',
   'que': 'queues',  // Legacy alias for queue
   'ivr': 'ivrs',

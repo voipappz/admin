@@ -34,7 +34,7 @@ export { timeAgo, splitMatch };
 
 export const RESOURCE_TYPES = [
   { key: 'calls',         label: 'Call',         endpoint: '/api/calls',         route: '/calls',      nameField: 'caller_id', subtitleField: 'destination', icon: PhoneInTalkIcon, searchParam: 'search[caller_id]' },
-  { key: 'extensions',    label: 'Device',       endpoint: '/api/extensions',    route: '/extensions', nameField: 'name', subtitleField: 'username',  icon: PhoneIcon },
+  { key: 'extensions',    label: 'Device',       endpoint: '/api/devices',    route: '/extensions', nameField: 'name', subtitleField: 'username',  icon: PhoneIcon },
   { key: 'queues',        label: 'Queue',        endpoint: '/api/queues',        route: null,          nameField: 'name', subtitleField: 'strategy',  icon: GroupsIcon },
   { key: 'dids',          label: 'DID',          endpoint: '/api/dids',          route: '/dids',       nameField: 'number', subtitleField: 'name',    icon: DialpadIcon },
   { key: 'ivrs',          label: 'IVR',          endpoint: '/api/ivrs',          route: null,          nameField: 'name', subtitleField: null,         icon: AccountTreeIcon },

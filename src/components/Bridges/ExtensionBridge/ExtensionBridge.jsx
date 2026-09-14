@@ -29,7 +29,7 @@ import {
   Refresh as RefreshIcon,
   ContentCopy as CopyIcon
 } from '@mui/icons-material';
-import { extensionsApi } from '../../../services/api/extensionsApi';
+import { extensionsApi } from '../../../services/api/devicesApi';
 import DynamicProfileEditor from '../../common/DynamicProfileEditor/DynamicProfileEditor';
 import { Z } from '../../../utils/zIndex.js';
 

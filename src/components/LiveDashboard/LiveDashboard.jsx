@@ -33,7 +33,7 @@ import {
  *
  * THE ENVIRONMENT COMES FROM THE SESSION, not a picker. This is the end user's
  * dashboard — they have exactly one environment, and it is on the user object
- * the login returned. It also has to work this way: `/api/environments`
+ * the login returned. It also has to work this way: `/api/applications`
  * answers 401 for a user token, so a portal session could never have populated
  * a dropdown in the first place.
  *
@@ -92,7 +92,7 @@ function StatTile({ icon, value, label }) {
 const LiveDashboard = () => {
   // A portal user has exactly one environment and it is on the session. An
   // admin has none on theirs, so fall back to the environment they selected in
-  // the console. `/api/environments` is NOT fetched here: it answers 401 for a
+  // the console. `/api/applications` is NOT fetched here: it answers 401 for a
   // user token, so it could never have served both surfaces.
   const { user } = useUserAuth();
   const { selectedEnvironments } = useCustomerEnvironment();

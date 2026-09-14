@@ -46,7 +46,7 @@ import { didsApi } from '../../services/api/didsApi';
 import { getAnnouncement } from '../../services/api/announcementsApi';
 import { getVML } from '../../services/api/vmlsApi';
 import { getCallCondition } from '../../services/api/callConditionsApi';
-import { extensionsApi } from '../../services/api/extensionsApi';
+import { extensionsApi } from '../../services/api/devicesApi';
 
 const QueuesTopology = lazy(() => import('../Queues/QueuesTopology'));
 const PBXRoutingView = lazy(() => import('../PBXRouting/PBXRoutingView'));

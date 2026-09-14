@@ -121,7 +121,7 @@ const Environments = () => {
   const envSegments = useMemo(() => [
     { name: 'name', label: 'Name', type: 'string' },
     { name: 'enabled', label: 'Status', type: 'select', data: [{ uuid: 'true', name: 'Active' }, { uuid: 'false', name: 'Inactive' }] },
-    { name: 'meta', label: 'Tag', type: 'tag', url: '/api/environments?action=meta_keys' },
+    { name: 'meta', label: 'Tag', type: 'tag', url: '/api/applications?action=meta_keys' },
   ], []);
 
   // Bridge CentralizedSearch filter events to the hook's filter state

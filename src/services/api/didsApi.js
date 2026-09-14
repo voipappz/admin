@@ -211,7 +211,7 @@ export const didsApi = {
    * @returns {Promise<Array>} - Array of routing options (extensions, queues, IVRs, etc.)
    */
   getRoutingOptions: async (environmentId) => {
-    const url = `/api/environments/${environmentId}/routing-options`;
+    const url = `/api/applications/${environmentId}/routing-options`;
     return apiService.get(url, {}, 'fetching routing options', false);
   },
 

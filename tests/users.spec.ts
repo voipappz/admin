@@ -730,7 +730,7 @@ test.describe('User Resources', () => {
     });
 
     // Get environments first
-    const envResponse = await page.request.get(`${apiBaseUrl}/api/environments?per_page=1`, {
+    const envResponse = await page.request.get(`${apiBaseUrl}/api/applications?per_page=1`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
 
@@ -748,7 +748,7 @@ test.describe('User Resources', () => {
 
     // Fetch extensions for this environment
     const response = await page.request.get(
-      `${apiBaseUrl}/api/extensions?per_page=100&search[environment_uuid]=${envList[0].uuid}`,
+      `${apiBaseUrl}/api/devices?per_page=100&search[environment_uuid]=${envList[0].uuid}`,
       { headers: { 'Authorization': `Bearer ${authToken}` } }
     );
 
@@ -768,7 +768,7 @@ test.describe('User Resources', () => {
     });
 
     // Get environments first
-    const envResponse = await page.request.get(`${apiBaseUrl}/api/environments?per_page=1`, {
+    const envResponse = await page.request.get(`${apiBaseUrl}/api/applications?per_page=1`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
 
@@ -795,7 +795,7 @@ test.describe('User Resources', () => {
     createFormData.append('enabled', 'true');
     createFormData.append('environment_uuid', envList[0].uuid);
 
-    const createResponse = await page.request.post(`${apiBaseUrl}/api/extensions`, {
+    const createResponse = await page.request.post(`${apiBaseUrl}/api/devices`, {
       headers: {
         'Authorization': `Bearer ${authToken}`,
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -819,7 +819,7 @@ test.describe('User Resources', () => {
     updateFormData.append('name', `Updated Extension ${timestamp}`);
     updateFormData.append('notes', 'Test notes');
 
-    const updateResponse = await page.request.patch(`${apiBaseUrl}/api/extensions/${created.uuid}`, {
+    const updateResponse = await page.request.patch(`${apiBaseUrl}/api/devices/${created.uuid}`, {
       headers: {
         'Authorization': `Bearer ${authToken}`,
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -831,7 +831,7 @@ test.describe('User Resources', () => {
     console.log(`✅ Extension updated`);
 
     // DELETE extension
-    const deleteResponse = await page.request.delete(`${apiBaseUrl}/api/extensions/${created.uuid}`, {
+    const deleteResponse = await page.request.delete(`${apiBaseUrl}/api/devices/${created.uuid}`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
 

@@ -236,7 +236,7 @@ source .env && export VITE_API_BASE_URL TEST_EMAIL TEST_PASSWORD && make test-{c
 ```typescript
 // 1. Write failing test
 test('should create environment and get 200', async ({ authenticatedPage: page }) => {
-  const response = await page.request.post(`${apiUrl}/api/environments`, {
+  const response = await page.request.post(`${apiUrl}/api/applications`, {
     data: { name: 'Test', enabled: true }
   });
   expect(response.status()).toBe(200); // This will FAIL initially

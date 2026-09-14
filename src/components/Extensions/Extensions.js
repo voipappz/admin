@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { extensionsApi } from '../../services/api/extensionsApi';
+import { extensionsApi } from '../../services/api/devicesApi';
 import { useNotification } from '../../context/NotificationContext';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
 
@@ -149,7 +149,7 @@ export const useExtensions = () => {
 
   /**
    * Handle opening create/edit dialog
-   * For edit: fetches individual extension data via GET /api/extensions/{uuid}
+   * For edit: fetches individual extension data via GET /api/devices/{uuid}
    * For create: opens empty dialog
    */
   const handleOpenDialog = useCallback(async (extension = null) => {

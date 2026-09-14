@@ -54,7 +54,7 @@ test.describe('MTN: create DID + IVR', () => {
     // 1. Pick an environment — prefer MTN if available, otherwise any env
     //    that has at least one announcement (IVR requires announcement_uuid).
     // ---------------------------------------------------------------------
-    const envsResp = await ctx.get(`/api/environments?per_page=9999`, { headers });
+    const envsResp = await ctx.get(`/api/applications?per_page=9999`, { headers });
     expect(envsResp.status()).toBe(200);
     const envsBody = await envsResp.json();
     const envs = Array.isArray(envsBody) ? envsBody : envsBody.data || [];

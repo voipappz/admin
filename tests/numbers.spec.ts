@@ -64,7 +64,7 @@ test.describe('Numbers CRUD', () => {
     const authToken = await getAuthToken(page);
 
     // Get an environment first
-    const envResponse = await page.request.get(`${apiBaseUrl}/api/environments?per_page=1`, {
+    const envResponse = await page.request.get(`${apiBaseUrl}/api/applications?per_page=1`, {
       headers: { 'Authorization': `Bearer ${authToken}` },
       timeout: 45000
     });

@@ -108,7 +108,7 @@ export const config = {
     notifications: '/api/notifications',
     workflows: '/api/workflows',
     rules: '/api/rules',
-    environments: '/api/environments',
+    environments: '/api/applications',
   },
 
   // WebSocket endpoints (relative to current host)

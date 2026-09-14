@@ -5,7 +5,7 @@ import { setDynamicApiBaseUrl } from '../config';
 import { useNotification } from './NotificationContext';
 import { useAuth } from './AuthContext';
 import { fetchCustomerPortalData, applyCustomerBranding } from '../services/customerService';
-import { environmentsApi } from '../services/api/environmentsApi';
+import { environmentsApi } from '../services/api/applicationsApi';
 
 const CustomerEnvironmentContext = createContext();
 
@@ -145,7 +145,7 @@ export const CustomerEnvironmentProvider = ({ children }) => {
 
       // Skip circuit breaker - this is essential for app initialization
       const response = await apiService.get(
-        `/api/environments?${params.toString()}`,
+        `/api/applications?${params.toString()}`,
         {},
         'fetching selected environments',
         false,
@@ -251,7 +251,7 @@ export const CustomerEnvironmentProvider = ({ children }) => {
         });
 
         const response = await apiService.get(
-          `/api/environments?${params.toString()}`,
+          `/api/applications?${params.toString()}`,
           {},
           'fetching all environments',
           false,

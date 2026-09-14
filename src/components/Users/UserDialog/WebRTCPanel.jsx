@@ -15,7 +15,7 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { usePhoneContext } from '../../../context/PhoneContext';
-import { extensionsApi } from '../../../services/api/extensionsApi';
+import { extensionsApi } from '../../../services/api/devicesApi';
 
 const extUuidOf = (u) => u?.extension?.uuid || u?.extension?.id || u?.uuid || null;
 

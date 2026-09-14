@@ -38,8 +38,8 @@ import {
 } from '@mui/icons-material';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useExtensions } from './Extensions';
-import { extensionsApi } from '../../services/api/extensionsApi';
-import { environmentsApi } from '../../services/api/environmentsApi';
+import { extensionsApi } from '../../services/api/devicesApi';
+import { environmentsApi } from '../../services/api/applicationsApi';
 import { useNotification } from '../../context/NotificationContext';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -299,7 +299,7 @@ const Extensions = () => {
     { name: 'username', label: 'Device', type: 'string' },
     { name: 'enabled', label: 'Status', type: 'select', data: [{ uuid: 'true', name: 'Enabled' }, { uuid: 'false', name: 'Disabled' }] },
     { name: 'environment_uuid', label: 'Application', type: 'select', data: environments },
-    { name: 'meta', label: 'Tag', type: 'tag', url: '/api/extensions?action=meta_keys' },
+    { name: 'meta', label: 'Tag', type: 'tag', url: '/api/devices?action=meta_keys' },
   ], [environments]);
 
   useEffect(() => {

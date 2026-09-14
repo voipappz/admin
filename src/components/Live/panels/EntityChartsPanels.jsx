@@ -3,7 +3,7 @@ import { Box, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import LiveChartStrip from '../LiveChartStrip';
 import { queuesApi } from '../../../services/api/queuesApi';
 import { campaignsApi } from '../../../services/api/campaignsApi';
-import { environmentsApi } from '../../../services/api/environmentsApi';
+import { environmentsApi } from '../../../services/api/applicationsApi';
 
 /**
  * Entity-scoped live chart panels — the old Home screen's Queues / Campaigns /

@@ -55,7 +55,7 @@ test.describe('Call Conditions CRUD', () => {
 
     // Try across all environments
     console.log('No bridges in target env, searching all environments...');
-    const envsResp = await page.request.get(`${apiBaseUrl}/api/environments?per_page=100`, {
+    const envsResp = await page.request.get(`${apiBaseUrl}/api/applications?per_page=100`, {
       headers: authHeaders(token)
     });
     if (envsResp.status() === 200) {
@@ -102,7 +102,7 @@ test.describe('Call Conditions CRUD', () => {
     expect(token).toBeTruthy();
 
     // 1. Get environment
-    const envResponse = await page.request.get(`${apiBaseUrl}/api/environments?per_page=1`, {
+    const envResponse = await page.request.get(`${apiBaseUrl}/api/applications?per_page=1`, {
       headers: authHeaders(token)
     });
     expect(envResponse.status()).toBe(200);
@@ -264,7 +264,7 @@ test.describe('Call Conditions CRUD', () => {
     const token = await getToken(page);
 
     // Get environment
-    const envResponse = await page.request.get(`${apiBaseUrl}/api/environments?per_page=1`, {
+    const envResponse = await page.request.get(`${apiBaseUrl}/api/applications?per_page=1`, {
       headers: authHeaders(token)
     });
     expect(envResponse.status()).toBe(200);
@@ -372,7 +372,7 @@ test.describe('Call Conditions CRUD', () => {
     const token = await getToken(page);
 
     // Get environment
-    const envResponse = await page.request.get(`${apiBaseUrl}/api/environments?per_page=1`, {
+    const envResponse = await page.request.get(`${apiBaseUrl}/api/applications?per_page=1`, {
       headers: authHeaders(token)
     });
     expect(envResponse.status()).toBe(200);
@@ -671,7 +671,7 @@ test.describe('Call Conditions CRUD', () => {
     const token = await getToken(page);
 
     // Get environment
-    const envResponse = await page.request.get(`${apiBaseUrl}/api/environments?per_page=1`, {
+    const envResponse = await page.request.get(`${apiBaseUrl}/api/applications?per_page=1`, {
       headers: authHeaders(token)
     });
     expect(envResponse.status()).toBe(200);

@@ -187,7 +187,7 @@ describe('apiService.fetch — 401 recovery', () => {
     await apiService.fetch('/api/calls', {}, 'calls', false, 0, true);
 
     vi.stubGlobal('fetch', vi.fn(async () => respond(401)));
-    await expect(apiService.fetch('/api/extensions', {}, 'extensions', false, 0, true))
+    await expect(apiService.fetch('/api/devices', {}, 'extensions', false, 0, true))
       .rejects.toMatchObject({ status: 401 });
 
     expect(logout).not.toHaveBeenCalled();

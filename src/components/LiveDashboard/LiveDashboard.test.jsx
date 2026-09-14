@@ -70,7 +70,7 @@ describe('LiveDashboard', () => {
     render(<LiveDashboard />);
 
     expect(await screen.findByText('4186 - MATEMATICA')).toBeInTheDocument();
-    // `/api/environments` answers 401 for a user token, so the screen must
+    // `/api/applications` answers 401 for a user token, so the screen must
     // never depend on having fetched a list.
     expect(screen.queryByLabelText('Environment')).not.toBeInTheDocument();
   });

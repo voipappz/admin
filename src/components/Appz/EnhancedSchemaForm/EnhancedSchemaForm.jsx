@@ -49,6 +49,11 @@ import {
   ListItemText
 } from '@mui/material';
 
+// The API serves extensions at /api/devices and environments at /api/applications;
+// every other resource type is still its plural.
+const API_RESOURCE_PATHS = { extension: 'devices', environment: 'applications' };
+const apiResourcePath = (type) => API_RESOURCE_PATHS[type] || `${type}s`;
+
 /**
  * Enhanced Schema Form Component
  * Handles complex nested schema structures with object fields, multiple entries, 
@@ -133,7 +138,7 @@ const EnhancedSchemaForm = ({
 
     // Map schema type to API endpoint - comprehensive mapping for all VoIP resources
     const resourceTypeMap = {
-      'extension': 'extensions',
+      'extension': 'devices', // /api/devices (was /api/extensions)
       'ivr': 'ivrs',
       'queue': 'queues',
       'conference': 'conferences',
@@ -145,7 +150,7 @@ const EnhancedSchemaForm = ({
       'tariff': 'tariffs',
       'subscription': 'subscriptions',
       'service': 'services',
-      'appz': 'environments' // Appz wizard creates environments
+      'appz': 'applications' // Appz wizard creates environments, served at /api/applications
     };
 
     const resourceType = resourceTypeMap[schemaType.toLowerCase()];
@@ -345,7 +350,7 @@ const EnhancedSchemaForm = ({
       // Also fetch data for the selected bridge type to populate dependent select fields
       if (value && ['extension', 'queue', 'ivr', 'conference', 'announcement'].includes(value)) {
         try {
-              const resourceType = value + 's'; // e.g., 'ivr' -> 'ivrs'
+              const resourceType = apiResourcePath(value); // e.g., 'ivr' -> 'ivrs'
 
           // Add environment filtering like the legacy code
           const currentEnvironment = selectedEnvironments?.[0];
@@ -462,7 +467,7 @@ const EnhancedSchemaForm = ({
     setBridgeModalLoading(true);
 
     try {
-      const resourceType = bridgeModalType + 's'; // e.g., 'extension' -> 'extensions'
+      const resourceType = apiResourcePath(bridgeModalType); // e.g., 'extension' -> 'devices'
       const url = `/api/${resourceType}`;
 
       // Create the bridge resource
@@ -601,7 +606,7 @@ const EnhancedSchemaForm = ({
               selectOptions = appDB[field.data_type];
             } else {
               // Fallback to API data
-              const resourceType = field.data_type + 's'; // e.g., 'announcement' -> 'announcements'
+              const resourceType = apiResourcePath(field.data_type); // e.g., 'announcement' -> 'announcements'
               selectOptions = dynamicSelectData[resourceType] || [];
             }
             currentBridgeType = field.data_type;
@@ -627,7 +632,7 @@ const EnhancedSchemaForm = ({
         // Load data on focus for better performance
         const handleSelectFocus = async () => {
           if (needsDataLoad && field.data_type) {
-            const resourceType = field.data_type + 's';
+            const resourceType = apiResourcePath(field.data_type);
             if (!dynamicSelectData[resourceType]) {
               try {
                 const currentEnvironment = selectedEnvironments?.[0];

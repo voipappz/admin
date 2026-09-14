@@ -69,7 +69,7 @@ test.describe('Call Conditions — API verify', () => {
     console.log(`LIST OK — ${list.length} call conditions`);
 
     // ---- 2. Pick env that has at least one usable bridge target ----
-    const envsResp = await ctx.get('/api/environments?per_page=9999', { headers });
+    const envsResp = await ctx.get('/api/applications?per_page=9999', { headers });
     expect(envsResp.status()).toBe(200);
     const envsBody = await envsResp.json();
     const envs = Array.isArray(envsBody) ? envsBody : envsBody.data || [];

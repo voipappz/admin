@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { featureFlagsApi } from '../../services/api/featureFlagsApi';
-import { environmentsApi } from '../../services/api/environmentsApi';
+import { environmentsApi } from '../../services/api/applicationsApi';
 import { useAuth } from '../../context/AuthContext';
 
 /**
