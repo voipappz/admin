@@ -23,7 +23,7 @@ import './Layout.css';
 const AIChat = lazy(() => import('../AIChat/AIChat.jsx'));
 
 // Build version shown in the footer. Prefer the CI build stamp
-// (VITE_APP_VERSION = YYYY.MM.DD-<short-sha>, set in .circleci/config.yml),
+// (VITE_APP_VERSION = YYYY.MM.DD-<short-sha>, set by the build step in .github/workflows/ci.yml),
 // fall back to the package.json version, then "dev" for local `npm run dev`.
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || __APP_VERSION__ || 'dev';
 

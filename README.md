@@ -335,8 +335,10 @@ Published to GHCR by `.github/workflows/release.yml` **on version tags only** â€
 > docker build --build-arg VITE_API_BASE_URL=https://other-api.example.com -t app:other .
 > ```
 
-`.circleci/config.yml` is retained for the internal Bitbucket mirror, which
-publishes to a private Docker Hub repository. It does not run on GitHub.
+Every push to `main` also publishes the private Docker Hub images
+`nirlevi/va-admin:release-gh-<run>` and `nirlevi/va-admin:latest` (the
+`Docker Hub image` job in `ci.yml`, using the `DOCKER_PASS` repository secret;
+it skips itself when that secret is absent).
 
 ---
 
@@ -350,7 +352,8 @@ Click **Use this template**, then:
    Actions*. Without them the `check` job still runs; only `e2e` is skipped.
 3. Delete the screens you do not need. Each is a self-contained directory under
    `src/components/` plus one spec in `tests/`.
-4. Delete `.circleci/` unless you also mirror to Bitbucket.
+4. Delete the `docker` job in `.github/workflows/ci.yml` unless you publish to
+   Docker Hub.
 
 What you inherit: the Makefile and `bin/` helpers, the auth fixture and the
 62-spec pattern, the multi-tenant context, ~40 resource API modules, CI, the

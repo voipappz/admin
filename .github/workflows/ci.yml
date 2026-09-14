@@ -1,5 +1,9 @@
 # The gate. Everything here also runs from `make check`, so a red CI is
 # reproducible on a laptop without guessing which step differed.
+#
+# GitHub Actions is the admin's only CI. CircleCI, kept for a Bitbucket mirror,
+# was retired on 2026-09-14; its nginx check, dependency audit, build stamping
+# and Docker Hub image push live here now.
 name: CI
 
 on:
@@ -12,9 +16,10 @@ permissions:
   contents: read
 
 concurrency:
-  # A new push to a branch cancels the run still in flight for the old commit.
+  # A new push to a branch cancels the run still in flight for the old commit --
+  # except on main, where the run may be halfway through pushing the image.
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   check:
@@ -48,8 +53,14 @@ jobs:
       - name: Unit tests
         run: npm run test:unit:run
 
+      # Stamped the way the CircleCI build was, so the running app still reports
+      # which build and commit it is (dist/version.json, VITE_APP_VERSION).
       - name: Production build
-        run: npm run build
+        run: |
+          VITE_APP_VERSION="$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}" \
+            VITE_BUILD_ID="gh-${GITHUB_RUN_NUMBER}" npm run build
+          printf '{"build":"gh-%s","timestamp":"%s","commit":"%s"}\n' \
+            "$GITHUB_RUN_NUMBER" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${GITHUB_SHA::8}" > dist/version.json
 
       - name: Upload build output
         uses: actions/upload-artifact@v4
@@ -57,6 +68,48 @@ jobs:
           name: dist
           path: dist/
           retention-days: 7
+
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Level and allowlist live in audit-ci.jsonc, with the reason for each entry.
+      - name: npm audit (moderate and above)
+        run: npm run security-scan
+
+  nginx:
+    name: nginx.conf syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # `nginx -t` loads the TLS pair and resolves the upstream hosts, so the test
+      # image gets a throwaway self-signed cert and the upstreams map to localhost.
+      - name: nginx -t
+        run: |
+          cat > /tmp/Dockerfile.nginx-test <<'EOF'
+          FROM nginx:alpine
+          RUN apk add --no-cache openssl && \
+              mkdir -p /opt/va/certs && \
+              openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
+                -keyout /opt/va/certs/server.key -out /opt/va/certs/server.crt \
+                -subj "/CN=test" 2>/dev/null
+          COPY nginx.conf /etc/nginx/nginx.conf
+          EOF
+          docker build -f /tmp/Dockerfile.nginx-test -t nginx-test .
+          docker run --rm --add-host=cable:127.0.0.1 --add-host=api:127.0.0.1 \
+            nginx-test nginx -t
 
   e2e:
     name: end-to-end (Playwright)
@@ -75,21 +128,11 @@ jobs:
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.full_name == github.repository)
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - run: npm ci
-
-      - name: Install Playwright browser
-        run: npx playwright install chromium --with-deps
-
-      # Absent secrets produce a login failure that reads like a product bug.
-      # Say which one is missing instead.
-      - name: Verify test credentials are configured
+      # Without the secrets the login fails in a way that reads like a product
+      # bug. Say which ones are missing and skip the suite -- a repo that has not
+      # configured e2e yet should not be red on every push.
+      - name: Check test credentials
+        id: creds
         env:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
@@ -101,13 +144,31 @@ jobs:
             [ -n "${!k}" ] || missing="$missing $k"
           done
           if [ -n "$missing" ]; then
-            echo "::error::missing repository secrets:$missing"
-            echo "Settings -> Secrets and variables -> Actions"
-            exit 1
+            echo "::notice::end-to-end skipped: missing repository secrets:$missing (Settings -> Secrets and variables -> Actions)"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "all four secrets present"
+            echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
-          echo "all four secrets present"
+
+      - uses: actions/checkout@v4
+        if: steps.creds.outputs.ready == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.creds.outputs.ready == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+        if: steps.creds.outputs.ready == 'true'
+
+      - name: Install Playwright browser
+        if: steps.creds.outputs.ready == 'true'
+        run: npx playwright install chromium --with-deps
 
       - name: Run Playwright
+        if: steps.creds.outputs.ready == 'true'
         env:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
@@ -116,9 +177,57 @@ jobs:
         run: make test
 
       - name: Upload the report
-        if: always()
+        if: always() && steps.creds.outputs.ready == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+
+  docker:
+    name: Docker Hub image
+    runs-on: ubuntu-latest
+    needs: [check, audit, nginx]
+    timeout-minutes: 20
+    # Publishes the private Docker Hub images nirlevi/va-admin:latest and
+    # :release-gh-<run>, which the CircleCI build pushed before. Pushes to main
+    # only: a pull request would overwrite :latest, and a fork never receives
+    # DOCKER_PASS. The tag is release-gh-<run>, not release-<run>, because the
+    # CircleCI builds already used release-1..release-12944 and GitHub's run
+    # number starts near 1 -- the old numbering would overwrite historic images.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Check Docker Hub credential
+        id: hub
+        env:
+          DOCKER_PASS: ${{ secrets.DOCKER_PASS }}
+        run: |
+          if [ -z "$DOCKER_PASS" ]; then
+            echo "::notice::Docker Hub push skipped: no DOCKER_PASS repository secret"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.hub.outputs.ready == 'true'
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.hub.outputs.ready == 'true'
+
+      - uses: docker/login-action@v3
+        if: steps.hub.outputs.ready == 'true'
+        with:
+          username: nirlevi
+          password: ${{ secrets.DOCKER_PASS }}
+
+      - uses: docker/build-push-action@v6
+        if: steps.hub.outputs.ready == 'true'
+        with:
+          context: .
+          push: true
+          tags: |
+            nirlevi/va-admin:release-gh-${{ github.run_number }}
+            nirlevi/va-admin:latest
+          cache-from: type=registry,ref=nirlevi/va-admin:latest
+          cache-to: type=inline
