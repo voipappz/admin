@@ -96,5 +96,10 @@ export RELEASE_COOKIE="my-app-cookie"
 # xAI (Grok) key. Selected by naming a grok-* model: CONNECTIX_MODEL="grok-4".
 # export XAI_API_KEY=""
 
+# OpenRouter key — one key in front of every vendor's models. Selected by
+# naming a model the OpenRouter way, vendor/model:
+# CONNECTIX_MODEL="anthropic/claude-sonnet-4.5".
+# export OPENROUTER_API_KEY=""
+
 # Public HTTPS tunnel for WhatsApp webhooks — see `make tunnel`.
 # export NGROK_AUTHTOKEN=""

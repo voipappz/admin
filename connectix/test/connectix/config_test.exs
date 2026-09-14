@@ -36,6 +36,8 @@ defmodule Connectix.ConfigTest do
       assert Config.model_provider("gpt-4o-mini") == :openai
       assert Config.model_provider("o3-mini") == :openai
       assert Config.model_provider("grok-4") == :xai
+      assert Config.model_provider("anthropic/claude-sonnet-4.5") == :openrouter
+      assert Config.model_provider("openai/gpt-4o-mini") == :openrouter
     end
 
     test "anything unrecognised is Anthropic, the default provider" do
@@ -56,6 +58,12 @@ defmodule Connectix.ConfigTest do
       # was the reason for switching.
       with_env([{"CONNECTIX_MODEL", "gemini-2.5-flash"}, {"CONNECTIX_TITLE_MODEL", nil}], fn ->
         assert Config.title_model() == "gemini-2.5-flash"
+      end)
+    end
+
+    test "an OpenRouter main model keeps titles on OpenRouter too" do
+      with_env([{"CONNECTIX_MODEL", "openai/gpt-4o-mini"}, {"CONNECTIX_TITLE_MODEL", nil}], fn ->
+        assert Config.title_model() == "openai/gpt-4o-mini"
       end)
     end
 

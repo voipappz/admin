@@ -97,9 +97,31 @@ defmodule Connectix.Config do
   def xai_api_key!, do: xai_api_key() || raise_missing("XAI_API_KEY")
 
   @doc """
+  OpenRouter API key (`OPENROUTER_API_KEY`), or `nil`. One key in front of
+  every provider's models, billed in one place — which is what makes it the
+  way out when a single provider's account is empty. Selected by naming a
+  model the way OpenRouter does, `<vendor>/<model>`:
+  `CONNECTIX_MODEL="anthropic/claude-sonnet-4.5"`; see `model_provider/1`.
+  """
+  @spec openrouter_api_key() :: String.t() | nil
+  def openrouter_api_key, do: env("OPENROUTER_API_KEY")
+
+  @doc "OpenRouter API key, raising when unset — see `anthropic_api_key!/0`."
+  @spec openrouter_api_key!() :: String.t()
+  def openrouter_api_key!, do: openrouter_api_key() || raise_missing("OPENROUTER_API_KEY")
+
+  @doc """
+  Where OpenRouter's OpenAI-compatible chat completions live. A constant, not
+  a variable: the one thing a deployment would change is the key.
+  """
+  @spec openrouter_endpoint() :: String.t()
+  def openrouter_endpoint, do: "https://openrouter.ai/api/v1/chat/completions"
+
+  @doc """
   Which provider serves a model, from its name — the one thing every provider
   encodes in the name, so no second variable has to agree with the first:
 
+    * `<vendor>/<model>` (a slash, OpenRouter's own naming) → `:openrouter`
     * `gemini-*` → `:google`
     * `grok-*` → `:xai`
     * `gpt-*`, `o1*`/`o3*`/`o4*` → `:openai`
@@ -108,12 +130,18 @@ defmodule Connectix.Config do
   `Connectix.Agents.Factory` builds the matching LangChain chat model and
   reads the matching key. Changing provider is therefore one variable.
   """
-  @spec model_provider(String.t()) :: :anthropic | :google | :openai | :xai
-  def model_provider("gemini-" <> _rest), do: :google
-  def model_provider("grok-" <> _rest), do: :xai
-  def model_provider("gpt-" <> _rest), do: :openai
-  def model_provider(<<"o", digit, _rest::binary>>) when digit in ?1..?9, do: :openai
+  @spec model_provider(String.t()) :: :anthropic | :google | :openai | :openrouter | :xai
+  def model_provider(name) when is_binary(name) and byte_size(name) > 0 do
+    if String.contains?(name, "/"), do: :openrouter, else: provider_by_prefix(name)
+  end
+
   def model_provider(_other), do: :anthropic
+
+  defp provider_by_prefix("gemini-" <> _rest), do: :google
+  defp provider_by_prefix("grok-" <> _rest), do: :xai
+  defp provider_by_prefix("gpt-" <> _rest), do: :openai
+  defp provider_by_prefix(<<"o", digit, _rest::binary>>) when digit in ?1..?9, do: :openai
+  defp provider_by_prefix(_other), do: :anthropic
 
   @doc """
   Model backing a conversation (`CONNECTIX_MODEL`, default
@@ -693,6 +721,7 @@ defmodule Connectix.Config do
       {"OPENAI_KEY", presence(openai_api_key())},
       {"GOOGLE_API_KEY", presence(google_api_key())},
       {"XAI_API_KEY", presence(xai_api_key())},
+      {"OPENROUTER_API_KEY", presence(openrouter_api_key())},
       {"CONNECTIX_MODEL", main_model()},
       {"CONNECTIX_TITLE_MODEL", title_model()},
       {"CONNECTIX_THINKING_BUDGET", to_string(thinking_budget_tokens())},

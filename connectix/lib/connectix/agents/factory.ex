@@ -74,7 +74,7 @@ defmodule Connectix.Agents.Factory do
   # Only a provider reference lives in the spec; the key comes from the
   # environment at build time and never touches bot data. The provider is the
   # model name's (`Config.model_provider/1`), so the same spec runs on
-  # Anthropic, Google or OpenAI by changing one variable. Extended thinking
+  # Anthropic, Google, OpenAI or OpenRouter by changing one variable. Extended thinking
   # and prompt caching are Anthropic features and are set only there.
   defp build_model(%CompiledSpec{model: model}) do
     name = model.name || Config.main_model()
@@ -105,7 +105,16 @@ defmodule Connectix.Agents.Factory do
 
       :openai ->
         ChatOpenAI.new!(Map.put(common, :api_key, Config.openai_api_key!()))
+
+      :openrouter ->
+        ChatOpenAI.new!(openrouter(common))
     end
+  end
+
+  # OpenRouter speaks OpenAI's chat API at its own address, so it is the
+  # OpenAI model pointed elsewhere, with its own key.
+  defp openrouter(common) do
+    Map.merge(common, %{api_key: Config.openrouter_api_key!(), endpoint: Config.openrouter_endpoint()})
   end
 
   defp title_model do
@@ -117,6 +126,7 @@ defmodule Connectix.Agents.Factory do
       :google -> ChatGoogleAI.new!(Map.put(common, :api_key, Config.google_api_key!()))
       :xai -> ChatGrok.new!(Map.put(common, :api_key, Config.xai_api_key!()))
       :openai -> ChatOpenAI.new!(Map.put(common, :api_key, Config.openai_api_key!()))
+      :openrouter -> ChatOpenAI.new!(openrouter(common))
     end
   end
 
