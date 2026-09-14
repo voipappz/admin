@@ -41,9 +41,10 @@ What runs:
   (`npm run security-scan`), `nginx.conf syntax`
 - `end-to-end (Playwright)`: only when the four test secrets exist; without them
   it skips itself with a notice instead of failing
-- `Docker Hub image`: pushes to `main` only. Publishes
-  `nirlevi/va-admin:release-gh-<run>` and `:latest` with the `DOCKER_PASS`
-  repository secret (never `release-<n>`: CircleCI used those numbers)
+- `Docker image`: builds the image on every push and pull request; only a
+  push to `main` publishes `nirlevi/va-admin:release-gh-<run>` and `:latest`
+  with the `DOCKER_PASS` repository secret (never `release-<n>`: CircleCI used
+  those numbers)
 
 ### What to do if CI fails
 1. `gh run view <run-id> --log-failed` for the failing step
@@ -97,6 +98,17 @@ const otpResp = await page.request.post(
 const { access, refresh, csrf } = await otpResp.json();
 // Set tokens in localStorage, then reload
 ```
+
+## Sessions: one at a time
+
+The admin console (`AuthContext`, storage `auth`) and the end-user portal
+(`UserAuthContext`, storage `user_auth`) are two unrelated JWTs, and
+`apiService.getToken()` can send only one of them. They used to be able to
+coexist, and then the portal dashboard at `/` sent every request with the
+ADMIN token. Now signing in on either door ends the other session first
+(`src/services/sessionIsolation.js`: revoke, clear its keys, tell its context).
+A browser that still holds both keeps the admin session. Pinned by
+`src/services/sessionIsolation.test.jsx`, which runs in CI.
 
 ## Running Tests
 

@@ -18,7 +18,11 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_ZENDESK_KEY=$VITE_ZENDESK_KEY
 
 # Dependencies first, so a source-only change reuses the install layer.
-COPY package.json package-lock.json ./
+# .npmrc comes too: it sets legacy-peer-deps=true, which `npm ci` needs for the
+# eslint 10 / eslint-plugin-react-hooks peer range. Without it the install
+# resolves peers strictly and dies with ERESOLVE -- in the image only, since
+# CI's own `npm ci` runs in a checkout that has the file.
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 
 COPY . .

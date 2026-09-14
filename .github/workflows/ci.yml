@@ -27,9 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -74,9 +74,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -92,7 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # `nginx -t` loads the TLS pair and resolves the upstream hosts, so the test
       # image gets a throwaway self-signed cert and the upstreams map to localhost.
@@ -151,10 +151,10 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.creds.outputs.ready == 'true'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.creds.outputs.ready == 'true'
         with:
           node-version-file: .nvmrc
@@ -185,49 +185,51 @@ jobs:
           retention-days: 14
 
   docker:
-    name: Docker Hub image
+    name: Docker image
     runs-on: ubuntu-latest
     needs: [check, audit, nginx]
     timeout-minutes: 20
-    # Publishes the private Docker Hub images nirlevi/va-admin:latest and
-    # :release-gh-<run>, which the CircleCI build pushed before. Pushes to main
-    # only: a pull request would overwrite :latest, and a fork never receives
-    # DOCKER_PASS. The tag is release-gh-<run>, not release-<run>, because the
-    # CircleCI builds already used release-1..release-12944 and GitHub's run
-    # number starts near 1 -- the old numbering would overwrite historic images.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Builds the image on every pull request, so a broken Dockerfile fails the
+    # PR instead of the first push to main (which is how a missing .npmrc
+    # reached main). Only a push to main logs in and publishes
+    # nirlevi/va-admin:latest and :release-gh-<run>: a pull request would
+    # overwrite :latest, and a fork never receives DOCKER_PASS. The tag is
+    # release-gh-<run>, not release-<run>, because the CircleCI builds already
+    # used release-1..release-12944 and GitHub's run number starts near 1.
+    env:
+      PUBLISH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
       - name: Check Docker Hub credential
         id: hub
         env:
           DOCKER_PASS: ${{ secrets.DOCKER_PASS }}
         run: |
-          if [ -z "$DOCKER_PASS" ]; then
+          if [ "$PUBLISH" != "true" ]; then
+            echo "build only: not a push to main"
+            echo "push=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$DOCKER_PASS" ]; then
             echo "::notice::Docker Hub push skipped: no DOCKER_PASS repository secret"
-            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "push=false" >> "$GITHUB_OUTPUT"
           else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "push=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
-        if: steps.hub.outputs.ready == 'true'
+      - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v3
-        if: steps.hub.outputs.ready == 'true'
+      - uses: docker/setup-buildx-action@v4
 
       - uses: docker/login-action@v3
-        if: steps.hub.outputs.ready == 'true'
+        if: steps.hub.outputs.push == 'true'
         with:
           username: nirlevi
           password: ${{ secrets.DOCKER_PASS }}
 
-      - uses: docker/build-push-action@v6
-        if: steps.hub.outputs.ready == 'true'
+      - uses: docker/build-push-action@v7
         with:
           context: .
-          push: true
+          push: ${{ steps.hub.outputs.push == 'true' }}
           tags: |
             nirlevi/va-admin:release-gh-${{ github.run_number }}
             nirlevi/va-admin:latest
-          cache-from: type=registry,ref=nirlevi/va-admin:latest
-          cache-to: type=inline
+          cache-from: ${{ steps.hub.outputs.push == 'true' && 'type=registry,ref=nirlevi/va-admin:latest' || '' }}
+          cache-to: ${{ steps.hub.outputs.push == 'true' && 'type=inline' || '' }}
