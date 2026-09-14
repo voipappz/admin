@@ -30,9 +30,18 @@ function cableUrl(token) {
   return `${base}${base.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
 }
 
-/** The session token the node verifies against SECRET_KEY. */
+/**
+ * The session token the node verifies against SECRET_KEY.
+ *
+ * `va_cable_token` comes first: local development against a REMOTE API, where
+ * the login is signed with that API's secret and a local node cannot verify
+ * it. A token signed with the local node's secret, set by hand, lets the live
+ * connection authenticate while every API call keeps the real login.
+ */
 function sessionToken() {
   try {
+    const override = localStorage.getItem('va_cable_token');
+    if (override) return override;
     const admin = JSON.parse(localStorage.getItem('auth') || 'null');
     if (admin?.access) return admin.access;
     const portal = JSON.parse(localStorage.getItem('user_auth') || 'null');
