@@ -62,7 +62,7 @@ function pretty(value) {
  * otherwise, and a tool error (isError) as a warning rather than a crash.
  * "Raw JSON-RPC" sends any method (initialize, resources/read, ...) for the
  * cases the picker does not cover. The exchange log keeps the last requests
- * so a sequence — nodes.connected, extensions.list, calls.create — reads as
+ * so a sequence — nodes.connected, devices.list, calls.create — reads as
  * one session.
  *
  * Loads nothing until `active`: the tab is mounted behind display:none like
