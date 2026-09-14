@@ -41,9 +41,10 @@ What runs:
   (`npm run security-scan`), `nginx.conf syntax`
 - `end-to-end (Playwright)`: only when the four test secrets exist; without them
   it skips itself with a notice instead of failing
-- `Docker Hub image`: pushes to `main` only. Publishes
-  `nirlevi/va-admin:release-gh-<run>` and `:latest` with the `DOCKER_PASS`
-  repository secret (never `release-<n>`: CircleCI used those numbers)
+- `Docker image`: builds the image on every push and pull request; only a
+  push to `main` publishes `nirlevi/va-admin:release-gh-<run>` and `:latest`
+  with the `DOCKER_PASS` repository secret (never `release-<n>`: CircleCI used
+  those numbers)
 
 ### What to do if CI fails
 1. `gh run view <run-id> --log-failed` for the failing step

@@ -335,10 +335,10 @@ Published to GHCR by `.github/workflows/release.yml` **on version tags only** â€
 > docker build --build-arg VITE_API_BASE_URL=https://other-api.example.com -t app:other .
 > ```
 
-Every push to `main` also publishes the private Docker Hub images
-`nirlevi/va-admin:release-gh-<run>` and `nirlevi/va-admin:latest` (the
-`Docker Hub image` job in `ci.yml`, using the `DOCKER_PASS` repository secret;
-it skips itself when that secret is absent).
+The `Docker image` job in `ci.yml` builds the image on every pull request, and
+every push to `main` also publishes the private Docker Hub images
+`nirlevi/va-admin:release-gh-<run>` and `nirlevi/va-admin:latest` (using the
+`DOCKER_PASS` repository secret; without it the image is built but not pushed).
 
 ---
 
