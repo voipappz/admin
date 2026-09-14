@@ -293,6 +293,27 @@ running container. Redeploy afterwards to restore traceability.
 An SSH timeout while *releasing the deploy lock* is not a failed deploy — check
 what is actually running before retrying.
 
+### Troubleshooting a "disconnected" agent
+
+`make tui` attaches to the local portal; `make tui YAML=config/deploy.connectix.yml`
+(or `DEST=connectix`) attaches to the portal that kamal file deploys, through
+`kamal app exec` and shows one row per signed-in agent: browser sockets,
+socket age, last pong, cable client state, confirmed/subscribed streams,
+reconnect attempts, and the last socket closes with reason and lifetime.
+`x` kicks the agent's socket (the extension reconnects in ~3s), `c` reopens
+their cable connection. The same data is `Realtime.Inspector.snapshot/0`
+from `make iex`, and every socket close is now a log line:
+`session: closed <user> after 1h29m (:remote)`.
+
+What the 2026-09-14 investigation established from the portal and
+kamal-proxy logs on nimbus-connectix: the server side was not dropping
+anything at the 1–2 hour mark (no liveness reconnects, cable errors only on
+a node restart). Browser sockets lived 1h29m and 1h37m and were closed from
+the BROWSER side about one second after the agent opened the popup; the agent
+then logged in again by hand 25–40s later. The portal never refused those
+sockets. So the trail to follow next is on the extension side, and the
+`socket closes` pane is where the reason and lifetime now show up.
+
 ### Monitoring
 
 `/health` (unauthenticated, no content negotiation) reports `cable`,

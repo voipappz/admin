@@ -5,7 +5,7 @@ defmodule Connectix.Tui.Runtime do
   keys one at a time in a linked reader process, subscribes to the `"phone"`
   PubSub bus, and drives a render→event loop over a callback module:
 
-    * `init/0`        → initial model
+    * `init/1`        → `(opts)` → initial model
     * `render/2`      → `(model, %Frame{})` → `[{widget, %Rect{}}]`
     * `key/2`         → `(key_string, model)` → `{:cont, model} | {:halt, model}`
     * `pubsub/2`      → `(msg, model)` → model
@@ -18,8 +18,8 @@ defmodule Connectix.Tui.Runtime do
   @enter "\e%G\e[?1049h\e[?25l\e[2J"
   @leave "\e[0m\e[?25h\e[?1049l"
 
-  @spec run(module()) :: :ok
-  def run(app) do
+  @spec run(module(), keyword()) :: :ok
+  def run(app, opts \\ []) do
     enter_raw()
     parent = self()
     reader = spawn_link(fn -> read_loop(parent) end)
@@ -27,8 +27,7 @@ defmodule Connectix.Tui.Runtime do
     # the node.s N-times delivery, rather than counting frames off PubSub and
     # disagreeing with the store within a minute. The tick arrives here as an
     # ordinary message, which is all this loop needs.
-    :ok
-    model = app.init()
+    model = app.init(opts)
 
     try do
       loop(app, model)
@@ -61,7 +60,19 @@ defmodule Connectix.Tui.Runtime do
     end
   end
 
+  # The reader spells a few keys out ("enter", "tab", "up"); the app matches
+  # the raw bytes as well, so both forms are accepted here.
   defp dispatch_key(app, key, model) do
+    key =
+      case key do
+        "enter" -> "\r"
+        "tab" -> "\t"
+        "up" -> "\e[A"
+        "down" -> "\e[B"
+        "esc" -> "\e"
+        other -> other
+      end
+
     case safe_key(app, key, model) do
       {:halt, _m} -> :ok
       {:cont, m} -> loop(app, m)

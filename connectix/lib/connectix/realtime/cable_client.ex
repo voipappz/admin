@@ -121,6 +121,54 @@ defmodule Connectix.Realtime.CableClient do
 
   def adopt_agent_ids(_user_uuid, _agent_ids), do: :ok
 
+  @doc """
+  The connection as it is right now, for an operator: what it subscribed to,
+  what the node confirmed, how many times it has had to reconnect, and how
+  long ago the node last said anything. `nil` when this user has no client.
+  """
+  @spec snapshot(String.t()) :: map() | nil
+  def snapshot(user_uuid) do
+    case Registry.lookup(Connectix.Realtime.CableRegistry, user_uuid) do
+      [{pid, _}] -> GenServer.call(pid, :snapshot, 2_000)
+      [] -> nil
+    end
+  catch
+    :exit, _ -> nil
+  end
+
+  @doc "Every user with a client, with each one's `snapshot/1`."
+  @spec snapshots() :: [map()]
+  def snapshots do
+    Connectix.Realtime.CableRegistry
+    |> Registry.select([{{:"$1", :_, :_}, [], [:"$1"]}])
+    |> Enum.map(&snapshot/1)
+    |> Enum.reject(&is_nil/1)
+  catch
+    :exit, _ -> []
+  end
+
+  @doc """
+  Drop this user's connection and open a fresh one now.
+
+  The operator's lever for a client that looks wrong — subscribed to nothing,
+  reconnecting on a long backoff, or silent for longer than the node's ping
+  interval says it should be. The subscriptions are rebuilt from
+  `identifiers` on the next welcome, and `DashboardUser#subscribed` re-stamps
+  the user's `logged_in_at` on the node, which is the registration itself.
+  """
+  def reconnect(user_uuid) do
+    case Registry.lookup(Connectix.Realtime.CableRegistry, user_uuid) do
+      [{pid, _}] ->
+        GenServer.cast(pid, :reconnect_now)
+        :ok
+
+      [] ->
+        {:error, :no_client}
+    end
+  catch
+    :exit, _ -> {:error, :no_client}
+  end
+
   @doc "Cable's base URL, or nil when not configured — then this whole module is inert."
   def url, do: System.get_env("CABLE_URL")
 
@@ -152,6 +200,22 @@ defmodule Connectix.Realtime.CableClient do
   def handle_call(:registered?, _from, state),
     do: {:reply, MapSet.size(state.confirmed) > 0, state}
 
+  def handle_call(:snapshot, _from, state) do
+    {:reply,
+     %{
+       user_uuid: state.user_uuid,
+       environment_uuid: state.environment_uuid,
+       agent_ids: state.agent_ids,
+       connected?: state.conn != nil,
+       welcomed?: state.welcomed?,
+       subscribed: length(state.identifiers),
+       confirmed: MapSet.size(state.confirmed),
+       confirmed_streams: state.confirmed |> MapSet.to_list() |> Enum.sort(),
+       attempts: state.attempts,
+       last_frame_ms_ago: if(state.last_frame_at, do: now_ms() - state.last_frame_at)
+     }, state}
+  end
+
   @impl true
   def handle_cast({:adopt_agent_ids, ids}, state) do
     case Enum.reject(ids, &(&1 in state.agent_ids)) do
@@ -177,6 +241,14 @@ defmodule Connectix.Realtime.CableClient do
           {:noreply, state}
         end
     end
+  end
+
+  def handle_cast(:reconnect_now, state) do
+    Logger.info("cable: reconnect requested for #{state.user_uuid}")
+    if state.conn, do: safe_close(state.conn)
+
+    {:noreply,
+     connect(%{state | conn: nil, websocket: nil, ref: nil, welcomed?: false, attempts: 0})}
   end
 
   @impl true

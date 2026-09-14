@@ -132,12 +132,41 @@ iex: ## Attach a shell to the running portal (remsh)
 	docker compose exec elixir sh -lc \
 	  'iex --name console-$$$$@127.0.0.1 --cookie $$(cat ~/.erlang.cookie) --remsh connectix@127.0.0.1'
 
-# The cockpit as a terminal app rather than as three panes: the store's totals,
-# the subscriptions the node confirmed, and the events as they land. It boots
-# the app, so it shows THIS process — `make iex` is the one that attaches to a
-# portal already running.
-tui: ## Live cockpit: what this portal is receiving (q quits)
-	docker compose run --rm --no-deps -e MIX_ENV=dev elixir mix connectix.tui
+# The cockpit as a terminal app: the store's totals, the subscriptions the
+# node confirmed, one row per signed-in agent (socket age, last pong, cable
+# confirmed/attempts), the last socket closes with their reason, and the
+# events as they land. `x` kicks an agent's socket, `c` reopens their cable.
+#
+# It ATTACHES to a running portal and reads over RPC — the sessions shown are
+# the ones the browsers are on. Which portal is the argument:
+#
+#   make tui                                    the local stack
+#   make tui YAML=config/deploy.connectix.yml   the portal that kamal file deploys
+#   make tui DEST=connectix                     the same, by destination name
+#
+# The kamal file is the address book: the host, its SSH user/port/key and the
+# container labels all come from it, so nothing is typed twice. kamal execs
+# into the running container and the cockpit attaches to the release node
+# there. Read-only apart from the two keys — it deploys nothing.
+#
+# Locally the same container as the server, so the cookie matches; with
+# nothing running it boots the app in a throwaway container instead.
+tui: ## Live cockpit — local portal, or YAML=config/deploy.x.yml / DEST=x for a deployed one
+	@if [ -n "$(YAML)" ] || [ -n "$(DEST)" ]; then \
+	  dest="$(DEST)"; \
+	  if [ -n "$(YAML)" ]; then \
+	    test -f "$(YAML)" || { echo "!! no such kamal file: $(YAML)" >&2; exit 1; }; \
+	    dest=$$(basename "$(YAML)" .yml | sed 's/^deploy\.//'); \
+	    test "$$dest" != "deploy" || { echo "!! $(YAML) is the base file, not a destination — use config/deploy.<name>.yml" >&2; exit 1; }; \
+	  fi; \
+	  echo "==> attaching to the portal deployed by config/deploy.$$dest.yml"; \
+	  $(KAMAL_TTY) app exec -d $$dest -i --reuse \
+	    "sh -c 'stty raw -echo 2>/dev/null; bin/connectix eval Connectix.Tui.attach; stty sane 2>/dev/null'"; \
+	elif docker compose ps --status running --format '{{.Service}}' | grep -q elixir; then \
+	  docker compose exec -e COLUMNS=$$(tput cols) -e LINES=$$(tput lines) elixir mix connectix.tui; \
+	else \
+	  docker compose run --rm --no-deps -e MIX_ENV=dev elixir mix connectix.tui --local; \
+	fi
 
 # Two panes, built with tmux itself — no tmuxinator, and therefore no ruby and
 # no gem. That chain is what failed the first time this was run, for a layout
@@ -274,6 +303,10 @@ KAMAL = docker run --rm \
 	  -e KAMAL_REGISTRY_PASSWORD -e KAMAL_HEALTHCHECK_URL \
 	  -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
 	  $(KAMAL_IMAGE)
+
+# Interactive variant for `app exec -i`: the TUI needs a terminal on both
+# ends, which `docker run` only hands over with -it.
+KAMAL_TTY = $(subst docker run --rm,docker run --rm -it,$(KAMAL))
 
 # DEST IS REQUIRED, and the guard is not pedantry. Without `-d`, kamal uses
 # config/deploy.yml — a DIFFERENT live host with a DIFFERENT image from every

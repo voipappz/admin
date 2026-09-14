@@ -47,7 +47,9 @@ defmodule ConnectixWeb.RealtimeSocket do
   @heartbeat_ms 15_000
 
   @impl true
-  def init({claims, topics}) do
+  def init({claims, topics}), do: init({claims, topics, %{}})
+
+  def init({claims, topics, meta}) do
     # One PubSub subscription per entitlement. The upstream is a single NATS
     # connection with wildcard subscriptions, fanned out here — no per-user and
     # certainly no per-tab upstream connection.
@@ -70,6 +72,16 @@ defmodule ConnectixWeb.RealtimeSocket do
     # client — which is the whole reason this is opened here and not there.
     ConnectixWeb.RealtimeSocket.ensure_cable(claims)
 
+    # The row that outlives this process — see `Realtime.Sessions`. Written
+    # after `ensure_cable/1` so the agent ids it resolved are on it.
+    Connectix.Realtime.Sessions.opened(self(), %{
+      user_uuid: claims.user_uuid,
+      environment_uuid: claims.environment_uuid,
+      agent_ids: agent_ids_for(claims.user_uuid),
+      remote_ip: Map.get(meta, :remote_ip),
+      user_agent: Map.get(meta, :user_agent)
+    })
+
     state = %{claims: claims, topics: MapSet.new(topics)}
 
     welcome = %{
@@ -88,8 +100,16 @@ defmodule ConnectixWeb.RealtimeSocket do
   # Frames arriving from the upstream fan-out are already contract-shaped.
   @impl true
   def handle_info({:realtime, frame}, state) do
+    Connectix.Realtime.Sessions.pushed(self())
     {:push, {:text, Jason.encode!(frame)}, state}
   end
+
+  # An operator asked for this socket to go (`Realtime.Inspector.kick/1`,
+  # the TUI's `x`). 1012 is "service restart": the extension's `onclose`
+  # reconnects three seconds later with the same token, which re-resolves the
+  # agent ids and re-registers — the same recovery a re-login gives, without
+  # the agent having to notice anything.
+  def handle_info(:kick, state), do: {:stop, :normal, {1012, "kicked"}, state}
 
   # Keeps the idle timer from firing on a connection that is simply quiet.
   # BOTH frames, every time, and neither is redundant:
@@ -120,6 +140,17 @@ defmodule ConnectixWeb.RealtimeSocket do
   def heartbeat_ms, do: @heartbeat_ms
 
   defp schedule_heartbeat, do: Process.send_after(self(), :heartbeat, @heartbeat_ms)
+
+  # The pong the browser sends back for each protocol ping. It never reaches
+  # the extension's JS, but it is the only inbound frame on an idle socket, so
+  # its age is the one number that says the path to that browser is real.
+  @impl true
+  def handle_control({_payload, [opcode: :pong]}, state) do
+    Connectix.Realtime.Sessions.pong(self())
+    {:ok, state}
+  end
+
+  def handle_control(_frame, state), do: {:ok, state}
 
   @impl true
   def handle_in({text, [opcode: :text]}, state) do
@@ -152,7 +183,10 @@ defmodule ConnectixWeb.RealtimeSocket do
   # The cable connection deliberately OUTLIVES one socket: a reload or a second
   # tab must not drop the user's registration and re-stamp it a moment later.
   # It is reaped when its own connection dies, not per browser socket.
-  def terminate(_reason, _state), do: :ok
+  def terminate(reason, _state) do
+    Connectix.Realtime.Sessions.closed(self(), reason)
+    :ok
+  end
 
   @doc false
   def ensure_cable(%{user_uuid: user_uuid, token: token} = claims)
@@ -285,6 +319,19 @@ defmodule ConnectixWeb.RealtimeSocket do
 
   def register_agent_ids(_user_uuid, _agent_ids), do: :ok
 
+  # The ids `ensure_cable/1` registered for this user, read back from the
+  # registry rather than threaded through — they were resolved inside a
+  # function whose contract is `:ok`.
+  defp agent_ids_for(user_uuid) when is_binary(user_uuid) do
+    Connectix.Realtime.SessionRegistry
+    |> Registry.select([{{{:agent, :"$1"}, :"$2", {:"$3", :_}}, [{:==, :"$2", self()}], [:"$1"]}])
+    |> Enum.uniq()
+  catch
+    :exit, _ -> []
+  end
+
+  defp agent_ids_for(_user_uuid), do: []
+
   defp ack(frame, state), do: {:push, {:text, Jason.encode!(frame)}, state}
 
   # ── Upgrade ────────────────────────────────────────────────────────────────
@@ -308,9 +355,13 @@ defmodule ConnectixWeb.RealtimeSocket do
         |> Enum.map(&String.trim/1)
         |> Enum.reject(&(&1 == ""))
 
+      # Where the browser is, for the session row. kamal-proxy sets
+      # x-forwarded-for; without a proxy the peer is the browser itself.
+      meta = %{remote_ip: client_ip(conn), user_agent: first_header(conn, "user-agent")}
+
       conn
       |> maybe_accept_protocol(protocol)
-      |> WebSockAdapter.upgrade(__MODULE__, {claims, topics}, timeout: 60_000)
+      |> WebSockAdapter.upgrade(__MODULE__, {claims, topics, meta}, timeout: 60_000)
       |> Plug.Conn.halt()
     else
       {:error, reason} ->
@@ -328,6 +379,22 @@ defmodule ConnectixWeb.RealtimeSocket do
 
   defp maybe_accept_protocol(conn, protocol),
     do: Plug.Conn.put_resp_header(conn, "sec-websocket-protocol", protocol)
+
+  defp client_ip(conn) do
+    case first_header(conn, "x-forwarded-for") do
+      nil -> conn.remote_ip |> :inet.ntoa() |> to_string()
+      forwarded -> forwarded |> String.split(",") |> List.first() |> String.trim()
+    end
+  rescue
+    _ -> nil
+  end
+
+  defp first_header(conn, name) do
+    case Plug.Conn.get_req_header(conn, name) do
+      [value | _] -> value
+      [] -> nil
+    end
+  end
 
   defp token(conn) do
     case Plug.Conn.get_req_header(conn, "authorization") do

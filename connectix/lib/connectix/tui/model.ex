@@ -4,8 +4,9 @@ defmodule Connectix.Tui.Model do
 
   Deliberately small. `connectix.io/phone`'s model carried UAs, profiles,
   sessions, recordings and SIP state because its TUI drove a softphone; this one
-  answers a single question — *is this portal receiving events, and what are
-  they* — so it holds the last page of the store plus the two live numbers.
+  answers two questions — *is this portal receiving events, and is each
+  signed-in agent actually wired up* — so it holds the last page of the store,
+  the live numbers, and one row per agent from `Realtime.Inspector`.
 
   Everything here is a snapshot pulled by `refresh/1`. Nothing is accumulated
   from the wire: the store is the source of truth and it already dedupes the
@@ -13,38 +14,57 @@ defmodule Connectix.Tui.Model do
   with it within a minute.
   """
 
+  alias Connectix.Tui.Source
+
   defstruct events: [],
             stats: %{},
             cable: [],
             cable_url: nil,
             socket_open?: false,
+            relay_ready?: false,
+            # One row per agent: %{user_uuid, agent_ids, sockets, cable}.
+            agents: [],
+            # Recent socket closes, newest first.
+            closes: [],
             selected: 0,
+            agent_selected: 0,
+            # Which pane j/k drive and enter/x/c act on.
+            focus: :agents,
             filter: nil,
             detail?: false,
             error: nil,
+            # One line of feedback after an action (kick, reconnect), cleared by
+            # the next key.
+            notice: nil,
+            source: :local,
             limit: 200
 
   @type t :: %__MODULE__{}
 
   @doc "A model with nothing in it yet — `refresh/1` fills it."
-  def new, do: %__MODULE__{}
+  def new(opts \\ []) do
+    %__MODULE__{
+      source: Keyword.get(opts, :source, :local),
+      notice: Keyword.get(opts, :notice)
+    }
+  end
 
   @doc """
-  Re-read the store and the cable connection.
+  Re-read the store, the cable connection and the agents.
 
-  Both can fail independently and neither is fatal: a portal whose cable is
-  down still has a store worth reading, and a store that cannot open still has
-  a cable worth watching. A failure of either is shown, not raised.
+  Each can fail independently and none is fatal: a portal whose cable is down
+  still has a store worth reading, and a store that cannot open still has
+  sessions worth watching. A failure is shown, not raised.
   """
   def refresh(%__MODULE__{} = m) do
     m
     |> load_stats()
     |> load_events()
-    |> load_cable()
+    |> load_realtime()
   end
 
   defp load_stats(m) do
-    %{m | stats: Connectix.Events.stats()}
+    %{m | stats: Source.call(m.source, Connectix.Events, :stats, [])}
   rescue
     e -> %{m | error: Exception.message(e)}
   end
@@ -52,7 +72,7 @@ defmodule Connectix.Tui.Model do
   defp load_events(m) do
     opts = [limit: m.limit] ++ if(m.filter, do: [src: m.filter], else: [])
 
-    case Connectix.Events.recent(opts) do
+    case Source.call(m.source, Connectix.Events, :recent, [opts]) do
       {:ok, rows} -> %{m | events: rows, error: nil}
       {:error, reason} -> %{m | events: [], error: inspect(reason)}
     end
@@ -60,29 +80,79 @@ defmodule Connectix.Tui.Model do
     e -> %{m | events: [], error: Exception.message(e)}
   end
 
-  defp load_cable(m) do
-    st = :sys.get_state(Connectix.Realtime.ApiProxy)
+  defp load_realtime(m) do
+    snap = Source.call(m.source, Connectix.Realtime.Inspector, :snapshot, [])
+    proxy = snap.api_proxy
 
     %{
       m
-      | cable: st.confirmed |> MapSet.to_list() |> Enum.sort(),
-        socket_open?: st.conn != nil,
-        cable_url: System.get_env("CABLE_URL")
+      | cable: proxy.confirmed,
+        socket_open?: proxy.connected?,
+        relay_ready?: proxy.relay_ready?,
+        cable_url: proxy.url,
+        agents: snap.agents,
+        closes: snap.closes,
+        agent_selected: min(m.agent_selected, max(length(snap.agents) - 1, 0))
     }
-  catch
-    # No cable configured, or the process is not running — not an error, just
-    # nothing to show. `CABLE_URL` unset is a supported deployment.
-    :exit, _ -> %{m | cable: [], socket_open?: false}
+  rescue
+    e -> %{m | agents: [], closes: [], error: Exception.message(e)}
   end
 
-  @doc "The row under the cursor, or nil when the store is empty."
+  @doc "The event under the cursor, or nil when the store is empty."
   def current(%__MODULE__{events: []}), do: nil
   def current(%__MODULE__{events: rows, selected: i}), do: Enum.at(rows, i)
 
-  def move(%__MODULE__{events: []} = m, _delta), do: m
+  @doc "The agent row under the cursor, or nil."
+  def current_agent(%__MODULE__{agents: []}), do: nil
+  def current_agent(%__MODULE__{agents: rows, agent_selected: i}), do: Enum.at(rows, i)
 
-  def move(%__MODULE__{} = m, delta) do
+  def move(%__MODULE__{focus: :events, events: []} = m, _delta), do: m
+
+  def move(%__MODULE__{focus: :events} = m, delta) do
     %{m | selected: m.selected |> Kernel.+(delta) |> max(0) |> min(length(m.events) - 1)}
+  end
+
+  def move(%__MODULE__{focus: :agents, agents: []} = m, _delta), do: m
+
+  def move(%__MODULE__{focus: :agents} = m, delta) do
+    %{
+      m
+      | agent_selected:
+          m.agent_selected |> Kernel.+(delta) |> max(0) |> min(length(m.agents) - 1)
+    }
+  end
+
+  def toggle_focus(%__MODULE__{focus: :agents} = m), do: %{m | focus: :events}
+  def toggle_focus(%__MODULE__{} = m), do: %{m | focus: :agents}
+
+  @doc "Tell the portal to close every socket of the selected agent."
+  def kick(%__MODULE__{} = m) do
+    case current_agent(m) do
+      nil ->
+        %{m | notice: "no agent selected"}
+
+      %{user_uuid: uuid} ->
+        n = Source.call(m.source, Connectix.Realtime.Inspector, :kick, [uuid])
+        %{m | notice: "kicked #{n} socket(s) of #{short(uuid)} — the extension reconnects in ~3s"}
+    end
+  rescue
+    e -> %{m | notice: "kick failed: #{Exception.message(e)}"}
+  end
+
+  @doc "Tell the portal to drop and reopen the selected agent's cable connection."
+  def reconnect_cable(%__MODULE__{} = m) do
+    case current_agent(m) do
+      nil ->
+        %{m | notice: "no agent selected"}
+
+      %{user_uuid: uuid} ->
+        case Source.call(m.source, Connectix.Realtime.Inspector, :reconnect_cable, [uuid]) do
+          :ok -> %{m | notice: "cable reconnect requested for #{short(uuid)}"}
+          {:error, reason} -> %{m | notice: "cable reconnect: #{inspect(reason)}"}
+        end
+    end
+  rescue
+    e -> %{m | notice: "reconnect failed: #{Exception.message(e)}"}
   end
 
   @doc """
@@ -104,4 +174,8 @@ defmodule Connectix.Tui.Model do
 
     %{m | filter: next, selected: 0}
   end
+
+  @doc false
+  def short(nil), do: "-"
+  def short(uuid) when is_binary(uuid), do: String.slice(uuid, 0, 8)
 end

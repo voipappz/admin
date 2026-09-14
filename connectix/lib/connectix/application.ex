@@ -56,6 +56,10 @@ defmodule Connectix.Application do
           # over cable rather than over HTTP. Started after the registry so the
           # listen path is up first — a login is worth nothing if the events that
           # follow it have nowhere to arrive.
+          # Browser-socket bookkeeping that outlives the sockets (open rows and
+          # a close log), so "what happened to this agent's socket" has an
+          # answer after the fact. Read by the TUI over RPC.
+          Connectix.Realtime.Sessions,
           {Registry, keys: :unique, name: Connectix.Realtime.CableRegistry},
           {Registry, keys: :duplicate, name: Connectix.Realtime.SessionRegistry},
           {DynamicSupervisor, strategy: :one_for_one, name: Connectix.Realtime.CableSupervisor},

@@ -1,16 +1,20 @@
 defmodule Connectix.Tui.App do
   @moduledoc """
-  The cockpit: what this portal is receiving, live, in a terminal.
+  The cockpit: what this portal is receiving, and who is wired up, live, in a
+  terminal.
 
   It exists because the question that costs hours is not "is it up" — it is "is
-  it receiving events, and which ones". `/health/ready` answers the first and
-  says nothing about the second: a portal with a cable subscription that was
-  never confirmed, or confirmed on a stream nothing publishes to, is a healthy
-  portal that stores nothing.
+  it receiving events, and is this agent actually connected". `/health/ready`
+  answers the first and says nothing about the rest: a portal with a cable
+  subscription that was never confirmed, or a user whose browser socket died
+  an hour ago, is a healthy portal that pops nothing.
 
-  So the four panes are the four facts that settle it: the store's totals, the
-  subscriptions the node CONFIRMED, the last page of events with their ages,
-  and one event in full.
+  So the panes are the facts that settle it: the store's totals, the
+  subscriptions the node CONFIRMED, one row per signed-in agent (socket age,
+  last pong, cable confirmed/attempts, last frame), the last socket closes
+  with their reason and lifetime, and the events as they land. Two keys act:
+  `x` closes an agent's socket (the extension reconnects on its own), `c`
+  reopens their cable connection.
 
   ## It polls; it does not listen
 
@@ -21,7 +25,7 @@ defmodule Connectix.Tui.App do
   re-read is cheap and cannot drift.
   """
 
-  @behaviour_note "shape required by Connectix.Tui.Runtime: init/0 render/2 key/2 pubsub/2"
+  @behaviour_note "shape required by Connectix.Tui.Runtime: init/1 render/2 key/2 pubsub/2"
   @doc false
   def behaviour_note, do: @behaviour_note
 
@@ -30,26 +34,42 @@ defmodule Connectix.Tui.App do
 
   @tick_ms 1_000
 
-  def init do
+  def init(opts \\ []) do
     schedule_tick()
-    Model.refresh(Model.new())
+    Model.refresh(Model.new(opts))
   end
 
-  # A detail view takes the whole frame: the raw event is the thing being read,
-  # and splitting the screen to keep a list visible would make both unreadable.
+  # A detail view takes the whole frame: the thing being read is the raw event
+  # or the whole agent row, and splitting the screen to keep a list visible
+  # would make both unreadable.
+  def render(%Model{detail?: true, focus: :agents} = m, frame) do
+    [{Panels.agent_detail(m, area(frame)), area(frame)}]
+  end
+
   def render(%Model{detail?: true} = m, frame) do
     [{Panels.detail(m, area(frame)), area(frame)}]
   end
 
   def render(%Model{} = m, frame) do
-    [top, middle, bottom] =
-      Layout.split(area(frame), :vertical, [{:length, 5}, {:fill, 1}, {:length, 7}])
+    agents_h = min(length(m.agents) + 3, 12)
+    closes_h = 5
+
+    [top, agents, closes, middle, bottom] =
+      Layout.split(area(frame), :vertical, [
+        {:length, 5},
+        {:length, agents_h},
+        {:length, closes_h},
+        {:fill, 1},
+        {:length, 8}
+      ])
 
     [left, right] = Layout.split(top, :horizontal, [{:percentage, 55}, {:fill, 1}])
 
     [
       {Panels.status(m, left), left},
       {Panels.cable(m, right), right},
+      {Panels.agents(m, agents), agents},
+      {Panels.closes(m, closes), closes},
       {Panels.events(m, middle), middle},
       {Panels.help(m, bottom), bottom}
     ]
@@ -59,16 +79,20 @@ defmodule Connectix.Tui.App do
   def key("\e", %Model{detail?: true} = m), do: {:cont, %{m | detail?: false}}
   def key("\e", model), do: {:halt, model}
 
-  def key("\r", %Model{detail?: d} = m), do: {:cont, %{m | detail?: not d}}
-  def key("\n", %Model{detail?: d} = m), do: {:cont, %{m | detail?: not d}}
+  def key("\r", %Model{detail?: d} = m), do: {:cont, %{m | detail?: not d, notice: nil}}
+  def key("\n", %Model{detail?: d} = m), do: {:cont, %{m | detail?: not d, notice: nil}}
 
-  def key(k, m) when k in ["j", "\e[B"], do: {:cont, Model.move(m, 1)}
-  def key(k, m) when k in ["k", "\e[A"], do: {:cont, Model.move(m, -1)}
-  def key("g", m), do: {:cont, %{m | selected: 0}}
-  def key("G", m), do: {:cont, %{m | selected: max(length(m.events) - 1, 0)}}
+  def key(k, m) when k in ["j", "\e[B"], do: {:cont, Model.move(%{m | notice: nil}, 1)}
+  def key(k, m) when k in ["k", "\e[A"], do: {:cont, Model.move(%{m | notice: nil}, -1)}
+  def key("\t", m), do: {:cont, Model.toggle_focus(%{m | notice: nil})}
+  def key("g", %Model{focus: :events} = m), do: {:cont, %{m | selected: 0}}
+  def key("G", %Model{focus: :events} = m), do: {:cont, %{m | selected: max(length(m.events) - 1, 0)}}
 
   def key("f", m), do: {:cont, m |> Model.cycle_filter() |> Model.refresh()}
-  def key("r", m), do: {:cont, Model.refresh(m)}
+  def key("r", m), do: {:cont, Model.refresh(%{m | notice: nil})}
+
+  def key("x", m), do: {:cont, m |> Model.kick() |> Model.refresh()}
+  def key("c", m), do: {:cont, m |> Model.reconnect_cable() |> Model.refresh()}
 
   def key(_other, model), do: {:cont, model}
 

@@ -87,13 +87,13 @@ defmodule Connectix.Tui.AppTest do
     end
 
     test "marks exactly one row as selected", %{model: m} do
-      assert screen(m) |> String.graphemes() |> Enum.count(&(&1 == "▸")) == 1
+      assert screen(%{m | focus: :events}) |> String.graphemes() |> Enum.count(&(&1 == "▸")) == 1
     end
   end
 
   describe "moving and selecting" do
     setup do
-      {:ok, model: %Model{events: Enum.map(1..3, &event(%{"sid" => "call-#{&1}"}))}}
+      {:ok, model: %Model{events: Enum.map(1..3, &event(%{"sid" => "call-#{&1}"})), focus: :events}}
     end
 
     test "j and k move, and cannot walk off either end", %{model: m} do
@@ -154,6 +154,121 @@ defmodule Connectix.Tui.AppTest do
     test "shows the active filter in the pane title" do
       m = %Model{events: [event()], filter: "StateChannel"}
       assert screen(m) =~ "events · StateChannel"
+    end
+  end
+
+  describe "agents" do
+    defp agent(overrides \\ %{}) do
+      now = System.system_time(:millisecond)
+
+      Map.merge(
+        %{
+          user_uuid: "be5bc5f0-feb3-4c96-a370-3219f7ede250",
+          agent_ids: ["cb1b0a46-77d5-4b3a-92d8-31768fea74e4"],
+          sockets: [
+            %{
+              pid: self(),
+              user_uuid: "be5bc5f0-feb3-4c96-a370-3219f7ede250",
+              connected_at: now - 5_333_000,
+              last_pong_at: now - 3_000,
+              pushed: 412,
+              remote_ip: "84.110.57.30"
+            }
+          ],
+          cable: %{
+            user_uuid: "be5bc5f0-feb3-4c96-a370-3219f7ede250",
+            agent_ids: ["cb1b0a46-77d5-4b3a-92d8-31768fea74e4"],
+            connected?: true,
+            welcomed?: true,
+            subscribed: 4,
+            confirmed: 4,
+            attempts: 0,
+            last_frame_ms_ago: 2_000
+          }
+        },
+        overrides
+      )
+    end
+
+    test "one row per agent, with both halves" do
+      out = screen(%Model{agents: [agent()]})
+      assert out =~ "be5bc5f0"
+      assert out =~ "cb1b0a46"
+      assert out =~ "1h28m"
+      assert out =~ "84.110.57.30"
+      assert out =~ "4/4"
+      assert out =~ "412"
+      assert out =~ "agents (1)"
+    end
+
+    test "a missing half is named, not blank" do
+      out = screen(%Model{agents: [agent(%{cable: nil})]})
+      assert out =~ "none"
+
+      out = screen(%Model{agents: [agent(%{sockets: []})]})
+      assert out =~ "0 "
+    end
+
+    test "an empty portal says nobody is wired up" do
+      assert screen(%Model{}) =~ "no agent has a socket or a cable client"
+    end
+
+    test "closes are listed with lifetime and reason" do
+      now = System.system_time(:millisecond)
+
+      m = %Model{
+        closes: [
+          %{at: now, user_uuid: "be5bc5f0-x", reason: :remote, lived_ms: 5_333_000, last_pong_at: now - 4_000}
+        ]
+      }
+
+      out = screen(m)
+      assert out =~ "lived 1h28m"
+      assert out =~ ":remote"
+      assert out =~ "last pong 4s before"
+    end
+
+    test "tab moves the cursor between the agents and the events" do
+      m = %Model{agents: [agent()], events: [event()], focus: :agents}
+      assert {:cont, %{focus: :events}} = App.key("\t", m)
+      assert {:cont, %{focus: :agents}} = App.key("\t", %{m | focus: :events})
+    end
+
+    test "j and k move within the agents when they have the focus" do
+      m = %Model{agents: [agent(), agent(%{user_uuid: "other"})], focus: :agents}
+      assert {:cont, %{agent_selected: 1}} = App.key("j", m)
+      assert {:cont, %{agent_selected: 0}} = App.key("k", m)
+    end
+
+    test "enter on an agent shows the whole row" do
+      m = %Model{agents: [agent()], focus: :agents}
+      assert {:cont, opened} = App.key("\r", m)
+      assert screen(opened) =~ "last_frame_ms_ago"
+    end
+
+    test "x kicks the selected agent's sockets through the portal and reports it" do
+      # `Inspector.kick/1` finds the socket rows by user, and this test
+      # process is registered as one of them, so the kick lands here.
+      uuid = "tui-kick-#{System.unique_integer([:positive])}"
+      :ok = Connectix.Realtime.Sessions.opened(self(), %{user_uuid: uuid, environment_uuid: nil, agent_ids: []})
+      on_exit(fn -> Connectix.Realtime.Sessions.closed(self(), :normal) end)
+
+      m = %Model{agents: [agent(%{user_uuid: uuid})], focus: :agents}
+      assert {:cont, after_kick} = App.key("x", m)
+      assert_receive :kick
+      assert after_kick.notice =~ "kicked 1 socket"
+      assert screen(after_kick) =~ "kicked 1 socket"
+    end
+
+    test "c asks for a cable reconnect and reports when there is no client" do
+      m = %Model{agents: [agent(%{user_uuid: "nobody-here"})], focus: :agents}
+      assert {:cont, m} = App.key("c", m)
+      assert m.notice =~ "no_client"
+    end
+
+    test "the status pane names the source" do
+      assert screen(%Model{source: {:remote, :"connectix@127.0.0.1"}}) =~ "connectix@127.0.0.1"
+      assert screen(%Model{source: :local}) =~ "this process"
     end
   end
 
