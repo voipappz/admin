@@ -30,6 +30,22 @@ defmodule Connectix.Voice.SipCallBridge do
 
   A barge-in drops the buffer: the caller talked over a sentence, so the rest
   of that sentence must not play after they stop.
+
+  ## Silence is fed inbound, on the same clock
+
+  The switch sends no RTP while the caller is quiet. Deepgram closes a
+  socket that has carried no audio for about ten seconds, and Feline's STT
+  stage does not reconnect — so a caller who listened to the greeting and
+  thought for a moment left the bot deaf for the rest of the call. Measured
+  on 2026-09-14: a two-minute conversation delivered twelve seconds of
+  inbound audio in total, and every call that day ended with
+  `Deepgram connection closed: :closed_by_server`.
+
+  So when no packet has arrived for `@silence_after_ms`, each tick queues one
+  frame of silence downstream instead. The ears then hear a continuous
+  signal, Deepgram stays open, and the VAD sees zero energy rather than a
+  gap. The synthetic frames are not counted as inbound audio, so the
+  `call_audio` counter still says how much the caller actually sent.
   """
 
   use GenServer
@@ -42,6 +58,11 @@ defmodule Connectix.Voice.SipCallBridge do
   # One RTP packet per 20 ms, matching the SIP leg.
   @tick_ms 20
   @sip_rate 8_000
+
+  # How long inbound may be quiet before the clock starts feeding silence.
+  # Ten frames: long enough that ordinary jitter never trips it, short
+  # enough that Deepgram never sees a gap it would time out on.
+  @silence_after_ms 200
 
   # ── Public API ──────────────────────────────────────────────────────────────
 
@@ -71,7 +92,10 @@ defmodule Connectix.Voice.SipCallBridge do
        out: <<>>,
        timer: nil,
        next_tick: nil,
-       warned_rate?: false
+       warned_rate?: false,
+       # When the last real inbound frame arrived; the silence feed keys off it.
+       last_in_at: nil,
+       fed_silence?: false
      }}
   end
 
@@ -122,7 +146,7 @@ defmodule Connectix.Voice.SipCallBridge do
       Logger.info("[call] inbound audio reaching the bot (#{byte_size(payload)} bytes/frame)")
     end
 
-    {:noreply, %{state | frames_in: state.frames_in + 1}}
+    {:noreply, %{state | frames_in: state.frames_in + 1, last_in_at: now_ms()}}
   end
 
   # Audio before the pipeline exists (ringing, or a failed start) has nowhere
@@ -152,7 +176,7 @@ defmodule Connectix.Voice.SipCallBridge do
       Connectix.Telemetry.call_audio(:out)
     end
 
-    {:noreply, schedule_tick(%{state | out: out})}
+    {:noreply, state |> Map.put(:out, out) |> feed_silence_if_quiet() |> schedule_tick()}
   end
 
   # The Feline task is linked; if it dies the call keeps its audio path but
@@ -174,7 +198,33 @@ defmodule Connectix.Voice.SipCallBridge do
   # ── Outbound clock ───────────────────────────────────────────────────────────
 
   defp start_clock(state) do
-    schedule_tick(%{state | next_tick: System.monotonic_time(:millisecond)})
+    now = now_ms()
+    schedule_tick(%{state | next_tick: now, last_in_at: now})
+  end
+
+  defp now_ms, do: System.monotonic_time(:millisecond)
+
+  # One frame of silence into the ears when the line has gone quiet — see the
+  # moduledoc. Only while the pipeline exists: before it does there are no
+  # ears to keep open.
+  defp feed_silence_if_quiet(%{task: nil} = state), do: state
+
+  defp feed_silence_if_quiet(%{task: task, last_in_at: last} = state) do
+    if now_ms() - last > @silence_after_ms do
+      PipelineTask.queue_frame(
+        task,
+        %InputAudioRawFrame{audio: Alaw.decode(Alaw.silence_frame()), sample_rate: @sip_rate, num_channels: 1},
+        :downstream
+      )
+
+      unless state.fed_silence? do
+        Logger.info("[call] no inbound audio for #{@silence_after_ms} ms — feeding silence to keep the ears open")
+      end
+
+      %{state | fed_silence?: true}
+    else
+      state
+    end
   end
 
   # Deadline-based rather than a flat 20 ms sleep, so the packet rate does not
