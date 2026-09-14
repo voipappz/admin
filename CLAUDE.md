@@ -106,6 +106,17 @@ const { access, refresh, csrf } = await otpResp.json();
 // Set tokens in localStorage, then reload
 ```
 
+## Sessions: one at a time
+
+The admin console (`AuthContext`, storage `auth`) and the end-user portal
+(`UserAuthContext`, storage `user_auth`) are two unrelated JWTs, and
+`apiService.getToken()` can send only one of them. They used to be able to
+coexist, and then the portal dashboard at `/` sent every request with the
+ADMIN token. Now signing in on either door ends the other session first
+(`src/services/sessionIsolation.js`: revoke, clear its keys, tell its context).
+A browser that still holds both keeps the admin session. Pinned by
+`src/services/sessionIsolation.test.jsx`, which runs in CI.
+
 ## Running Tests
 
 **CRITICAL: ALWAYS RUN TESTS ON CI, NOT LOCALLY**

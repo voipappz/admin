@@ -872,8 +872,9 @@ class ApiService {
   // Phone and their supporting API calls (callsApi, monitoringApi) are
   // reachable from either surface, and voipappz-api's own endpoints dispatch
   // on the JWT shape the same way (see auth_type in its base endpoint). Only
-  // one of the two sessions is normally present in a given browser, but both
-  // localStorage keys can coexist without colliding (see UserAuthContext.jsx).
+  // one session exists at a time: signing in on either door ends the other
+  // (services/sessionIsolation.js), so this order can never hand a portal
+  // screen the admin token.
   getToken() {
     try {
       const authData = localStorage.getItem('auth');

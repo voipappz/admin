@@ -1,6 +1,7 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react';
 import { apiService } from '../services/apiService';
 import { isTokenValid, getTokenExpiry } from '../utils/jwt';
+import { endAdminSession, endUserSession, hasAdminSession, SESSION_ENDED_EVENT } from '../services/sessionIsolation';
 
 // Auth context for the end-user (customer-facing) portal — the `/` surface.
 // This is deliberately separate from AuthContext (the account/admin surface
@@ -9,6 +10,9 @@ import { isTokenValid, getTokenExpiry } from '../utils/jwt';
 // with all profile/ACL/extension data living in the login response body
 // instead of the token), so merging them would mean every admin screen's
 // useAuth() call has to branch on which kind of session is active.
+//
+// And only ONE of the two exists at a time: signing in on either door ends the
+// other session (services/sessionIsolation.js).
 const UserAuthContext = createContext();
 
 const STORAGE_KEY = 'user_auth';
@@ -69,6 +73,14 @@ export const UserAuthProvider = ({ children }) => {
   // an expired token here just means "log in again" — no silent renewal to try.
   useEffect(() => {
     try {
+      // A browser from before sessions were exclusive can still hold both. The
+      // admin session wins -- every route guard and apiService.getToken()
+      // already prefer it -- so the portal session is ended, not restored.
+      if (hasAdminSession()) {
+        endUserSession();
+        dispatch({ type: 'INIT_COMPLETE' });
+        return;
+      }
       const stored = localStorage.getItem(STORAGE_KEY);
       if (!stored) {
         dispatch({ type: 'INIT_COMPLETE' });
@@ -106,6 +118,8 @@ export const UserAuthProvider = ({ children }) => {
   }, [state.initializing, state.isAuthenticated, state.user, state.token, state.tokenExpiresAt]);
 
   const login = useCallback((authData) => {
+    // One session at a time: a portal sign-in ends any admin session first.
+    endAdminSession();
     dispatch({ type: 'LOGIN_SUCCESS', payload: authData });
   }, []);
 
@@ -120,6 +134,15 @@ export const UserAuthProvider = ({ children }) => {
 
     localStorage.removeItem(STORAGE_KEY);
     dispatch({ type: 'LOGOUT' });
+  }, []);
+
+  // An admin sign-in ended this session (storage already cleared, token revoked).
+  useEffect(() => {
+    const onSessionEnded = (event) => {
+      if (event.detail?.surface === 'user') dispatch({ type: 'LOGOUT' });
+    };
+    window.addEventListener(SESSION_ENDED_EVENT, onSessionEnded);
+    return () => window.removeEventListener(SESSION_ENDED_EVENT, onSessionEnded);
   }, []);
 
   const setLoading = useCallback(() => dispatch({ type: 'LOGIN_START' }), []);
