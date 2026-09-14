@@ -51,7 +51,7 @@ jobs:
       # is chosen HERE, not at container start. A deployment that needs a
       # different API needs a different image (or a runtime config endpoint).
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
