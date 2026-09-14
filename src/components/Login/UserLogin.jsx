@@ -54,8 +54,8 @@ const UserLogin = () => {
 
   // Per-tenant branding (logo, brand colour) for this unauthenticated screen —
   // resolved server-side from the request's origin host. Always fetched
-  // fresh (no localStorage cache) — starts as the default VoipAppz look
-  // until the network request resolves.
+  // fresh (no localStorage cache) — starts with no logo until the network
+  // request resolves.
   const [portalData, setPortalData] = useState(null);
   useEffect(() => {
     let alive = true;
@@ -63,8 +63,9 @@ const UserLogin = () => {
     return () => { alive = false; };
   }, []);
 
-  const brandLogo = portalData?.logo_url || '/images/VA_logo_white.png';
-  const brandLogoLight = portalData?.logo_url || '/images/VA_logo_blue.png';
+  // No logo by default: the portal login shows one only when the tenant has
+  // its own logo_url. (The admin login at /admin keeps the VoipAppz logo.)
+  const brandLogo = portalData?.logo_url || null;
   const brandName = portalData?.logo_title || 'VoipAppz';
   const brandColor = portalData?.logo_color;
 
@@ -509,7 +510,7 @@ const UserLogin = () => {
   return (
     <Box className="login-page" style={brandColor ? { '--accent-color': brandColor } : undefined}>
       <Box className="login-hero">
-        <img src={brandLogo} alt={brandName} className="hero-logo" />
+        {brandLogo && <img src={brandLogo} alt={brandName} className="hero-logo" />}
         <p className="hero-welcome" data-testid="user-brand-name">Welcome to {brandName}</p>
         <p className="hero-tagline">VoIP Application Platform</p>
 
@@ -527,7 +528,7 @@ const UserLogin = () => {
       </Box>
 
       <Box className="login-form-panel">
-        <img src={brandLogoLight} alt={brandName} className="form-panel-logo" />
+        {brandLogo && <img src={brandLogo} alt={brandName} className="form-panel-logo" />}
         <Paper elevation={0} className="login-paper">
           {showForgetForm
             ? renderForgotForm()

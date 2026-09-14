@@ -2,6 +2,7 @@ import { createContext, useContext, useReducer, useEffect, useRef, useCallback, 
 import { getStoredRefreshToken, refreshToken as refreshTokenService } from '../services/authService';
 import { apiService } from '../services/apiService';
 import { isTokenValid, getTokenExpiry, getAccountDataFromToken } from '../utils/jwt';
+import { endUserSession, SESSION_ENDED_EVENT } from '../services/sessionIsolation';
 
 const AuthContext = createContext();
 
@@ -295,6 +296,9 @@ export const AuthProvider = ({ children }) => {
   }, [state.initializing, state.isAuthenticated, state.user, state.csrf, state.access, state.refresh, state.accessExpiresAt, state.refreshExpiresAt, state.accountUuid, state.customerUuid, state.accountCustomer, state.isRoot, state.acl]);
 
   const login = useCallback((authData) => {
+    // One session at a time: an admin sign-in ends any portal-user session
+    // first (services/sessionIsolation.js), so the two logins never merge.
+    endUserSession();
     dispatch({
       type: 'LOGIN_SUCCESS',
       payload: authData
@@ -324,6 +328,16 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('refresh_expires_at');
     localStorage.removeItem('user_authenticated');
     dispatch({ type: 'LOGOUT' });
+  }, []);
+
+  // A portal sign-in ended this session: sessionIsolation already revoked the
+  // token and cleared storage, so only the in-memory state is left to drop.
+  useEffect(() => {
+    const onSessionEnded = (event) => {
+      if (event.detail?.surface === 'admin') dispatch({ type: 'LOGOUT' });
+    };
+    window.addEventListener(SESSION_ENDED_EVENT, onSessionEnded);
+    return () => window.removeEventListener(SESSION_ENDED_EVENT, onSessionEnded);
   }, []);
 
   // The API service owns 401 recovery: refresh once, replay, and log out only
