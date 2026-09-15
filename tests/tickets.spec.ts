@@ -218,7 +218,7 @@ test.describe('Tickets UI', () => {
 
   test('Tickets icon is visible in navbar', async ({ authenticatedPage: page }) => {
     const timeout = process.env.CI ? 30000 : 15000;
-    await page.goto('/live', { waitUntil: 'networkidle', timeout });
+    await page.goto('/calls', { waitUntil: 'networkidle', timeout });
 
     // Look for the tickets button in the navbar
     const ticketsButton = page.locator('.tickets-button, [data-testid="tickets-button"], button[aria-label*="ticket" i]');
@@ -241,7 +241,7 @@ test.describe('Tickets UI', () => {
 
   test('Clicking tickets icon opens dialog', async ({ authenticatedPage: page }) => {
     const timeout = process.env.CI ? 30000 : 15000;
-    await page.goto('/live', { waitUntil: 'networkidle', timeout });
+    await page.goto('/calls', { waitUntil: 'networkidle', timeout });
 
     // Find and click the tickets button
     const ticketsButton = page.locator('.tickets-button').first();
@@ -274,7 +274,7 @@ test.describe('Tickets UI', () => {
 
   test('Tickets dialog shows stats chips', async ({ authenticatedPage: page }) => {
     const timeout = process.env.CI ? 30000 : 15000;
-    await page.goto('/live', { waitUntil: 'networkidle', timeout });
+    await page.goto('/calls', { waitUntil: 'networkidle', timeout });
 
     const ticketsButton = page.locator('.tickets-button').first();
 
@@ -326,7 +326,7 @@ test.describe('Tickets UI', () => {
 
   test('New Ticket button opens create form', async ({ authenticatedPage: page }) => {
     const timeout = process.env.CI ? 30000 : 15000;
-    await page.goto('/live', { waitUntil: 'networkidle', timeout });
+    await page.goto('/calls', { waitUntil: 'networkidle', timeout });
 
     const ticketsButton = page.locator('.tickets-button').first();
 
@@ -372,7 +372,7 @@ test.describe('Tickets UI', () => {
 
   test('Create ticket form validation', async ({ authenticatedPage: page }) => {
     const timeout = process.env.CI ? 30000 : 15000;
-    await page.goto('/live', { waitUntil: 'networkidle', timeout });
+    await page.goto('/calls', { waitUntil: 'networkidle', timeout });
 
     const ticketsButton = page.locator('.tickets-button').first();
 
@@ -423,7 +423,7 @@ test.describe('Tickets UI', () => {
 
   test('Dialog can be closed', async ({ authenticatedPage: page }) => {
     const timeout = process.env.CI ? 30000 : 15000;
-    await page.goto('/live', { waitUntil: 'networkidle', timeout });
+    await page.goto('/calls', { waitUntil: 'networkidle', timeout });
 
     const ticketsButton = page.locator('.tickets-button').first();
 
@@ -474,7 +474,7 @@ test.describe('Tickets Integration', () => {
 
   test('Full workflow: Open dialog, view stats, create ticket', async ({ authenticatedPage: page }) => {
     const timeout = process.env.CI ? 30000 : 15000;
-    await page.goto('/live', { waitUntil: 'networkidle', timeout });
+    await page.goto('/calls', { waitUntil: 'networkidle', timeout });
 
     // Step 1: Open tickets dialog
     const ticketsButton = page.locator('.tickets-button').first();
@@ -956,7 +956,7 @@ test.describe('Tickets Navigation', () => {
 
   test('Tickets link appears in navigation menu', async ({ authenticatedPage: page }) => {
     const timeout = process.env.CI ? 30000 : 15000;
-    await page.goto('/live', { waitUntil: 'networkidle', timeout });
+    await page.goto('/calls', { waitUntil: 'networkidle', timeout });
 
     await page.waitForTimeout(1000);
 
@@ -978,7 +978,7 @@ test.describe('Tickets Navigation', () => {
 
   test('Can navigate to /tickets from menu', async ({ authenticatedPage: page }) => {
     const timeout = process.env.CI ? 30000 : 15000;
-    await page.goto('/live', { waitUntil: 'networkidle', timeout });
+    await page.goto('/calls', { waitUntil: 'networkidle', timeout });
 
     await page.waitForTimeout(1000);
 

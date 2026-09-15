@@ -275,28 +275,11 @@ function AppContent() {
     if (admin.initializing || user.initializing) return null;
     if (admin.isAuthenticated) return <Navigate to="/calls" replace />;
     if (!user.isAuthenticated) return <Navigate to="/" replace />;
+    // Phone is always available to a signed-in portal user, unconditional on
+    // ACL — mirrors app, where the phone icon was just always there, never
+    // gated. (It's also reachable via the persistent PhoneFab.)
+    if (aclKey === 'phone') return children;
     return canAccessScreen(user.acl, aclKey) ? children : <Navigate to="/" replace />;
-  };
-
-  // Live is the user's dashboard, but an admin has to be able to open it too —
-  // to check it, and because the account console answers the same question.
-  // DualProtectedRoute can't serve both: it checks ONE aclKey against whichever
-  // session is active, and the vocabularies differ (admin ACLs are plural —
-  // `reports`; portal ACLs are singular — `dashboard`). So each surface is
-  // checked against its own key.
-  const LiveRoute = ({ children }) => {
-    const admin = useAuth();
-    const user = useUserAuth();
-    const { canAccess } = usePermissions();
-
-    if (admin.initializing || user.initializing) return null;
-    if (admin.isAuthenticated) {
-      return canAccess('reports') ? children : <Navigate to="/account" replace />;
-    }
-    if (user.isAuthenticated) {
-      return canAccessScreen(user.acl, 'dashboard') ? children : <Navigate to="/" replace />;
-    }
-    return <Navigate to="/" replace />;
   };
 
   const DualProtectedRoute = ({ children, aclKey }) => {
@@ -310,11 +293,6 @@ function AppContent() {
       return canAccess(aclKey) ? children : <Navigate to="/account" replace />;
     }
     if (user.isAuthenticated) {
-      // Phone is always available to a signed-in portal user, unconditional
-      // on ACL — mirrors app, where the phone icon was just always there,
-      // never gated. (It's also reachable without navigating here at all via
-      // the persistent PhoneFab — see Layout.jsx/PhoneFab.jsx.)
-      if (aclKey === 'phone') return children;
       return canAccessScreen(user.acl, aclKey) ? children : <Navigate to="/dashboard" replace />;
     }
     return <Navigate to="/" replace />;
@@ -353,24 +331,19 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
-        {/* /live was a redirect to /reports while there was no live screen to
-            show. It is now the Live Dashboard: widget-defined columns over the
-            live agent list, counted into the pills and tiles beside it. */}
-        {/* Live is the END USER's dashboard, not an admin screen: it answers
-            "what is my team doing right now" for the person working the
-            queue. PortalRoute enforces that — an admin session is sent to its
-            own landing screen rather than shown a second dashboard, exactly
-            as the widget Dashboard already does. `dashboard` is the portal
-            ACL key (portal ACLs are singular: call/report/dashboard, not the
-            admin's plural). */}
+        {/* Live is the END USER's screen, not an admin one: it answers "what
+            is my team doing right now" for the person working the queue.
+            PortalRoute enforces that — an admin session is sent to Calls.
+            `dashboard` is the portal ACL key (portal ACLs are singular:
+            call/report/dashboard, not the admin's plural). */}
         <Route
           path="/live"
           element={
-            <LiveRoute>
+            <PortalRoute aclKey="dashboard">
               <Layout>
                 <LiveDashboard />
               </Layout>
-            </LiveRoute>
+            </PortalRoute>
           }
         />
         {/* The dashboard lives AT the portal's root, not beside it — see
@@ -389,11 +362,11 @@ function AppContent() {
         <Route
           path="/phone"
           element={
-            <DualProtectedRoute aclKey="phone">
+            <PortalRoute aclKey="phone">
               <Layout>
                 <Phone />
               </Layout>
-            </DualProtectedRoute>
+            </PortalRoute>
           }
         />
         <Route
