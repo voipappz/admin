@@ -139,7 +139,7 @@ export default function PortalCalls() {
 
         {loading && calls.length === 0 ? (
           <Box sx={{ py: 8, textAlign: 'center' }}><CircularProgress size={28} /></Box>
-        ) : visible.length === 0 ? (
+        ) : error ? null : visible.length === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ py: 8, textAlign: 'center' }}>
             {calls.length === 0 ? 'No calls in this period.' : 'No calls match that search.'}
           </Typography>
