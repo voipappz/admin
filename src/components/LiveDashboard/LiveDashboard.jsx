@@ -62,6 +62,13 @@ const CABLE_LABEL = {
 };
 
 /** Seconds since a unix timestamp, formatted HH:MM:SS — the deployed dashboard's format. */
+/** A unix-seconds timestamp as local wall-clock time; '-' when unset. */
+function clockTime(value) {
+  const n = Number(value);
+  if (!value || !Number.isFinite(n) || n <= 0) return '-';
+  return new Date(n * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
 function elapsedFrom(value, now) {
   const ts = parseInt(value, 10);
   if (!ts || Number.isNaN(ts) || ts <= 0) return '00:00:00';
@@ -231,6 +238,8 @@ const LiveDashboard = () => {
     switch (col.render) {
       case 'elapsed':
         return <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>{elapsedFrom(value, now)}</Box>;
+      case 'time':
+        return <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>{clockTime(value)}</Box>;
       case 'count':
         return renderCount(value);
       case 'status': {
