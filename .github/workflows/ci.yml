@@ -199,10 +199,13 @@ jobs:
           # every probe below fails with a connection error rather than a
           # status. A throwaway value: this container is destroyed at the end
           # of the step and signs nothing anyone keeps.
-          docker run -d --name app -p 3000:3000 -e PORT=3000 \
+          # A free port: 3000 is usually taken on a developer's machine under `act`.
+          port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1])')
+          docker rm -f app > /dev/null 2>&1 || true   # a rerun under act finds the last one
+          docker run -d --name app -p $port:$port -e PORT=$port \
             -e SECRET_KEY_BASE="$(head -c 48 /dev/urandom | base64)" voipappz-app:ci
           for i in $(seq 1 30); do
-            curl -sf localhost:3000/health/alive > /dev/null 2>&1 && break
+            curl -sf localhost:$port/health/alive > /dev/null 2>&1 && break
             sleep 1
           done
           # `|| true` because this step runs under `bash -e`: a curl that cannot
@@ -212,13 +215,15 @@ jobs:
           # showed up as a bare "exit code 7" for weeks.
           probe() {  # path, expected, extra curl args...
             local path="$1" expected="$2"; shift 2
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$@" "localhost:3000$path" || true)
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$@" "localhost:$port$path" || true)
             if [ "$code" = "$expected" ]; then echo "  ✓ $path → $code"
             else echo "  ✗ $path → $code (expected $expected)"; docker logs app | tail -30; exit 1; fi
           }
-          # PORTAL_UI_USER/PASS are unset in this container, so Basic Auth is
-          # pass-through — the LiveView welcome page answers 200 directly.
-          probe /              200                    # the LiveView welcome page
+          # PORTAL_UI_USER/PASS are unset in this container, and the front
+          # page is gated: unset credentials REFUSE rather than pass through,
+          # so 200 here would be the bug. Same expectation as the post-deploy
+          # hook.
+          probe /              401                    # the LiveView UI, gated
           probe /health/alive  200
           probe /health/ready  200
           # ENGINE_URL is unset in this container, so the forwarder is inert and
@@ -230,12 +235,17 @@ jobs:
           # the zip survived into the release, and the routes are reachable
           # without a portal session — the same three things the post-deploy
           # hook checks against a real host.
+          # The cockpit attaches to the release node by name (rel/env.sh.eex).
+          docker exec app bin/connectix eval '{{:remote, _}, nil} = Connectix.Tui.Source.attach("connectix@127.0.0.1")' \
+            || { echo "  ✗ the cockpit cannot attach"; docker logs app | tail -30; exit 1; }
+          echo "  ✓ cockpit attaches to connectix@127.0.0.1"
+
           probe /release            200   # the release page
           probe /release/info       200   # the same facts, for machines
           probe /release/download   200   # the package itself
 
           want=$(sed -n 's/^ *version: "\([^"]*\)".*/\1/p' connectix/mix.exs | head -1)
-          info=$(curl -s localhost:3000/release/info)
+          info=$(curl -s localhost:$port/release/info)
           got=$(echo "$info" | jq -r .extension_version)
           app=$(echo "$info" | jq -r .app_version)
           if [ "$got" != "$want" ] || [ "$app" != "$want" ]; then
@@ -245,7 +255,7 @@ jobs:
           echo "  ✓ extension $got matches the portal it ships with"
 
           # It must be a real zip, not an error page with a 200 on it.
-          curl -s -o ext.zip localhost:3000/release/download
+          curl -s -o ext.zip localhost:$port/release/download
           unzip -t ext.zip > /dev/null || { echo "  ✗ /release/download is not a valid zip"; exit 1; }
           echo "  ✓ package unpacks ($(wc -c < ext.zip) bytes)"
 
