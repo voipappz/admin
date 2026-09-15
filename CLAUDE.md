@@ -1060,3 +1060,31 @@ The Vite dev server proxies API requests:
 - Local dev: `http://localhost:3000` → proxies to cloud API
 
 This ensures all tests run against the cloud.voipappz.io environment with proper security practices while maintaining full functionality with optimized Playwright testing.
+## Live dashboard (`/live`)
+
+The screen reads live agent, queue and environment state from the va-crystal
+node over ActionCable — not from the API, and not by polling once the socket
+is up.
+
+- **Where it connects.** `VITE_WS_URL` (e.g. `ws://localhost:14000/cable`) is
+  the node's cable; `VITE_API_BASE_URL` is still the API for everything else.
+  The socket must request the `actioncable-v1-json` subprotocol — without it
+  the browser closes it before `welcome`, which looks exactly like a refused
+  token (`useWebSocket.js`, `useCableHealth.js`).
+- **Data.** `src/hooks/useLiveEntities.js` subscribes `LiveChannel` with the
+  environment (a portal user's `user.environment.uuid`, or the admin's selected
+  environment) and keeps one whole document per entity; renders are coalesced
+  every 250ms. `LiveDashboard.jsx` prefers cable rows and falls back to polling
+  `/api/users?action=agents` every 5s.
+- **Names.** The switch never publishes a name or extension, and a status only
+  when it changes, so those three are merged in from the polled agent list by
+  uuid. On a portal-user login nimbus returns only that user, so names are only
+  complete for an admin session.
+- **Rendering.** Column render modes come from `DEFAULT_COLUMNS` in
+  `src/services/liveSettings.js` on every load (a saved column list keeps only
+  order and visibility). `elapsed` is a running duration; `time` is a clock
+  time (`first_call_at`). Colours are per-browser in localStorage.
+- **Auth.** The node verifies the login JWT with its own `SECRET_KEY`, which
+  must equal the API's signing key. For local work against a node with a
+  different key, `localStorage.va_cable_token` overrides the token for the
+  cable only; remove it once the node has the real key.
