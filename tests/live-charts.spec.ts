@@ -43,7 +43,9 @@ const mockLiveRegistrationsResponse = [
   },
 ];
 
-test.describe('Live Charts with mocked API', () => {
+// Live is a user-portal screen only: an admin session is redirected to /calls,
+// and auth-fixture has no portal login. Re-enable with a portal-user fixture.
+test.describe.skip('Live Charts with mocked API', () => {
   test.setTimeout(60000);
 
   test('Live Calls chart renders incoming + outgoing series from mocked API', async ({ authenticatedPage: page }) => {

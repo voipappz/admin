@@ -12,11 +12,9 @@ import ArticleIcon from '@mui/icons-material/Article';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import SchemaIcon from '@mui/icons-material/Schema';
 import CallIcon from '@mui/icons-material/Call';
-import SensorsIcon from '@mui/icons-material/Sensors';
 import ChatIcon from '@mui/icons-material/Chat';
 import BoltIcon from '@mui/icons-material/Bolt';
 import CodeIcon from '@mui/icons-material/Code';
-import PhoneIcon from '@mui/icons-material/Phone';
 import { canAccessScreen } from '../utils/jwt';
 
 // Sidebar — kept deliberately simple. The Studio is the landing/home and
@@ -33,18 +31,12 @@ export const NAV_ITEMS = [
   // embedded in other dialogs.
   { text: 'Tariffs',       path: '/tariffs',        iconComponent: RequestQuoteIcon,          aclKey: 'tariffs',                        group: 'MANAGE'   },
   // The end-user portal's widget dashboard, mounted in the console too. Gated
-  // on `reports` like Live — the console's ACLs carry no dashboard key.
+  // on `reports` — the console's ACLs carry no dashboard key.
   { text: 'Dashboard',     path: '/admin/dashboard', iconComponent: HomeIcon,                 aclKey: 'reports',                        group: 'MONITOR'  },
-  // Live answers "what is happening right now"; Calls is the history of the
-  // same thing, so Live sits above it. Reachable from both surfaces — see
-  // LiveRoute in App.jsx, which checks each session against its own ACL
-  // vocabulary.
-  { text: 'Live',          path: '/live',           iconComponent: SensorsIcon,               aclKey: 'reports',                        group: 'MONITOR'  },
+  // Live and Phone are not in this rail: they are user-portal screens only
+  // (UserRail.jsx), and App.jsx sends an admin session away from both.
   { text: 'Calls',         path: '/calls',          iconComponent: CallIcon,                  aclKey: 'calls',                          group: 'MONITOR'  },
   { text: 'Messages',      path: '/messages',       iconComponent: ChatIcon,                  aclKey: 'calls',                          group: 'MONITOR'  },
-  // Phone is shared with the end-user portal (see App.jsx); an admin's access
-  // to it is ACL-gated like any other screen here.
-  { text: 'Phone',         path: '/phone',          iconComponent: PhoneIcon,                 aclKey: 'phone',                          group: 'MONITOR'  },
   // Logs has no rail entry on purpose: a log stream is only meaningful next to
   // the record that produced it, so it opens as a modal from a record's
   // "View Logs" action (useNavigateToLogs → openLogsModal). The /logs route

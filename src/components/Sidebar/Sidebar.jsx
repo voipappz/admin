@@ -14,7 +14,6 @@ import {
 } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import CodeIcon from '@mui/icons-material/Code';
-import SensorsIcon from '@mui/icons-material/Sensors';
 import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -22,7 +21,6 @@ import MenuIcon from '@mui/icons-material/Menu';
 import CircleIcon from '@mui/icons-material/Circle';
 import useApiHealth from '../../hooks/useApiHealth';
 import useGatusHealth from '../../hooks/useGatusHealth';
-import useCableHealth from '../../hooks/useCableHealth';
 import { useAuth } from '../../context/AuthContext';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
 import { getPermittedNavItems, getPermittedTopbarItems } from '../../config/navConfig';
@@ -47,31 +45,6 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
   // costs nothing beyond what the TopBar pill already polls.
   const { checks: apiChecks, isHealthy: apiHealthy, loading: apiLoading } = useApiHealth();
   const { summary: gatusSummary, loading: gatusLoading } = useGatusHealth();
-
-  // The websocket is its own failure: the API can be perfectly healthy while
-  // the cable is unreachable, and a live screen then shows stale data with
-  // nothing on screen admitting it. Kept as a SEPARATE dot rather than folded
-  // into the colour above — an operator needs to know which one is down, and
-  // the cable being down does not make the platform unhealthy.
-  const cable = useCableHealth();
-
-  const { cableColor, cableTooltip } = useMemo(() => {
-    switch (cable.status) {
-      case 'connected':
-        return { cableColor: 'var(--color-success)', cableTooltip: 'Realtime cable — connected' };
-      case 'connecting':
-        return { cableColor: 'var(--color-warning)', cableTooltip: 'Realtime cable — connecting…' };
-      case 'error':
-        return {
-          cableColor: 'var(--color-danger)',
-          cableTooltip: `Realtime cable — ${cable.error === 'refused' ? 'refused (token or route)' : 'disconnected'}`,
-        };
-      case 'unconfigured':
-        return { cableColor: 'var(--color-neutral)', cableTooltip: 'Realtime cable — not configured (no URL or session token)' };
-      default:
-        return { cableColor: 'var(--color-neutral)', cableTooltip: 'Realtime cable — checking…' };
-    }
-  }, [cable.status, cable.error]);
 
   const { healthColor, healthLabel, healthTooltip } = useMemo(() => {
     if (apiLoading && gatusLoading) {
@@ -248,16 +221,6 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
             aria-label={`Status — ${healthLabel}`}
           >
             <CircleIcon sx={{ fontSize: 14, color: healthColor }} />
-          </IconButton>
-        </Tooltip>
-        {/* Cable connectivity — the websocket the live screens ride on. */}
-        <Tooltip title={cableTooltip} placement="right" arrow>
-          <IconButton
-            className="sidebar-tool-button"
-            onClick={() => navigate('/live')}
-            aria-label={cableTooltip}
-          >
-            <SensorsIcon sx={{ fontSize: 16, color: cableColor }} />
           </IconButton>
         </Tooltip>
         {/* Logs has no sidebar entry at all — it opens as a modal from a
