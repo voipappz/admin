@@ -1,13 +1,12 @@
 import apiService from '../apiService';
 
 /**
- * MCP API Service — the authenticated MCP server at /api/mcp.
+ * MCP API Service — the MCP server at /api/mcp.
  *
- * The public /tasks/mcp serves resources only and answers tools/list with []
- * on purpose ("a tool acts, acting needs a scoped credential"). /api/mcp is
- * the same JSON-RPC 2.0 server behind the session's bearer token, with tools
- * scoped to the logged-in account's customer — nothing an agent could not
- * already do over /api. The admin's MCP console speaks to it through here.
+ * JSON-RPC 2.0 behind the session's bearer token, with tools scoped to the
+ * logged-in caller's customer — nothing an agent could not already do over
+ * /api. It is the only MCP server; there is no public one. The admin's MCP
+ * console speaks to it through here.
  *
  * Backend endpoint:
  *   POST /api/mcp   — JSON-RPC 2.0: initialize, ping, resources/list,

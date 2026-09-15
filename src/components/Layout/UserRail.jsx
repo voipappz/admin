@@ -16,8 +16,10 @@ import SensorsIcon from '@mui/icons-material/Sensors';
 import LogoutIcon from '@mui/icons-material/Logout';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { useLocation, useNavigate } from 'react-router';
 import { useUserAuth } from '../../context/UserAuthContext';
+import { useAIChatSidebar } from '../../context/AIChatSidebarContext';
 import { useThemeMode } from '../../context/ThemeContext';
 
 export const RAIL_WIDTH = 88;
@@ -64,6 +66,7 @@ export default function UserRail() {
   const navigate = useNavigate();
   const { user, logout } = useUserAuth();
   const { isDarkMode, toggleTheme } = useThemeMode();
+  const { openAIDrawer } = useAIChatSidebar() || {};
   const [accountAnchor, setAccountAnchor] = useState(null);
 
   const name = user?.name || user?.fullname || user?.email || 'Account';
@@ -111,6 +114,17 @@ export default function UserRail() {
         active={location.pathname === '/my-calls'}
         onClick={() => navigate('/my-calls')}
       />
+      {/* Opens the assistant over the current screen rather than navigating,
+          so a question about what is on screen keeps that screen in view. */}
+      {openAIDrawer && (
+        <RailItem
+          testId="rail-assistant"
+          icon={<AutoAwesomeIcon />}
+          label="Assistant"
+          active={false}
+          onClick={openAIDrawer}
+        />
+      )}
       {/* The phone's trigger moved to the bottom right (PhoneFab). It was the
           only item here that did not navigate — it toggles a panel that opens
           on the opposite side of the screen — so it now sits where the dock
