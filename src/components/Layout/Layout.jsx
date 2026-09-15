@@ -177,6 +177,9 @@ const Layout = ({ children }) => {
         // Portal user, not an admin: slim rail + page content, with the phone
         // docked on the right (see UserRail.jsx / PhoneDock.jsx). No admin
         // sidebar/topbar — the dashboard is the center of this surface.
+        // The assistant is here too: it used to exist only in the admin shell
+        // below, so a portal user had neither the modal nor its shortcut.
+        <AIChatSidebarProvider>
         <Box data-testid="user-layout" sx={{ minHeight: '100vh', display: 'flex' }}>
           <UserRail />
           <Box
@@ -210,6 +213,8 @@ const Layout = ({ children }) => {
           />
           <PhoneFab open={phoneOpen} onToggle={() => setPhoneOpen((open) => !open)} />
         </Box>
+        <AIChatModal />
+        </AIChatSidebarProvider>
       ) : (
         // Authenticated layout: Sidebar + TopBar + Content
         <GlobalSearchProvider>

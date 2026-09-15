@@ -298,6 +298,17 @@ function AppContent() {
     return <Navigate to="/" replace />;
   };
 
+  // The assistant serves either door. It carries no ACL of its own: the API
+  // scopes its tools to whichever session asks (Mediators::Mcp::Toolbox), so
+  // being signed in is the whole gate.
+  const AssistantRoute = ({ children }) => {
+    const admin = useAuth();
+    const user = useUserAuth();
+    if (admin.initializing || user.initializing) return null;
+    if (admin.isAuthenticated || user.isAuthenticated) return children;
+    return <Navigate to="/" replace />;
+  };
+
   return (
     <Router>
       <Suspense fallback={<Layout><PageLoader /></Layout>}>
@@ -692,11 +703,11 @@ function AppContent() {
         <Route
           path="/ai"
           element={
-            <ProtectedRoute>
+            <AssistantRoute>
               <Layout>
                 <AIChat />
               </Layout>
-            </ProtectedRoute>
+            </AssistantRoute>
           }
         />
         {/* Catch-all 404 — auth-gated like every other route so a hard load of

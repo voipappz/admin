@@ -37,23 +37,51 @@ import { providersApi } from '../../services/api/providersApi';
 import './AIChat.css';
 
 /**
- * Tool Call Component
+ * Tool Call Component — one chip per call, as agent-ui draws them, plus its
+ * state: a spinner while the tool runs (ToolCallStarted), the tool icon once
+ * its result is in (ToolCallCompleted), red when the tool reported an error.
+ * The arguments and result sit in the tooltip.
  */
-const ToolCallItem = memo(({ toolCall }) => (
-  <Chip
-    icon={<BuildIcon sx={{ fontSize: 14 }} />}
-    label={toolCall.tool_name}
-    size="small"
-    sx={{
-      backgroundColor: 'var(--theme-bg-secondary)',
-      color: 'var(--theme-text-secondary)',
-      fontSize: '0.7rem',
-      fontFamily: 'monospace',
-      textTransform: 'uppercase',
-      '& .MuiChip-icon': { color: 'var(--theme-text-secondary)' }
-    }}
-  />
-));
+const ToolCallItem = memo(({ toolCall }) => {
+  const done = toolCall.content !== undefined && toolCall.content !== null;
+  const failed = toolCall.tool_call_error === true;
+  const status = failed ? 'error' : (done ? 'done' : 'running');
+  const args = toolCall.tool_args && Object.keys(toolCall.tool_args).length > 0
+    ? JSON.stringify(toolCall.tool_args)
+    : '';
+  const detail = [args && `args: ${args}`, done && String(toolCall.content).slice(0, 800)]
+    .filter(Boolean)
+    .join('\n\n');
+  const icon = status === 'running'
+    ? <CircularProgress size={12} sx={{ color: 'var(--theme-text-secondary)' }} />
+    : (failed ? <ErrorOutlineIcon sx={{ fontSize: 14 }} /> : <BuildIcon sx={{ fontSize: 14 }} />);
+
+  return (
+    <Tooltip
+      placement="top"
+      arrow
+      title={detail
+        ? <Box component="pre" sx={{ m: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.7rem' }}>{detail}</Box>
+        : ''}
+    >
+      <Chip
+        icon={icon}
+        label={toolCall.tool_name}
+        size="small"
+        data-testid="ai-chat-tool-call"
+        data-status={status}
+        sx={{
+          backgroundColor: 'var(--theme-bg-secondary)',
+          color: failed ? '#ef4444' : 'var(--theme-text-secondary)',
+          fontSize: '0.7rem',
+          fontFamily: 'monospace',
+          textTransform: 'uppercase',
+          '& .MuiChip-icon': { color: failed ? '#ef4444' : 'var(--theme-text-secondary)', ml: '6px' }
+        }}
+      />
+    </Tooltip>
+  );
+});
 ToolCallItem.displayName = 'ToolCallItem';
 
 /**
@@ -322,11 +350,14 @@ const AIChatSidebar = ({
               Agent
             </Typography>
             <Box sx={{ display: 'flex', gap: 0.5 }}>
-              <Tooltip title="Add LLM Provider" placement="top" arrow>
-                <IconButton size="small" onClick={onAddProvider} sx={{ color: 'var(--theme-text-tertiary)' }}>
-                  <AddIcon sx={{ fontSize: 14 }} />
-                </IconButton>
-              </Tooltip>
+              {/* Providers are an account resource; a portal user has no add button. */}
+              {onAddProvider && (
+                <Tooltip title="Add LLM Provider" placement="top" arrow>
+                  <IconButton size="small" onClick={onAddProvider} sx={{ color: 'var(--theme-text-tertiary)' }}>
+                    <AddIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Tooltip>
+              )}
               <IconButton size="small" onClick={onRefresh} sx={{ color: 'var(--theme-text-tertiary)' }}>
                 <RefreshIcon sx={{ fontSize: 14 }} />
               </IconButton>
@@ -450,6 +481,7 @@ const AIChat = () => {
     isLoadingAgents,
     handleAgentSelect,
     isEndpointActive,
+    canManageProviders,
     sendMessage,
     cancelRequest,
     clearChat,
@@ -531,7 +563,7 @@ const AIChat = () => {
         onRefresh={fetchAgents}
         messagesCount={messages.length}
         isEndpointActive={isEndpointActive}
-        onAddProvider={handleOpenProviderDialog}
+        onAddProvider={canManageProviders ? handleOpenProviderDialog : undefined}
       />
 
       {/* Main Chat Area */}

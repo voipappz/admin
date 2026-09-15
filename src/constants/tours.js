@@ -119,7 +119,7 @@ export const TOURS = {
         id: 'devzone-connect-mcp',
         selector: '[data-tour="devzone-mcp"]',
         title: 'Connect through MCP',
-        description: 'Copy this public endpoint into an MCP-capable agent. The client discovers the resources and capabilities exposed by this environment.',
+        description: 'Copy this endpoint into an MCP-capable agent, with a token of its own. Its tools see only that account\'s customer.',
         position: 'bottom',
         optional: false,
       },
