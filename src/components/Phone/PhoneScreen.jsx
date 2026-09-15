@@ -152,7 +152,14 @@ export default function PhoneScreen({ embedded = false }) {
               {statusText}{settings?.domain ? ` • ${settings.domain}` : ''}
             </Typography>
             {lastError && (
-              <Typography title={lastError} sx={{ mt: 0.4, fontSize: '0.66rem', color: '#fca5a5' }} noWrap>
+              <Typography
+                title={lastError}
+                role="alert"
+                sx={{
+                  mt: 0.4, fontSize: '0.66rem', color: '#fca5a5', wordBreak: 'break-word',
+                  display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                }}
+              >
                 {lastError}
               </Typography>
             )}

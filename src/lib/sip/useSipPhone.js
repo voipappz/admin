@@ -10,6 +10,7 @@ import {
   UserAgent
 } from 'sip.js';
 import { loadSipConfig } from './config';
+import { describeConnectionFailure } from './connectionError';
 import { parseReferNotify, reduceTransferState, sipTargetAddress } from './transfer';
 
 // RegStatus: "idle" | "connecting" | "registered" | "unregistered" | "reconnecting" | "failed"
@@ -428,7 +429,10 @@ export function useSipPhone(overrides = {}) {
       await ua.start();
     } catch (error) {
       if (generation === uaGenerationRef.current) {
-        reportError('sip.Transport', error, 'Unable to connect to the SIP server');
+        const failure = describeConnectionFailure(cfg.wssUrl, error);
+        setLastError(failure.message);
+        addLog('error', 'sip.Transport', failure.detail ? `${failure.message} (${failure.detail})` : failure.message);
+        addLog('warn', 'sip.Transport', failure.hint);
         setStatus('failed');
       }
       return;
@@ -467,6 +471,9 @@ export function useSipPhone(overrides = {}) {
     const cfg = cfgRef.current;
     if (isReconnecting.current || !networkAvailableRef.current || manualDisconnect.current) return;
     if (cfg.reconnectMax <= 0 || reconnectAttempts.current >= cfg.reconnectMax) {
+      const gaveUp = `Stopped reconnecting after ${reconnectAttempts.current} attempts; reconnect from the phone to try again`;
+      addLog('error', 'sip.Transport', gaveUp);
+      setLastError((current) => current || gaveUp);
       setStatus('failed');
       return;
     }
@@ -474,11 +481,12 @@ export function useSipPhone(overrides = {}) {
     reconnectAttempts.current += 1;
     setStatus('reconnecting');
     const delay = cfg.reconnectDelayMs * reconnectAttempts.current; // exponential backoff
+    addLog('warn', 'sip.Transport', `Reconnecting in ${delay / 1000}s (attempt ${reconnectAttempts.current} of ${cfg.reconnectMax})`);
     reconnectTimer.current = setTimeout(async () => {
       isReconnecting.current = false;
       if (credsRef.current) { try { await buildUA(); } catch { attemptReconnect(); } }
     }, delay);
-  }, [buildUA]);
+  }, [buildUA, addLog]);
 
   const register = useCallback(async (creds, cfgOverrides = {}) => {
     credsRef.current = creds;
