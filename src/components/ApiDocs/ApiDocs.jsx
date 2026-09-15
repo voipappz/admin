@@ -154,24 +154,24 @@ export default function ApiDocs() {
   const [query, setQuery] = useState('');
   const [activeOp, setActiveOp] = useState(null);
   const [integrationStatus, setIntegrationStatus] = useState(null);
-  const [mcpInfo, setMcpInfo] = useState(null);
   const [error, setError] = useState('');
   const [skillError, setSkillError] = useState('');
-  const [mcpError, setMcpError] = useState('');
   const [notice, setNotice] = useState('');
   const apiBaseUrl = config.apiBaseUrl.replace(/\/$/, '');
   const swaggerServerUrl = apiBaseUrl || window.location.origin;
   const openApiUrl = `${apiBaseUrl}/tasks/openapi.json`;
   const skillUrl = `${apiBaseUrl}/tasks/agent-skills/use-voipappz-api/SKILL.md`;
   const integrationStatusUrl = `${apiBaseUrl}/tasks/agent-skills/use-voipappz-api/references/integration-status.json`;
-  const mcpUrl = `${apiBaseUrl}/tasks/mcp`;
-  // The authenticated sibling: same server plus tools, behind the session.
+  // The one MCP server: JSON-RPC 2.0 over POST, behind a bearer token, with
+  // tools scoped to the caller. There is no public, unauthenticated one.
   const mcpToolsUrl = `${apiBaseUrl}/api/mcp`;
   const publicOpenApiUrl = new URL(openApiUrl, window.location.origin).toString();
   const publicSkillUrl = new URL(skillUrl, window.location.origin).toString();
   const publicIntegrationStatusUrl = new URL(integrationStatusUrl, window.location.origin).toString();
-  const publicMcpUrl = new URL(mcpUrl, window.location.origin).toString();
-  const aiPrompt = `Use the VoipAppz MCP server at ${publicMcpUrl} for the live contract and integration guidance. If your client cannot attach MCP, read the Skill at ${publicSkillUrl}, its readiness reference at ${publicIntegrationStatusUrl}, and the contract at ${publicOpenApiUrl} instead. Do not guess billing or provisioning rules, and never ask me to paste credentials into this chat.`;
+  const publicMcpUrl = new URL(mcpToolsUrl, window.location.origin).toString();
+  // Public documentation URLs only — the MCP server needs a token, so it is not
+  // something to hand an assistant through a pasted prompt.
+  const aiPrompt = `Read the VoipAppz Agent Skill at ${publicSkillUrl}, its readiness reference at ${publicIntegrationStatusUrl}, and the live API contract at ${publicOpenApiUrl}. Do not guess billing or provisioning rules, and never ask me to paste credentials into this chat.`;
   const curlExample = `curl -s "${swaggerServerUrl}/api/devices" \
   -H "Authorization: Bearer $TOKEN"`;
 
@@ -188,8 +188,6 @@ export default function ApiDocs() {
     let cancelled = false;
     setError('');
     setSkillError('');
-    setMcpError('');
-    setMcpInfo(null);
 
     fetch(openApiUrl, publicFetchOptions)
       .then((response) => {
@@ -219,28 +217,8 @@ export default function ApiDocs() {
         if (!cancelled) setSkillError(loadError.message || 'Unable to load Agent Skill status');
       });
 
-    fetch(mcpUrl, publicFetchOptions)
-      .then((response) => {
-        if (!response.ok) throw new Error(`MCP discovery returned HTTP ${response.status}`);
-        return response.json();
-      })
-      .then((document) => {
-        if (
-          !document
-          || typeof document.protocolVersion !== 'string'
-          || !document.protocolVersion.trim()
-          || !Array.isArray(document.resources)
-        ) {
-          throw new Error('MCP discovery returned an invalid document');
-        }
-        if (!cancelled) setMcpInfo(document);
-      })
-      .catch((loadError) => {
-        if (!cancelled) setMcpError(loadError.message || 'Unable to discover the MCP server');
-      });
-
     return () => { cancelled = true; };
-  }, [integrationStatusUrl, mcpUrl, openApiUrl, swaggerServerUrl]);
+  }, [integrationStatusUrl, openApiUrl, swaggerServerUrl]);
 
   const copyText = (text, message) => {
     if (!navigator.clipboard?.writeText) {
@@ -456,7 +434,7 @@ export default function ApiDocs() {
     },
     {
       title: 'Hand it to an assistant',
-      body: 'Give an MCP-capable agent the public endpoint, or use the safe fallback prompt with another assistant. Only public documentation URLs are shared — never your session, credentials, or customer data.',
+      body: 'Give an MCP-capable agent the /api/mcp endpoint and a token of its own, or use the safe fallback prompt with another assistant. The prompt shares only public documentation URLs — never your session, credentials, or customer data.',
     },
   ];
 
@@ -527,7 +505,7 @@ export default function ApiDocs() {
         <Box sx={{ display: tab === 0 ? 'block' : 'none', p: { xs: 2, md: 3 } }}>
           <Box sx={{ maxWidth: 1080 }}>
             <Typography variant="body2" sx={{ ...MUTED_SX, maxWidth: 760 }}>
-              Attach this one endpoint. Your agent discovers what this environment exposes — and never sees your session.
+              Attach this one endpoint with a token of the agent&apos;s own. Its tools see only that account&apos;s customer — and never your session.
             </Typography>
 
             <Box data-tour="devzone-mcp" sx={{ mt: 2, p: 2, borderRadius: '12px', bgcolor: '#0f172a', color: '#e2e8f0', border: '1px solid #334155' }}>
@@ -539,9 +517,7 @@ export default function ApiDocs() {
                     {publicMcpUrl}
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', mt: 0.5 }}>
-                    {mcpInfo
-                      ? `${mcpInfo.protocolVersion} · ${mcpInfo.transport || 'HTTP'} · ${mcpInfo.resources.length} resources`
-                      : (mcpError ? 'Discovery unavailable' : 'Checking discovery…')}
+                    JSON-RPC 2.0 over POST · Authorization: Bearer &lt;token&gt;
                   </Typography>
                 </Box>
                 <Button
@@ -552,12 +528,6 @@ export default function ApiDocs() {
                 </Button>
               </Stack>
             </Box>
-
-            {mcpError && (
-              <Alert severity="warning" sx={{ mt: 1.5 }}>
-                {mcpError}. The Agent Skill and OpenAPI fallback remain available.
-              </Alert>
-            )}
 
             <Accordion
               disableGutters elevation={0}
@@ -579,7 +549,7 @@ export default function ApiDocs() {
                   <Button endIcon={<OpenInNewIcon />} onClick={() => openInAssistant('https://claude.ai/new')}>Copy prompt + open Claude</Button>
                 </Stack>
                 <Typography variant="caption" sx={{ ...MUTED_SX, display: 'block', mt: 1.5 }}>
-                  These share only the public MCP, Skill, readiness and OpenAPI URLs. Your admin session is never included.
+                  These share only the public Skill, readiness and OpenAPI URLs. Your admin session is never included.
                 </Typography>
               </AccordionDetails>
             </Accordion>

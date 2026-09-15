@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useUserAuth } from '../../context/UserAuthContext';
 import { config } from '../../config';
 import { providersApi } from '../../services/api/providersApi';
 import { getMockAgents, getMockSessions, generateMockStreamResponse } from './aiMockService';
@@ -113,7 +114,14 @@ function parseBuffer(buffer, onChunk) {
  * Custom hook for AI Chat functionality with agents and sessions
  */
 export const useAIChat = () => {
-  const { access } = useAuth();
+  // Either door: the admin console's token or the portal user's. A browser
+  // holds only one at a time (sessionIsolation.js), and the API scopes the
+  // assistant's tools to whichever it is.
+  const { access: adminAccess } = useAuth();
+  const { token: userToken } = useUserAuth();
+  const access = adminAccess || userToken || null;
+  // /api/providers is an account endpoint; a portal token gets 401 there.
+  const canManageProviders = Boolean(adminAccess);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -150,6 +158,19 @@ export const useAIChat = () => {
   const fetchAgents = useCallback(async () => {
     if (!access) return;
 
+    // A portal user has no provider list to pick from and needs none:
+    // /api/vmls/generate uses the customer's enabled LLM provider. Letting the
+    // 401 below land in the catch put the portal chat into mock mode, where it
+    // answered with canned text.
+    if (!canManageProviders) {
+      const assistant = { id: 'assistant', agent_id: 'assistant', name: 'VoipAppz assistant' };
+      setAgents([assistant]);
+      setIsEndpointActive(true);
+      setIsMockMode(false);
+      setSelectedAgent(assistant.id);
+      return;
+    }
+
     setIsLoadingAgents(true);
     try {
       const data = await providersApi.getProviders({ 'search[type]': 'llm' });
@@ -184,7 +205,7 @@ export const useAIChat = () => {
     } finally {
       setIsLoadingAgents(false);
     }
-  }, [access, selectedAgent]);
+  }, [access, canManageProviders, selectedAgent]);
 
   // Fetch chat sessions
   const fetchSessions = useCallback(async () => {
@@ -341,18 +362,29 @@ export const useAIChat = () => {
     });
   }, []);
 
-  // Process tool call
-  const processToolCall = useCallback((toolCall) => {
-    setToolCalls(prev => {
-      const toolCallId = toolCall.tool_call_id || `${toolCall.tool_name}-${Date.now()}`;
-      const existingIndex = prev.findIndex(tc => tc.tool_call_id === toolCallId);
-
-      if (existingIndex >= 0) {
-        const updated = [...prev];
-        updated[existingIndex] = { ...updated[existingIndex], ...toolCall };
-        return updated;
+  // Merge tool calls into the reply being streamed. A call arrives twice —
+  // ToolCallStarted, then ToolCallCompleted with its result — under one
+  // tool_call_id, so it is merged by id, the way agent-ui's
+  // useAIStreamHandler does. The previous version wrote the `toolCalls` state
+  // captured when sendMessage was created, so a reply never showed its calls.
+  const mergeToolCalls = useCallback((incoming) => {
+    if (!incoming || incoming.length === 0) return;
+    const keyOf = (tc) => tc.tool_call_id || `${tc.tool_name}-${tc.created_at}`;
+    const merge = (list = []) => incoming.reduce((acc, toolCall) => {
+      const index = acc.findIndex((tc) => keyOf(tc) === keyOf(toolCall));
+      if (index >= 0) {
+        const next = [...acc];
+        next[index] = { ...next[index], ...toolCall };
+        return next;
       }
-      return [...prev, { ...toolCall, tool_call_id: toolCallId }];
+      return [...acc, { ...toolCall, tool_call_id: keyOf(toolCall) }];
+    }, list);
+
+    setToolCalls((prev) => merge(prev));
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (!last || last.role !== 'agent') return prev;
+      return [...prev.slice(0, -1), { ...last, tool_calls: merge(last.tool_calls) }];
     });
   }, []);
 
@@ -438,10 +470,7 @@ export const useAIChat = () => {
           }
         }
       } else if (event === RunEvent.ToolCallStarted || event === RunEvent.ToolCallCompleted) {
-        if (chunk.tool) {
-          processToolCall(chunk.tool);
-          updateLastAgentMessage({ tool_calls: toolCalls });
-        }
+        if (chunk.tool) mergeToolCalls([chunk.tool]);
       } else if (event === RunEvent.RunContent) {
         if (typeof chunk.content === 'string') {
           const uniqueContent = chunk.content.replace(lastContent, '');
@@ -456,8 +485,8 @@ export const useAIChat = () => {
           lastContent = chunk.content;
         }
 
-        if (chunk.tool) processToolCall(chunk.tool);
-        if (chunk.tools) chunk.tools.forEach(processToolCall);
+        if (chunk.tool) mergeToolCalls([chunk.tool]);
+        if (chunk.tools) mergeToolCalls(chunk.tools);
 
         if (chunk.extra_data?.reasoning_steps) {
           setReasoningSteps(chunk.extra_data.reasoning_steps);
@@ -498,10 +527,10 @@ export const useAIChat = () => {
         // RunContent chunks -- so overwriting unconditionally blanked every
         // reply the instant it finished streaming. Only take the final content
         // when the event actually carries some.
-        const updates = {
-          tool_calls: chunk.tools || toolCalls,
-          extra_data: chunk.extra_data
-        };
+        // Same for tools: the calls already streamed in; `tools` on completion
+        // only fills gaps, it never replaces what is there.
+        if (Array.isArray(chunk.tools)) mergeToolCalls(chunk.tools);
+        const updates = { extra_data: chunk.extra_data };
         if (finalContent) updates.content = finalContent;
         updateLastAgentMessage(updates);
       } else if (event === RunEvent.RunError) {
@@ -538,6 +567,9 @@ export const useAIChat = () => {
             message: content,
             session_id: sessionId,
             provider_uuid: selectedAgent,
+            // The assistant with the MCP tools (lib/mediators/mcp/chat.rb on
+            // the API), not the VML Lua generator this endpoint defaults to.
+            mode: 'mcp',
             stream: true
           },
           handleChunk,
@@ -549,7 +581,7 @@ export const useAIChat = () => {
       handleError(err);
       handleComplete();
     }
-  }, [access, messages, isStreaming, sessionId, selectedAgent, sessions, toolCalls, isMockMode, addMessage, updateLastAgentMessage, processToolCall, streamResponse, fetchSessions]);
+  }, [isStreaming, sessionId, selectedAgent, sessions, isMockMode, addMessage, updateLastAgentMessage, mergeToolCalls, streamResponse, fetchSessions]);
 
   // Cancel request
   const cancelRequest = useCallback(() => {
@@ -601,6 +633,7 @@ export const useAIChat = () => {
     isLoadingAgents,
     handleAgentSelect,
     isEndpointActive,
+    canManageProviders,
 
     // Tools & Reasoning
     toolCalls,

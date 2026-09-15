@@ -68,27 +68,10 @@ const integrationStatus = {
     },
   ],
 };
-const mcpDiscovery = {
-  protocolVersion: '2025-06-18',
-  transport: 'streamable-http',
-  endpoint: 'https://api.example.test/tasks/mcp',
-  resources: [
-    'voipappz://contract/openapi.json',
-    'voipappz://skill/SKILL.md',
-    'voipappz://skill/integration-status.json',
-    'voipappz://skill/errors.md',
-    'voipappz://skill/billing.md',
-  ],
-};
-
 function mockPublicResources() {
   return vi.spyOn(globalThis, 'fetch').mockImplementation((url) => Promise.resolve({
     ok: true,
-    json: async () => {
-      if (url.includes('integration-status.json')) return integrationStatus;
-      if (url.endsWith('/tasks/mcp')) return mcpDiscovery;
-      return contract;
-    },
+    json: async () => (url.includes('integration-status.json') ? integrationStatus : contract),
   }));
 }
 
@@ -125,19 +108,28 @@ describe('ApiDocs', () => {
         headers: { Accept: 'application/json' },
       },
     );
-    expect(fetch).toHaveBeenCalledWith(
-      'https://api.example.test/tasks/mcp',
-      {
-        credentials: 'omit',
-        headers: { Accept: 'application/json' },
-      },
-    );
+    // There is no public MCP server to discover; /api/mcp needs a token.
+    expect(fetch.mock.calls.some(([url]) => String(url).includes('/tasks/mcp'))).toBe(false);
 
     const swagger = screen.getByTestId('swagger-ui');
     expect(swagger).toHaveAttribute('data-server', 'https://api.example.test');
     expect(swagger).toHaveAttribute('data-authorization', 'Bearer admin-access-token');
     // The bearer token is the only header: the API reads the auth mode from it.
     expect(swagger).toHaveAttribute('data-header-names', 'Authorization');
+  });
+
+  it('keeps the MCP endpoint out of the pasted fallback prompt', async () => {
+    mockPublicResources();
+
+    render(<ApiDocs />);
+    await waitFor(() => expect(screen.getByTestId('swagger-ui')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /No MCP client/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy fallback prompt' }));
+
+    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalled());
+    const prompt = navigator.clipboard.writeText.mock.calls[0][0];
+    expect(prompt).not.toContain('/mcp');
   });
 
   it('copies the public Skill and contract context before opening an AI assistant', async () => {
@@ -160,7 +152,7 @@ describe('ApiDocs', () => {
     expect(await screen.findByText(/Agent context copied/)).toBeInTheDocument();
   });
 
-  it('leads with live MCP discovery and links to the API-owned provisioning catalog', async () => {
+  it('leads with the authenticated MCP endpoint and links to the API-owned provisioning catalog', async () => {
     mockPublicResources();
 
     render(<ApiDocs />);
@@ -168,9 +160,11 @@ describe('ApiDocs', () => {
 
     // The endpoint card is the section — it needs no heading above it.
     expect(screen.getByText('MCP endpoint')).toBeVisible();
-    // Stated once, on the endpoint card — not repeated in a resource card below.
-    expect(screen.getByText('2025-06-18 · streamable-http · 5 resources')).toBeVisible();
-    expect(screen.queryByText(/live resources over/)).not.toBeInTheDocument();
+    // Scoped to the card: the MCP console tab shows the same URL.
+    const endpointCard = within(document.querySelector('[data-tour="devzone-mcp"]'));
+    expect(endpointCard.getByText('https://api.example.test/api/mcp')).toBeVisible();
+    expect(endpointCard.getByText('JSON-RPC 2.0 over POST · Authorization: Bearer <token>')).toBeVisible();
+    expect(screen.queryByText(/tasks\/mcp/)).not.toBeInTheDocument();
     expect(screen.getByText('Or read them directly')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Quick tour' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Open in Settings' })).toHaveAttribute(
@@ -182,45 +176,6 @@ describe('ApiDocs', () => {
     expect(screen.getByRole('tab', { name: 'API Reference' })).toHaveAttribute('aria-selected', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Quick tour' }));
     expect(screen.getByRole('tab', { name: 'For agents' })).toHaveAttribute('aria-selected', 'true');
-  });
-
-  it('does not report malformed MCP discovery as healthy', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => Promise.resolve({
-      ok: true,
-      json: async () => {
-        if (url.includes('integration-status.json')) return integrationStatus;
-        if (url.endsWith('/tasks/mcp')) return { transport: 'streamable-http' };
-        return contract;
-      },
-    }));
-
-    render(<ApiDocs />);
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'MCP discovery returned an invalid document',
-    );
-    expect(screen.queryByText('MCP undefined')).not.toBeInTheDocument();
-  });
-
-  it('keeps fallback documentation available when MCP discovery fails', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
-      if (url.endsWith('/tasks/mcp')) {
-        return Promise.resolve({ ok: false, status: 503 });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: async () => (url.includes('integration-status.json') ? integrationStatus : contract),
-      });
-    });
-
-    render(<ApiDocs />);
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'MCP discovery returned HTTP 503',
-    );
-    expect(screen.getByText('Discovery unavailable')).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Open Skill' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Open contract' })).toBeVisible();
   });
 
   it('mirrors the app dark theme onto the flag Swagger UI styles against', async () => {
