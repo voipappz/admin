@@ -17,7 +17,9 @@ import {
 } from '../../services/api/dashboardWidgetsApi.js';
 import { useDashboardSnapshot } from './useDashboardSnapshot.js';
 import { useUserAuth } from '../../context/UserAuthContext.jsx';
-import { hasPermission } from '../../utils/jwt.js';
+import { useAuth } from '../../context/AuthContext';
+import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
+import { hasPermission, canAccessScreen } from '../../utils/jwt.js';
 import CallReceivedIcon from '@mui/icons-material/CallReceived';
 import CallMadeIcon from '@mui/icons-material/CallMade';
 
@@ -146,10 +148,12 @@ function RecentCallsTable({ calls, fields, title }) {
 }
 
 /**
- * The end-user portal's landing screen, and only the portal's — App.jsx's
- * PortalRoute sends an admin session away. The account console answers the
- * same questions with Calls, Reports and Monitoring, so there is no second
- * dashboard to keep in step.
+ * The end-user portal's landing screen (`/`), also mounted in the account
+ * console at `/admin/dashboard`. One screen, two sources of scope: a portal
+ * user has exactly one environment and it is on the session; an admin has
+ * none on theirs, so it follows the console's customer/environment selection,
+ * the same way LiveDashboard does. A browser holding both sessions keeps the
+ * admin one (see sessionIsolation.js), so the admin session wins here too.
  *
  * Every number here comes from InfluxDB through /api/monitoring/*. The one
  * agreed exception to that rule on this surface is the phone's own recent
@@ -157,22 +161,32 @@ function RecentCallsTable({ calls, fields, title }) {
  */
 export default function Dashboard() {
   const user = useUserAuth();
+  const admin = useAuth();
+  const { selectedCustomer, selectedEnvironments } = useCustomerEnvironment();
+  const isAdmin = Boolean(admin?.isAuthenticated);
 
-  const environmentUuid = user.user?.environment?.uuid || null;
+  // The console selector is multi-select; this screen is one environment at a
+  // time, so it follows the first of the selection and falls back to the
+  // customer when none is picked.
+  const adminEnv = Array.isArray(selectedEnvironments) ? selectedEnvironments[0] : null;
+  const environmentUuid = (isAdmin ? adminEnv?.uuid : user.user?.environment?.uuid) || null;
+  const customerUuid = (isAdmin ? selectedCustomer?.uuid : null) || null;
   // localStorage widget definitions are scoped per-tenant so boards don't
   // bleed across environments (see dashboardWidgetsApi.js).
-  const storageScope = environmentUuid || 'global';
+  const storageScope = environmentUuid || customerUuid || 'global';
   useEffect(() => { setDashboardStorageScope(storageScope); }, [storageScope]);
 
-  const { snapshot, status } = useDashboardSnapshot({ environmentUuid });
+  const { snapshot, status } = useDashboardSnapshot({ environmentUuid, customerUuid });
   const { stats, calls_per_hour: callsPerHour } = snapshot;
 
-  // Same gate app used (`can('dashboard:read')`) — read access shows the
-  // inline widget controls. Read access to the screen itself is already
-  // enforced one level up by App.jsx's PortalRoute. The plural is passed on
-  // purpose: hasPermission's fallback resolves it to the user ACL's singular
-  // 'dashboard' key.
-  const canEditDashboard = hasPermission(user.acl, 'dashboards', 'read');
+  // Portal: same gate app used (`can('dashboard:read')`) — the plural is
+  // passed on purpose: hasPermission's fallback resolves it to the user ACL's
+  // singular 'dashboard' key. Admin: the console's ACLs have no dashboard key,
+  // so the widget controls follow `reports`, the key App.jsx gates the route
+  // on. Read access to the screen itself is enforced one level up either way.
+  const canEditDashboard = isAdmin
+    ? canAccessScreen(admin.acl, 'reports')
+    : hasPermission(user.acl, 'dashboards', 'read');
   const [editingWidget, setEditingWidget] = useState(null);
   const [savingWidget, setSavingWidget] = useState(false);
   const [dashboardId] = useState(() => {

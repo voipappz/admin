@@ -32,6 +32,9 @@ export const NAV_ITEMS = [
   // bill against, and were previously only reachable through the picker
   // embedded in other dialogs.
   { text: 'Tariffs',       path: '/tariffs',        iconComponent: RequestQuoteIcon,          aclKey: 'tariffs',                        group: 'MANAGE'   },
+  // The end-user portal's widget dashboard, mounted in the console too. Gated
+  // on `reports` like Live — the console's ACLs carry no dashboard key.
+  { text: 'Dashboard',     path: '/admin/dashboard', iconComponent: HomeIcon,                 aclKey: 'reports',                        group: 'MONITOR'  },
   // Live answers "what is happening right now"; Calls is the history of the
   // same thing, so Live sits above it. Reachable from both surfaces — see
   // LiveRoute in App.jsx, which checks each session against its own ACL
@@ -40,10 +43,7 @@ export const NAV_ITEMS = [
   { text: 'Calls',         path: '/calls',          iconComponent: CallIcon,                  aclKey: 'calls',                          group: 'MONITOR'  },
   { text: 'Messages',      path: '/messages',       iconComponent: ChatIcon,                  aclKey: 'calls',                          group: 'MONITOR'  },
   // Phone is shared with the end-user portal (see App.jsx); an admin's access
-  // to it is ACL-gated like any other screen here. The widget Dashboard is
-  // NOT in this rail — it is the end-user portal's landing screen and has no
-  // place in the account console, which has Calls, Reports and Monitoring for
-  // the same questions.
+  // to it is ACL-gated like any other screen here.
   { text: 'Phone',         path: '/phone',          iconComponent: PhoneIcon,                 aclKey: 'phone',                          group: 'MONITOR'  },
   // Logs has no rail entry on purpose: a log stream is only meaningful next to
   // the record that produced it, so it opens as a modal from a record's
