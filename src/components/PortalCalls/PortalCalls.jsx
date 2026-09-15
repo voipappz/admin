@@ -6,12 +6,10 @@
 // is the four things they actually do: find a call, see how it went, play it
 // back, call the person again.
 //
-// Reads the `cdr` measurement in InfluxDB through /api/monitoring/influxdb/
-// rows, and nothing else. The portal is Influx-only by design; the one agreed
-// exception on this surface is the phone's own recent-calls list, which uses
-// /api/calls (see PhoneCallsTab). /influxdb/rows exists only on API builds
-// carrying voipappz-api ddaa69d05 — on older ones this screen reads empty
-// rather than quietly answering from Postgres.
+// Reads /api/calls — the same endpoint the admin Calls screen pages through,
+// with the same `search[created_at]` range format — so the portal's history
+// and the console's agree. It used to read the InfluxDB `cdr` measurement,
+// which is missing on older API builds and left this screen empty there.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box, Button, Chip, CircularProgress, Drawer, IconButton, InputAdornment, MenuItem,
@@ -24,9 +22,8 @@ import CallReceivedIcon from '@mui/icons-material/CallReceived';
 import CloseIcon from '@mui/icons-material/Close';
 import PageHeader from '../common/PageHeader.jsx';
 import StatusChip from '../common/StatusChip.jsx';
-import { monitoringApi } from '../../services/api/monitoringApi';
-import { hasMeasurement } from '../../services/api/influxSchema';
-import { mapCdrCall } from '../Dashboard/useDashboardSnapshot.js';
+import { callsApi } from '../../services/api/callsApi';
+import { mapRecentCall } from '../Dashboard/useDashboardSnapshot.js';
 import { useSoftphone } from '../../context/SoftphoneContext';
 
 const PER_PAGE = 25;
@@ -48,22 +45,15 @@ const fmtDuration = (seconds) => {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 };
 
-// The /influxdb/rows endpoint answers 404 for two different situations and
-// says almost nothing about which: the route is missing (an API build without
-// voipappz-api ddaa69d05) or the route is there but `cdr` isn't in SHOW
-// MEASUREMENTS — which itself covers both "nothing has ever been written" and
-// "InfluxDB was unreachable, so the whitelist came back empty".
-//
-// All three are the same thing to the person looking at the screen: the call
-// history isn't there yet, and it is not their fault and not their doing. Say
-// that, rather than putting `HTTP 404: {"id":"not_found","message":"unknown
-// measurement"}` in front of them.
-const UNAVAILABLE = 'Call history isn\u2019t available yet — the call records feed hasn\u2019t started on this system.';
-
-const humaniseError = (err) => {
-  const raw = String(err?.message || '');
-  if (/404|not_found|unknown measurement/i.test(raw)) return UNAVAILABLE;
-  return 'Could not load your calls. Please try again in a moment.';
+// Same range format the admin Calls screen sends: unix seconds, local day
+// boundaries, "start - end". "All time" sends no range at all.
+const createdAtRange = (days) => {
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (days - 1));
+  return `${Math.floor(start.getTime() / 1000)} - ${Math.floor(end.getTime() / 1000)}`;
 };
 
 const counterparty = (call) => {
@@ -78,35 +68,32 @@ export default function PortalCalls() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [days, setDays] = useState(7);
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // Ask what this InfluxDB holds before querying it. Firing a request we
-      // can predict will 404 buys nothing but a worse message.
-      if (!(await hasMeasurement('cdr'))) {
-        setError(UNAVAILABLE);
-        setCalls([]);
-        setLoading(false);
-        return;
-      }
-      const res = await monitoringApi.getInfluxRows({
-        measurement: 'cdr', minutes: days > 0 ? days * 1440 : 43200, limit: PER_PAGE
-      });
-      const rows = Array.isArray(res?.rows) ? res.rows : [];
-      setCalls(rows.map(mapCdrCall));
-    } catch (err) {
+      const params = { page, per_page: PER_PAGE };
+      if (days > 0) params['search[created_at]'] = createdAtRange(days);
+      const res = await callsApi.getCalls(params);
+      const rows = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+      setCalls(rows.map(mapRecentCall));
+    } catch {
       // Never "no calls in this period" here — that reads as "you had none".
-      setError(humaniseError(err));
+      setError('Could not load your calls. Please try again in a moment.');
       setCalls([]);
     } finally {
       setLoading(false);
     }
-  }, [days]);
+  }, [days, page]);
 
   useEffect(() => { load(); }, [load]);
+
+  // No reliable total from this client, so a full page is the signal that
+  // another one may exist.
+  const hasNext = calls.length === PER_PAGE;
 
   // Filtering client-side keeps the box responsive on a list this size, and
   // avoids guessing which of the API's many search params maps to "number".
@@ -136,7 +123,7 @@ export default function PortalCalls() {
               sx={{ minWidth: 240 }}
             />
             <TextField
-              select size="small" value={days} onChange={(e) => setDays(Number(e.target.value))}
+              select size="small" value={days} onChange={(e) => { setDays(Number(e.target.value)); setPage(1); }}
               data-testid="portal-calls-range" sx={{ minWidth: 150 }}
             >
               {RANGES.map((r) => <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>)}
@@ -209,6 +196,26 @@ export default function PortalCalls() {
           </Box>
         )}
 
+        {(page > 1 || hasNext) && !error && (
+          <Stack
+            direction="row" spacing={1} alignItems="center" justifyContent="flex-end"
+            sx={{ px: 2, py: 1, borderTop: '1px solid', borderColor: 'divider' }}
+          >
+            <Typography variant="body2" color="text.secondary">Page {page}</Typography>
+            <Button
+              size="small" disabled={page <= 1 || loading}
+              onClick={() => setPage((p) => Math.max(1, p - 1))} data-testid="portal-calls-prev"
+            >
+              Previous
+            </Button>
+            <Button
+              size="small" disabled={!hasNext || loading}
+              onClick={() => setPage((p) => p + 1)} data-testid="portal-calls-next"
+            >
+              Next
+            </Button>
+          </Stack>
+        )}
       </Paper>
 
       <Drawer anchor="right" open={Boolean(selected)} onClose={() => setSelected(null)}>
