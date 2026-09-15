@@ -181,6 +181,9 @@ const Extensions = lazy(() => import('./components/Extensions/Extensions.jsx'));
 const AIChat = lazy(() => import('./components/AIChat/AIChat.jsx'));
 const Messages = lazy(() => import('./components/Messages/Messages.jsx'));
 const Monitoring = lazy(() => import('./components/Monitoring/Monitoring.jsx'));
+// The nodes list with its create/edit/delete/import (nodes API) — also a
+// section of Monitoring, and reachable on its own from the sidebar.
+const MonitoringNodes = lazy(() => import('./components/Monitoring/MonitoringNodes.jsx'));
 const Workflows = lazy(() => import('./components/Workflows/Workflows.jsx'));
 const Campaigns = lazy(() => import('./components/Campaigns/Campaigns.jsx'));
 const Templates = lazy(() => import('./components/Templates/Templates.jsx'));
@@ -624,6 +627,18 @@ function AppContent() {
             <ProtectedRoute>
               <Layout>
                 <Monitoring />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/nodes"
+          element={
+            <ProtectedRoute requiredAcl="monitors">
+              <Layout>
+                <Box sx={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', p: { xs: 2, md: 3 } }}>
+                  <MonitoringNodes />
+                </Box>
               </Layout>
             </ProtectedRoute>
           }
