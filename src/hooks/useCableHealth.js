@@ -79,7 +79,9 @@ function connect() {
   setState({ status: 'connecting', url: url.replace(/token=[^&]+/, 'token=***'), error: null });
 
   try {
-    socket = new WebSocket(url);
+    // Cable negotiates `actioncable-v1-json`; without requesting it the browser
+    // closes the socket before `welcome`, and the dot reads "refused" forever.
+    socket = new WebSocket(url, ['actioncable-v1-json']);
   } catch (e) {
     setState({ status: 'error', error: e?.message || 'could not open socket' });
     scheduleReconnect();

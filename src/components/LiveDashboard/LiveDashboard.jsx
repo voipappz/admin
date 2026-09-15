@@ -62,6 +62,13 @@ const CABLE_LABEL = {
 };
 
 /** Seconds since a unix timestamp, formatted HH:MM:SS — the deployed dashboard's format. */
+/** A unix-seconds timestamp as local wall-clock time; '-' when unset. */
+function clockTime(value) {
+  const n = Number(value);
+  if (!value || !Number.isFinite(n) || n <= 0) return '-';
+  return new Date(n * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
 function elapsedFrom(value, now) {
   const ts = parseInt(value, 10);
   if (!ts || Number.isNaN(ts) || ts <= 0) return '00:00:00';
@@ -189,9 +196,29 @@ const LiveDashboard = () => {
   );
 
   // Agent rows: the cable's if it has them, otherwise the polled ones.
+  //
+  // The switch never publishes a name or an extension, and it publishes a
+  // status only when the agent changes it — so a live row can arrive with
+  // those three blank. They come from the polled list instead (by uuid), and
+  // everything that moves stays the cable's. An agent the poll does not know
+  // is still shown, blanks and all: hiding live activity is worse.
   const liveAgents = live.byScope('user');
   const usingCable = live.connected && liveAgents.length > 0;
-  const agentRows = usingCable ? liveAgents : rows;
+  const polledByUuid = useMemo(() => new Map(rows.map((r) => [r.uuid, r])), [rows]);
+  const agentRows = useMemo(() => {
+    if (!usingCable) return rows;
+    return liveAgents.map((a) => {
+      const uuid = a.uuid || a.id;
+      const p = polledByUuid.get(uuid);
+      return {
+        ...a,
+        uuid,
+        user_name: a.user_name || p?.user_name || '',
+        extension_username: a.extension_username || p?.extension_username || '',
+        status: a.status || p?.status || '',
+      };
+    });
+  }, [usingCable, liveAgents, rows, polledByUuid]);
 
   // Calls in progress come off the environment document's live_calls_* lists —
   // the only trustworthy source, since /api/calls holds a call only after it
@@ -211,6 +238,8 @@ const LiveDashboard = () => {
     switch (col.render) {
       case 'elapsed':
         return <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>{elapsedFrom(value, now)}</Box>;
+      case 'time':
+        return <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>{clockTime(value)}</Box>;
       case 'count':
         return renderCount(value);
       case 'status': {

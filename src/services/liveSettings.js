@@ -71,10 +71,14 @@ export const DEFAULT_COLUMNS = [
   { key: 'state', label: 'State', visible: true, render: 'state' },
   { key: 'call_outgoing_count', label: 'Out', visible: true, render: 'count' },
   { key: 'call_incoming_count', label: 'In', visible: true, render: 'count' },
-  { key: 'first_call_at', label: 'First call', visible: true, render: 'elapsed' },
+  { key: 'first_call_at', label: 'First call', visible: true, render: 'time' },
   { key: 'call_answer_at', label: 'Talking for', visible: true, render: 'elapsed' },
   { key: 'talking_to_number', label: 'Talking to', visible: true },
 ];
+
+// How a column renders is code, not a preference: a saved column list keeps
+// only order and visibility, so a render fix reaches every browser.
+const RENDER_BY_KEY = Object.fromEntries(DEFAULT_COLUMNS.map((c) => [c.key, c.render]));
 
 export const DEFAULT_SETTINGS = {
   statusColors: DEFAULT_STATUS_COLORS,
@@ -101,7 +105,7 @@ function merge(stored) {
 
   const columns = Array.isArray(stored.columns) && stored.columns.length
     ? [
-        ...stored.columns,
+        ...stored.columns.map((c) => ({ ...c, render: RENDER_BY_KEY[c.key] ?? c.render })),
         ...DEFAULT_COLUMNS.filter((d) => !stored.columns.some((c) => c.key === d.key)),
       ]
     : DEFAULT_COLUMNS;
