@@ -339,6 +339,20 @@ function AppContent() {
           }
         />
         <Route path="/login" element={<Navigate to="/admin" replace />} />
+        {/* The portal's widget dashboard, in the account console. Same screen
+            as `/`; Dashboard.jsx scopes it to the console's customer/
+            environment selection for an admin session. Gated on `reports`
+            like Live, since the console's ACLs carry no dashboard key. */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute requiredAcl="reports">
+              <Layout>
+                <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
         {/* /live was a redirect to /reports while there was no live screen to
             show. It is now the Live Dashboard: widget-defined columns over the
             live agent list, counted into the pills and tiles beside it. */}
