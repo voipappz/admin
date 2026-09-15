@@ -10,7 +10,10 @@ updates:
     # bot PR for them can only fail CI (#7). Minor and patch updates still come.
     # TypeScript 7 fails lint until typescript-eslint supports it (#34), and
     # @vitejs/plugin-react 6 needs Vite 8 while the app is on Vite 6 (#33).
+    # eslint-plugin-react-hooks 7 fails lint on this codebase (#40).
     ignore:
+      - dependency-name: "eslint-plugin-react-hooks"
+        update-types: ["version-update:semver-major"]
       - dependency-name: "@mui/*"
         update-types: ["version-update:semver-major"]
       - dependency-name: "typescript"
