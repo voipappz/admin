@@ -63,7 +63,7 @@ jobs:
             "$GITHUB_RUN_NUMBER" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${GITHUB_SHA::8}" > dist/version.json
 
       - name: Upload build output
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -178,7 +178,7 @@ jobs:
 
       - name: Upload the report
         if: always() && steps.creds.outputs.ready == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/
