@@ -10,6 +10,7 @@ import MiscellaneousServicesIcon from '@mui/icons-material/MiscellaneousServices
 import SecurityIcon from '@mui/icons-material/Security';
 import ArticleIcon from '@mui/icons-material/Article';
 import TimelineIcon from '@mui/icons-material/Timeline';
+import DnsIcon from '@mui/icons-material/Dns';
 import SchemaIcon from '@mui/icons-material/Schema';
 import CallIcon from '@mui/icons-material/Call';
 import ChatIcon from '@mui/icons-material/Chat';
@@ -47,6 +48,9 @@ export const NAV_ITEMS = [
   // /events but had no rail entry, so the screen was only reachable via ⌘K.
   { text: 'Events',        path: '/events',         iconComponent: BoltIcon,                  aclKey: 'logs',                           group: 'MONITOR'  },
   { text: 'Monitoring',    path: '/monitoring',     iconComponent: TimelineIcon,              aclKey: 'monitors',                       group: 'MONITOR'  },
+  // Every node with full CRUD over the nodes API (writes are root-only, so the
+  // buttons show for root). Same screen as Monitoring's Nodes section.
+  { text: 'Nodes',         path: '/nodes',          iconComponent: DnsIcon,                   aclKey: 'monitors',                       group: 'MONITOR'  },
   { text: 'Reports',       path: '/reports',        iconComponent: AssessmentIcon,            aclKey: 'reports',                        group: 'MONITOR'  },
   { text: 'Users',         path: '/users',          iconComponent: PeopleIcon,                aclKey: 'users',                          group: 'MANAGE'   },
   { text: 'Accounts',      path: '/accounts',       iconComponent: BadgeIcon,                 aclKey: 'accounts',                       group: 'MANAGE'   },
