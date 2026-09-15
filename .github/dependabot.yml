@@ -5,6 +5,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # The app stays on MUI 7 / MUI X 8 until a planned migration: the 9.x
+    # majors remove icon paths and change APIs across hundreds of files, so a
+    # bot PR for them can only fail CI (#7). Minor and patch updates still come.
+    ignore:
+      - dependency-name: "@mui/*"
+        update-types: ["version-update:semver-major"]
     groups:
       # One PR per ecosystem cluster instead of thirty. A lockfile bump that
       # touches twelve @mui packages is one review, not twelve.
