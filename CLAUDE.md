@@ -31,16 +31,16 @@ changes **env, not code**.
 | `make test` | `mix compile --warnings-as-errors` then the Elixir suite, in Docker — `TEST=path/pattern` narrows it |
 | `make ci` | Run the CI workflow locally with `act` — `JOB=portal\|prod-image\|all` |
 | `make iex` / `make tui` / `make tmux` | Cockpit — attach a shell to the running portal, a live terminal dashboard, or a three-pane log+health view |
-| `cd ../mothership && make portal-deploy DEST=nimbus` | Deploy Nimbus through the mothership-owned Kamal policy |
+| `make deploy DEST=connectix` | Deploy — the Kamal policy lives in THIS repo now (`config/deploy.*.yml`, `.kamal/`), not the mothership |
 
 **Never deploy.** Building, testing and probing a production image locally is
-fine; `portal-deploy`, `kamal deploy`, pushing an image tag anything reads as
-`:latest`, and recreating a container on a live host are the operator's calls,
-not an agent's. Say what the command is and let a human run it.
+fine; `kamal deploy`, pushing an image tag anything reads as `:latest`, and
+recreating a container on a live host are the operator's calls, not an agent's.
+Say what the command is and let a human run it.
 
 `DEST` is required for exactly this reason: without it kamal falls back to
-`config/portal/deploy.yml`, which is a **different live host** with a
-**different image** from every named destination. A dropped `DEST=` does not
+`config/deploy.yml`, which is a **different live host** with a **different
+image** from every named destination. A dropped `DEST=` does not
 fail — it deploys somewhere else, and the first symptom is a timeout against a
 host nobody meant to touch. The Makefile refuses rather than guessing.
 
@@ -48,100 +48,89 @@ host nobody meant to touch. The Makefile refuses rather than guessing.
 
 `make dev` starts the portal — the whole app, one container.
 
-The cable is NOT part of it: the portal dials a real va-crystal node directly
-(`PORTAL_CABLE_URL`), local by default. Neither is the Chrome extension, which
+The broker is: `make dev` starts a local NATS with JetStream beside the portal,
+and the portal consumes from whatever `NATS_URL` names. The Chrome extension is
+not part of it, and
 lives in `../chrome` with its own Makefile — `make -C ../chrome build`, then
 load `../chrome/angular/dist` unpacked.
 
 | Service | Port | What it is |
 |---|---|---|
-| `elixir` | **4001** | The portal — **the origin, and the whole app**. Serves the LiveView UI and `/ws/events`, verifies tokens, holds the cable connection, forwards `/auth` · `/api/` · `/tasks/` to the mothership. |
+| `elixir` | **4001** | The portal — **the origin, and the whole app**. Serves the LiveView UI and `/ws/events`, performs the login, verifies its own tokens, consumes events from the broker, forwards the rest of `/auth` · `/api/` · `/tasks/` upstream. |
+| `nats` | **4222** | The broker events arrive on. JetStream on, store on a named volume. |
 
 **4001 is the origin and does not move.** The LiveView UI and the Chrome
 extension both point at it, and neither should ever have to change.
 
-**Everything uses `network_mode: host`**, because cable and NATS are published
-on the host's loopback and a bridged container cannot see `127.0.0.1`.
+**Everything uses `network_mode: host`**, because the broker is published on
+the host's loopback and a bridged container cannot see `127.0.0.1`.
 
 ### Local by default, deliberately
 
-The portal's `ENGINE_URL` and `CABLE_URL` are scoped to their own variables
-(`PORTAL_ENGINE_URL`, `PORTAL_CABLE_URL`) and default to local. They
+The portal's `ENGINE_URL` is scoped to its own variable
+(`PORTAL_ENGINE_URL`) and defaults to local. It
 deliberately do **not** fall back to `MOTHERSHIP_URL`: that is the
 local-production fallback and may name the cloud, so the old chain silently
-pointed the portal at production while the cable and broker beside it stayed
+pointed the portal at production while the broker beside it stayed
 local — which presented as a login failing for a user who exists locally.
 
 ### The login pipeline
 
-A login from the Chrome extension takes one path, and every hop is local except
-the last:
+A login from the Chrome extension takes one hop, and it ends here:
 
 ```
 Chrome extension
   │  POST /auth/user_login          (same origin it opens its socket on)
   ▼
-Elixir portal            :4001      ../app/connectix
-  │  cable frame: {action:"request", id, method, path, body}
-  ▼
-va-crystal cable         :4100      ../va-crystal, ApiProxy channel
-  │  HTTP to API_URL
-  ▼
-Ruby API                            the remote server — the login database
+Elixir portal            :4001      ConnectixWeb.Portal.AuthController
 ```
 
-**va-crystal performs the login, not Elixir.** The portal holds no user
-database; it hands the request to the cable and waits for the reply. The node
-forwards it to `API_URL` and transmits the response back to that one
-subscriber. Nothing is stored on the way through — no session, no cache, no
-`STATE` write.
+**THE PORTAL PERFORMS THE LOGIN.** It checks the credential against the agents
+named in `connectix/priv/pocketflow/screen_pop.yaml`, mints a token, and
+answers in the shape the extension already parses. Nothing upstream has to be
+reachable, correct, or signing with a key this app agrees with.
 
-**There is still an HTTP fallback, and it is not a hedge.** The relay needs a
-node carrying the `ApiProxy` channel with `CABLE_API_PROXY=1`, and that is not
-true of every deployed node — the channel ships in an image, and old images are
-everywhere. `Plugs.EngineProxy` tries cable first and falls back to
-`ENGINE_URL` over HTTP; a portal that answered 502 against an older node would
-be a worse regression than one HTTP hop. It falls back only when *this hop*
-failed, never on a status the API itself returned: a relayed 401 is a
-successful relay.
+It used to be forwarded to a mothership, and that put the one thing every
+session depends on outside the app. When the upstream was wrong the failure
+arrived as a login that simply did not work, with nothing local to inspect —
+measured: `nimbus-prod` answered 500 to real credentials and
+`cloud.voipappz.io` answered 401, both confirmed by calling them directly,
+bypassing the portal.
 
-Which one served a request is in the log — `proxy: POST /auth/user_login -> 401
-via cable`, or `via <host>`. Worth reading before concluding anything about the
-transport, because both paths return the same body.
+**The token's `user_uuid` IS the agent's powerlink uuid.** The switch names an
+agent by that value and publishes their state to `state.user.<powerlink>`, so
+issuing it directly removes the lookup, the mapping step and the failure mode
+where the two resolve apart and every frame is dropped as unattributable.
 
-**A node without the channel is silent, not loud.** Cable has no frame for "no
-such channel": `Connection#subscribe` raises `Missing hash key: "ApiProxy"` and
-transmits nothing back — no rejection. `Realtime.ApiProxy` therefore times the
-silence and logs an error five seconds after an unconfirmed subscribe, because
-the only other symptom is that every login quietly takes the HTTP path.
+Two consequences worth knowing:
 
-The bootstrap is not circular even though a credential is needed to open the
-cable, because the *browser's* credential is not what opens it. The portal
-opens one connection with its own account credential; every user login then
-rides over that already-authenticated socket. A browser credential never
-reaches the node.
+- **Verification is local.** `Realtime.Jwt` derives its signing key from the
+  endpoint's `secret_key_base` (HMAC'd with a purpose string, so it shares no
+  bytes with Phoenix's cookie key) and both mints and verifies with it. Expiry
+  is checked, which the node's own verifier never did. Nothing is asked of
+  anyone on the critical path of a socket open.
+- **An entry with no password is a mapping only** and refuses to sign in,
+  rather than accepting anything. `AGENT_PASSWORD` names the credential;
+  unset, every agent refuses.
 
-Two details that look optional and are not:
+`/auth/user_login` and `/api/users/:uuid` are answered here
+(`@portal_owned` in `Plugs.EngineProxy`); the rest of `/auth`, `/api/` and
+`/tasks/` still forward to `ENGINE_URL` when one is set, and the portal is
+complete without it.
 
-- **`id` is mandatory and echoed.** One connection carries every user's
-  requests concurrently, so a reply is matched to its request by `id` alone.
-  An implementation without it passes a single-request test and interleaves
-  wrongly the moment two people log in at once.
-- **The proxy is off unless `CABLE_API_PROXY=1`.** It is a new inbound surface
-  on a node that otherwise accepts nothing but health and config, so deployed
-  nodes must not acquire an API relay just by taking an image upgrade. Its
-  path allowlist (`/auth`, `/api/`, `/tasks/`) mirrors the portal's
-  `@engine_prefixes`.
-
-The full frame contract, error table and limits are in
-`docs/cable-api-proxy-spec.md`.
+**A route that moves into this app must stay in the CORS policy.** The
+forwarder is what answers preflights and sets `access-control-allow-origin`,
+and the extension's origin is a `chrome-extension://<id>` no upstream allowlist
+can name. Moving `/auth/user_login` here silently moved it out of that policy:
+it answered 200 to curl and was blocked by every browser. Portal-owned paths
+are dressed on the way out for exactly that reason.
 
 ## Architecture (big picture)
 
 One runtime piece: **the Elixir portal** (`connectix/`, :4001) — the origin
 and the whole app. A `WebSock` handler at `/ws/events` (not a Phoenix Channel:
-the contract is a plain JSON frame protocol), one application Cable connection
-plus per-user Cable connections fanned out over `Phoenix.PubSub`, token
+the contract is a plain JSON frame protocol), one broker subscription fanned
+out over `Phoenix.PubSub`, token
 verification through the node's `ApiProxy` channel, and a Phoenix LiveView UI
 (`ChatLive` at `/chat`, gated by `ConnectixWeb.Plugs.BasicAuth` — see
 `connectix/CLAUDE.md` for the LiveView/Bot-first conventions). Elixir holds no
@@ -175,9 +164,8 @@ LiveView UI specifically) HTTP Basic Auth — see `connectix/CLAUDE.md`.
 ## Environment
 
 Env is the whole tenant-configuration surface — see `.env.example` (documented
-inline). The local stack keeps the portal and cable on the API at port 5000 by
-default; change `PORTAL_ENGINE_URL` and `CABLE_API_URL` together when that API
-lives elsewhere. Production Kamal destinations set `ENGINE_URL` in mothership.
+inline). `NATS_URL` and the `nats.subjects` block in
+`connectix/priv/pocketflow/screen_pop.yaml` decide where events come from. Production Kamal destinations set `ENGINE_URL` in mothership.
 
 - Editing `.env` + `docker compose restart` does **not** re-read env vars — use
   `docker compose up -d --force-recreate <service>`.
@@ -217,11 +205,12 @@ connect.** The switch names an agent by `meta.CC-Agent` — which it also copies
 to `user_uuid` and into the event `id`'s last segment — and that value is the
 user's `profile.powerlink_token`, never the portal uuid.
 
-**The cable client outlives one browser socket, so the FIRST connect is the
-only one that ever supplied agent ids — and it is the one most likely to have
-none.** A user created minutes before they log in has no `powerlink_token`
+**This was the "pops never fire" bug, before the portal issued its own
+tokens.** A user created minutes before they log in has no `powerlink_token`
 yet, so the client starts with `agent_ids: []` and refuses every pop for as
-long as it lives; logging in again does not help, because `ensure_cable/1` sees
+long as it lived; logging in again did not help, because the old per-user
+connection was already started and kept its empty list. The token carries the
+agent id now, so there is nothing to resolve apart.
 `{:already_started, _}`. It now hands the ids over instead. This was the "pops
 never fire" bug, and the symptom is total silence, not an error.
 
@@ -298,16 +287,16 @@ what is actually running before retrying.
 `make tui` attaches to the local portal; `make tui YAML=config/deploy.connectix.yml`
 (or `DEST=connectix`) attaches to the portal that kamal file deploys, through
 `kamal app exec` and shows one row per signed-in agent: browser sockets,
-socket age, last pong, cable client state, confirmed/subscribed streams,
+socket age, last pong, the subjects subscribed,
 reconnect attempts, and the last socket closes with reason and lifetime.
 `x` kicks the agent's socket (the extension reconnects in ~3s), `c` reopens
-their cable connection. The same data is `Realtime.Inspector.snapshot/0`
+the upstream subscription. The same data is `Realtime.Inspector.snapshot/0`
 from `make iex`, and every socket close is now a log line:
 `session: closed <user> after 1h29m (:remote)`.
 
 What the 2026-09-14 investigation established from the portal and
 kamal-proxy logs on nimbus-connectix: the server side was not dropping
-anything at the 1–2 hour mark (no liveness reconnects, cable errors only on
+anything at the 1–2 hour mark (no liveness reconnects, upstream errors only on
 a node restart). Browser sockets lived 1h29m and 1h37m and were closed from
 the BROWSER side about one second after the agent opened the popup; the agent
 then logged in again by hand 25–40s later. The portal never refused those
@@ -316,8 +305,8 @@ sockets. So the trail to follow next is on the extension side, and the
 
 ### Monitoring
 
-`/health` (unauthenticated, no content negotiation) reports `cable`,
-`api_relay`, `engine`, `events` and `disk`, with numbers on the disk check so a
+`/health` (unauthenticated, no content negotiation) reports `nats`,
+`engine`, `events` and `disk`, with numbers on the disk check so a
 monitor can alert BEFORE the floor. `/health/ready` deliberately does NOT fail
 on low disk: it is the deploy gate and the load-balancer signal, and failing it
 would take the site down and block the deploy that might fix it.
@@ -332,11 +321,12 @@ attached (`down / disk: 8% free on /data`), which a `curl` healthcheck cannot
 express — and the release image has neither `curl` nor `wget`.
 
 **A connection can die without saying so.** `@recv_timeout` was declared and
-never armed: when a NAT or load balancer drops an established cable connection
+never armed: when a NAT or load balancer drops an established connection
 there is no close frame and no error, `Mint` reports nothing, and the process
 holds a dead socket until something restarts it. Default TCP keepalive is two
 hours, which is why the symptom was "notifications stop after a few hours".
-Both cable connections now treat 60s of silence as death. The singleton
+The broker connection reconnects on its own and the producer re-subscribes;
+`/health` reports `nats` down in between. The old singleton
 `ApiProxy` is the worse one to lose: it carries `CallEvents` for every user, so
 its death looks exactly like a quiet switch.
 
