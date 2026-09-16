@@ -121,6 +121,7 @@ const SystemLogs = ({ initialParams }) => {
     enableConsole,
     disableConsole,
     getConsoleStatus,
+    alerts,
   } = useSystemLogs({ customerUuid: selectedCustomer?.uuid, initialParams });
 
   const [traceEnabled, setTraceEnabled] = useState(false);
@@ -407,6 +408,22 @@ const SystemLogs = ({ initialParams }) => {
         bgcolor: '#f8fafc',
       }}
     >
+      {/* App error-rate alerts (/api/logs/alerts). Click to see that app's errors. */}
+      {alerts.length > 0 && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {alerts.map((a) => (
+            <Alert
+              key={a.app}
+              severity={a.level === 'critical' ? 'error' : 'warning'}
+              sx={{ py: 0, cursor: 'pointer' }}
+              onClick={() => { setSelectedApp(a.app); setSelectedSeverity('err'); }}
+            >
+              {`${a.app}: ${a.count} error lines in the last ${a.window}m (threshold ${a.threshold})`}
+            </Alert>
+          ))}
+        </Box>
+      )}
+
       {/* Row 1: Time Range, Search, Actions */}
       <Paper
         elevation={0}

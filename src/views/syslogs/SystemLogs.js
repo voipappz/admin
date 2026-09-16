@@ -20,6 +20,8 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
   // Dropdown data
   const [apps, setApps] = useState([]);
   const [nodes, setNodes] = useState([]);
+  // App error-rate breaches from /api/logs/alerts (API config/logs.yaml).
+  const [alerts, setAlerts] = useState([]);
 
   // Pagination
   const [pagination, setPagination] = useState({
@@ -110,7 +112,17 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     }
   }, []);
 
-  // Load logs — calls InfluxDB-backed /api/syslogs
+  const loadAlerts = useCallback(async () => {
+    try {
+      const response = await syslogsApi.fetchAlerts();
+      setAlerts(Array.isArray(response) ? response : response?.data || []);
+    } catch (error) {
+      console.error('Failed to load log alerts:', error);
+      setAlerts([]);
+    }
+  }, []);
+
+  // Load logs — /api/logs (the API's Redis-backed app log store)
   const loadLogs = useCallback(async () => {
     try {
       setLoading(true);
@@ -190,7 +202,8 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
       loadLogs();
       loadChartData();
     }
-  }, [dateRange?.period, loadLogs, loadChartData]);
+    loadAlerts();
+  }, [dateRange?.period, loadLogs, loadChartData, loadAlerts]);
 
   // Derived filter state
   const hasActiveFilters = useMemo(
@@ -279,6 +292,7 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
   useEffect(() => {
     loadApps();
     loadNodes();
+    loadAlerts();
   }, [loadApps, loadNodes]);
 
   // Load logs when filters change
@@ -321,6 +335,7 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     // Dropdown data
     apps,
     nodes,
+    alerts,
 
     // Filters
     searchQuery,

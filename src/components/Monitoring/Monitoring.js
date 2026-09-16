@@ -8,7 +8,7 @@ import { alertsApi } from '../../services/api/alertsApi';
  * `/health` state is supplied by the shared useApiHealth poll in the view;
  * `/health/detailed` is intentionally reserved for the on-demand health dialog.
  *
- *   /api/syslogs/{metrics,aggregate}
+ *   /api/logs/{metrics,aggregate}
  *                                 aggregations — per-app/severity counts and
  *                                 the severity-over-time series
  *   /api/monitoring/influxdb/query

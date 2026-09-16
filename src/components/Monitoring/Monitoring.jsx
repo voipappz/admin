@@ -304,7 +304,7 @@ const Monitoring = () => {
               ))}
             </Box>
 
-            {/* Log aggregations — /api/syslogs */}
+            {/* Log aggregations — /api/logs */}
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               {LOG_CARDS.map(c => {
                 const t = c.thresholdPath

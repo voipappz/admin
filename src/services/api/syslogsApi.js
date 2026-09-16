@@ -1,7 +1,9 @@
 import { apiService } from '../apiService';
 
-// Syslogs API — queries InfluxDB-backed /api/syslogs endpoints
-const BASE = '/api/syslogs';
+// App logs API — /api/logs: the API's own log lines, short term, from Redis
+// (it was /api/syslogs; the API renamed it with no alias). Container logs are
+// not here — they stay in InfluxDB for monitoring.
+const BASE = '/api/logs';
 
 /**
  * Build a URLSearchParams string from the common syslogs query shape.
@@ -19,6 +21,7 @@ const buildQuery = (params = {}) => {
   if (params.action)            qs.append('action', params.action);
   if (params.customer_uuid)     qs.append('customer_uuid', params.customer_uuid);
   if (params.inline)            qs.append('inline', params.inline);
+  if (params.subject_uuid)      qs.append('subject_uuid', params.subject_uuid);
   if (params.interval)          qs.append('interval', params.interval);
   if (params.group_by)          qs.append('group_by', params.group_by);
   return qs.toString();
@@ -39,6 +42,7 @@ export const syslogsApi = {
       action: params.action,
       customer_uuid: params.customer_uuid,
       inline: params.inline,
+      subject_uuid: params.subject_uuid,
     });
     return apiService.get(`${BASE}?${qs}`, {}, 'fetching syslogs', false, true);
   },
@@ -81,6 +85,10 @@ export const syslogsApi = {
     enabled
       ? apiService.post(`${BASE}/monitoring`, {}, {}, 'enabling syslog monitoring', false, true)
       : apiService.delete(`${BASE}/monitoring`, {}, 'disabling syslog monitoring', false, true),
+
+  /** App error-rate breaches: [{ app, count, window, threshold, level }]. */
+  fetchAlerts: () =>
+    apiService.get(`${BASE}/alerts`, {}, 'fetching log alerts', false, true),
 
   fetchApps: () =>
     apiService.get(`${BASE}/apps`, {}, 'fetching syslog apps', false, true),

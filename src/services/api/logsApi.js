@@ -1,7 +1,10 @@
 import { apiService } from '../apiService';
 
+// One subject's app log lines: GET /api/logs?subject_uuid=<uuid> answers
+// { total, data: [{ time, app, severity, action, message, fields, ... }] }
+// (the API's Log store). The other helpers that lived here called endpoints
+// that no longer exist and had no callers; durable records are eventsApi.
 export const logsApi = {
-  // Main logs endpoint (following exact AngularJS pattern)
   fetchLogs: (params) => {
     // Build parameters exactly like AngularJS logsResource pattern
     const filters = {
@@ -49,74 +52,8 @@ export const logsApi = {
       filters.to = params.to;
     }
 
-    // Build query string exactly like AngularJS: /api/logs?:filter (like queriesResource)
     const queryString = new URLSearchParams(filters).toString();
     return apiService.get(`/api/logs?${queryString}`);
-  },
-
-  // Get available subject types (AngularJS: logSubjectTypes)
-  fetchSubjectTypes: () => {
-    return apiService.get('/api/logs/subjects');
-  },
-
-  // Get available applications (AngularJS: logApps)
-  fetchApps: () => {
-    return apiService.get('/api/logs/apps');
-  },
-
-  // Get subjects for a specific type (AngularJS: logSubjects)
-  fetchSubjects: (type) => {
-    return apiService.get(`/api/logs/subject_uuids?type=${encodeURIComponent(type)}`);
-  },
-
-  // Export logs
-  exportLogs: (format, params) => {
-    const filters = {
-      ...params,
-      export: format
-    };
-    const queryString = new URLSearchParams(filters).toString();
-    return apiService.get(`/api/logs/?${queryString}`);
-  },
-
-  // Fetch available log sources
-  fetchSources: () =>
-    apiService.get('/api/logs/sources', {}, 'fetching log sources', false),
-
-  // Fetch log statistics
-  fetchStats: () =>
-    apiService.get('/api/logs/stats', {}, 'fetching log stats', false),
-
-  // Fetch logs by hostname
-  fetchByHost: (hostname) =>
-    apiService.get(`/api/logs/host/${encodeURIComponent(hostname)}`, {}, `fetching logs for host ${hostname}`, false),
-
-  // Fetch logs by service name
-  fetchByService: (serviceName) =>
-    apiService.get(`/api/logs/service/${encodeURIComponent(serviceName)}`, {}, `fetching logs for service ${serviceName}`, false),
-
-  // Search logs with query
-  search: (query) =>
-    apiService.post('/api/logs/search', query, {}, 'searching logs', false),
-
-  // Aggregate for charts — group_by=event_type|level
-  fetchAggregate: (params) => {
-    const qs = new URLSearchParams(params).toString();
-    return apiService.get(`/api/logs/aggregate?${qs}`, {}, 'fetching log aggregate', false);
-  },
-
-  // Get a single event by its UUID
-  fetchEvent: (eventId) =>
-    apiService.get(`/api/logs/${encodeURIComponent(eventId)}`),
-
-  // Get distinct event types for filter dropdown
-  fetchEventTypes: () =>
-    apiService.get('/api/logs/event_types', {}, 'fetching event types', false),
-
-  // Export logs by time range and format
-  exportByRange: (format = 'json', range = '1h') => {
-    const queryString = new URLSearchParams({ format, range }).toString();
-    return apiService.get(`/api/logs/export?${queryString}`, {}, 'exporting logs', false);
   },
 };
 
