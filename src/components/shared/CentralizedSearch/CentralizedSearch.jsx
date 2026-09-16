@@ -32,6 +32,7 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import EnhancedDateRangePicker from '../EnhancedDateRangePicker/EnhancedDateRangePicker.jsx';
 import { useAuth } from '../../../context/AuthContext';
+import { useUserAuth } from '../../../context/UserAuthContext';
 import { parseSearchInput } from '../../../hooks/useCentralizedSearch';
 import { primaryButtonStyle, secondaryButtonStyle } from '../../../theme/buttonStyles';
 import './CentralizedSearch.css';
@@ -609,7 +610,13 @@ const CentralizedSearch = ({
   hideSearchInput = false,
   inlineFilters = null,
 }) => {
-  const { access } = useAuth();
+  // The bearer for the raw fetches in AjaxInput/TagFilterInput (they bypass
+  // apiService, which resolves this itself). Falls back to the portal token so
+  // a screen shared with the portal — DIDs and its meta-key tag segment — can
+  // load its filter options instead of firing an unauthenticated request.
+  const { access: adminAccess, isAuthenticated: adminAuthenticated } = useAuth();
+  const { token: portalToken } = useUserAuth();
+  const access = adminAuthenticated ? adminAccess : (portalToken || adminAccess);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [filterValues, setFilterValues] = useState({});
   const [filterNegated, setFilterNegated] = useState({});

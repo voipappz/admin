@@ -154,15 +154,24 @@ const Subscriptions = lazy(() => import('./components/Subscriptions/Subscription
 const Providers = lazy(() => import('./components/Providers/Providers.jsx'));
 const Environments = lazy(() => import('./components/Environments/Environments.jsx'));
 const DIDs = lazy(() => import('./components/DIDs/DIDs.jsx'));
+// The PORTAL's numbers screen — the same DIDs screen in portalMode. See
+// PortalDIDs.jsx for why it isn't a separate implementation.
+const PortalDIDs = lazy(() => import('./components/PortalDIDs/PortalDIDs.jsx'));
 const PBXRouting = lazy(() => import('./components/PBXRouting/PBXRoutingView.jsx'));
 // Routing lands on the DIDs LIST; the flow canvas opens only via a row's
 // Edit button (?did=...). Closing the canvas returns to the list.
 const DIDsList = lazy(() => import('./components/DIDs/DIDs.jsx'));
 const RoutingScreen = () => {
   const [params, setParams] = useSearchParams();
+  // /routing is reachable from both surfaces. Falling back to the list means
+  // falling back to the LIST FOR THIS SESSION — a portal user closing the
+  // canvas must not land on the console's DIDs screen.
+  const admin = useAuth();
+  const user = useUserAuth();
+  const portalMode = !admin.isAuthenticated && user.isAuthenticated;
   return params.get('did')
     ? <PBXRouting onClose={() => setParams({}, { replace: true })} />
-    : <DIDsList />;
+    : <DIDsList portalMode={portalMode} />;
 };
 // /dids/:id deep link — per-DID edit is the visual routing flow.
 const DIDEditRedirect = () => {
@@ -296,6 +305,12 @@ function AppContent() {
       return canAccess(aclKey) ? children : <Navigate to="/account" replace />;
     }
     if (user.isAuthenticated) {
+      // `dids` is granted unconditionally: portal users' ACLs carry no dids
+      // entry, so gating on it hid the Numbers rail item AND bounced /my-dids
+      // and /routing. Grant a dids ACL to portal users on the backend and this
+      // can go back to the check below. The ADMIN branch above is untouched —
+      // the console still enforces the dids ACL on /dids and /routing.
+      if (aclKey === 'dids') return children;
       return canAccessScreen(user.acl, aclKey) ? children : <Navigate to="/dashboard" replace />;
     }
     return <Navigate to="/" replace />;
@@ -369,6 +384,16 @@ function AppContent() {
             <DualProtectedRoute aclKey="calls">
               <Layout>
                 <PortalCalls />
+              </Layout>
+            </DualProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-dids"
+          element={
+            <DualProtectedRoute aclKey="dids">
+              <Layout>
+                <PortalDIDs />
               </Layout>
             </DualProtectedRoute>
           }
@@ -592,14 +617,16 @@ function AppContent() {
         {/* Per-DID edit deep link — editing a DID happens on the visual
             routing flow (React Flow canvas), so forward to it. */}
         <Route path="/dids/:id" element={<DIDEditRedirect />} />
+        {/* Dual-surface: the portal's Numbers screen links a DID's call flow
+            here too, gated on the same `dids` ACL in whichever session is live. */}
         <Route
           path="/routing"
           element={
-            <ProtectedRoute requiredAcl="dids">
+            <DualProtectedRoute aclKey="dids">
               <Layout>
                 <RoutingScreen />
               </Layout>
-            </ProtectedRoute>
+            </DualProtectedRoute>
           }
         />
         <Route

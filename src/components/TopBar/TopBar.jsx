@@ -157,7 +157,7 @@ function SortableEnvChip({ env, onDelete, canDelete }) {
 const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, onToggleExpand }) => {
   const navigate = useNavigate();
 
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, accountCustomer } = useAuth();
   const { isDarkMode, toggleTheme } = useThemeMode();
   useTour();
 
@@ -1114,6 +1114,17 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
             <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0, py: 0.5 }}>
               {customerList.map((c) => {
                 const active = c.uuid === selectedCustomer?.uuid;
+                // Editing a customer is NOT root-only. The API gates PATCH
+                // /api/customers/:id on tenancy -- Account#customer_uuids, the
+                // account's own customer plus its AccountResource grants -- and
+                // never on the `root` JWT claim, which the serializer that signs
+                // it calls a "UI hint only". Gating the pencil on isRoot hid an
+                // edit the server would have accepted, and left an account with
+                // no way at all to reach its own customer's settings (login OTP
+                // among them), since SidebarCustomerSwitcher's ungated "Manage
+                // customer" action is imported nowhere. Create and duplicate act
+                // outside the caller's tenant, so those stay root-only.
+                const canEditCustomer = isRoot || c.uuid === accountCustomer?.uuid;
                 const metaEntries = (c.meta && typeof c.meta === 'object') ? Object.entries(c.meta) : [];
                 const created = c.created_at ? new Date(c.created_at).toLocaleDateString() : null;
                 return (
@@ -1143,13 +1154,15 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
                         {metaEntries.length > 2 && <Typography sx={{ fontSize: '0.55rem', color: 'var(--theme-text-secondary)' }}>+{metaEntries.length - 2}</Typography>}
                       </Box>
                     </Box>
-                    {isRoot && (
+                    {canEditCustomer && (
                       <Box className="cust-actions" sx={{ display: 'flex', flexShrink: 0, opacity: active ? 0.7 : 0, transition: 'opacity 0.15s' }}>
-                        <Tooltip title="Duplicate customer">
-                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); openCustomerDuplicate(c); }} sx={{ p: 0.25 }}>
-                            <ContentCopyIcon sx={{ fontSize: 13 }} />
-                          </IconButton>
-                        </Tooltip>
+                        {isRoot && (
+                          <Tooltip title="Duplicate customer">
+                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); openCustomerDuplicate(c); }} sx={{ p: 0.25 }}>
+                              <ContentCopyIcon sx={{ fontSize: 13 }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                         <Tooltip title="Edit customer">
                           <IconButton size="small" onClick={(e) => { e.stopPropagation(); openCustomerEdit(c); }} sx={{ p: 0.25 }}>
                             <EditIcon sx={{ fontSize: 14 }} />

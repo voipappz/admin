@@ -179,6 +179,13 @@ const Layout = ({ children }) => {
         // sidebar/topbar — the dashboard is the center of this surface.
         // The assistant is here too: it used to exist only in the admin shell
         // below, so a portal user had neither the modal nor its shortcut.
+        //
+        // GlobalSearchProvider is mounted here too (not just on the admin
+        // branch): screens shared with the portal — DIDs — register their
+        // filter segments through it, and useGlobalSearch() THROWS without a
+        // provider. It's a self-contained filter store, nothing admin-specific.
+        // Nested in the same order as the admin shell below.
+        <GlobalSearchProvider>
         <AIChatSidebarProvider>
         <Box data-testid="user-layout" sx={{ minHeight: '100vh', display: 'flex' }}>
           <UserRail />
@@ -215,6 +222,7 @@ const Layout = ({ children }) => {
         </Box>
         <AIChatModal />
         </AIChatSidebarProvider>
+        </GlobalSearchProvider>
       ) : (
         // Authenticated layout: Sidebar + TopBar + Content
         <GlobalSearchProvider>

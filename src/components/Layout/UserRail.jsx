@@ -13,6 +13,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import PhoneIcon from '@mui/icons-material/Phone';
 import HistoryIcon from '@mui/icons-material/History';
 import SensorsIcon from '@mui/icons-material/Sensors';
+import DialpadIcon from '@mui/icons-material/Dialpad';
 import LogoutIcon from '@mui/icons-material/Logout';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
@@ -113,6 +114,18 @@ export default function UserRail() {
         label="Calls"
         active={location.pathname === '/my-calls'}
         onClick={() => navigate('/my-calls')}
+      />
+      {/* Numbers is not ACL-gated, like the other navigation items here. It
+          was gated on canAccessScreen(acl, 'dids') and portal users' ACLs
+          don't carry a dids entry, so the item never appeared. The route guard
+          is relaxed to match (see DualProtectedRoute in App.jsx) — the two must
+          agree, or the link leads somewhere that bounces you straight back. */}
+      <RailItem
+        testId="rail-dids"
+        icon={<DialpadIcon />}
+        label="Numbers"
+        active={location.pathname === '/my-dids' || location.pathname === '/routing'}
+        onClick={() => navigate('/my-dids')}
       />
       {/* Opens the assistant over the current screen rather than navigating,
           so a question about what is on screen keeps that screen in view. */}

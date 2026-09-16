@@ -5,6 +5,7 @@ import { useUserAuth } from '../../context/UserAuthContext';
 import { useSoftphone } from '../../context/SoftphoneContext';
 import { sipSettingsFromUser } from '../../lib/sip/sipSettings';
 import { getTokenExpiry } from '../../utils/jwt';
+import { logLoginDebug } from '../../utils/loginDebug';
 
 // The end-user (customer-facing) login — mirrors useLogin (Login.js) but
 // against the /auth/user_* surface. voipappz-api draws this line at the
@@ -190,6 +191,9 @@ export const useUserLogin = () => {
       token,
       tokenExpiresAt: tokenExpiry ? tokenExpiry.toISOString() : null
     };
+
+    // DEBUG: what did we just log in as? See utils/loginDebug.js.
+    logLoginDebug('user', { token, response: data, authData });
 
     // Clear stale per-session caches before login, same as the admin flow.
     localStorage.removeItem('dashboard-definitions');

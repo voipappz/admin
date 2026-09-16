@@ -4,6 +4,7 @@ import { configService } from '../services/configService';
 import { setDynamicApiBaseUrl } from '../config';
 import { useNotification } from './NotificationContext';
 import { useAuth } from './AuthContext';
+import { useUserAuth } from './UserAuthContext';
 import { fetchCustomerPortalData, applyCustomerBranding } from '../services/customerService';
 import { environmentsApi } from '../services/api/environmentsApi';
 
@@ -34,6 +35,32 @@ export const CustomerEnvironmentProvider = ({ children }) => {
 
   const { showSuccess, showError } = useNotification();
   const { isAuthenticated, user, isRoot, accountCustomer, accountUuid } = useAuth();
+  const portalAuth = useUserAuth();
+
+  // Portal-only session (the `/` surface): none of the machinery below runs —
+  // every fetch here early-exits on the admin `isAuthenticated` — so a portal
+  // user would get an empty scope and silently unscoped API calls. A portal
+  // user has exactly one environment, the one on their own account, and no way
+  // to switch it. Exposing it through this context is what lets the
+  // environment-scoped screens (DIDs, DIDForm, every Bridges/* dialog) work
+  // unchanged on both surfaces instead of each branching on the session.
+  const isPortalOnly = !isAuthenticated && portalAuth.isAuthenticated;
+  const portalEnvironment = portalAuth.user?.environment || null;
+  // Memoised: `selectedEnvironments` is a dependency of every screen's fetch
+  // effect, so handing out a fresh array each render is an infinite refetch.
+  const portalEnvironments = useMemo(() => {
+    if (!isPortalOnly || !portalEnvironment?.uuid) return [];
+    // The selectors that render this list key off `name`; the login response
+    // doesn't guarantee one, and a nameless option reads as a broken dropdown.
+    return [{ ...portalEnvironment, name: portalEnvironment.name || 'My application' }];
+  }, [isPortalOnly, portalEnvironment]);
+  const scopeToPortal = portalEnvironments.length > 0;
+
+  // A portal user cannot widen their own scope: the switcher lives in the admin
+  // TopBar and is never rendered for them, but the setters are reachable
+  // through this context, so they're stubbed rather than left live.
+  const noop = useCallback(() => {}, []);
+  const noopAsync = useCallback(async () => {}, []);
 
   // Fetch customers from API (only for root users) or use accountCustomer from JWT
   const fetchCustomers = useCallback(async () => {
@@ -690,33 +717,33 @@ export const CustomerEnvironmentProvider = ({ children }) => {
   const contextValue = useMemo(() => ({
     // State
     customers,
-    environments,
+    environments: scopeToPortal ? portalEnvironments : environments,
     selectedCustomer,
-    selectedEnvironments, // Array of selected environments
-    uncommittedEnvironments, // Array of uncommitted selections (for Apply button)
-    loading,
+    selectedEnvironments: scopeToPortal ? portalEnvironments : selectedEnvironments, // Array of selected environments
+    uncommittedEnvironments: scopeToPortal ? portalEnvironments : uncommittedEnvironments, // Array of uncommitted selections (for Apply button)
+    loading: scopeToPortal ? false : loading,
     loadingAllEnvironments, // Loading state for action=all environments fetch
     applyingEnvironments, // Loading state for Apply button
-    initialized,
+    initialized: scopeToPortal ? true : initialized,
     isRoot, // Whether current user can select multiple customers
 
     // Computed
-    hasSelection,
-    canSelectEnvironment,
-    hasUncommittedChanges,
+    hasSelection: scopeToPortal ? true : hasSelection,
+    canSelectEnvironment: scopeToPortal ? false : canSelectEnvironment,
+    hasUncommittedChanges: scopeToPortal ? false : hasUncommittedChanges,
 
     // Actions
     fetchCustomers,
     fetchSelectedEnvironments,
     fetchAllEnvironments,
     searchEnvironments,
-    selectCustomer,
-    toggleEnvironment,
-    setUncommittedEnvironments: setUncommittedEnvironmentsDirect,
-    selectAllEnvironments,
-    clearEnvironmentSelections,
-    applyEnvironmentSelections,
-    clearSelections,
+    selectCustomer: scopeToPortal ? noopAsync : selectCustomer,
+    toggleEnvironment: scopeToPortal ? noop : toggleEnvironment,
+    setUncommittedEnvironments: scopeToPortal ? noop : setUncommittedEnvironmentsDirect,
+    selectAllEnvironments: scopeToPortal ? noop : selectAllEnvironments,
+    clearEnvironmentSelections: scopeToPortal ? noop : clearEnvironmentSelections,
+    applyEnvironmentSelections: scopeToPortal ? noopAsync : applyEnvironmentSelections,
+    clearSelections: scopeToPortal ? noop : clearSelections,
     initialize
   }), [
     customers,
@@ -743,7 +770,11 @@ export const CustomerEnvironmentProvider = ({ children }) => {
     clearEnvironmentSelections,
     applyEnvironmentSelections,
     clearSelections,
-    initialize
+    initialize,
+    scopeToPortal,
+    portalEnvironments,
+    noop,
+    noopAsync
   ]);
 
   return (
