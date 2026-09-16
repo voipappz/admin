@@ -107,6 +107,33 @@ defmodule Connectix.Realtime.AgentIdentityTest do
         assert Connectix.Realtime.PopRule.agents_for("anyone") == []
       end)
     end
+
+    test "an id the file names as a powerlink IS an agent id, whoever holds it" do
+      # The portal's own login mints a token whose `user_uuid` is the powerlink
+      # id, so the value on the socket and the value on the wire are the same
+      # one. Looking it up in a map keyed by email finds nothing — and then the
+      # socket registers nothing, every `state.user.<id>` frame is dropped as
+      # unattributable, and no pop ever fires. Silently, because an unclaimed
+      # id looks exactly like an agent who is not signed in.
+      with_agents("""
+      agents:
+        "662@phk.com": {powerlink: cb1b0a46, password: "x"}
+      """, fn ->
+        assert Connectix.Realtime.PopRule.agent_id?("cb1b0a46")
+        refute Connectix.Realtime.PopRule.agent_id?("somebody-else")
+
+        assert AgentIdentity.resolve("cb1b0a46", nil) == ["cb1b0a46"]
+      end)
+    end
+
+    test "an id nobody names resolves to nothing, never to everyone's ids" do
+      with_agents("""
+      agents:
+        "662@phk.com": {powerlink: cb1b0a46, password: "x"}
+      """, fn ->
+        assert AgentIdentity.resolve("a-stranger", nil) == []
+      end)
+    end
   end
 
 end

@@ -164,6 +164,15 @@ defmodule ConnectixWeb.Router do
     post "/user_login", AuthController, :user_login
   end
 
+  # The last route the extension asked an upstream for. Served here so this
+  # portal needs no engine at all — the file that lets an agent sign in is the
+  # same one that describes them. Its own token, naming its own user.
+  scope "/api", ConnectixWeb.Portal do
+    pipe_through :api
+
+    get "/users/:uuid", AuthController, :show_user
+  end
+
   scope "/api", ConnectixWeb.Portal do
     pipe_through [:api, ConnectixWeb.Plugs.UserTokenAuth]
 

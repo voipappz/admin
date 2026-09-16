@@ -48,7 +48,7 @@ defmodule Connectix.Realtime.AgentIdentity do
   """
   @spec resolve(String.t(), String.t() | nil) :: [String.t()]
   def resolve(user_uuid, token) when is_binary(user_uuid) and is_binary(token) do
-    by_uuid = PopRule.agents_for(user_uuid)
+    by_uuid = self_or_named(user_uuid)
 
     # WRITTEN DOWN BEATS LOOKED UP, and skips the call entirely. A uuid is the
     # one identity the token carries, so a mapping keyed that way is complete
@@ -70,9 +70,24 @@ defmodule Connectix.Realtime.AgentIdentity do
 
   # No token means nothing to look anything up WITH, so the written mapping is
   # all there is — which is also what makes this testable without a mothership.
-  def resolve(user_uuid, _token) when is_binary(user_uuid), do: PopRule.agents_for(user_uuid)
+  def resolve(user_uuid, _token) when is_binary(user_uuid), do: self_or_named(user_uuid)
 
   def resolve(_user_uuid, _token), do: []
+
+  # THE IDENTITY MAY ALREADY BE THE AGENT ID. The portal's own login mints a
+  # token whose `user_uuid` is the powerlink id, so the value on the socket and
+  # the value on the wire are the same one — and looking it up in a map keyed
+  # by email finds nothing, registers nothing, and drops every frame about that
+  # agent as unattributable. Recognising it costs one membership test.
+  defp self_or_named(user_uuid) do
+    named = PopRule.agents_for(user_uuid)
+
+    cond do
+      named != [] -> named
+      PopRule.agent_id?(user_uuid) -> [user_uuid]
+      true -> []
+    end
+  end
 
   defp resolve_from_record(user_uuid, token) do
     {fetched, email} =

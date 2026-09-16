@@ -42,6 +42,11 @@ defmodule ConnectixWeb.Plugs.EngineProxy do
   # did not work. The rest of `/auth` still forwards.
   @portal_owned ["/api/statuses", "/auth/user_login"]
 
+  # `/api/users/<uuid>` is answered here too, but it carries an id so it cannot
+  # be an exact match like the rest. It is the last route the extension asked
+  # an upstream for; with it served locally this portal needs no engine.
+  @portal_owned_prefixes ["/api/users/"]
+
   # …except these, which are THIS app's own routes and live under `/api` too
   # (see the router). Without the carve-out the forwarder swallows them and the
   # bots API answers with whatever the mothership says about a path it has
@@ -108,7 +113,8 @@ defmodule ConnectixWeb.Plugs.EngineProxy do
   # A path under a forwarded prefix that THIS app answers. Same origins call
   # it, so it needs the same CORS policy; the only difference is who composes
   # the body.
-  defp owned?(path), do: path in @portal_owned
+  defp owned?(path),
+    do: path in @portal_owned or Enum.any?(@portal_owned_prefixes, &String.starts_with?(path, &1))
 
   defp preflight(conn) do
     conn

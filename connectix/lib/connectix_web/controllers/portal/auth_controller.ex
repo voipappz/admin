@@ -115,6 +115,56 @@ defmodule ConnectixWeb.Portal.AuthController do
     end
   end
 
+  @doc """
+  `GET /api/users/:uuid` — the record the extension re-reads when its cache is
+  empty.
+
+  The last thing it asked an upstream for. Answering it here means the portal
+  needs no engine at all: it already knows every agent, because the same file
+  that lets them sign in is the one being read.
+
+  Authenticated by the caller's own token naming that user, so an agent can
+  read themselves and nobody else. There is no directory here to browse.
+  """
+  def show_user(conn, %{"uuid" => uuid}) do
+    with {:ok, claims} <- verified(conn),
+         true <- claims.user_uuid == uuid,
+         %{ids: [_ | _]} <- PopRule.agent_entry(uuid) || entry_by_id(uuid) do
+      json(conn, %{
+        "uuid" => uuid,
+        "email" => email_for(uuid),
+        "name" => email_for(uuid),
+        "profile" => %{"powerlink_token" => uuid}
+      })
+    else
+      _refused ->
+        conn
+        |> put_status(401)
+        |> json(%{id: "unauthorized", message: "Missing Authorize token."})
+    end
+  end
+
+  defp verified(conn) do
+    case Plug.Conn.get_req_header(conn, "authorization") do
+      ["Bearer " <> token | _rest] -> Connectix.Realtime.TokenAuth.verify(token)
+      _none -> {:error, :missing_token}
+    end
+  end
+
+  # The agents map is keyed by email; this is the reverse read, for an id that
+  # IS the identity on the token.
+  defp entry_by_id(id) do
+    Enum.find_value(PopRule.agent_entries(), fn {_email, entry} ->
+      if id in entry.ids, do: entry
+    end)
+  end
+
+  defp email_for(id) do
+    Enum.find_value(PopRule.agent_entries(), fn {email, entry} ->
+      if id in entry.ids, do: email
+    end)
+  end
+
   # The extension posts a form; a test or a curl posts JSON. Both arrive as
   # string keys by the time Plug.Parsers is done, and neither should have to
   # know which the other used.

@@ -238,6 +238,26 @@ defmodule Connectix.Realtime.PopRule do
     |> Enum.uniq()
   end
 
+  @doc """
+  Whether this id is one the rule file names as an agent.
+
+  The login mints a token whose `user_uuid` IS the powerlink id, so the
+  identity on the socket and the identity on the wire are the same value. This
+  is how that is recognised without a lookup: an id that appears as a
+  powerlink for any agent is an agent id, whoever is holding it.
+
+  Without it the socket registers nothing, every `state.user.<id>` frame is
+  dropped as unattributable, and no pop ever fires — silently, because an
+  unclaimed id is indistinguishable from an agent who is not signed in.
+  """
+  @spec agent_id?(String.t() | nil) :: boolean()
+  def agent_id?(id) when is_binary(id) and id != "" do
+    down = String.downcase(id)
+    Enum.any?(agent_entries(), fn {_identity, %{ids: ids}} -> down in Enum.map(ids, &String.downcase/1) end)
+  end
+
+  def agent_id?(_id), do: false
+
   @doc "The broker URL from the rule file, or nil."
   @spec nats_url() :: String.t() | nil
   def nats_url, do: nats().url
