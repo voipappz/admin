@@ -64,7 +64,7 @@ export const syslogsApi = {
   },
 
   /**
-   * Per-(appname, severity) counts over the window: [{ appname, severity, latest_value }].
+   * Per-(app, severity) counts over the window: [{ app, severity, latest_value }].
    * This is the aggregation the Monitoring cards and the App Breakdown table read.
    * `bucket` is accepted for call-site symmetry; the server aggregates the whole
    * window into one row per pair, so it does not affect the result.

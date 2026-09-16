@@ -708,7 +708,7 @@ const SystemLogs = ({ initialParams }) => {
               sx={{ fontSize: '12px' }}
             >
               <MenuItem value="severity">Level</MenuItem>
-              <MenuItem value="appname">Source</MenuItem>
+              <MenuItem value="app">Source</MenuItem>
               <MenuItem value="host">Server</MenuItem>
               <MenuItem value="facility">Facility</MenuItem>
               <MenuItem value="action">Event type</MenuItem>

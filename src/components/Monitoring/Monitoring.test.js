@@ -33,11 +33,11 @@ const ALERTS_YAML = {
 };
 
 const SYSLOG_METRICS = [
-  { appname: 'kamailio', severity: 'info',    latest_value: 100 },
-  { appname: 'kamailio', severity: 'err',     latest_value: 3 },
-  { appname: 'freeswitch', severity: 'info',  latest_value: 50 },
-  { appname: 'freeswitch', severity: 'warning', latest_value: 7 },
-  { appname: 'freeswitch', severity: 'crit',  latest_value: 2 },
+  { app: 'kamailio', severity: 'info',    latest_value: 100 },
+  { app: 'kamailio', severity: 'err',     latest_value: 3 },
+  { app: 'freeswitch', severity: 'info',  latest_value: 50 },
+  { app: 'freeswitch', severity: 'warning', latest_value: 7 },
+  { app: 'freeswitch', severity: 'crit',  latest_value: 2 },
 ];
 
 /** /api/monitoring/influxdb/query returns { rows: [{ time, value, host }], … }. */
@@ -117,9 +117,9 @@ describe('useMonitoring', () => {
       const { result } = setup();
       await waitFor(() => expect(result.current.appBreakdown.length).toBe(2));
       const [first, second] = result.current.appBreakdown;
-      expect(first.appname).toBe('kamailio');
+      expect(first.app).toBe('kamailio');
       expect(first).toMatchObject({ info: 100, err: 3, total: 103 });
-      expect(second).toMatchObject({ appname: 'freeswitch', info: 50, warning: 7, err: 2, total: 59 });
+      expect(second).toMatchObject({ app: 'freeswitch', info: 50, warning: 7, err: 2, total: 59 });
     });
   });
 

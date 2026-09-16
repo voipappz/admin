@@ -63,7 +63,7 @@ const useMonitoring = () => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [loading, setLoading] = useState(true);
   const [hosts, setHosts] = useState([]);
-  const [syslogMetrics, setSyslogMetrics] = useState([]);   // [{ appname, severity, latest_value }]
+  const [syslogMetrics, setSyslogMetrics] = useState([]);   // [{ app, severity, latest_value }]
   const [syslogSeries, setSyslogSeries] = useState([]);     // [{ time, info, err, … }]
   const [systemMetrics, setSystemMetrics] = useState({});   // { cpu: { rows, influxql }, … }
   const [alertConfig, setAlertConfig] = useState(null);     // parsed config/alerts.yaml
@@ -147,7 +147,7 @@ const useMonitoring = () => {
       total: sum(() => true),
       errors: sum(m => ERROR_SEVERITIES.includes(m.severity)),
       warnings: sum(m => m.severity === 'warning'),
-      apps: new Set(syslogMetrics.map(m => m.appname).filter(Boolean)).size,
+      apps: new Set(syslogMetrics.map(m => m.app).filter(Boolean)).size,
     };
   }, [syslogMetrics]);
 
@@ -155,8 +155,8 @@ const useMonitoring = () => {
   const appBreakdown = useMemo(() => {
     const byApp = {};
     syslogMetrics.forEach(m => {
-      const app = m.appname || 'unknown';
-      byApp[app] ||= { id: app, appname: app, err: 0, warning: 0, info: 0, debug: 0, total: 0 };
+      const app = m.app || 'unknown';
+      byApp[app] ||= { id: app, app, err: 0, warning: 0, info: 0, debug: 0, total: 0 };
       const val = Number(m.latest_value) || 0;
       const sev = m.severity || 'info';
       if (ERROR_SEVERITIES.includes(sev)) byApp[app].err += val;

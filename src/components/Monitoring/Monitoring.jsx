@@ -68,7 +68,7 @@ const SEVERITY_SERIES = [
 ];
 
 const APP_COLUMNS = [
-  { field: 'appname', headerName: 'App', flex: 1, minWidth: 140 },
+  { field: 'app', headerName: 'App', flex: 1, minWidth: 140 },
   { field: 'err', headerName: 'Error', width: 90, type: 'number' },
   { field: 'warning', headerName: 'Warning', width: 90, type: 'number' },
   { field: 'info', headerName: 'Info', width: 90, type: 'number' },
