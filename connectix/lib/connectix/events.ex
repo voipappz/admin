@@ -76,8 +76,10 @@ defmodule Connectix.Events do
   # box, before a single event can be stored. Both columns hold Jason-encoded
   # text either way; `json_extract` works on them the moment the extension is
   # loaded by whoever queries, and nothing about writing depends on it.
-  @schema """
-  CREATE TABLE IF NOT EXISTS #{@table} (
+  # The columns AND the key. Both halves matter, and the key is the half that
+  # got lost — see `compact/3`.
+  @table_body """
+  (
     id           VARCHAR PRIMARY KEY,
     src          VARCHAR,
     sid          VARCHAR,
@@ -87,6 +89,8 @@ defmodule Connectix.Events do
     raw          VARCHAR
   )
   """
+
+  @schema "CREATE TABLE IF NOT EXISTS #{@table} " <> @table_body
 
   # A browse must not be able to ask for the whole table by accident.
   @max_limit 1_000
@@ -162,6 +166,15 @@ defmodule Connectix.Events do
     do: GenServer.cast(server, {:record, source, event})
 
   def record(_server, _source, _event), do: :ok
+
+  @doc """
+  Compact now, whatever the size ratio says.
+
+  For an operator who has just pruned, and for the test that proves compaction
+  keeps the primary key — the thing it used to drop.
+  """
+  @spec compact_now(GenServer.server()) :: :ok | {:error, term()}
+  def compact_now(server \\ __MODULE__), do: GenServer.call(server, :compact_now, 60_000)
 
   @doc """
   Events newest first. Options: `:limit` (default #{@default_recent_limit},
@@ -298,6 +311,12 @@ defmodule Connectix.Events do
     do: {:noreply, write(state, normalize(from_frame(source, event)))}
 
   @impl true
+  def handle_call(:compact_now, _from, %{conn: nil} = state),
+    do: {:reply, {:error, :not_storing}, state}
+
+  def handle_call(:compact_now, _from, state),
+    do: {:reply, :ok, compact_unconditionally(state)}
+
   def handle_call(:stats, _from, state) do
     {:reply,
      %{
@@ -609,10 +628,10 @@ defmodule Connectix.Events do
 
   # Rewrite the file when most of it is dead space.
   #
-  # `CREATE TABLE ... AS SELECT` into a freshly attached file writes only live
-  # rows, so the copy is the size the data actually needs. Swapping it in means
-  # closing the current handles, renaming, and reopening — which is why this is
-  # here in the owning process and nowhere else.
+  # A freshly attached file written with only the live rows is the size the
+  # data actually needs. Swapping it in means closing the current handles,
+  # renaming, and reopening — which is why this is here in the owning process
+  # and nowhere else.
   defp maybe_compact(%{conn: conn, path: path} = state) do
     with {:ok, live} <- live_bytes(conn),
          {:ok, %{size: on_disk}} <- File.stat(path),
@@ -621,6 +640,12 @@ defmodule Connectix.Events do
     else
       _no_need -> state
     end
+  end
+
+  defp compact_unconditionally(%{conn: conn, path: path} = state) do
+    live = with {:ok, l} <- live_bytes(conn), do: l
+    on_disk = with {:ok, %{size: s}} <- File.stat(path), do: s
+    compact(state, on_disk || 0, live || 0)
   end
 
   defp compact(%{conn: conn, path: path} = state, on_disk, live) do
@@ -633,8 +658,19 @@ defmodule Connectix.Events do
         "#{div(live, 1_048_576)}MB of rows"
     )
 
+    # THE TABLE IS DECLARED, THEN FILLED. `CREATE TABLE ... AS SELECT` copies
+    # the columns and the rows and NOT the constraints, so the compacted file
+    # came out with no PRIMARY KEY on `id` — and `insert/2` uses
+    # `ON CONFLICT (id)`, which DuckDB refuses outright when the target is not
+    # a key. Every insert then failed, one warning per frame, for the life of
+    # the container, while `/health` reported the store open because the file
+    # was perfectly readable. Measured on this machine: 28,831 rows stored and
+    # nothing appended after, with the store silently frozen.
     with {:ok, _} <- Duckdbex.query(conn, "ATTACH '#{tmp}' AS compacted"),
-         {:ok, _} <- Duckdbex.query(conn, "CREATE TABLE compacted.events AS SELECT * FROM events"),
+         {:ok, _} <-
+           Duckdbex.query(conn, "CREATE TABLE compacted.#{@table} " <> @table_body, []),
+         {:ok, _} <-
+           Duckdbex.query(conn, "INSERT INTO compacted.#{@table} SELECT * FROM #{@table}", []),
          {:ok, _} <- Duckdbex.query(conn, "CHECKPOINT compacted"),
          {:ok, _} <- Duckdbex.query(conn, "DETACH compacted") do
       # Drop the handles before moving the file underneath them.
@@ -697,7 +733,10 @@ defmodule Connectix.Events do
          {:ok, conn} <- Duckdbex.connection(db),
          :ok <- constrain(conn, Path.dirname(path)),
          :ok <- validate_schema(conn),
-         {:ok, _} <- Duckdbex.query(conn, @schema, []) do
+         {:ok, _} <- Duckdbex.query(conn, @schema, []),
+         # AFTER the CREATE TABLE, so a brand new file is judged on the table
+         # it just made rather than on one that did not exist yet.
+         :ok <- validate_key(conn) do
       {:ok, db, conn}
     else
       {:error, reason} -> {:error, reason}
@@ -747,6 +786,41 @@ defmodule Connectix.Events do
   # `CREATE TABLE IF NOT EXISTS` and then fail every INSERT. Refuse to open it
   # rather than silently dropping audit history; migration/reset is an explicit
   # operator decision.
+  # THE COLUMNS ARE NOT THE WHOLE SCHEMA. A file can carry every column and
+  # still have lost its PRIMARY KEY — compaction rebuilds the table with
+  # `CREATE TABLE ... AS SELECT`, which copies the columns and drops the
+  # constraints. `ON CONFLICT (id)` then fails on EVERY insert with DuckDB's
+  # "conflict target ... not referenced by a UNIQUE/PRIMARY KEY CONSTRAINT",
+  # one warning per frame, for the life of the container: measured at 28,831
+  # rows stored and nothing appended after.
+  #
+  # Checked at open so it is one line naming the cause and the repair, instead
+  # of a firehose of binder errors nobody reads to the end of.
+  defp validate_key(conn) do
+    with {:ok, ref} <-
+           Duckdbex.query(
+             conn,
+             "SELECT constraint_type FROM duckdb_constraints() WHERE table_name = '#{@table}'",
+             []
+           ) do
+      types = ref |> Duckdbex.fetch_all() |> List.flatten()
+
+      if "PRIMARY KEY" in types do
+        :ok
+      else
+        Logger.error(
+          "events: the store has no PRIMARY KEY on id, so every insert will fail " <>
+            "(\"conflict target ... not referenced by a UNIQUE/PRIMARY KEY CONSTRAINT\"). " <>
+            "A compaction rebuilt the table without its constraints. Repair by " <>
+            "rebuilding it: CREATE TABLE events_repaired (id VARCHAR PRIMARY KEY, …), " <>
+            "INSERT … SELECT DISTINCT ON (id), DROP, RENAME."
+        )
+
+        {:error, :no_primary_key}
+      end
+    end
+  end
+
   defp validate_schema(conn) do
     with {:ok, ref} <-
            Duckdbex.query(

@@ -9,11 +9,11 @@
     </mat-toolbar> -->
     <mat-toolbar color="primary" style="justify-content: space-between;font-size: 16px;">
         <!-- The /ws/events light: green when the socket is up and the server
-             reported its cable ready, amber when it is up but not, grey when
+             reported its events ready, amber when it is up but not, grey when
              there is no socket. -->
         <span class="conn-dot"
-              [class.conn-on]="realtime.connected && realtime.cable_ready"
-              [class.conn-degraded]="realtime.connected && !realtime.cable_ready"
+              [class.conn-on]="realtime.connected && realtime.events_ready"
+              [class.conn-degraded]="realtime.connected && !realtime.events_ready"
               [title]="connTitle"></span>
         <span style="
         background-color: #fff;

@@ -84,7 +84,7 @@ export async function startFakeNode(): Promise<FakeNode> {
     ws.on('close', () => sockets.delete(ws));
     // Per-user streams are opened server-side from the token's claims, so the
     // client subscribes to nothing — welcome is the whole handshake.
-    ws.send(JSON.stringify({ type: 'welcome', ts: new Date().toISOString(), subscribed: [], clients: sockets.size, cable_ready: true }));
+    ws.send(JSON.stringify({ type: 'welcome', ts: new Date().toISOString(), subscribed: [], clients: sockets.size, events_ready: true }));
   });
 
   await new Promise<void>((r) => server.listen(0, r)); // all interfaces: Chrome may resolve localhost to ::1

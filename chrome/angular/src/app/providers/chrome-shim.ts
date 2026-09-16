@@ -45,12 +45,12 @@ function base64url(value: string): string {
 function fakePort() {
   let socket: WebSocket | null = null;
   const listeners: Array<(msg: any) => void> = [];
-  let state = { connected: false, cable_ready: false };
+  let state = { connected: false, events_ready: false };
 
   const emit = (msg: any) => listeners.forEach((fn) => fn(msg));
 
-  const setRealtimeState = (connected: boolean, cable_ready = false) => {
-    state = { connected, cable_ready: connected && cable_ready };
+  const setRealtimeState = (connected: boolean, events_ready = false) => {
+    state = { connected, events_ready: connected && events_ready };
     emit({ event: 'realtime', ...state });
   };
 
@@ -91,11 +91,11 @@ function fakePort() {
       socket.onmessage = (ev) => {
         console.log('[chrome-shim] frame', ev.data);
         // The welcome frame is what turns the light green, here as in the
-        // worker: an open socket to a portal whose cable is down delivers
+        // worker: an open socket to a portal whose events are down delivers
         // nothing.
         try {
           const frame = JSON.parse(typeof ev.data === 'string' ? ev.data : '');
-          if (frame && frame.type === 'welcome') setRealtimeState(true, !!frame.cable_ready);
+          if (frame && frame.type === 'welcome') setRealtimeState(true, !!frame.events_ready);
         } catch { /* not a frame we judge on */ }
       };
       socket.onclose = (ev) => {

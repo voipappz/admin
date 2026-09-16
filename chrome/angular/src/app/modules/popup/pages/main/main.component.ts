@@ -27,7 +27,7 @@ export class MainComponent implements OnInit {
     // The /ws/events light. Written by the background worker, never derived
     // here — the popup has no socket of its own and guessing from the presence
     // of a token would show green for a session whose socket is down.
-    realtime:any = { connected: false, cable_ready: false };
+    realtime:any = { connected: false, events_ready: false };
 
     constructor(
         public actions:ActionsProvider,
@@ -89,7 +89,7 @@ export class MainComponent implements OnInit {
             if (!msg || !msg.event) return;
             this.zone.run(()=>{
                 if (msg.event === 'realtime') {
-                    this.realtime = { connected: !!msg.connected, cable_ready: !!msg.cable_ready };
+                    this.realtime = { connected: !!msg.connected, events_ready: !!msg.events_ready };
                 } else if (msg.event === 'call') {
                     this.applyCall(msg);
                 }
@@ -110,7 +110,7 @@ export class MainComponent implements OnInit {
     get connTitle(){
         const state = !this.realtime.connected
             ? 'לא מחובר לשרת'
-            : this.realtime.cable_ready ? 'מחובר לשרת' : 'מחובר, אך הערוץ אינו מוכן';
+            : this.realtime.events_ready ? 'מחובר לשרת' : 'מחובר, אך הערוץ אינו מוכן';
         return `${state}\n${this.stampDetail}`;
     }
 

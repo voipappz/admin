@@ -546,4 +546,34 @@ defmodule Connectix.EventsTest do
       assert {:error, :not_storing} = Events.search(store, "x", [])
     end
   end
+  describe "compaction keeps the key" do
+    test "a compacted store can still take an insert" do
+      # THE BUG THIS EXISTS FOR. `CREATE TABLE ... AS SELECT` copies columns
+      # and rows and NOT constraints, so the compacted file came out with no
+      # PRIMARY KEY on `id` — and every insert after it failed, because
+      # `ON CONFLICT (id)` needs one. The file stayed readable and `/health`
+      # stayed green, so the store looked fine and silently stopped growing.
+      dir = Path.join(System.tmp_dir!(), "compact_#{System.unique_integer([:positive])}")
+      File.mkdir_p!(dir)
+      on_exit(fn -> File.rm_rf(dir) end)
+      path = Path.join(dir, "events.duckdb")
+
+      {:ok, store} = Events.start_link(name: nil, path: path)
+
+      Events.record(store, "CallEvents", %{"id" => "before-compaction", "action" => "x"})
+      Process.sleep(80)
+
+      assert :ok = Events.compact_now(store)
+
+      # The insert that used to fail.
+      Events.record(store, "CallEvents", %{"id" => "after-compaction", "action" => "y"})
+      Process.sleep(80)
+
+      assert {:ok, rows} = Events.recent(store, limit: 10)
+      ids = Enum.map(rows, & &1["id"])
+      assert "after-compaction" in ids, "the store stopped accepting inserts after compaction"
+      assert "before-compaction" in ids, "compaction lost the rows it was copying"
+    end
+  end
+
 end

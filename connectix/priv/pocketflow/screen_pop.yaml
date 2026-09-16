@@ -42,6 +42,36 @@ nats:
     - node:test1
     - state.>
 
+# WHO THE SWITCH MEANS, when it names an agent.
+#
+# THE MAPPING THE WHOLE SCREEN POP HINGES ON. A callcenter event never names
+# the portal user: FreeSWITCH's `CC-Agent` -- which the node also copies into
+# `user_uuid` and uses as the key of the `state.user.<id>` stream -- is the
+# user's `profile.powerlink_token`. Measured: `CC-Agent cb1b0a46...` arrived
+# while the browser held user `be5bc5f0...`, and the first was that user's
+# powerlink token.
+#
+# Normally the portal reads that token off the user record at connect, which is
+# right in production. It has two ways to give nothing, though -- a record that
+# has no token yet, and an API it cannot reach -- and both look identical from
+# the outside: a session where no pop ever fires, with no error at the moment
+# it matters.
+#
+# So it can be written here instead. Ids named below are ADDED to whatever the
+# record supplies, never used instead of it, so naming one user does not turn
+# the lookup off for anyone else. One id or a list, whichever fits.
+#
+#   agents:
+#     <portal user uuid>: <powerlink uuid>
+#     <portal user uuid>:
+#       - <powerlink uuid>
+#       - <another>
+#
+# `23c5e4f4-8e1d-4878-9587-835e4e06ee19` is a real agent seen on this
+# deployment's `state.user.<id>` stream; put the portal user uuid it belongs to
+# on the left to make its calls pop.
+agents: {}
+
 # WHICH EVENTS POP, in both spellings the wire uses.
 #
 # sessions.cr maps FreeSWITCH's callcenter actions to `user.*` names before it

@@ -17,11 +17,21 @@ defmodule Connectix.Realtime.AgentIdentity do
   So the mapping the whole screen pop hinges on is `powerlink_token -> user`,
   and it is established here, once, when the user's socket connects. The token
   is not in the login JWT (that carries `user_uuid` only); it is on the user
-  record, fetched with the user's own credential over the same relay the login
-  took.
+  record, fetched with the user's own credential.
+
+  ## Writing it down instead
+
+  `priv/pocketflow/screen_pop.yaml` can name ids per user under `agents:`, and
+  they are ADDED to whatever the record supplies. That exists because the
+  lookup has two ways to give nothing — a record with no `powerlink_token`
+  yet, and an API that cannot be reached — and both present as a silent
+  session where no pop ever fires. A written mapping is also how this gets
+  tested without a round trip to the mothership.
   """
 
   require Logger
+
+  alias Connectix.Realtime.PopRule
 
   @doc """
   The ids an event may use to name this user: the `powerlink_token` on the
@@ -38,30 +48,46 @@ defmodule Connectix.Realtime.AgentIdentity do
   """
   @spec resolve(String.t(), String.t() | nil) :: [String.t()]
   def resolve(user_uuid, token) when is_binary(user_uuid) and is_binary(token) do
-    case fetch_record(user_uuid, token) do
-      {:ok, record} ->
-        case ids(List.wrap(powerlink_token(record))) do
-          [] ->
-            Logger.warning(
-              "agent identity: user #{user_uuid} has no powerlink_token — " <>
-                "callcenter pops will not fire for this session"
-            )
+    configured = PopRule.agents_for(user_uuid)
 
-            []
+    fetched =
+      case fetch_record(user_uuid, token) do
+        {:ok, record} ->
+          ids(List.wrap(powerlink_token(record)))
 
-          tokens ->
-            tokens
-        end
+        {:error, reason} ->
+          # Named rather than counted: an unreachable API and a record with no
+          # token are different problems with the same symptom, and the symptom
+          # is a session where nothing ever pops.
+          Logger.warning(
+            "agent identity: could not load user #{user_uuid} (#{inspect(reason)})"
+          )
 
-      {:error, reason} ->
+          []
+      end
+
+    case ids(configured ++ fetched) do
+      [] ->
         Logger.warning(
-          "agent identity: could not load user #{user_uuid} (#{inspect(reason)}) — " <>
-            "callcenter pops will not fire for this session"
+          "agent identity: user #{user_uuid} has no powerlink_token on their record " <>
+            "and none in the rule file — callcenter pops will not fire for this session"
         )
 
         []
+
+      resolved ->
+        if configured != [] do
+          Logger.info(
+            "agent identity: user #{user_uuid} -> #{Enum.join(resolved, ", ")} " <>
+              "(#{length(configured)} from the rule file)"
+          )
+        end
+
+        resolved
     end
   end
+
+  def resolve(user_uuid, _token) when is_binary(user_uuid), do: PopRule.agents_for(user_uuid)
 
   def resolve(_user_uuid, _token), do: []
 

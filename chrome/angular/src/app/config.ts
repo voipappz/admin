@@ -17,8 +17,11 @@ export const CONFIG = {
     //
     // It travels WITH the address: change one and change the other.
     CUSTOMER: "nimbus",
-    WEBSOCKETS_URL: "wss://callcenter.nimbusip.com/ws",//"wss://api.voipappz.io/ws",//"wss://900.nimbusip.com/ws",/*"wss://caspi.voipappz.io/ws","wss://dialer.bpotel.com/ws",*///"ws://api-staging.voipappz.io:8080",//wss://api-staging.voipappz.io", //"ws://demo.voipbox.io:8080",
-    WEBSOCKETS_DASHBOARD_URL: "wss://900.nimbusip.com/ws",/*"wss://caspi.voipappz.io/ws","wss://dialer.bpotel.com/ws",*///"ws://api-staging.voipappz.io:8085",
+    // WEBSOCKETS_URL and WEBSOCKETS_DASHBOARD_URL were here, pointing at
+    // callcenter.nimbusip.com and 900.nimbusip.com. Nothing read them: the one
+    // socket this extension opens is the portal's /ws/events, built from
+    // API_ENDPOINT above. They were a second address to keep in step with
+    // nothing, and a reader had to grep the whole bundle to find that out.
     PAGE_TITLE: "Nimbus",
     GOOGLE_CLIENT_ID: "CAHNGE_ME",
     FACEBOOK_KEY: "CAHNGE_ME",

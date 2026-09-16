@@ -1,18 +1,18 @@
 import { CONFIG } from "../../angular/src/app/config"
 
 // The realtime server is the Elixir app's /ws/events — a settled decision, not
-// a fallback. The extension connects there and nowhere else: not to cable
+// a fallback. The extension connects there and nowhere else: not to the
 // (va-crystal), not to the broker.
 //
 // The server authorizes the socket by the person's own login token and derives
 // which streams they get from that token's claims, so which user's events
 // arrive is never something the client asks for. That is the whole reason for
-// going through it: talking to cable directly would mean sending our own
+// going through it: talking to the broker directly would mean sending our own
 // user_uuid and being trusted on it, and talking to NATS directly cannot be
 // scoped per user at all.
 //
 // Upstream it subscribes to NATS — `notifications.<user_uuid>` and
-// `state.user.<uuid>` — NOT to cable, and holds ONE connection for the whole
+// `state.user.<uuid>`, and holds ONE connection for the whole
 // server rather than one per browser. Same events either way; va-crystal
 // publishes to the same bus.
 //
@@ -37,21 +37,21 @@ let reconnectTimer: any = null;
 // written, and the popup would render green over a socket that no longer
 // exists.
 //
-// GREEN IS NOT "the socket opened". It is open AND the server said its cable
-// is ready: a portal whose cable is down accepts the socket and then delivers
-// nothing (see the cable notes in CLAUDE.md), and a light that stays green
+// GREEN IS NOT "the socket opened". It is open AND the server said its events
+// is ready: a portal whose broker subscription is down accepts the socket
+// and then delivers nothing, and a light that stays green
 // through that is worse than no light at all.
-type RealtimeState = { connected: boolean; cable_ready: boolean };
-let realtimeState: RealtimeState = { connected: false, cable_ready: false };
+type RealtimeState = { connected: boolean; events_ready: boolean };
+let realtimeState: RealtimeState = { connected: false, events_ready: false };
 
 // Every popup and options page that has connected. A Set because the same page
 // reconnects on every open, and a closed popup's port must not be written to.
 const ports = new Set<any>();
 
-function setRealtimeState(next: { connected: boolean; cable_ready?: boolean }) {
+function setRealtimeState(next: { connected: boolean; events_ready?: boolean }) {
     realtimeState = {
         connected: next.connected,
-        cable_ready: next.connected ? !!next.cable_ready : false,
+        events_ready: next.connected ? !!next.events_ready : false,
     };
     ports.forEach((p) => sendState(p));
     paintBadge();
@@ -82,8 +82,8 @@ let lastCall: { event: string; call: any } | null = null;
 function paintBadge() {
     const action = (chrome as any).action || chrome.browserAction;
     if (!action) return;
-    const green = realtimeState.connected && realtimeState.cable_ready;
-    const amber = realtimeState.connected && !realtimeState.cable_ready;
+    const green = realtimeState.connected && realtimeState.events_ready;
+    const amber = realtimeState.connected && !realtimeState.events_ready;
     try {
         action.setBadgeBackgroundColor({
             color: green ? "#2e7d32" : amber ? "#ed6c02" : "#9e9e9e",
@@ -96,7 +96,7 @@ function paintBadge() {
             title: !currentUuid
                 ? CONFIG.PAGE_TITLE
                 : green ? `${CONFIG.PAGE_TITLE} — connected`
-                : amber ? `${CONFIG.PAGE_TITLE} — connected, cable not ready`
+                : amber ? `${CONFIG.PAGE_TITLE} — connected, events not ready`
                         : `${CONFIG.PAGE_TITLE} — disconnected`,
         });
     } catch (e) { /* action API unavailable in tests */ }
@@ -195,8 +195,8 @@ function openSocket(port?: any) {
         // so there is nothing to subscribe to and no uuid to send.
         switch (frame.type) {
             case "welcome":
-                console.log("realtime connected", realtimeUrl, "cable_ready:", frame.cable_ready);
-                setRealtimeState({ connected: true, cable_ready: !!frame.cable_ready });
+                console.log("realtime connected", realtimeUrl, "events_ready:", frame.events_ready);
+                setRealtimeState({ connected: true, events_ready: !!frame.events_ready });
                 try { port && port.postMessage("connected to realtime"); } catch (e) { /* popup closed */ }
                 break;
             case "notification":

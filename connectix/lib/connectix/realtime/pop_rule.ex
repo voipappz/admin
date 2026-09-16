@@ -128,6 +128,47 @@ defmodule Connectix.Realtime.PopRule do
   @spec subjects() :: [String.t()]
   def subjects, do: nats().subjects
 
+  @doc """
+  Agent ids named explicitly in the rule file, as `user_uuid => [agent_id]`.
+
+      agents:
+        be5bc5f0-feb3-4c96-a370-3219f7ede250: 23c5e4f4-8e1d-4878-9587-835e4e06ee19
+        f04af03e-...:
+          - first-powerlink
+          - second-powerlink
+
+  **This is the mapping the whole screen pop hinges on**, written down instead
+  of looked up. Normally `Realtime.AgentIdentity` reads `profile.powerlink_token`
+  off the user record at connect, which is right in production and unhelpful
+  the moment you want to test: a user whose record has no token yet is
+  unmappable, and the symptom is silence.
+
+  Ids here are ADDED to whatever the record supplies, never instead of it, so
+  naming one user does not turn the lookup off for everyone else. A single
+  string and a list both work, because one id is the common case.
+  """
+  @spec agents() :: %{optional(String.t()) => [String.t()]}
+  def agents do
+    rule()
+    |> Map.get("agents", %{})
+    |> normalise_block()
+    |> Map.new(fn {user_uuid, ids} ->
+      {to_string(user_uuid),
+       ids
+       |> List.wrap()
+       |> Enum.map(&(&1 |> to_string() |> String.trim()))
+       |> Enum.reject(&(&1 == ""))
+       |> Enum.uniq()}
+    end)
+  end
+
+  @doc "The ids named for one user in the rule file, or an empty list."
+  @spec agents_for(String.t()) :: [String.t()]
+  def agents_for(user_uuid) when is_binary(user_uuid),
+    do: Map.get(agents(), user_uuid, [])
+
+  def agents_for(_user_uuid), do: []
+
   @doc "The broker URL from the rule file, or nil."
   @spec nats_url() :: String.t() | nil
   def nats_url, do: nats().url
