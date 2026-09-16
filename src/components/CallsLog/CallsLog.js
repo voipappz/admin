@@ -102,7 +102,7 @@ export const useCallsLog = () => {
     if (!selectedCustomer || !selectedEnvironment) return;
 
     try {
-      const response = await apiService.get('/api/syslogs/apps', {}, 'fetching syslog apps', false);
+      const response = await apiService.get('/api/logs/apps', {}, 'fetching syslog apps', false);
       setApps(response.data || response || []);
     } catch (error) {
       console.error('Failed to load apps:', error);
@@ -155,7 +155,7 @@ export const useCallsLog = () => {
       });
 
       const queryString = params.toString();
-      const url = `/api/syslogs${queryString ? `?${queryString}` : ''}`;
+      const url = `/api/logs${queryString ? `?${queryString}` : ''}`;
       const response = await apiService.get(url, {}, 'fetching syslogs', false);
 
       // Handle different response formats

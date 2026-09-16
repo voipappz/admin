@@ -50,7 +50,7 @@ export const NAV_ITEMS = [
   { text: 'Monitoring',    path: '/monitoring',     iconComponent: TimelineIcon,              aclKey: 'monitors',                       group: 'MONITOR'  },
   // Every node with full CRUD over the nodes API (writes are root-only, so the
   // buttons show for root). Same screen as Monitoring's Nodes section.
-  { text: 'Nodes',         path: '/nodes',          iconComponent: DnsIcon,                   aclKey: 'monitors',                       group: 'MONITOR'  },
+  { text: 'Nodes',         path: '/nodes',          iconComponent: DnsIcon,                   aclKey: 'nodes',                          group: 'MONITOR'  },
   { text: 'Reports',       path: '/reports',        iconComponent: AssessmentIcon,            aclKey: 'reports',                        group: 'MONITOR'  },
   { text: 'Users',         path: '/users',          iconComponent: PeopleIcon,                aclKey: 'users',                          group: 'MANAGE'   },
   { text: 'Accounts',      path: '/accounts',       iconComponent: BadgeIcon,                 aclKey: 'accounts',                       group: 'MANAGE'   },

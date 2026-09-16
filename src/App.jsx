@@ -645,7 +645,7 @@ function AppContent() {
         <Route
           path="/nodes"
           element={
-            <ProtectedRoute requiredAcl="monitors">
+            <ProtectedRoute requiredAcl="nodes">
               <Layout>
                 <Box sx={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', p: { xs: 2, md: 3 } }}>
                   <MonitoringNodes />
