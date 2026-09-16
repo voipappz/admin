@@ -234,12 +234,12 @@ env:
   # SECRET_KEY_BASE, PORTAL_UI_USER/PASS, the model provider key,
   # DEEPGRAM_API_KEY, CARTESIA_API_KEY, CONNECTIX_SIP_USER/PASS.
   #
-  # NOT THERE YET: SECRET_KEY — the API's own signing secret, the one it
-  # signs user tokens with. `Realtime.Jwt` verifies every /ws/events token
-  # against it, so without it the socket refuses every upgrade and SCREEN POP
-  # is off, while /auth keeps working over EngineProxy. A login that succeeds
-  # followed by a socket that 401s is the symptom, and both the log and
-  # /health name it now. Chat, the LiveView UI and voice do not need it.
+  # NOTHING EXTRA FOR TOKENS. `Realtime.Jwt` derives its signing key from
+  # SECRET_KEY_BASE, which is already here — it issues the tokens as well as
+  # verifying them, so the key only has to be stable and secret. It used to
+  # ask for the API's own SECRET_KEY, which was a second secret to keep
+  # present and a second way for a deploy to come up answering 503 to every
+  # login.
 
 # ---------------------------------------------------------------------------
 # The broker the portal consumes events from.
@@ -307,9 +307,6 @@ accessories:
 #                       no screens, delivers no state and stores nothing —
 #                       while every other check stays green, because nothing
 #                       else depends on it. `nats://user:pass@host:4222`.
-#   SECRET_KEY          The API's own signing secret. `Realtime.Jwt` mints and
-#                       verifies every /ws/events token against it, so without
-#                       it the login answers 503 and every socket is refused.
 #   AGENT_PASSWORD      What the agents in priv/pocketflow/screen_pop.yaml sign
 #                       in with. That file names it and never holds it. Unset,
 #                       every agent entry refuses to sign in.

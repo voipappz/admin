@@ -101,7 +101,7 @@ defmodule Connectix.Realtime.TokenAuth do
         # is configured.
         {:error, :disabled} ->
           Logger.error(
-            "realtime: cannot verify tokens — SECRET_KEY is not set, " <>
+            "realtime: cannot verify tokens — the endpoint has no secret_key_base, " <>
               "so every connection will be refused"
           )
 

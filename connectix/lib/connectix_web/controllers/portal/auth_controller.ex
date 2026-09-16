@@ -107,7 +107,7 @@ defmodule ConnectixWeb.Portal.AuthController do
         })
 
       {:error, :disabled} ->
-        Logger.error("login: SECRET_KEY is not set, so no token can be minted")
+        Logger.error("login: the endpoint has no secret_key_base, so no token can be minted")
 
         conn
         |> put_status(503)

@@ -153,12 +153,38 @@ defmodule Connectix.Realtime.Jwt do
   # JWT uses base64url without padding; `Base.url_decode64/2` needs telling.
   defp decode_segment(segment), do: Base.url_decode64(segment, padding: false)
 
-  # The issuer's signing secret, read at call time so a rotation needs no
-  # restart.
+  # DERIVED FROM THE ENDPOINT'S `secret_key_base`, not from a variable of its own.
+  #
+  # This used to read `SECRET_KEY`, the API's signing secret, because the
+  # portal was verifying tokens somebody else issued. It issues them now, so
+  # the key has to be stable and secret and nothing more — and every
+  # deployment already has exactly such a value, required by Phoenix and
+  # present on every host. Asking for a second one bought nothing and was one
+  # more thing to be missing, which is how a deploy comes up answering 503 to
+  # every login.
+  #
+  # HMAC'd with a purpose string rather than used directly, so the token key
+  # and the one Phoenix signs cookies and sockets with are different bytes.
+  # Sharing a key across two schemes is how a weakness in either becomes a
+  # weakness in both.
+  @purpose "connectix/realtime-token/v1"
+
+  # Read from the ENDPOINT's config, not from the environment directly. Every
+  # environment sets it — `config/dev.exs` and `config/test.exs` carry a
+  # literal, `runtime.exs` reads SECRET_KEY_BASE and refuses to boot without
+  # one in production — so this works in all three. Reading the variable
+  # instead worked only where it happened to be exported, which meant a portal
+  # that answered 503 to every login in development and nowhere else.
   defp secret do
-    case System.get_env("SECRET_KEY") do
-      value when is_binary(value) and value != "" -> value
-      _unset -> nil
+    :connectix
+    |> Application.get_env(ConnectixWeb.Endpoint, [])
+    |> Keyword.get(:secret_key_base)
+    |> case do
+      base when is_binary(base) and base != "" ->
+        :crypto.mac(:hmac, :sha256, base, @purpose)
+
+      _unset ->
+        nil
     end
   end
 end
