@@ -48,12 +48,37 @@ defmodule Connectix.Realtime.AgentIdentity do
   """
   @spec resolve(String.t(), String.t() | nil) :: [String.t()]
   def resolve(user_uuid, token) when is_binary(user_uuid) and is_binary(token) do
-    configured = PopRule.agents_for(user_uuid)
+    by_uuid = PopRule.agents_for(user_uuid)
 
-    fetched =
+    # WRITTEN DOWN BEATS LOOKED UP, and skips the call entirely. A uuid is the
+    # one identity the token carries, so a mapping keyed that way is complete
+    # before anything is asked of anyone — and the request it replaces is the
+    # one that fails silently and leaves a session where nothing pops.
+    #
+    # An email key cannot take this path: the JWT has no email, so the record
+    # is the only place to learn one, which is the call itself.
+    if by_uuid != [] do
+      Logger.info(
+        "agent identity: user #{user_uuid} -> #{Enum.join(by_uuid, ", ")} (from the rule file)"
+      )
+
+      by_uuid
+    else
+      resolve_from_record(user_uuid, token)
+    end
+  end
+
+  # No token means nothing to look anything up WITH, so the written mapping is
+  # all there is — which is also what makes this testable without a mothership.
+  def resolve(user_uuid, _token) when is_binary(user_uuid), do: PopRule.agents_for(user_uuid)
+
+  def resolve(_user_uuid, _token), do: []
+
+  defp resolve_from_record(user_uuid, token) do
+    {fetched, email} =
       case fetch_record(user_uuid, token) do
         {:ok, record} ->
-          ids(List.wrap(powerlink_token(record)))
+          {ids(List.wrap(powerlink_token(record))), email(record)}
 
         {:error, reason} ->
           # Named rather than counted: an unreachable API and a record with no
@@ -63,8 +88,10 @@ defmodule Connectix.Realtime.AgentIdentity do
             "agent identity: could not load user #{user_uuid} (#{inspect(reason)})"
           )
 
-          []
+          {[], nil}
       end
+
+    configured = PopRule.agents_for(user_uuid, email)
 
     case ids(configured ++ fetched) do
       [] ->
@@ -87,9 +114,11 @@ defmodule Connectix.Realtime.AgentIdentity do
     end
   end
 
-  def resolve(user_uuid, _token) when is_binary(user_uuid), do: PopRule.agents_for(user_uuid)
-
-  def resolve(_user_uuid, _token), do: []
+  @doc "The email on a user record, in either shape the API returns it."
+  @spec email(map()) :: String.t() | nil
+  def email(%{"user" => %{} = user}), do: email(user)
+  def email(%{"email" => value}) when is_binary(value) and value != "", do: value
+  def email(_record), do: nil
 
   @doc """
   The `powerlink_token` on a user record, whichever of the API's two shapes it

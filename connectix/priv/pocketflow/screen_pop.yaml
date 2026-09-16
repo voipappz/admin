@@ -67,10 +67,25 @@ nats:
 #       - <powerlink uuid>
 #       - <another>
 #
-# `23c5e4f4-8e1d-4878-9587-835e4e06ee19` is a real agent seen on this
-# deployment's `state.user.<id>` stream; put the portal user uuid it belongs to
-# on the left to make its calls pop.
-agents: {}
+# The seven below are this deployment's agents. `cb1b0a46-77d5-4b3a-92d8-31768fea74e4`
+# is the one the notes already record: it arrived as `CC-Agent` while the
+# browser held user `be5bc5f0...`, which is how the powerlink/user distinction
+# was found in the first place.
+#
+# KEYED BY EMAIL, so the lookup still runs. An email is not in the login JWT —
+# that carries `user_uuid`, `exp` and `issues` — so the portal cannot know an
+# address until it has fetched the user record, which is the call an entry
+# here is usually written to avoid. Key an entry by portal uuid instead and it
+# applies before anything is asked of anyone. Email is what a person can write
+# down, so both work.
+agents:
+  "661@phk.com": 2b79698e-c221-4f5b-8017-7fa472b2240c
+  "662@phk.com": cb1b0a46-77d5-4b3a-92d8-31768fea74e4
+  "663@phk.com": eb7aca9f-b797-463a-b457-16618c3514b3
+  "664@phk.com": f1122ab7-98c7-4eac-896c-0e281c1d4693
+  "665@phk.com": 6603f692-5f47-4318-baf6-3ac2836c6cee
+  "667@phk.com": fdc47399-1a8b-4ecb-8751-891edf6b9e32
+  "668@phk.com": 88309e98-f698-4b57-898d-a6056c37dd55
 
 # WHICH EVENTS POP, in both spellings the wire uses.
 #

@@ -129,11 +129,11 @@ defmodule Connectix.Realtime.PopRule do
   def subjects, do: nats().subjects
 
   @doc """
-  Agent ids named explicitly in the rule file, as `user_uuid => [agent_id]`.
+  Agent ids named explicitly in the rule file.
 
       agents:
-        be5bc5f0-feb3-4c96-a370-3219f7ede250: 23c5e4f4-8e1d-4878-9587-835e4e06ee19
-        f04af03e-...:
+        agent@example.com: 23c5e4f4-8e1d-4878-9587-835e4e06ee19
+        be5bc5f0-feb3-4c96-a370-3219f7ede250:
           - first-powerlink
           - second-powerlink
 
@@ -142,6 +142,18 @@ defmodule Connectix.Realtime.PopRule do
   off the user record at connect, which is right in production and unhelpful
   the moment you want to test: a user whose record has no token yet is
   unmappable, and the symptom is silence.
+
+  ## The key can be an email or a portal uuid, and they cost differently
+
+  **A uuid needs nothing.** It is the one identity the token carries, so the
+  portal knows it the instant the socket opens and the mapping applies with no
+  request to anyone.
+
+  **An email needs the user record.** The login JWT carries `user_uuid`, `exp`
+  and `issues` and no email, so the portal cannot know an address until it has
+  fetched the record — which is the very call an email key is usually written
+  to avoid. It is still worth having, because an address is what a person can
+  actually write down, but it does not remove the lookup.
 
   Ids here are ADDED to whatever the record supplies, never instead of it, so
   naming one user does not turn the lookup off for everyone else. A single
@@ -152,8 +164,10 @@ defmodule Connectix.Realtime.PopRule do
     rule()
     |> Map.get("agents", %{})
     |> normalise_block()
-    |> Map.new(fn {user_uuid, ids} ->
-      {to_string(user_uuid),
+    |> Map.new(fn {identity, ids} ->
+      # Keys are stored lowercased so an email matches however it was typed;
+      # a uuid is already lowercase, so nothing else changes.
+      {identity |> to_string() |> String.downcase(),
        ids
        |> List.wrap()
        |> Enum.map(&(&1 |> to_string() |> String.trim()))
@@ -162,12 +176,28 @@ defmodule Connectix.Realtime.PopRule do
     end)
   end
 
-  @doc "The ids named for one user in the rule file, or an empty list."
-  @spec agents_for(String.t()) :: [String.t()]
-  def agents_for(user_uuid) when is_binary(user_uuid),
-    do: Map.get(agents(), user_uuid, [])
+  @doc """
+  The ids named for one user, by any identity the caller happens to hold.
 
-  def agents_for(_user_uuid), do: []
+  Every key is tried, so `agents_for("u-1", "agent@example.com")` matches a
+  block keyed either way. Emails are compared case-insensitively, because an
+  address written in a config file and one stored by the API routinely differ
+  in case and nobody means them to be different people.
+  """
+  @spec agents_for(String.t() | nil, String.t() | nil) :: [String.t()]
+  def agents_for(user_uuid, email \\ nil) do
+    named = agents()
+
+    [user_uuid, email]
+    |> Enum.flat_map(fn
+      key when is_binary(key) and key != "" ->
+        Map.get(named, key) || Map.get(named, String.downcase(key)) || []
+
+      _absent ->
+        []
+    end)
+    |> Enum.uniq()
+  end
 
   @doc "The broker URL from the rule file, or nil."
   @spec nats_url() :: String.t() | nil
