@@ -60,6 +60,45 @@ defmodule Connectix.Realtime.Jwt do
   @doc "True when a secret is configured, so tokens can be judged at all."
   def enabled?, do: secret() != nil
 
+  @doc """
+  Mint a token this app will accept back.
+
+  The portal performs the login now, so it issues the credential too — signed
+  with the same secret `verify/1` checks, which is what makes the pair
+  self-consistent: there is no second party to disagree with.
+
+  `claims` is merged over `user_uuid` and an `exp`, so a caller states the
+  identity and nothing else. The lifetime is deliberately short-ish and
+  refreshed by logging in again; nothing here can revoke a token early, so a
+  long one is a long window.
+  """
+  @spec sign(map(), pos_integer()) :: {:ok, String.t()} | {:error, :disabled}
+  def sign(claims, ttl_seconds \\ 60 * 60 * 12) do
+    case secret() do
+      nil ->
+        {:error, :disabled}
+
+      secret ->
+        payload =
+          claims
+          |> Map.new(fn {k, v} -> {to_string(k), v} end)
+          |> Map.put("exp", System.system_time(:second) + ttl_seconds)
+
+        header = encode(%{"alg" => "HS256", "typ" => "JWT"})
+        body = encode(payload)
+        signing_input = header <> "." <> body
+
+        signature =
+          :hmac
+          |> :crypto.mac(:sha256, secret, signing_input)
+          |> Base.url_encode64(padding: false)
+
+        {:ok, signing_input <> "." <> signature}
+    end
+  end
+
+  defp encode(map), do: map |> Jason.encode!() |> Base.url_encode64(padding: false)
+
   defp check(token, secret) do
     with [header_b64, payload_b64, signature_b64] <- String.split(token, ".", parts: 3),
          {:ok, header} <- decode_part(header_b64),

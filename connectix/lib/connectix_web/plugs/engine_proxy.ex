@@ -34,7 +34,13 @@ defmodule ConnectixWeb.Plugs.EngineProxy do
   #
   # Exact paths, not prefixes: "/api/statuses" must not quietly capture
   # "/api/statuses/:uuid" the day that exists upstream.
-  @portal_owned ["/api/statuses"]
+  #
+  # `/auth/user_login` is here because the portal PERFORMS the login now
+  # (`Portal.AuthController`). Forwarding it made every session depend on an
+  # upstream that had to be reachable, correct, and signing with the key this
+  # app verifies — and when it was not, the symptom was a login that simply
+  # did not work. The rest of `/auth` still forwards.
+  @portal_owned ["/api/statuses", "/auth/user_login"]
 
   # …except these, which are THIS app's own routes and live under `/api` too
   # (see the router). Without the carve-out the forwarder swallows them and the

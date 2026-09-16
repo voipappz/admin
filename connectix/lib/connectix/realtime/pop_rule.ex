@@ -161,19 +161,55 @@ defmodule Connectix.Realtime.PopRule do
   """
   @spec agents() :: %{optional(String.t()) => [String.t()]}
   def agents do
+    Map.new(agent_entries(), fn {identity, entry} -> {identity, entry.ids} end)
+  end
+
+  @doc """
+  The full `agents:` block, each entry as `%{ids: [...], password: binary | nil}`.
+
+  Two shapes are accepted, because one id is the common case and a login needs
+  more than an id:
+
+      agents:
+        "661@phk.com": 2b79698e-...            # just the mapping
+        "662@phk.com":
+          powerlink: cb1b0a46-...
+          password: "..."                      # and a way to sign in
+  """
+  @spec agent_entries() :: %{optional(String.t()) => %{ids: [String.t()], password: String.t() | nil}}
+  def agent_entries do
     rule()
     |> Map.get("agents", %{})
     |> normalise_block()
-    |> Map.new(fn {identity, ids} ->
+    |> Map.new(fn {identity, value} ->
       # Keys are stored lowercased so an email matches however it was typed;
       # a uuid is already lowercase, so nothing else changes.
-      {identity |> to_string() |> String.downcase(),
-       ids
-       |> List.wrap()
-       |> Enum.map(&(&1 |> to_string() |> String.trim()))
-       |> Enum.reject(&(&1 == ""))
-       |> Enum.uniq()}
+      {identity |> to_string() |> String.downcase(), entry(value)}
     end)
+  end
+
+  @doc "One agent's entry, by email or uuid, or nil."
+  @spec agent_entry(String.t() | nil) :: %{ids: [String.t()], password: String.t() | nil} | nil
+  def agent_entry(identity) when is_binary(identity) and identity != "",
+    do: Map.get(agent_entries(), String.downcase(identity))
+
+  def agent_entry(_identity), do: nil
+
+  defp entry(%{} = map) do
+    %{
+      ids: map |> Map.get("powerlink", Map.get(map, "ids")) |> id_list(),
+      password: map |> Map.get("password") |> presence()
+    }
+  end
+
+  defp entry(value), do: %{ids: id_list(value), password: nil}
+
+  defp id_list(value) do
+    value
+    |> List.wrap()
+    |> Enum.map(&(&1 |> to_string() |> String.trim()))
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.uniq()
   end
 
   @doc """

@@ -153,6 +153,17 @@ defmodule ConnectixWeb.Router do
     get "/statuses", StatusController, :index
   end
 
+  # THE LOGIN, PERFORMED HERE rather than forwarded. Unauthenticated by
+  # definition — it is the thing that produces the credential — and answered by
+  # this app so a session does not depend on a mothership being reachable and
+  # signing with the key this portal verifies against. `Plugs.EngineProxy`
+  # knows to let this one through. See Portal.AuthController.
+  scope "/auth", ConnectixWeb.Portal do
+    pipe_through :api
+
+    post "/user_login", AuthController, :user_login
+  end
+
   scope "/api", ConnectixWeb.Portal do
     pipe_through [:api, ConnectixWeb.Plugs.UserTokenAuth]
 

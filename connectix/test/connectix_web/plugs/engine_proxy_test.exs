@@ -3,9 +3,14 @@ defmodule ConnectixWeb.Plugs.EngineProxyTest do
   The origin's CORS contract.
 
   The Chrome extension is the caller that makes this load-bearing: it posts
-  `/auth/user_login` from `chrome-extension://<id>`, an origin no upstream
+  `/auth/refresh_token` from `chrome-extension://<id>`, an origin no upstream
   allowlist can name, so if this app does not answer for itself the browser
-  blocks the login before the extension ever sees the token.
+  blocks the call before the extension sees the response.
+
+  The examples here deliberately do NOT use `/auth/user_login`: the portal
+  performs that one itself now (`Portal.AuthController`), so it is in
+  `@portal_owned` and never reaches this plug. Testing the forwarder with a
+  path it no longer forwards asserts nothing.
   """
 
   # System.put_env — the plug reads its configuration at call time.
@@ -39,7 +44,7 @@ defmodule ConnectixWeb.Plugs.EngineProxyTest do
 
       conn =
         :options
-        |> conn("/auth/user_login")
+        |> conn("/auth/refresh_token")
         |> put_req_header("origin", @extension)
         |> put_req_header("access-control-request-method", "POST")
         |> call()
@@ -90,7 +95,7 @@ defmodule ConnectixWeb.Plugs.EngineProxyTest do
     test "carry this app's allow-origin, not the upstream's missing one" do
       conn =
         :post
-        |> conn("/auth/user_login", ~s({"email":"a@b.c","password":"x"}))
+        |> conn("/auth/refresh_token", ~s({"token":"x"}))
         |> put_req_header("content-type", "application/json")
         |> put_req_header("origin", @extension)
         |> call()
@@ -106,7 +111,7 @@ defmodule ConnectixWeb.Plugs.EngineProxyTest do
     test "the upstream's CORS headers are dropped rather than merged" do
       conn =
         :post
-        |> conn("/auth/user_login", "{}")
+        |> conn("/auth/refresh_token", "{}")
         |> put_req_header("content-type", "application/json")
         |> call()
 
@@ -154,11 +159,11 @@ defmodule ConnectixWeb.Plugs.EngineProxyTest do
       # of this hop, so it is passed on exactly as it arrived.
       conn =
         :post
-        |> conn("/auth/user_login", "email=a@b.c")
+        |> conn("/auth/refresh_token", "token=abc")
         |> put_req_header("content-type", "application/x-www-form-urlencoded")
         |> call()
 
-      assert_receive {:upstream, "POST", "/auth/user_login", _q, "email=a@b.c", _auth}
+      assert_receive {:upstream, "POST", "/auth/refresh_token", _q, "token=abc", _auth}
       assert conn.status == 401
       assert conn.halted
     end
@@ -182,6 +187,15 @@ defmodule ConnectixWeb.Plugs.EngineProxyTest do
     test "no Authorization header means none is sent, not an empty one" do
       call(conn(:get, "/api/features"))
       assert_receive {:upstream, "GET", "/api/features", _q, _body, []}
+    end
+
+
+    test "the login is not forwarded, because this app performs it" do
+      # It used to go upstream, which made every session depend on a mothership
+      # being reachable and signing with the key this portal verifies against.
+      # When it was not, the symptom was a login that simply did not work.
+      refute call(conn(:post, "/auth/user_login", "email=a@b.c")).halted
+      refute_receive {:upstream, _m, "/auth/user_login", _q, _b, _a}, 200
     end
 
     test "with no upstream configured the route is not forwarded at all" do
