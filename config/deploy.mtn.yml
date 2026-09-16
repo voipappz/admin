@@ -91,7 +91,7 @@ ssh:
 
 # Same Elixir portal image as nimbus (Dockerfile.production). mtn had been
 # inheriting the base deploy.yml's nirlevi/bots — the old Deno repo name.
-image: nirlevi/voipappz-portal-elixir
+image: nirlevi/connectix
 
 builder:
   arch: amd64

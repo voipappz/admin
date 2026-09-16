@@ -25,7 +25,7 @@
 #     kamal config -d nimbus     # render + verify (read-only)
 #     kamal deploy -d nimbus
 
-image: nirlevi/voipappz-portal-elixir
+image: nirlevi/connectix
 
 builder:
   arch: amd64

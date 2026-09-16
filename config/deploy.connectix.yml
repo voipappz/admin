@@ -36,7 +36,17 @@
 #     kamal config -d connectix     # render + verify (read-only)
 #     kamal deploy -d connectix
 
-image: nirlevi/voipappz-portal-elixir
+# NAMED FOR WHAT IT IS. `voipappz-portal-elixir` described the app by its
+# company, its role and its language, and two of those three stopped being
+# distinguishing the moment there was nothing else to be a portal beside. The
+# base layer is already `nirlevi/connectix-base`, so the app image sitting
+# under a different name was the odd one out.
+#
+# The image name is not how kamal finds a running container — it matches on the
+# service and role labels — so a rename swaps cleanly. What it does leave is
+# every previously pushed tag under the old repository, which stays until
+# somebody prunes it.
+image: nirlevi/connectix
 
 builder:
   arch: amd64
