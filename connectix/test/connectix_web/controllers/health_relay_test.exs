@@ -62,6 +62,14 @@ defmodule ConnectixWeb.HealthRelayTest do
       System.put_env("NATS_URL", "nats://127.0.0.1:4222")
       System.put_env("NATS_SUBJECTS", "node:test1")
 
+      # No producer is running in this test, and `status/0` is one term for the
+      # node — a producer from another test that did not shut down cleanly
+      # would otherwise leave "subscribed" behind and make this pass for the
+      # wrong reason.
+      refute Connectix.Realtime.NatsProducer.pid() &&
+               Process.alive?(Connectix.Realtime.NatsProducer.pid()),
+             "a producer is still running; this test asserts on the no-producer case"
+
       on_exit(fn ->
         System.delete_env("NATS_URL")
         System.delete_env("NATS_SUBJECTS")

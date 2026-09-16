@@ -229,4 +229,46 @@ defmodule Connectix.Realtime.NatsProducerTest do
 
     assert events == ["3", "4", "5"]
   end
+
+  test "the overflow warning is one line per episode, not one per dropped frame" do
+    # Measured before the hysteresis: the flag cleared as soon as the buffer was
+    # one under its bound, so the next arrival overflowed again and the pair of
+    # log lines repeated per message — four full/draining cycles in four
+    # milliseconds. The buffer now has to fall to half the bound first.
+    import ExUnit.CaptureLog
+
+    conn = start_connection()
+    subscribe = fn ^conn, _subscriber, subject -> {:ok, "sid-" <> subject} end
+
+    producer =
+      start_supervised!(%{
+        id: :overflow_producer,
+        start:
+          {GenStage, :start_link,
+           [
+             NatsProducer,
+             [
+               subjects: ["call_events"],
+               connection: conn,
+               subscribe: subscribe,
+               unsubscribe: no_unsub(),
+               max_buffer: 4
+             ]
+           ]}
+      })
+
+    log =
+      capture_log(fn ->
+        for n <- 1..40, do: send(producer, nats_msg("call_events", "#{n}"))
+        # Nothing consumes, so every message past the bound drops.
+        Process.sleep(100)
+      end)
+
+    assert log =~ "buffer full at 4 messages"
+
+    warnings = log |> String.split("buffer full at") |> length() |> Kernel.-(1)
+
+    assert warnings == 1,
+           "expected ONE overflow warning for one episode, got #{warnings}"
+  end
 end

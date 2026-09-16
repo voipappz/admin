@@ -37,6 +37,9 @@ defmodule Connectix.Realtime.NatsProducer do
     * `:subscribe` / `:unsubscribe` — functions standing in for `Gnat.sub/3`
       and `Gnat.unsub/2`, for tests;
     * `:max_buffer` — the bound on queued messages.
+
+  The overflow warning is one line per EPISODE, not per dropped message, and
+  the buffer has to fall to half its bound before another can be logged.
   """
 
   use GenStage
@@ -48,6 +51,13 @@ defmodule Connectix.Realtime.NatsProducer do
   alias Connectix.Telemetry
 
   @status_key {__MODULE__, :status}
+  # BROADWAY HAS ALREADY NAMED THIS PROCESS. It registers its producer as
+  # `<pipeline>.Broadway.Producer_0`, and a process may hold exactly one
+  # registered name — so `Process.register(self(), __MODULE__)` raises here,
+  # always. Registering and rescuing the failure looked fine and left the
+  # cockpit casting at a name that never existed. The pid goes in a term
+  # instead, beside the status, and both are read the same way.
+  @pid_key {__MODULE__, :pid}
   @default_max_buffer 10_000
   @retry_base 1_000
   @retry_max 30_000
@@ -65,24 +75,26 @@ defmodule Connectix.Realtime.NatsProducer do
   broker disagrees — there is no frame that reports that, so the only move is
   to ask again.
   """
-  @spec resubscribe(GenServer.server()) :: :ok
-  def resubscribe(server \\ __MODULE__) do
-    GenStage.cast(server, :resubscribe)
+  @spec resubscribe() :: :ok
+  def resubscribe do
+    case :persistent_term.get(@pid_key, nil) do
+      pid when is_pid(pid) ->
+        if Process.alive?(pid), do: GenStage.cast(pid, :resubscribe), else: :ok
+
+      _never_started ->
+        :ok
+    end
   catch
     :exit, _ -> :ok
   end
 
+  @doc false
+  # The running producer, for a test or an iex session that wants to look at it.
+  def pid, do: :persistent_term.get(@pid_key, nil)
+
   @impl GenStage
   def init(opts) do
     subjects = Keyword.fetch!(opts, :subjects)
-
-    # Named so the cockpit and /health can reach it without knowing Broadway's
-    # generated name. `:ignore` when a test runs a second one.
-    try do
-      Process.register(self(), __MODULE__)
-    rescue
-      ArgumentError -> :already_named
-    end
 
     state = %{
       subjects: subjects,
@@ -103,6 +115,7 @@ defmodule Connectix.Realtime.NatsProducer do
       overflowing?: false
     }
 
+    :persistent_term.put(@pid_key, self())
     put_status(:connecting)
     send(self(), :subscribe)
     {:producer, state}
@@ -169,6 +182,18 @@ defmodule Connectix.Realtime.NatsProducer do
   # Broadway calls this on shutdown so no new message enters a pipeline that
   # is finishing what it has. Core NATS has nothing to nack, so unsubscribing
   # is the whole of it.
+  # A DEAD PIPELINE MUST NOT READ AS SUBSCRIBED. `status/0` is one term for the
+  # node, so without this it keeps whatever the last producer wrote — and
+  # `/health` would report the broker fine for a pipeline that is gone, which
+  # is the exact failure this check exists to catch.
+  @impl GenStage
+  def terminate(_reason, state) do
+    unsubscribe(state)
+    :persistent_term.put(@status_key, :not_started)
+    :persistent_term.erase(@pid_key)
+    :ok
+  end
+
   @impl Broadway.Producer
   def prepare_for_draining(state) do
     unsubscribe(state)
@@ -255,10 +280,15 @@ defmodule Connectix.Realtime.NatsProducer do
     )
   end
 
+  # HYSTERESIS, not a threshold. Clearing the flag the moment the buffer is one
+  # under its bound means the next arrival overflows again, and the pair of log
+  # lines repeats per message — measured at four full/draining cycles in four
+  # milliseconds, which is the log spam the flag exists to prevent. It clears
+  # only once the pipeline is genuinely ahead again, at half the bound.
   defp emit(state, acc) do
     state =
-      if state.overflowing? and state.size < state.max_buffer do
-        Logger.info("nats: buffer draining — no longer dropping")
+      if state.overflowing? and state.size <= div(state.max_buffer, 2) do
+        Logger.info("nats: buffer drained — no longer dropping")
         %{state | overflowing?: false}
       else
         state

@@ -141,26 +141,25 @@ env:
     # NOT localhost: this container runs on the `kamal` bridge network, so
     # localhost is the container itself and the node listens on the HOST. The
     # add-host below maps host.docker.internal to the host gateway.
-    CABLE_URL: ws://host.docker.internal:4000/cable
+    # EVENTS COME FROM THE BROKER, not from a relay in front of it. NOT
+    # localhost: this container runs on the `kamal` bridge network, so
+    # localhost is the container itself and the broker listens on the HOST.
+    # The add-host below maps host.docker.internal to the host gateway.
+    NATS_URL: nats://host.docker.internal:4222
+    NATS_SUBJECTS: "*,state.>"
   secret:
     # DATABASE_URL was here until 2026-09-07. 39c92198 dropped Ecto; nothing
     # read it, and a declared-but-missing secret fails the whole deploy — so
     # it was a tripwire guarding a database that no longer exists.
     - SECRET_KEY_BASE
-    # The CABLE NODE's signing secret (agent_rec's SECRET_KEY), not this app's.
+    # THE ISSUER'S SIGNING SECRET — the API's, the one it signs user tokens
+    # with. `Realtime.Jwt` verifies every /ws/events token against it here,
+    # with no round trip to anyone.
     #
-    # CABLE_URL alone is not enough to reach the node: `ApiProxy.enabled?` is
-    # `CABLE_URL and CableToken.account()`, and `account()` needs a secret to
-    # mint with (or a literal CABLE_TOKEN). Without it the relay is off, and
-    # because `TokenAuth` has no HTTP fallback the portal refuses EVERY
-    # /ws/events upgrade while /auth keeps working over EngineProxy's fallback
-    # — a login that succeeds followed by a socket that 401s.
-    #
-    # Two things hide it. The health report says `api_relay: ok` when the relay
-    # is merely DISABLED (`not enabled? or ready?`), and the log line blames
-    # "CABLE_URL is not set" for any :disabled, including this case where it is
-    # set. Check the container's env, not the message.
-    - CABLE_SECRET_KEY
+    # Without it the portal refuses EVERY socket upgrade while /auth keeps
+    # working over EngineProxy — a login that succeeds followed by a socket
+    # that 401s. The log says so by name now, and /health reports it.
+    - SECRET_KEY
 
 ssh:
   # Verified against the host: this key/user pair is the one authorised there.

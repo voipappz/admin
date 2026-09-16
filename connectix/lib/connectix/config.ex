@@ -682,13 +682,17 @@ defmodule Connectix.Config do
   """
   @spec nats_subjects() :: [String.t()]
   def nats_subjects do
-    "NATS_SUBJECTS"
-    |> env()
-    |> to_string()
-    |> String.split(",", trim: true)
-    |> Enum.map(&String.trim/1)
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.uniq()
+    case env("NATS_SUBJECTS") do
+      nil ->
+        []
+
+      value ->
+        value
+        |> String.split(",", trim: true)
+        |> Enum.map(&String.trim/1)
+        |> Enum.reject(&(&1 == ""))
+        |> Enum.uniq()
+    end
   end
 
   @doc """

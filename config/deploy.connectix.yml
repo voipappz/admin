@@ -162,21 +162,6 @@ env:
     # deployment's users against a different mothership.
     ENGINE_URL: https://nimbus-prod.voipappz.io
 
-    # The cable this portal listens on for CallEvents and per-user state — the
-    # stream screen pop reads. It runs on the nimbus box, not this one.
-    # ws://, NOT wss://. Port 4000 on the cable node is plain HTTP — a TLS
-    # handshake against it comes back as `{unsupported_record_type,72}`, where
-    # 72 is the "H" of "HTTP/1.1", which reads as a certificate problem and is
-    # really a scheme problem. nimbus uses ws:// to the same port.
-    #
-    # THE TOKEN THEREFORE CROSSES THE INTERNET IN CLEAR. On nimbus that hop is
-    # localhost (host.docker.internal) so plaintext costs nothing; here the
-    # cable is on a different machine. The node offers no TLS listener on that
-    # port today, so the options are a TLS terminator in front of it or a
-    # tunnel between the hosts — worth doing, and named here so it is not
-    # forgotten.
-    CABLE_URL: ws://nimbus-prod.voipappz.io:4001/cable
-
     # THE EVENT TRANSPORT. The portal consumes the node's streams from the
     # broker rather than over cable — a cable stream identifier IS its NATS
     # subject, verbatim, so these are the same frames one hop earlier.
@@ -233,14 +218,12 @@ env:
   # SECRET_KEY_BASE, PORTAL_UI_USER/PASS, the model provider key,
   # DEEPGRAM_API_KEY, CARTESIA_API_KEY, CONNECTIX_SIP_USER/PASS.
   #
-  # NOT THERE YET: CABLE_SECRET_KEY — the cable NODE's signing secret
-  # (agent_rec's SECRET_KEY on the nimbus box). Without it the realtime socket
-  # refuses every /ws/events upgrade, so SCREEN POP is off, while /auth keeps
-  # working over EngineProxy's HTTP fallback. A login that succeeds followed
-  # by a socket that 401s is the symptom; the health report says
-  # `api_relay: ok` when the relay is merely DISABLED, and the log blames
-  # "CABLE_URL is not set" even when it is set. Check the container's env.
-  # Chat, the LiveView UI and voice do not need it.
+  # NOT THERE YET: SECRET_KEY — the API's own signing secret, the one it
+  # signs user tokens with. `Realtime.Jwt` verifies every /ws/events token
+  # against it, so without it the socket refuses every upgrade and SCREEN POP
+  # is off, while /auth keeps working over EngineProxy. A login that succeeds
+  # followed by a socket that 401s is the symptom, and both the log and
+  # /health name it now. Chat, the LiveView UI and voice do not need it.
 
 # ---------------------------------------------------------------------------
 # The broker the portal consumes events from.

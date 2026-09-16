@@ -41,12 +41,17 @@ env:
     # advertises example.com. PORT (3000) is inherited from the base deploy.yml.
     PHX_SERVER: "true"
     PHX_HOST: mtnunicom.mtn.com.gh
-    # The relay goes extension -> portal -> CABLE -> mothership. CABLE_URL is the
-    # cable node on the LAN (its own host, not this box); the portal opens one
-    # application connection to it and every user login rides over that socket.
-    CABLE_URL: ws://192.168.165.21:4000/cable
-    # ENGINE_URL is the HTTP FALLBACK EngineProxy uses only when the cable hop
-    # fails (or the relay is off). The mothership API is a SEPARATE LAN host at
+    # EVENTS COME FROM THE BROKER. The node publishes every stream to NATS
+    # first — a stream identifier IS its subject, verbatim — so the portal
+    # subscribes there rather than through a relay in front of it. The broker
+    # is on the node's own LAN host, not this box.
+    NATS_URL: nats://192.168.165.21:4222
+    # `*` is every colon-form stream at once (`node:<uuid>`, `call_events`,
+    # `notifications:<uuid>`, `dashboard_user:<uuid>`); `state.>` is every
+    # state stream. NATS splits subjects on dots alone, so a colon-form name
+    # is a single token and `*` is the only wildcard that reaches it.
+    NATS_SUBJECTS: "*,state.>"
+    # ENGINE_URL is where EngineProxy forwards /auth, /api and /tasks. The mothership API is a SEPARATE LAN host at
     # 192.168.165.18:5000 — reachable directly from the container (verified),
     # unlike host.docker.internal which the bridge could not route to and which
     # made every /auth forward 502 "upstream unavailable".

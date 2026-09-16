@@ -66,9 +66,17 @@ defmodule Connectix.Realtime.EventPipeline do
   alias Connectix.Config
   alias Connectix.Telemetry
 
-  @doc "Child specs for the supervision tree — empty unless configured."
+  @doc """
+  Child specs for the supervision tree — empty unless configured.
+
+  NEVER IN TEST, whatever the environment says. `.env` is read by the test
+  container too, so a suite run on a developer's machine would otherwise open a
+  real subscription to whatever broker that file names and consume production
+  events for the length of the run — silently, and with the pop evaluator
+  live at the other end. A test that wants a pipeline starts its own by name.
+  """
   def children do
-    if enabled?(), do: [__MODULE__], else: []
+    if enabled?() and not Config.test?(), do: [__MODULE__], else: []
   end
 
   @doc "True when a broker URL and at least one subject are configured."
