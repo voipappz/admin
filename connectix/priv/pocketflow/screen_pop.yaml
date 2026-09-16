@@ -11,6 +11,37 @@
 service_uuid: callcenter-screen-pop
 service_type: screen_pop
 
+# THE BROKER, AND WHAT THE PORTAL LISTENS TO.
+#
+# Two gates, in order, and they answer different questions:
+#
+#   subjects  what ARRIVES at all -- the broker delivers nothing else
+#   triggers  what POPS, out of what arrived
+#
+# `${VAR}` IS EXPANDED FROM THE ENVIRONMENT, and that is how the credential
+# stays out of this file. The URL carries a password; written literally it
+# would be committed. Everything else is verbatim.
+#
+# A stream identifier IS its NATS subject, verbatim, so the names below are the
+# platform's own. NATS splits a subject on dots ALONE, so a colon-form name
+# like `node:test1` is a SINGLE token: `*` matches it and every other
+# colon-form stream at once, while `state.>` matches every state stream. There
+# is no `notifications:*`, because the colon is not a separator.
+#
+#   node:<uuid>            the firehose, relayed onto call_events unchanged
+#   call_events            the same stream, one hop later
+#   state.<scope>.<id>     one entity's state, folded per user
+#   notifications:<uuid>   one user's notifications, delivered verbatim
+#   dashboard_user:<uuid>  one user's dashboard state, folded
+#
+# Naming no subjects here falls back to NATS_SUBJECTS in the environment, which
+# is how a deployment that has not adopted this file keeps working.
+nats:
+  url: ${NATS_URL}
+  subjects:
+    - node:test1
+    - state.>
+
 # WHICH EVENTS POP, in both spellings the wire uses.
 #
 # sessions.cr maps FreeSWITCH's callcenter actions to `user.*` names before it

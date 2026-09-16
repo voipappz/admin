@@ -1,5 +1,8 @@
 defmodule Connectix.Realtime.EventPipelineTest do
-  use ExUnit.Case, async: true
+  # NOT async. The rule file is cached in one `:persistent_term` for the node
+  # and these tests swap it, so running them beside anything that reads a rule
+  # leaves the other test looking at this one's file.
+  use ExUnit.Case, async: false
 
   alias Connectix.Realtime.EventPipeline
 
@@ -40,29 +43,119 @@ defmodule Connectix.Realtime.EventPipelineTest do
     end
   end
 
-  describe "enabled?/0" do
-    test "requires both the URL and at least one subject" do
-      url = System.get_env("NATS_URL")
-      subjects = System.get_env("NATS_SUBJECTS")
+  describe "configuration, from the rule file" do
+    setup do
+      previous = %{
+        "NATS_URL" => System.get_env("NATS_URL"),
+        "NATS_SUBJECTS" => System.get_env("NATS_SUBJECTS"),
+        "SCREEN_POP_RULE" => System.get_env("SCREEN_POP_RULE")
+      }
 
       on_exit(fn ->
-        restore("NATS_URL", url)
-        restore("NATS_SUBJECTS", subjects)
+        Enum.each(previous, fn {k, v} -> restore(k, v) end)
+        Connectix.Realtime.PopRule.reload()
       end)
 
-      System.delete_env("NATS_URL")
-      System.delete_env("NATS_SUBJECTS")
-      refute EventPipeline.enabled?()
+      :ok
+    end
 
-      System.put_env("NATS_URL", "nats://127.0.0.1:4222")
-      refute EventPipeline.enabled?()
+    defp with_rule(yaml, fun) do
+      path =
+        Path.join(System.tmp_dir!(), "rule_#{System.unique_integer([:positive])}.yaml")
 
-      System.put_env("NATS_SUBJECTS", " call_events, state.user.* ,,")
-      assert EventPipeline.enabled?()
-      assert Connectix.Config.nats_subjects() == ["call_events", "state.user.*"]
+      File.write!(path, yaml)
+      System.put_env("SCREEN_POP_RULE", path)
+      Connectix.Realtime.PopRule.reload()
+
+      try do
+        fun.()
+      after
+        File.rm(path)
+      end
+    end
+
+    test "the broker and the streams both come from the file" do
+      System.put_env("NATS_PASSWORD_PROBE", "s3cret")
+
+      with_rule("""
+      service_type: screen_pop
+      nats:
+        url: nats://user:${NATS_PASSWORD_PROBE}@broker:4222
+        subjects:
+          - node:test1
+          - state.>
+      triggers:
+        - bridge-agent-start
+      """, fn ->
+        # ${VAR} is expanded, which is how the credential stays out of a file
+        # that lives in git.
+        assert EventPipeline.url() == "nats://user:s3cret@broker:4222"
+        assert EventPipeline.subjects() == ["node:test1", "state.>"]
+        assert EventPipeline.enabled?()
+      end)
+    end
+
+    test "an unset variable is not set, rather than the literal text" do
+      System.delete_env("NOT_SET_ANYWHERE")
+
+      with_rule("""
+      service_type: screen_pop
+      nats:
+        url: ${NOT_SET_ANYWHERE}
+        subjects:
+          - node:test1
+      triggers:
+        - bridge-agent-start
+      """, fn ->
+        System.delete_env("NATS_URL")
+        # Not a hostname called "${NOT_SET_ANYWHERE}".
+        assert EventPipeline.url() == nil
+        refute EventPipeline.enabled?()
+      end)
+    end
+
+    test "a file that names nothing falls back to the environment" do
+      with_rule("""
+      service_type: screen_pop
+      triggers:
+        - bridge-agent-start
+      """, fn ->
+        System.put_env("NATS_URL", "nats://127.0.0.1:4222")
+        System.put_env("NATS_SUBJECTS", " call_events , state.> ,,call_events")
+
+        assert EventPipeline.url() == "nats://127.0.0.1:4222"
+        assert EventPipeline.subjects() == ["call_events", "state.>"]
+        assert EventPipeline.enabled?()
+      end)
+    end
+
+    test "subjects alone are not enough: no broker, no pipeline" do
+      with_rule("""
+      service_type: screen_pop
+      nats:
+        subjects:
+          - node:test1
+      triggers:
+        - bridge-agent-start
+      """, fn ->
+        System.delete_env("NATS_URL")
+        assert EventPipeline.subjects() == ["node:test1"]
+        refute EventPipeline.enabled?()
+      end)
+    end
+
+    test "the shipped rule file names the broker and the streams" do
+      # The file this deployment actually runs, not a fixture.
+      Connectix.Realtime.PopRule.reload()
+      assert "node:test1" in Connectix.Realtime.PopRule.subjects()
     end
   end
 
+  # BOTH CLAUSES, and the nil one first. Without it `on_exit` called
+  # `System.put_env(key, nil)`, which raises inside the cleanup — so the
+  # variable was never restored and the NEXT test read this one's temp rule
+  # file, which by then was deleted. One missing clause, two failures, neither
+  # of them where the bug was.
   defp restore(key, nil), do: System.delete_env(key)
   defp restore(key, value), do: System.put_env(key, value)
 end

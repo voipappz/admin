@@ -84,6 +84,80 @@ defmodule Connectix.Realtime.PopRule do
   def event_name(_event), do: nil
 
   @doc """
+  The broker settings, from the rule file's `nats:` block.
+
+      nats:
+        url: ${NATS_URL}
+        subjects:
+          - node:test1
+          - state.>
+
+  **`${VAR}` is expanded from the environment**, and that is how a credential
+  stays out of a file that lives in git. The URL carries a password; writing it
+  literally here would commit it. A value with no `${}` is used verbatim, which
+  is right for a subject list and for a broker that needs no credential.
+
+  An unset variable expands to nothing, and an empty setting is the same as an
+  absent one — the same rule `Connectix.Config` follows, because a shipping
+  tool writes `FOO=` for a value it does not have.
+  """
+  @spec nats() :: %{url: String.t() | nil, subjects: [String.t()]}
+  def nats do
+    block = rule() |> Map.get("nats", %{}) |> normalise_block()
+
+    %{
+      url: block |> Map.get("url") |> expand() |> presence(),
+      subjects:
+        block
+        |> Map.get("subjects", [])
+        |> List.wrap()
+        |> Enum.map(&(&1 |> to_string() |> expand() |> String.trim()))
+        |> Enum.reject(&(&1 == ""))
+        |> Enum.uniq()
+    }
+  end
+
+  @doc """
+  The NATS subjects to subscribe to, from the rule file.
+
+  Empty when the file names none, and `Realtime.EventPipeline` then falls back
+  to `NATS_SUBJECTS`. The two gates are deliberately in one file: `subjects`
+  decides what ARRIVES and `triggers` decides what POPS out of what arrived, so
+  a subject named nowhere looks exactly like a switch with nothing to say.
+  """
+  @spec subjects() :: [String.t()]
+  def subjects, do: nats().subjects
+
+  @doc "The broker URL from the rule file, or nil."
+  @spec nats_url() :: String.t() | nil
+  def nats_url, do: nats().url
+
+  defp normalise_block(%{} = block), do: block
+  defp normalise_block(_not_a_map), do: %{}
+
+  # `${VAR}`, anywhere in the value, replaced by the environment. An unset
+  # variable becomes empty rather than the literal text, so a half-configured
+  # file fails as "not set" instead of as a hostname called "${NATS_URL}".
+  defp expand(nil), do: nil
+
+  defp expand(value) when is_binary(value) do
+    Regex.replace(~r/\$\{([A-Z0-9_]+)\}/, value, fn _whole, name ->
+      System.get_env(name) || ""
+    end)
+  end
+
+  defp expand(value), do: to_string(value)
+
+  defp presence(value) when is_binary(value) do
+    case String.trim(value) do
+      "" -> nil
+      trimmed -> trimmed
+    end
+  end
+
+  defp presence(_absent), do: nil
+
+  @doc """
   Agent states that count as "on a call". Empty means every state passes, which
   is what a rule that omits the key gets.
   """

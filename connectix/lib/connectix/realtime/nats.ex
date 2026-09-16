@@ -28,8 +28,6 @@ defmodule Connectix.Realtime.Nats do
 
   require Logger
 
-  alias Connectix.Config
-
   @connection __MODULE__.Connection
 
   @doc "The registered name of the connection, for `Gnat.sub/4` and friends."
@@ -84,7 +82,7 @@ defmodule Connectix.Realtime.Nats do
   it. Pure, so the parse can be pinned by a test without a broker.
   """
   @spec settings() :: map() | nil
-  def settings, do: settings(Config.nats_url())
+  def settings, do: settings(Connectix.Realtime.EventPipeline.url())
 
   @doc false
   def settings(nil), do: nil

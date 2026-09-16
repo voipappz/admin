@@ -46,6 +46,18 @@ defmodule Connectix.Realtime.EventPipeline do
   publishes the stream payload as the subject's body, verbatim. A body that is
   not a JSON object is counted (`result="undecodable"`) and dropped.
 
+  ## Which subjects, and where that is written
+
+  `priv/pocketflow/screen_pop.yaml` carries the whole event configuration: the
+  broker under `nats.url` and the streams under `nats.subjects`, beside the
+  `triggers:` that decide what pops. One file for "where events come from",
+  "which ones arrive" and "what we do with them".
+
+  `${VAR}` in that file is expanded from the environment, so the broker
+  credential is named there and stored in `.env`, never committed.
+  `NATS_URL` and `NATS_SUBJECTS` remain the fallback for a deployment that has
+  not adopted the file.
+
   ## This is the only source of events
 
   The relay is gone. `children/0` is empty unless BOTH `NATS_URL` and
@@ -80,7 +92,34 @@ defmodule Connectix.Realtime.EventPipeline do
   end
 
   @doc "True when a broker URL and at least one subject are configured."
-  def enabled?, do: Config.nats_url() != nil and Config.nats_subjects() != []
+  def enabled?, do: url() != nil and subjects() != []
+
+  @doc """
+  The broker URL: the rule file's, else `NATS_URL`.
+
+  The file wins, and it reaches the same value either way — `url: ${NATS_URL}`
+  is what it says, so the credential lives in the environment and the file
+  records only that it is read from there.
+  """
+  @spec url() :: String.t() | nil
+  def url, do: Connectix.Realtime.PopRule.nats_url() || Config.nats_url()
+
+  @doc """
+  The subjects to consume: the rule file's, else `NATS_SUBJECTS`.
+
+  The rule file wins because it is the file that already decides what the
+  portal looks at, and keeping the two halves apart is how a deployment ends up
+  subscribed to a stream nothing pops on, or popping on a stream it never
+  subscribed to. The environment variable stays as the fallback so a
+  deployment that has not adopted the file keeps working.
+  """
+  @spec subjects() :: [String.t()]
+  def subjects do
+    case Connectix.Realtime.PopRule.subjects() do
+      [] -> Config.nats_subjects()
+      named -> named
+    end
+  end
 
   @doc """
   Options, all optional and mostly for tests:
@@ -95,7 +134,7 @@ defmodule Connectix.Realtime.EventPipeline do
   def start_link(opts \\ []) do
     producer =
       Keyword.get_lazy(opts, :producer, fn ->
-        {Connectix.Realtime.NatsProducer, subjects: Config.nats_subjects()}
+        {Connectix.Realtime.NatsProducer, subjects: subjects()}
       end)
 
     Broadway.start_link(__MODULE__,
