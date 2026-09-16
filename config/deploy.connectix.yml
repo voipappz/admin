@@ -174,9 +174,17 @@ env:
 
     # THE EVENT TRANSPORT.
     #
-    # NATS_URL IS NOT HERE, and that is deliberate: it carries a password, so
-    # it belongs in /etc/connectix/secrets.env on the host with the other
-    # credentials, never in this file. See the checklist at the bottom.
+    # IN THE CLEAR because there is nothing to hide: the broker takes no
+    # credentials. Measured — a connection with none is accepted and the server
+    # does not advertise `auth_required`. It was carried as a host secret while
+    # the URL had a `user:pass@` in it, which turned out to be decoration.
+    #
+    # THAT ALSO MEANS THE BROKER IS OPEN. Anyone who can reach it can read
+    # every call event and publish ones this portal will act on — a forged
+    # `bridge-agent-start` opens a CRM tab on a real agent's screen. That is an
+    # infrastructure decision, recorded here because the portal cannot defend
+    # against it.
+    NATS_URL: nats://185.28.152.124:4222
     #
     # WHICH BROKER IT SHOULD NAME is a decision, not a default. The accessory
     # below runs one ON this host, reachable as `nats://connectix-nats:4222`,
@@ -303,10 +311,6 @@ accessories:
 # OPTIONAL, add a `secret:` line AND the value together when wanted — a name
 # here with no value on the host fails the deploy:
 #
-#   NATS_URL            THE EVENT TRANSPORT, and without it this portal pops
-#                       no screens, delivers no state and stores nothing —
-#                       while every other check stays green, because nothing
-#                       else depends on it. `nats://user:pass@host:4222`.
 #   AGENT_PASSWORD      What the agents in priv/pocketflow/screen_pop.yaml sign
 #                       in with. That file names it and never holds it. Unset,
 #                       every agent entry refuses to sign in.
