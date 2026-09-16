@@ -124,6 +124,10 @@ services:
       # asking anyone. Unset, every socket upgrade is refused and the log says
       # why.
       SECRET_KEY: ${SECRET_KEY:-}
+      # The password the agents in priv/pocketflow/screen_pop.yaml sign in
+      # with. That file names it and never holds it: a password committed once
+      # stays in the history after the file stops carrying it.
+      AGENT_PASSWORD: ${AGENT_PASSWORD:-}
       # Log shipping to InfluxDB 3 — the SAME four names the node reads, so one
       # .env configures both. Empty unless set, and empty means "not
       # configured": no handler is installed and nothing is posted. The console

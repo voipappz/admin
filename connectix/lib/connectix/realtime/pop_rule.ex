@@ -198,7 +198,10 @@ defmodule Connectix.Realtime.PopRule do
   defp entry(%{} = map) do
     %{
       ids: map |> Map.get("powerlink", Map.get(map, "ids")) |> id_list(),
-      password: map |> Map.get("password") |> presence()
+      # EXPANDED, so a credential is NAMED here and stored in the environment.
+      # Written literally it is committed, and a password in git is a password
+      # forever — the history keeps it after the file stops carrying it.
+      password: map |> Map.get("password") |> expand() |> presence()
     }
   end
 

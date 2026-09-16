@@ -103,3 +103,10 @@ export RELEASE_COOKIE="my-app-cookie"
 
 # Public HTTPS tunnel for WhatsApp webhooks — see `make tunnel`.
 # export NGROK_AUTHTOKEN=""
+
+# The password the agents in priv/pocketflow/screen_pop.yaml sign in with.
+# That file names it as ${AGENT_PASSWORD} and never holds the value, because a
+# password committed once stays in the history after the file stops carrying
+# it. Unset, every agent entry refuses to sign in rather than accepting
+# anything.
+# export AGENT_PASSWORD="..."

@@ -68,9 +68,15 @@ nats:
 # so there is no mapping step left to get wrong. An entry with no password is
 # a mapping only, and refuses to sign in rather than accepting anything.
 #
-# THE PASSWORD IS IN PLAIN TEXT IN A FILE IN GIT. That is fine for a test
-# deployment and is not fine for a real one; a real one keeps these in the
-# mothership, or this block grows a hash.
+# THE PASSWORD IS NAMED HERE AND STORED IN THE ENVIRONMENT. `${AGENT_PASSWORD}`
+# is expanded at read time, so this file records THAT a credential is required
+# and never what it is. It was briefly written literally, and that is a mistake
+# with no clean undo: a password committed once stays in the history after the
+# file stops carrying it, so the fix is always to rotate it as well as remove
+# it.
+#
+# One variable for all seven because they share a password today. Give an agent
+# its own by naming a different variable on its line.
 #
 #   agents:
 #     <portal user uuid>: <powerlink uuid>
@@ -90,13 +96,13 @@ nats:
 # applies before anything is asked of anyone. Email is what a person can write
 # down, so both work.
 agents:
-  "661@phk.com": {powerlink: 2b79698e-c221-4f5b-8017-7fa472b2240c, password: "123456"}
-  "662@phk.com": {powerlink: cb1b0a46-77d5-4b3a-92d8-31768fea74e4, password: "123456"}
-  "663@phk.com": {powerlink: eb7aca9f-b797-463a-b457-16618c3514b3, password: "123456"}
-  "664@phk.com": {powerlink: f1122ab7-98c7-4eac-896c-0e281c1d4693, password: "123456"}
-  "665@phk.com": {powerlink: 6603f692-5f47-4318-baf6-3ac2836c6cee, password: "123456"}
-  "667@phk.com": {powerlink: fdc47399-1a8b-4ecb-8751-891edf6b9e32, password: "123456"}
-  "668@phk.com": {powerlink: 88309e98-f698-4b57-898d-a6056c37dd55, password: "123456"}
+  "661@phk.com": {powerlink: 2b79698e-c221-4f5b-8017-7fa472b2240c, password: "${AGENT_PASSWORD}"}
+  "662@phk.com": {powerlink: cb1b0a46-77d5-4b3a-92d8-31768fea74e4, password: "${AGENT_PASSWORD}"}
+  "663@phk.com": {powerlink: eb7aca9f-b797-463a-b457-16618c3514b3, password: "${AGENT_PASSWORD}"}
+  "664@phk.com": {powerlink: f1122ab7-98c7-4eac-896c-0e281c1d4693, password: "${AGENT_PASSWORD}"}
+  "665@phk.com": {powerlink: 6603f692-5f47-4318-baf6-3ac2836c6cee, password: "${AGENT_PASSWORD}"}
+  "667@phk.com": {powerlink: fdc47399-1a8b-4ecb-8751-891edf6b9e32, password: "${AGENT_PASSWORD}"}
+  "668@phk.com": {powerlink: 88309e98-f698-4b57-898d-a6056c37dd55, password: "${AGENT_PASSWORD}"}
 
 # WHICH EVENTS POP, in both spellings the wire uses.
 #
