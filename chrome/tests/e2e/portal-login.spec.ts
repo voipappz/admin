@@ -4,25 +4,21 @@ import { test, expect } from './helpers/extension';
  * THE WHOLE CHAIN, driven from the extension.
  *
  *   Chrome extension  ──POST /auth/user_login──>  Elixir portal  :4001
- *                                                      │  cable frame
+ *                                                      │
  *                                                      ▼
- *                                        va-crystal cable  :4100  (ApiProxy)
- *                                                      │  HTTP to API_URL
- *                                                      ▼
- *                                                  Ruby API — performs the login
+ *                                          it performs the login itself
  *
- * `user-connect.spec.ts` drives the extension against a NODE directly. This one
- * drives it against the PORTAL, which is the deployment shape: the extension
- * knows one host, and that host relays the credential over cable rather than
- * making an HTTP call of its own.
+ * The portal owns `/auth/user_login` now. It checks the credential against the
+ * agents in `screen_pop.yaml` and mints a token with the same secret it
+ * verifies against, so a session depends on this app and on nothing else being
+ * reachable — which is exactly the failure this file used to be unable to
+ * distinguish from a wrong password.
  *
- * WHY THE HEALTH GUARD IS NOT OPTIONAL. `Plugs.EngineProxy` prefers cable and
- * falls back to HTTP, and both return the same body. So a login can succeed
- * with the cable relay completely dead, and this test would pass having proven
- * nothing about the path it exists to prove. `/health`'s `api_relay` check is
- * green only once the node has CONFIRMED the ApiProxy subscription, so it is
- * asserted first and the run fails loudly rather than quietly measuring the
- * fallback.
+ * WHY THE HEALTH GUARD IS STILL HERE. A login that works proves nothing about
+ * the events that follow it, and those come off the broker. `/health`'s `nats`
+ * check is green only once the producer is actually subscribed, so it is
+ * asserted first and the run fails loudly rather than leaving a green login
+ * beside a silent socket.
  */
 
 const PORTAL = process.env.TEST_DOMAIN ?? 'http://localhost:4001';
@@ -30,8 +26,8 @@ const USERNAME = process.env.TEST_USERNAME ?? '';
 const PASSWORD = process.env.TEST_PASSWORD ?? '';
 
 const NEED_CREDS =
-  'set TEST_USERNAME and TEST_PASSWORD — the USER login (users table), which ' +
-  "mothership's `make onboard` prints as \"Extension login\"";
+  'set TEST_USERNAME and TEST_PASSWORD — an agent named in the `agents:` block ' +
+  'of connectix/priv/pocketflow/screen_pop.yaml, with a password beside it';
 
 // The endpoint is configuration now (`CONFIG.API_ENDPOINT`), and `_domain` is
 // its runtime override — the same seam the other specs use to aim the
@@ -50,27 +46,28 @@ async function submit(page, username: string, password: string) {
   await loginButton(page).click();
 }
 
-test.describe('extension → portal → cable → API', () => {
-  test('the portal is relaying over cable, not falling back to HTTP', async ({ request }) => {
+test.describe('extension → portal', () => {
+  test('the portal is subscribed to the broker, so events can follow a login', async ({
+    request,
+  }) => {
     // Asserted before anything else in this file is believed.
     const res = await request.get(`${PORTAL}/health`);
     expect(res.status(), await res.text()).toBe(200);
 
     const health = await res.json();
     expect(
-      health.checks?.api_relay?.status,
-      'the node has not confirmed the ApiProxy channel — every login below ' +
-        'would take the HTTP fallback and prove nothing about the cable path. ' +
-        'Check the node is new enough to carry the channel and has ' +
-        'CABLE_API_PROXY=1.',
+      health.checks?.nats?.status,
+      'the portal is not subscribed to the broker, so a login here would be ' +
+        'followed by a socket that never delivers anything. Check NATS_URL and ' +
+        'the `nats.subjects` block in screen_pop.yaml.',
     ).toBe('ok');
   });
 
   /**
-   * NO CREDENTIAL REQUIRED, and that is the point: a refusal travels the exact
-   * same four hops a success does. The API composes the 401, cable relays it,
-   * the portal returns it, and the popup renders it — so this proves the chain
-   * is connected end to end on a machine that has no valid login to hand.
+   * NO CREDENTIAL REQUIRED, and that is the point: a refusal travels the same
+   * path a success does. The portal composes the 401 and the popup renders it,
+   * so this proves the chain is connected on a machine with no valid login to
+   * hand.
    */
   test('a refusal comes back from the API through the whole chain', async ({ popupPage }) => {
     await submit(popupPage, 'nobody@invalid.test', 'definitely-wrong');
@@ -82,10 +79,10 @@ test.describe('extension → portal → cable → API', () => {
   });
 
   test('the portal answers user_login itself, on its own origin', async ({ request }) => {
-    // Straight at the portal, no browser: it must own /auth/user_login rather
-    // than redirect the extension somewhere else. A 3xx or a 404 here means the
-    // extension is talking to a host that does not front this route, which
-    // presents in the popup as a bare snackbar with no message.
+    // Straight at the portal, no browser: it must ANSWER /auth/user_login
+    // rather than forward or redirect it. A 3xx or a 404 here means the route
+    // left this app, which presents in the popup as a bare snackbar with no
+    // message.
     const res = await request.post(`${PORTAL}/auth/user_login`, {
       form: { email: 'nobody@invalid.test', password: 'definitely-wrong' },
       maxRedirects: 0,
