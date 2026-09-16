@@ -162,13 +162,19 @@ env:
     # deployment's users against a different mothership.
     ENGINE_URL: https://nimbus-prod.voipappz.io
 
-    # THE EVENT TRANSPORT. The portal consumes the node's streams from the
-    # broker rather than over cable — a cable stream identifier IS its NATS
-    # subject, verbatim, so these are the same frames one hop earlier.
+    # THE EVENT TRANSPORT.
     #
-    # Points at the `nats` accessory below, by its network alias: kamal renames
-    # role containers on every deploy, so an alias is the only stable address.
-    NATS_URL: nats://connectix-nats:4222
+    # NATS_URL IS NOT HERE, and that is deliberate: it carries a password, so
+    # it belongs in /etc/connectix/secrets.env on the host with the other
+    # credentials, never in this file. See the checklist at the bottom.
+    #
+    # WHICH BROKER IT SHOULD NAME is a decision, not a default. The accessory
+    # below runs one ON this host, reachable as `nats://connectix-nats:4222`,
+    # and NOTHING PUBLISHES TO IT YET — a portal pointed there comes up healthy
+    # and consumes nothing, because `nats` is in the /health report and not in
+    # /health/ready, so kamal's gate passes either way. The events this
+    # deployment wants are on the switch's broker. Point at that one until the
+    # accessory is fed, by a leaf-node link or by whatever writes to it.
 
     # Cable's four streams, named as subjects. `*` matches any ONE token, which
     # is every colon-form stream at once (`node:<uuid>`, `call_events`,
@@ -272,10 +278,11 @@ accessories:
 #   2. Secrets.       mkdir -p /etc/connectix && chmod 700 /etc/connectix
 #                     write secrets.env (chmod 600) with the keys listed above.
 #   3. Volume.        mkdir -p /var/lib/connectix
-#   3b. Broker.       kamal accessory boot nats -d connectix
-#                     Creates the `connectix-nats` volume and starts it. The
-#                     app will not consume events until it is up; /health
-#                     reports `nats` down until then.
+#   3b. Broker.       ONLY if this deployment is meant to consume the LOCAL
+#                     one: kamal accessory boot nats -d connectix
+#                     Nothing publishes to it yet, so a portal pointed there
+#                     consumes nothing. Pointing NATS_URL at the switch's
+#                     broker instead needs no accessory at all.
 #   4. Ports.         80 and 443 reachable from the internet. ufw is inactive,
 #                     so anything blocking them is upstream of the host — and
 #                     80 must be open BEFORE the first deploy or ACME cannot
@@ -285,6 +292,17 @@ accessories:
 #
 # OPTIONAL, add a `secret:` line AND the value together when wanted — a name
 # here with no value on the host fails the deploy:
+#
+#   NATS_URL            THE EVENT TRANSPORT, and without it this portal pops
+#                       no screens, delivers no state and stores nothing —
+#                       while every other check stays green, because nothing
+#                       else depends on it. `nats://user:pass@host:4222`.
+#   SECRET_KEY          The API's own signing secret. `Realtime.Jwt` mints and
+#                       verifies every /ws/events token against it, so without
+#                       it the login answers 503 and every socket is refused.
+#   AGENT_PASSWORD      What the agents in priv/pocketflow/screen_pop.yaml sign
+#                       in with. That file names it and never holds it. Unset,
+#                       every agent entry refuses to sign in.
 #
 #   CONNECTIX_API_KEY + CONNECTIX_API_USER_EMAIL  the public HTTP API (/api).
 #                       Without the key the API refuses every request, which
