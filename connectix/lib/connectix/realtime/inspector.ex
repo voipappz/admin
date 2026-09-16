@@ -54,11 +54,15 @@ defmodule Connectix.Realtime.Inspector do
 
       %{
         user_uuid: user_uuid,
-        agent_ids:
-          socks
-          |> Enum.flat_map(& &1.agent_ids)
-          |> Enum.uniq()
-          |> Enum.reject(&(&1 == user_uuid)),
+        # THE UUID IS NOT NOISE ANY MORE. This used to strip it, from when it
+        # could only be a placeholder — the old "never fewer than [user_uuid]"
+        # fallback that matched every agent at every user. The portal issues
+        # its own tokens now and the identity on them IS the powerlink id, so
+        # stripping it hides the only id there is: a correctly registered agent
+        # read `ids=[]` in the cockpit, which is indistinguishable from the
+        # mapping having failed, and sends whoever is debugging a missing pop
+        # after the wrong thing.
+        agent_ids: socks |> Enum.flat_map(& &1.agent_ids) |> Enum.uniq(),
         sockets: socks,
         # No per-user upstream any more: everyone's events arrive on the one
         # subscription reported in `api_proxy`. Kept so a row's shape does not

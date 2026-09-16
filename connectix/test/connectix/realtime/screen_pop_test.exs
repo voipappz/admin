@@ -548,6 +548,45 @@ defmodule Connectix.Realtime.ScreenPopTest do
       assert url =~ "0522463424"
     end
 
+    test "an agent id that is nobody's is counted, because silence is the symptom" do
+      # WHAT A LIVE HOST ACTUALLY DID. The frame arrived, matched the trigger,
+      # was stored, named `CC-Agent 29001091-…` — and the signed-in agent was
+      # registered as `88309e98-…`, an id nothing on the wire ever mentions. So
+      # the pop chain worked to its last step and dropped the event, which from
+      # the outside is identical to the events never arriving.
+      #
+      # The counter is the whole difference: `unloaded` says the frame reached
+      # the evaluator and named an agent nobody here answers to, which points
+      # at the MAPPING. `ignored` would have pointed at the rule file, and no
+      # counter moving at all would have pointed at the transport.
+      :telemetry.attach(
+        "pop-unclaimed-#{inspect(self())}",
+        [:connectix, :screen_pop, :event],
+        fn _e, _m, meta, pid -> send(pid, {:pop_result, meta.result}) end,
+        self()
+      )
+
+      on_exit(fn -> :telemetry.detach("pop-unclaimed-#{inspect(self())}") end)
+
+      # Registered under one id, while the switch names another.
+      ConnectixWeb.RealtimeSocket.register_agent_ids(@user_uuid, ["88309e98-registered"])
+
+      event = %{
+        "action" => "bridge-agent-start",
+        "id" => "bridge_s1_m1_29001091-on-the-wire",
+        "call_uuid" => "call-mismatch",
+        "caller_id_number" => "0549113453",
+        "user_uuid" => "29001091-on-the-wire",
+        "meta" => %{"CC-Agent" => "29001091-on-the-wire"}
+      }
+
+      ScreenPop.route_event(%ScreenPop{}, event)
+
+      assert_receive {:pop_result, :received}
+      assert_receive {:pop_result, :unloaded}
+      refute_receive {:pop_result, :dispatched}, 100
+    end
+
     test "does not pop for an agent nobody here answers to" do
       # The common case on a busy switch: a real event belonging to someone
       # signed in somewhere else entirely.

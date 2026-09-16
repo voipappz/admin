@@ -44,4 +44,18 @@ defmodule Connectix.Realtime.InspectorTest do
   test "asking for a resubscribe without a producer is an answer, not a crash" do
     assert :ok = Inspector.resubscribe()
   end
+  test "an agent whose only id IS their uuid still shows it, because that is now normal" do
+    # The portal issues its own tokens and the identity on them is the
+    # powerlink id, so `user_uuid` and the agent id are the same value. This
+    # row used to strip it and read `ids=[]`, which looks exactly like a
+    # mapping that failed — and on a live host it sent the debugging after the
+    # registry when the registry was correct and the id on the wire was not.
+    uuid = user()
+    :ok = Sessions.opened(self(), %{user_uuid: uuid, environment_uuid: nil, agent_ids: [uuid]})
+    on_exit(fn -> Sessions.closed(self(), :normal) end)
+
+    assert [row] = Enum.filter(Inspector.agents(), &(&1.user_uuid == uuid))
+    assert row.agent_ids == [uuid]
+  end
+
 end
