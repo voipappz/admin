@@ -548,6 +548,41 @@ defmodule Connectix.Realtime.ScreenPopTest do
       assert url =~ "0522463424"
     end
 
+    test "when somebody is signed in, the log names the id the switch used" do
+      # THE LINE THAT WOULD HAVE SAVED AN HOUR. With an agent signed in, a
+      # frame naming an id nobody answers to is the interesting case: it means
+      # the rule file lists the wrong value for that person. The id was only
+      # discoverable by reading the event store by hand.
+      import ExUnit.CaptureLog
+
+      ConnectixWeb.RealtimeSocket.register_agent_ids(@user_uuid, ["88309e98-in-the-file"])
+
+      # A session row too, not just the registry entry: the log reports who is
+      # SIGNED IN, which is what makes the line bounded by people rather than
+      # by how busy the switch is.
+      :ok =
+        Connectix.Realtime.Sessions.opened(self(), %{
+          user_uuid: @user_uuid,
+          environment_uuid: nil,
+          agent_ids: ["88309e98-in-the-file"]
+        })
+
+      on_exit(fn -> Connectix.Realtime.Sessions.closed(self(), :normal) end)
+
+      event = %{
+        "action" => "bridge-agent-start",
+        "id" => "bridge_s1_m1_29001091-on-the-wire",
+        "call_uuid" => "call-name-it",
+        "user_uuid" => "29001091-on-the-wire",
+        "meta" => %{"CC-Agent" => "29001091-on-the-wire"}
+      }
+
+      log = capture_log(fn -> ScreenPop.route_event(%ScreenPop{}, event) end)
+
+      assert log =~ "29001091-on-the-wire", "the log must name the id the switch used"
+      assert log =~ "88309e98-in-the-file", "and the id we are signed in as"
+    end
+
     test "an agent id that is nobody's is counted, because silence is the symptom" do
       # WHAT A LIVE HOST ACTUALLY DID. The frame arrived, matched the trigger,
       # was stored, named `CC-Agent 29001091-…` — and the signed-in agent was

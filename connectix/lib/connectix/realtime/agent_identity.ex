@@ -83,9 +83,17 @@ defmodule Connectix.Realtime.AgentIdentity do
     named = PopRule.agents_for(user_uuid)
 
     cond do
-      named != [] -> named
-      PopRule.agent_id?(user_uuid) -> [user_uuid]
-      true -> []
+      named != [] ->
+        named
+
+      # EVERY id this agent answers to, not just the one on the token. An entry
+      # may list more than one, because the switch can name a person by a
+      # different uuid than the portal issued. Registering only the first means
+      # a real call names an id nobody here claims and the frame is dropped as
+      # unattributable — measured on nimbus-connectix, where three calls in a
+      # row died exactly there.
+      true ->
+        PopRule.ids_for(user_uuid)
     end
   end
 

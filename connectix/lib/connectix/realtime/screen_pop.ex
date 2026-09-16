@@ -278,13 +278,29 @@ defmodule Connectix.Realtime.ScreenPop do
 
           nil ->
             # The common case on a busy switch: the event belongs to an agent
-            # who is not signed in to this portal. Debug, not info — this fires
-            # for most frames.
+            # who is not signed in to this portal, and it fires for most frames
+            # — so it stays at debug.
+            #
+            # EXCEPT WHEN SOMEBODY IS SIGNED IN. Then the interesting question
+            # is why THEIR calls are not popping, and the answer is usually
+            # that the switch names them by an id the rule file does not list.
+            # Without this line the only way to learn the id was to read it out
+            # of the event store by hand, which is exactly what this cost on
+            # nimbus-connectix. Bounded by who is logged in, not by how busy
+            # the switch is, and it names both sides so the fix is obvious.
             Telemetry.screen_pop_event(:unloaded)
 
-            Logger.debug(fn ->
-              "screen pop: no pop — agent #{agent} has no session here"
-            end)
+            case signed_in_ids() do
+              [] ->
+                Logger.debug(fn -> "screen pop: no pop — agent #{agent} has no session here" end)
+
+              known ->
+                Logger.info(
+                  "screen pop: no pop — the switch called this agent #{agent}, and nobody " <>
+                    "here answers to it. Signed in: #{Enum.join(known, ", ")}. Add #{agent} " <>
+                    "to that agent's entry in the rule file to make their calls pop."
+                )
+            end
 
             state
         end
@@ -355,6 +371,17 @@ defmodule Connectix.Realtime.ScreenPop do
 
   # The pop decision on its own — no store write, no `:received` count.
   #
+  # Every id a currently signed-in agent answers to. Read from the same
+  # registry the attribution uses, so the log cannot disagree with the lookup
+  # that just failed.
+  defp signed_in_ids do
+    Connectix.Realtime.Sessions.live()
+    |> Enum.flat_map(& &1.agent_ids)
+    |> Enum.uniq()
+  rescue
+    _ -> []
+  end
+
   # Split out because `route_event` reaches it too, for a node-wide CallEvents
   # frame that names a connected agent. That frame has already been recorded
   # under `src: "CallEvents"` and counted; running the whole of

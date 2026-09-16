@@ -258,6 +258,26 @@ defmodule Connectix.Realtime.PopRule do
 
   def agent_id?(_id), do: false
 
+  @doc """
+  Every id the agent owning this one answers to.
+
+  An entry may list more than one id, because an agent can be named differently
+  in different places — the identity the portal's token carries, and whatever
+  the switch puts in `CC-Agent`. Given any one of them this returns the whole
+  set, so registering an agent registers every name they answer to rather than
+  just the one that happened to be on the token.
+  """
+  @spec ids_for(String.t() | nil) :: [String.t()]
+  def ids_for(id) when is_binary(id) and id != "" do
+    down = String.downcase(id)
+
+    Enum.find_value(agent_entries(), [], fn {_identity, %{ids: ids}} ->
+      if down in Enum.map(ids, &String.downcase/1), do: ids
+    end)
+  end
+
+  def ids_for(_id), do: []
+
   @doc "The broker URL from the rule file, or nil."
   @spec nats_url() :: String.t() | nil
   def nats_url, do: nats().url
