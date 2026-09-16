@@ -73,19 +73,42 @@ defmodule ConnectixWeb.Plugs.EngineProxy do
   # forwarding it buys a round trip and a wrong policy.
   @impl true
   def call(%Plug.Conn{method: "OPTIONS"} = conn, _opts) do
-    if forwarded?(conn.request_path), do: preflight(conn), else: conn
+    cond do
+      forwarded?(conn.request_path) -> preflight(conn)
+      owned?(conn.request_path) -> preflight(conn)
+      true -> conn
+    end
   end
 
   def call(%Plug.Conn{} = conn, _opts) do
-    if forwarded?(conn.request_path), do: proxy(conn, engine()), else: conn
+    cond do
+      forwarded?(conn.request_path) ->
+        proxy(conn, engine())
+
+      # THE ROUTER ANSWERS IT, THIS PLUG DRESSES IT. A route that moved into
+      # this app left the forwarder behind — and the forwarder was what put the
+      # CORS headers on it. `/auth/user_login` answered 200 to curl and was
+      # blocked by every browser, which is the worst shape a regression can
+      # take: the server log says success and only the client knows.
+      owned?(conn.request_path) ->
+        Plug.Conn.register_before_send(conn, &put_cors/1)
+
+      true ->
+        conn
+    end
   end
 
-  # A path this app does NOT forward must fall through untouched — including
-  # its preflight. Answering one would promise a cross-origin caller a request
-  # that the router then 404s, and a 404 after a successful preflight is the
-  # more confusing of the two failures.
+  # A path this app does NOT serve at all must fall through untouched,
+  # including its preflight: answering one would promise a cross-origin caller
+  # a request the router then 404s, and a 404 after a successful preflight is
+  # the more confusing of the two failures.
   defp forwarded?(path),
-    do: path not in @portal_owned and engine_path?(path) and engine() != ""
+    do: not owned?(path) and engine_path?(path) and engine() != ""
+
+  # A path under a forwarded prefix that THIS app answers. Same origins call
+  # it, so it needs the same CORS policy; the only difference is who composes
+  # the body.
+  defp owned?(path), do: path in @portal_owned
 
   defp preflight(conn) do
     conn

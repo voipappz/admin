@@ -210,4 +210,52 @@ defmodule ConnectixWeb.Plugs.EngineProxyTest do
       refute call(conn(:get, "/api/features")).halted
     end
   end
+  describe "routes this app answers, under a forwarded prefix" do
+    # THE REGRESSION THIS CATCHES. `/auth/user_login` moved into this app, and
+    # the forwarder it left behind was what put the CORS headers on it. The
+    # route then answered 200 to curl and was blocked by every browser: the
+    # server log said success and only the client knew. Same origins call it,
+    # so it needs the same policy; only the author of the body changed.
+    test "a portal-owned path still gets this app's CORS on its answer" do
+      conn =
+        :post
+        |> conn("/auth/user_login", "email=a@b.c&password=x")
+        |> put_req_header("content-type", "application/x-www-form-urlencoded")
+        |> put_req_header("origin", @extension)
+        |> call()
+
+      # NOT halted: the router answers it. This plug only dresses the response.
+      refute conn.halted
+
+      conn = Plug.Conn.send_resp(conn, 401, "")
+      assert get_resp_header(conn, "access-control-allow-origin") == ["*"]
+    end
+
+    test "and its preflight is answered here, not 404'd by the router" do
+      conn =
+        :options
+        |> conn("/auth/user_login")
+        |> put_req_header("origin", @extension)
+        |> put_req_header("access-control-request-method", "POST")
+        |> call()
+
+      assert conn.status == 204
+      assert conn.halted
+      assert get_resp_header(conn, "access-control-allow-origin") == ["*"]
+    end
+
+    test "a path under no forwarded prefix is still left alone" do
+      # The original rule survives: this plug speaks for `/auth`, `/api/` and
+      # `/tasks/` and for nothing else, so a preflight for anything outside
+      # them falls through rather than being promised an answer.
+      conn =
+        :options
+        |> conn("/health")
+        |> put_req_header("origin", @extension)
+        |> call()
+
+      refute conn.halted
+    end
+  end
+
 end
