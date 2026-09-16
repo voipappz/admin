@@ -239,6 +239,38 @@ extension: ## Build the Chrome extension into chrome/angular/dist
 
 ##@ Check
 
+tunnel: ## Public TCP address for the local broker (no account needed)
+	@docker compose --profile tunnel up -d bore >/dev/null
+	@echo "waiting for the tunnel to register..."
+	@addr=""; \
+	for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do \
+	  addr=`docker compose --profile tunnel logs bore 2>/dev/null | grep -oE 'remote_port=[0-9]+' | tail -1 | cut -d= -f2 || true`; \
+	  if [ -n "$$addr" ]; then break; fi; \
+	  sleep 1; \
+	done; \
+	host=$${BORE_SERVER:-bore.pub}; \
+	if [ -n "$$addr" ]; then \
+	  echo ""; \
+	  echo "  nats://$$host:$$addr"; \
+	  echo ""; \
+	  echo "  NO AUTHENTICATION. Anyone with this address can read every event"; \
+	  echo "  and publish ones the portal acts on. Down with: make tunnel-stop"; \
+	else \
+	  echo ""; \
+	  echo "  no address. the tunnel said:"; \
+	  docker compose --profile tunnel logs bore 2>/dev/null | tail -5 | sed 's/^/    /'; \
+	  exit 1; \
+	fi
+
+tunnel-stop: ## Take the public address down
+	@docker compose --profile tunnel stop bore >/dev/null 2>&1 || true
+	@docker compose --profile tunnel rm -f bore >/dev/null 2>&1 || true
+	@echo "tunnel down"
+
+nats-watch: ## Print every subject the local broker carries, live
+	@docker compose exec -T nats nats sub '>' 2>/dev/null \
+	  || docker run --rm --network host natsio/nats-box:latest nats sub '>' --server nats://127.0.0.1:4222
+
 health: ## Where it is, whether it answers, and whether events are arriving
 	@PORTAL="$(PORTAL)" CABLE_HEALTH="$(CABLE_HEALTH)" \
 	  CABLE_URL="$(PORTAL_CABLE_URL)" PORTAL_ENGINE_URL="$(PORTAL_ENGINE_URL)" scripts/health.sh

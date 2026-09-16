@@ -5,16 +5,16 @@ defmodule Connectix.Tui.App do
 
   It exists because the question that costs hours is not "is it up" — it is "is
   it receiving events, and is this agent actually connected". `/health/ready`
-  answers the first and says nothing about the rest: a portal with a cable
+  answers the first and says nothing about the rest: a portal with an upstream
   subscription that was never confirmed, or a user whose browser socket died
   an hour ago, is a healthy portal that pops nothing.
 
   So the panes are the facts that settle it: the store's totals, the
   subscriptions the node CONFIRMED, one row per signed-in agent (socket age,
-  last pong, cable confirmed/attempts, last frame), the last socket closes
+  last pong), the last socket closes
   with their reason and lifetime, and the events as they land. Two keys act:
   `x` closes an agent's socket (the extension reconnects on its own), `c`
-  reopens their cable connection.
+  retakes the upstream subscription.
 
   ## It polls; it does not listen
 
@@ -67,7 +67,7 @@ defmodule Connectix.Tui.App do
 
     [
       {Panels.status(m, left), left},
-      {Panels.cable(m, right), right},
+      {Panels.upstream(m, right), right},
       {Panels.agents(m, agents), agents},
       {Panels.closes(m, closes), closes},
       {Panels.events(m, middle), middle},
@@ -86,13 +86,15 @@ defmodule Connectix.Tui.App do
   def key(k, m) when k in ["k", "\e[A"], do: {:cont, Model.move(%{m | notice: nil}, -1)}
   def key("\t", m), do: {:cont, Model.toggle_focus(%{m | notice: nil})}
   def key("g", %Model{focus: :events} = m), do: {:cont, %{m | selected: 0}}
-  def key("G", %Model{focus: :events} = m), do: {:cont, %{m | selected: max(length(m.events) - 1, 0)}}
+
+  def key("G", %Model{focus: :events} = m),
+    do: {:cont, %{m | selected: max(length(m.events) - 1, 0)}}
 
   def key("f", m), do: {:cont, m |> Model.cycle_filter() |> Model.refresh()}
   def key("r", m), do: {:cont, Model.refresh(%{m | notice: nil})}
 
   def key("x", m), do: {:cont, m |> Model.kick() |> Model.refresh()}
-  def key("c", m), do: {:cont, m |> Model.reconnect_cable() |> Model.refresh()}
+  def key("c", m), do: {:cont, m |> Model.resubscribe() |> Model.refresh()}
 
   def key(_other, model), do: {:cont, model}
 

@@ -4,7 +4,7 @@ defmodule Connectix.Tui.Source do
   actually running.
 
   The cockpit used to boot its own copy of the application, which made it a
-  cockpit for a portal nobody was using — its own cable connections, its own
+  cockpit for a portal nobody was using — its own subscriptions, its own
   empty session registry. The sessions worth looking at are on the node that
   the browsers are connected to, so by default the TUI attaches to that node
   (`connectix@127.0.0.1`, the name `Connectix.Mnesia` gives it) and asks it
@@ -42,8 +42,11 @@ defmodule Connectix.Tui.Source do
          true <- Node.connect(node) do
       {{:remote, node}, nil}
     else
-      false -> {:local, "#{target} did not answer — showing this process instead"}
-      {:error, reason} -> {:local, "distribution failed (#{inspect(reason)}) — showing this process instead"}
+      false ->
+        {:local, "#{target} did not answer — showing this process instead"}
+
+      {:error, reason} ->
+        {:local, "distribution failed (#{inspect(reason)}) — showing this process instead"}
     end
   end
 

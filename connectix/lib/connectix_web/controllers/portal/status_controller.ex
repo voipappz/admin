@@ -10,7 +10,7 @@ defmodule ConnectixWeb.Portal.StatusController do
   ## Why it is not forwarded like the rest of `/api/`
 
   Because forwarding it currently returns 401. `Plugs.EngineProxy` relays over
-  cable now, and `va-crystal`'s ApiProxy channel builds its upstream headers as
+  the broker now, and the node builds its upstream headers as
   `Content-Type` and nothing else — it deliberately does not replay the node's
   own credential, and in doing so it drops the CALLER's `Authorization` too. So
   every authenticated read over that relay loses its token. Login is unaffected

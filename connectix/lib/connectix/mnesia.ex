@@ -254,7 +254,7 @@ defmodule Connectix.Mnesia do
   # RAM-only node needs no name for it.
   #
   # The name is what makes the running system reachable: `--rpc-eval` and
-  # `--remsh` need one, and they are how anyone asks a live portal which cable
+  # `--remsh` need one, and they are how anyone asks a live portal which
   # streams it confirmed or how many events it has stored. Dropping it made the
   # node stateless and unobservable in the same stroke, which traded a real
   # problem for a worse one.

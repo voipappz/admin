@@ -40,6 +40,7 @@ if System.get_env("WALLABY") == "1" do
   {:ok, _} = Application.ensure_all_started(:wallaby)
   Application.put_env(:wallaby, :base_url, ConnectixWeb.Endpoint.url())
 end
+
 # ExUnit.start(exclude: [:web_tool], capture_log: false)
 
 # Clean up test filesystem after entire test suite completes

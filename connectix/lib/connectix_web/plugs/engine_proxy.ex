@@ -22,8 +22,6 @@ defmodule ConnectixWeb.Plugs.EngineProxy do
 
   require Logger
 
-  alias Connectix.Realtime.ApiProxy
-
   # The three prefixes the mothership owns. `/tasks/` is easy to miss and the
   # SPA calls it on every login (`/tasks/customer_portal_data`); left out, it
   # falls through to the router and 404s.
@@ -47,7 +45,7 @@ defmodule ConnectixWeb.Plugs.EngineProxy do
   #
   # `/api/events` is here as a prefix rather than in `@portal_owned` above
   # because there is nothing upstream it could ever collide with: these are the
-  # frames THIS portal saw off the cable (`Connectix.Events`), and no
+  # frames THIS portal saw off the broker (`Connectix.Events`), and no
   # mothership has them. Without the carve-out every one of its four routes was
   # relayed and answered 401.
   @own_prefixes [
@@ -80,19 +78,8 @@ defmodule ConnectixWeb.Plugs.EngineProxy do
   # its preflight. Answering one would promise a cross-origin caller a request
   # that the router then 404s, and a 404 after a successful preflight is the
   # more confusing of the two failures.
-  # Either transport is enough to serve the path. Requiring ENGINE_URL as well
-  # would leave a cable-only deployment 404ing every login while the relay it is
-  # configured with sits idle.
   defp forwarded?(path),
-    do: path not in @portal_owned and engine_path?(path) and (relay_enabled?() or engine() != "")
-
-  defp relay_enabled? do
-    case Application.get_env(:connectix, :api_relay, :default) do
-      :default -> ApiProxy.enabled?()
-      nil -> false
-      _module -> true
-    end
-  end
+    do: path not in @portal_owned and engine_path?(path) and engine() != ""
 
   defp preflight(conn) do
     conn
@@ -101,77 +88,27 @@ defmodule ConnectixWeb.Plugs.EngineProxy do
     |> Plug.Conn.halt()
   end
 
-  # THE TRANSPORT RULE. This app talks to the platform over cable or NATS, never
-  # HTTP — `Realtime.Bus` asks, `Realtime.CableClient` listens, and
-  # `Realtime.ApiProxy` carries the credential-owning routes. So cable is tried
-  # first and HTTP is the fallback, not the other way round.
+  # ONE TRANSPORT, and it is HTTP.
   #
-  # The fallback is kept because the cable relay depends on two things outside
-  # this app: a node new enough to have the ApiProxy channel, and
-  # CABLE_API_PROXY set on it. Neither is true of every deployed node, and a
-  # portal that answered 502 on an older one would be a worse regression than
-  # one HTTP hop. It falls back only when THIS hop failed — never on a status
-  # the API itself returned, because a relayed 401 is a successful relay.
+  # This used to try a WebSocket relay first and fall back here, because that
+  # the app's transport to the platform and HTTP was the hedge against a node
+  # too old to carry the relay. Events moved to the broker and token
+  # verification moved into this app, so the relay was the last thing on that
+  # connection — and a request/reply hop through a WebSocket to reach an HTTP
+  # API was only ever worth it when it bought something else.
+  #
+  # What that removes is a whole failure mode: a relay that connects, never
+  # confirms its channel, and silently serves every login over the fallback
+  # while health reported it ready.
   defp proxy(conn, upstream) do
     {:ok, body, conn} = read_body_fully(conn, "")
-
-    case over_cable(conn, body) do
-      {:ok, status, res_body, content_type} ->
-        log_upstream(conn, "cable", status)
-
-        conn
-        |> put_content_type(content_type)
-        |> put_cors()
-        |> Plug.Conn.send_resp(status, res_body)
-        |> Plug.Conn.halt()
-
-      {:error, :disabled} ->
-        over_http(conn, body, upstream)
-
-      {:error, reason} ->
-        Logger.warning(
-          "engine proxy: cable relay unavailable (#{inspect(reason)}) — falling back to HTTP"
-        )
-
-        over_http(conn, body, upstream)
-    end
+    over_http(conn, body, upstream)
   end
-
-  # The query string travels ON the path: the node forwards `path` verbatim to
-  # API_URL, and dropping it would turn every filtered read into an unfiltered
-  # one rather than into an error.
-  defp over_cable(conn, body) do
-    case relay() do
-      nil ->
-        {:error, :disabled}
-
-      module ->
-        module.request(
-          conn.method,
-          conn.request_path <> query(conn),
-          body,
-          content_type(conn),
-          req_header(conn, "authorization")
-        )
-    end
-  end
-
-  # Configurable so a test can have NO cable rather than the developer's.
-  #
-  # `ApiProxy.enabled?/0` reads CABLE_URL from the environment, and the dev
-  # container sets it — so a plug test that stood up a fake HTTP upstream had
-  # its request relayed to the real node instead, and asserted on whatever the
-  # real API answered. It passed on a machine with no cable and failed on one
-  # with, which is the worst version of a broken test: the suite's verdict
-  # depended on what happened to be running beside it.
-  #
-  # `config/test.exs` sets this to nil, so the HTTP path is what the plug's own
-  # tests exercise. A test that wants the cable path sets it to a stub.
-  defp relay, do: Application.get_env(:connectix, :api_relay, ApiProxy)
 
   defp over_http(conn, _body, "") do
-    # Cable is the only transport configured and it could not serve this. Saying
-    # so beats a 404 from the router, which reads as "that route does not exist".
+    # `forwarded?/1` refuses the route without an upstream, so this is only
+    # reachable if ENGINE_URL was unset between the check and here. Saying so
+    # beats a 404 from the router, which reads as "that route does not exist".
     conn
     |> put_cors()
     |> Plug.Conn.put_resp_content_type("application/json")
@@ -243,7 +180,7 @@ defmodule ConnectixWeb.Plugs.EngineProxy do
   defp log_upstream(_conn, _via, _status), do: :ok
 
   # The two headers the frame carries. The node relays no others — it does not
-  # blanket-forward the caller's headers, and it never sends its OWN cable token
+  # blanket-forward the caller's headers, and it never sends its OWN token
   # upstream, which would make it a confused deputy.
   #
   # `content-type` because `/auth/user_login` is form-encoded and the API reads
@@ -252,19 +189,6 @@ defmodule ConnectixWeb.Plugs.EngineProxy do
   # what a proxy does. Omitting it does not degrade gracefully — every
   # authenticated read answers "Missing Authorize token." while the login
   # beside it works, because a login carries its credentials in the body.
-  defp content_type(conn), do: req_header(conn, "content-type")
-
-  defp req_header(conn, name) do
-    case Plug.Conn.get_req_header(conn, name) do
-      [value | _] -> value
-      [] -> nil
-    end
-  end
-
-  defp put_content_type(conn, nil), do: conn
-
-  defp put_content_type(conn, value),
-    do: Plug.Conn.put_resp_header(conn, "content-type", value)
 
   defp host_of(upstream) do
     case URI.parse(upstream) do

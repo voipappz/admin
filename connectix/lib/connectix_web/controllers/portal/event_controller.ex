@@ -1,6 +1,6 @@
 defmodule ConnectixWeb.Portal.EventController do
   @moduledoc """
-  Browse the events this portal has received off the cable.
+  Browse the events this portal has received off the broker.
 
   Four routes, mirroring `Connectix.Events`' four reads:
 

@@ -76,39 +76,15 @@ defmodule ConnectixWeb.HealthController do
   """
   def report(conn, _params) do
     checks = %{
-      cable:
-        check(
-          Connectix.Realtime.CableClient.enabled?(),
-          "CABLE_URL is not set — no realtime events"
-        ),
-      # The exception to "configuration, not probes", and deliberately so.
-      # Configured-but-not-confirmed is this relay's actual failure mode: an
-      # older node accepts the connection and never answers the subscribe, and
-      # every login then works over the HTTP fallback with nothing visible to
-      # say so. A check that only reported CABLE_URL would be green for exactly
-      # the state worth seeing.
+      # THE ONLY SOURCE OF EVENTS. Every user's state, every notification and
+      # the whole call firehose arrive on one broker subscription, so this
+      # being down means no screen pops, nothing reaching a browser and an
+      # empty store — and nothing else fails, which is why it has to be
+      # reported rather than left as silence.
       #
-      # `enabled? and ready?`, NOT `not enabled? or ready?`. The old spelling
-      # passed whenever the relay was DISABLED — the one state where nothing
-      # can possibly work — so a portal with no relay reported `api_relay: ok`.
-      # That is what hid a dead socket on nimbus-connectix: the secret to mint
-      # cable tokens was missing, every /ws/events upgrade was refused, and
-      # health said fine.
-      #
-      # NO RELAY MEANS NO EVENTS. CallEvents and the per-user state streams
-      # both arrive over it, so a portal without it cannot pop a screen, cannot
-      # verify a token, and cannot open a socket — while /auth keeps working
-      # over the HTTP fallback, which is why the failure presents as "login
-      # succeeds, then the socket 401s".
-      api_relay:
-        check(
-          Connectix.Realtime.ApiProxy.enabled?() and Connectix.Realtime.ApiProxy.ready?(),
-          "no cable relay — cannot consume events, verify tokens, or open /ws/events" <>
-            unless(Connectix.Realtime.ApiProxy.enabled?(),
-              do: " (relay disabled: CABLE_URL unset, or no secret to mint with)",
-              else: " (the node has not confirmed the ApiProxy channel)"
-            )
-        ),
+      # Configured-but-not-subscribed is the real failure mode: a portal
+      # pointed at a broker it cannot reach looks exactly like a quiet switch.
+      nats: nats_check(),
       engine: check(engine?(), "ENGINE_URL is not set — /auth and /api are not forwarded"),
 
       # THE ONE THAT ENDS A DEPLOYMENT. The event store and Mnesia share this
@@ -126,7 +102,8 @@ defmodule ConnectixWeb.HealthController do
       # happens on every deploy — kamal overlaps the containers and DuckDB is
       # single-writer — and it now retries, so this being down means the retry
       # is not winning and someone should look.
-      events: check(Connectix.Events.open?(), "the event store is not open — events are not recorded")
+      events:
+        check(Connectix.Events.open?(), "the event store is not open — events are not recorded")
     }
 
     down? = Enum.any?(checks, fn {_name, check} -> check.status == "down" end)
@@ -140,6 +117,20 @@ defmodule ConnectixWeb.HealthController do
 
   defp check(true, _detail), do: %{status: "ok"}
   defp check(false, detail), do: %{status: "down", detail: detail}
+
+  defp nats_check do
+    if Connectix.Realtime.EventPipeline.enabled?() do
+      status = Connectix.Realtime.NatsProducer.status()
+
+      check(
+        match?({:subscribed, _}, status),
+        "the broker subscription is not up — no events, no screen pops " <>
+          "(producer: #{inspect(status)})"
+      )
+    else
+      check(false, "NATS_URL or NATS_SUBJECTS is not set — no events, no screen pops")
+    end
+  end
 
   # Numbers as well as a verdict: an external monitor wants to alert BEFORE
   # the threshold ("free_percent < 25"), and a bare ok/down cannot say that.

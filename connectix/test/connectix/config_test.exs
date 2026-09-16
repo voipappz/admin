@@ -68,9 +68,12 @@ defmodule Connectix.ConfigTest do
     end
 
     test "an explicit title model wins" do
-      with_env([{"CONNECTIX_MODEL", "gemini-2.5-flash"}, {"CONNECTIX_TITLE_MODEL", "gpt-4o-mini"}], fn ->
-        assert Config.title_model() == "gpt-4o-mini"
-      end)
+      with_env(
+        [{"CONNECTIX_MODEL", "gemini-2.5-flash"}, {"CONNECTIX_TITLE_MODEL", "gpt-4o-mini"}],
+        fn ->
+          assert Config.title_model() == "gpt-4o-mini"
+        end
+      )
     end
   end
 
@@ -161,99 +164,30 @@ defmodule Connectix.ConfigTest do
     end
   end
 
-  describe "event_streams/0" do
-    test "is empty when unset, so the cable connection carries what it always did" do
-      with_env([{"EVENT_STREAMS", nil}], fn ->
-        assert Config.event_streams() == []
+  describe "nats_subjects/0" do
+    test "is empty when unset, so no pipeline starts" do
+      with_env([{"NATS_SUBJECTS", nil}], fn ->
+        assert Config.nats_subjects() == []
       end)
     end
 
-    test "parses scope:id pairs" do
-      with_env([{"EVENT_STREAMS", "environment:env-1,user:user-1"}], fn ->
-        assert Config.event_streams() == [{"environment", "env-1"}, {"user", "user-1"}]
+    test "keeps a subject's colon, because NATS splits on dots alone" do
+      # `node:test1` is ONE token. Treating the colon as a separator would
+      # subscribe to something nobody publishes.
+      with_env([{"NATS_SUBJECTS", "node:test1"}], fn ->
+        assert Config.nats_subjects() == ["node:test1"]
       end)
     end
 
-    test "tolerates whitespace around entries" do
-      with_env([{"EVENT_STREAMS", " user:a , user:b "}], fn ->
-        assert Config.event_streams() == [{"user", "a"}, {"user", "b"}]
+    test "splits on commas, trims, and drops blanks and duplicates" do
+      with_env([{"NATS_SUBJECTS", " node:test1 , state.> ,,node:test1"}], fn ->
+        assert Config.nats_subjects() == ["node:test1", "state.>"]
       end)
     end
 
-    test "keeps a colon inside the id, because only the first one separates" do
-      with_env([{"EVENT_STREAMS", "user:node:test1"}], fn ->
-        assert Config.event_streams() == [{"user", "node:test1"}]
-      end)
-    end
-
-    test "drops malformed entries rather than raising" do
-      # A typo in one stream must not stop the relay that carries every login.
-      with_env([{"EVENT_STREAMS", "user:ok,nocolon,:no-scope,user:,"}], fn ->
-        assert Config.event_streams() == [{"user", "ok"}]
-      end)
-    end
-
-    test "does not subscribe to the same stream twice" do
-      with_env([{"EVENT_STREAMS", "user:a,user:a"}], fn ->
-        assert Config.event_streams() == [{"user", "a"}]
-      end)
-    end
-  end
-
-  describe "environments/0" do
-    test "falls back to a single placeholder environment when unset" do
-      with_env([{"CONNECTIX_ENVIRONMENTS", nil}], fn ->
-        assert Config.environments() == [%{name: "default", domain: nil, wss_url: nil}]
-      end)
-    end
-
-    test "parses name:domain:wss_url triples" do
-      with_env(
-        [
-          {"CONNECTIX_ENVIRONMENTS",
-           "prod:sip.example.com:wss://sip.example.com:8443,staging:sip-staging.example.com:wss://sip-staging.example.com:8443"}
-        ],
-        fn ->
-          assert Config.environments() == [
-                   %{
-                     name: "prod",
-                     domain: "sip.example.com",
-                     wss_url: "wss://sip.example.com:8443"
-                   },
-                   %{
-                     name: "staging",
-                     domain: "sip-staging.example.com",
-                     wss_url: "wss://sip-staging.example.com:8443"
-                   }
-                 ]
-        end
-      )
-    end
-
-    test "a name alone is a valid environment with no domain/wss_url" do
-      with_env([{"CONNECTIX_ENVIRONMENTS", "sandbox"}], fn ->
-        assert Config.environments() == [%{name: "sandbox", domain: nil, wss_url: nil}]
-      end)
-    end
-
-    test "drops malformed entries and falls back to default if none survive" do
-      with_env([{"CONNECTIX_ENVIRONMENTS", ":no-name,,"}], fn ->
-        assert Config.environments() == [%{name: "default", domain: nil, wss_url: nil}]
-      end)
-    end
-  end
-
-  describe "models" do
-    test "fall back to documented defaults" do
-      with_env([{"CONNECTIX_MODEL", nil}, {"CONNECTIX_TITLE_MODEL", nil}], fn ->
-        assert Config.main_model() == "claude-sonnet-4-6"
-        assert Config.title_model() == "claude-haiku-4-5"
-      end)
-    end
-
-    test "are overridable" do
-      with_env([{"CONNECTIX_MODEL", "claude-opus-5"}], fn ->
-        assert Config.main_model() == "claude-opus-5"
+    test "carries wildcards through untouched" do
+      with_env([{"NATS_SUBJECTS", "*,state.>"}], fn ->
+        assert Config.nats_subjects() == ["*", "state.>"]
       end)
     end
   end

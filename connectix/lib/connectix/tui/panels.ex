@@ -18,7 +18,7 @@ defmodule Connectix.Tui.Panels do
   @warn %Style{fg: :yellow}
   @head %Style{fg: :cyan, modifiers: [:bold]}
 
-  @doc "Store totals and the cable's state — the two numbers that answer 'is it working'."
+  @doc "Store totals and the upstream's state — the two numbers that answer 'is it working'."
   def status(%Model{} = m, _rect) do
     stats = m.stats
 
@@ -37,11 +37,11 @@ defmodule Connectix.Tui.Panels do
 
     lines = [
       Line.new([
-        Span.new("cable   ", style: @dim),
+        Span.new("upstream", style: @dim),
         open,
         Span.new("  ", style: @dim),
         relay,
-        Span.new("  " <> to_string(m.cable_url || "not configured"), style: @dim)
+        Span.new("  " <> to_string(m.broker_url || "not configured"), style: @dim)
       ]),
       Line.new([
         Span.new("stored  ", style: @dim),
@@ -65,22 +65,22 @@ defmodule Connectix.Tui.Panels do
   end
 
   @doc """
-  One row per signed-in agent: the browser socket half and the cable half,
+  One row per signed-in agent: the browser socket half and the ids half,
   side by side, because a pop needs both and every "pops stopped" so far was
   one of them missing.
 
-      user      agents    sock  age     pong  push  ip             cable  subs  att  frame
+      user      agents    sock  age     pong  push  ip
       be5bc5f0  cb1b0a46  1     1h29m   3s    412   84.110.57.30   open   4/4   0    2s
 
   `sock` is how many browser sockets the user has (a second tab is a second
   socket), `age` the oldest one's lifetime, `pong` how long since the browser
-  last answered a ping, `push` frames sent to it. `cable` is the per-user
-  cable client, `subs` confirmed/subscribed streams, `att` reconnect attempts
+  last answered a ping, `push` frames sent to it. The upstream is not per-user
+  any more, so it is reported once in the panel above
   so far, `frame` how long since the node last sent anything on it.
   """
   def agents(%Model{agents: []} = m, _rect) do
     %Paragraph{
-      text: %Text{lines: [Line.new([Span.new("no agent has a socket or a cable client", style: @dim)])]},
+      text: %Text{lines: [Line.new([Span.new("no agent has a socket", style: @dim)])]},
       block: %Block{title: agents_title(m), borders: :all}
     }
   end
@@ -99,7 +99,6 @@ defmodule Connectix.Tui.Panels do
             col("pong", 6) <>
             col("push", 6) <>
             col("ip", 16) <>
-            col("cable", 7) <>
             col("subs", 6) <>
             col("att", 5) <>
             col("frame", 7),
@@ -115,27 +114,24 @@ defmodule Connectix.Tui.Panels do
         marker = if selected?, do: "▸ ", else: "  "
         style = if selected?, do: %Style{modifiers: [:bold]}, else: %Style{}
         oldest = Enum.min_by(a.sockets, & &1.connected_at, fn -> nil end)
-        pong = Enum.map(a.sockets, & &1.last_pong_at) |> Enum.reject(&is_nil/1) |> Enum.max(fn -> nil end)
-        cable = a.cable
+
+        pong =
+          Enum.map(a.sockets, & &1.last_pong_at)
+          |> Enum.reject(&is_nil/1)
+          |> Enum.max(fn -> nil end)
 
         Line.new([
           Span.new(marker, style: @dim),
           Span.new(col(Model.short(a.user_uuid), 10), style: style),
-          Span.new(col(a.agent_ids |> Enum.map(&Model.short/1) |> Enum.join(","), 10), style: @dim),
+          Span.new(col(a.agent_ids |> Enum.map(&Model.short/1) |> Enum.join(","), 10),
+            style: @dim
+          ),
           socket_span(length(a.sockets), col(to_string(length(a.sockets)), 5)),
           Span.new(col(if(oldest, do: Sessions.human(now - oldest.connected_at), else: "-"), 8)),
           pong_span(now, pong),
           Span.new(col(to_string(Enum.sum(Enum.map(a.sockets, & &1.pushed))), 6), style: @dim),
-          Span.new(col(if(oldest, do: to_string(oldest[:remote_ip] || "-"), else: "-"), 16), style: @dim),
-          cable_span(cable),
-          Span.new(col(if(cable, do: "#{cable.confirmed}/#{cable.subscribed}", else: "-"), 6),
-            style: subs_style(cable)
-          ),
-          Span.new(col(if(cable, do: to_string(cable.attempts), else: "-"), 5),
-            style: if(cable && cable.attempts > 0, do: @warn, else: %Style{})
-          ),
-          Span.new(col(if(cable, do: ms_ago(cable.last_frame_ms_ago), else: "-"), 7),
-            style: if(cable && (cable.last_frame_ms_ago || 0) > 30_000, do: @warn, else: %Style{})
+          Span.new(col(if(oldest, do: to_string(oldest[:remote_ip] || "-"), else: "-"), 16),
+            style: @dim
           )
         ])
       end)
@@ -163,7 +159,10 @@ defmodule Connectix.Tui.Panels do
           Span.new(col(inspect(c.reason), 22), style: reason_style(c.reason)),
           Span.new(
             "last pong " <>
-              if(c.last_pong_at, do: Sessions.human(c.at - c.last_pong_at) <> " before", else: "never"),
+              if(c.last_pong_at,
+                do: Sessions.human(c.at - c.last_pong_at) <> " before",
+                else: "never"
+              ),
             style: @dim
           )
         ])
@@ -193,18 +192,18 @@ defmodule Connectix.Tui.Panels do
     }
   end
 
-  @doc "Which cable streams the node CONFIRMED — not which were requested."
-  def cable(%Model{cable: []} = _m, _rect) do
+  @doc "Which subjects the producer is actually subscribed to."
+  def upstream(%Model{subjects: []} = _m, _rect) do
     %Paragraph{
       text: %Text{lines: [Line.new([Span.new("no confirmed subscriptions", style: @dim)])]},
-      block: %Block{title: " cable ", borders: :all}
+      block: %Block{title: " upstream ", borders: :all}
     }
   end
 
-  def cable(%Model{cable: subs}, _rect) do
+  def upstream(%Model{subjects: subs}, _rect) do
     %List{
       items: Enum.map(subs, &Line.new([Span.new(short_identifier(&1))])),
-      block: %Block{title: " cable ", borders: :all}
+      block: %Block{title: " upstream ", borders: :all}
     }
   end
 
@@ -276,7 +275,7 @@ defmodule Connectix.Tui.Panels do
       {"↑ ↓ / j k", "move"},
       {"enter", "show the whole row (agent or event)"},
       {"x", "kick: close the agent's socket — the extension reconnects in ~3s"},
-      {"c", "reconnect the agent's cable connection now"},
+      {"c", "retake the upstream subscription now"},
       {"f / r / q", "cycle the src filter / refresh / quit"}
     ]
 
@@ -284,7 +283,10 @@ defmodule Connectix.Tui.Panels do
       text: %Text{
         lines:
           Enum.map(keys, fn {k, what} ->
-            Line.new([Span.new(String.pad_trailing(k, 12), style: @head), Span.new(what, style: @dim)])
+            Line.new([
+              Span.new(String.pad_trailing(k, 12), style: @head),
+              Span.new(what, style: @dim)
+            ])
           end)
       },
       block: %Block{title: " keys ", borders: :all}
@@ -295,7 +297,8 @@ defmodule Connectix.Tui.Panels do
 
   defp agents_title(%Model{agents: agents}), do: " agents (#{length(agents)}) "
 
-  defp col(text, width), do: String.pad_trailing(String.slice(to_string(text), 0, width - 1), width)
+  defp col(text, width),
+    do: String.pad_trailing(String.slice(to_string(text), 0, width - 1), width)
 
   defp socket_span(0, text), do: Span.new(text, style: @bad)
   defp socket_span(_n, text), do: Span.new(text, style: @ok)
@@ -308,18 +311,6 @@ defmodule Connectix.Tui.Panels do
     ago = now - at
     Span.new(col(Sessions.human(ago), 6), style: if(ago > 45_000, do: @bad, else: @ok))
   end
-
-  defp cable_span(nil), do: Span.new(col("none", 7), style: @bad)
-  defp cable_span(%{connected?: false}), do: Span.new(col("down", 7), style: @bad)
-  defp cable_span(%{welcomed?: false}), do: Span.new(col("opening", 7), style: @warn)
-  defp cable_span(_), do: Span.new(col("open", 7), style: @ok)
-
-  defp subs_style(nil), do: %Style{}
-  defp subs_style(%{confirmed: c, subscribed: s}) when c < s, do: @warn
-  defp subs_style(_), do: @ok
-
-  defp ms_ago(nil), do: "-"
-  defp ms_ago(ms), do: Sessions.human(ms)
 
   defp reason_style(:remote), do: @dim
   defp reason_style(:normal), do: @dim

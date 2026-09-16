@@ -41,7 +41,7 @@ defmodule Connectix.Tui.AppTest do
       assert screen(%Model{}) =~ "nothing stored yet"
     end
 
-    test "reports a closed cable, not an absent one" do
+    test "reports a closed upstream, not an absent one" do
       assert screen(%Model{}) =~ "closed"
       assert screen(%Model{}) =~ "no confirmed subscriptions"
     end
@@ -53,11 +53,8 @@ defmodule Connectix.Tui.AppTest do
        model: %Model{
          events: [event(), event(%{"label" => "number.answer", "sid" => "call-def"})],
          stats: %{count: 4911, errors: 0, open?: true},
-         cable: [
-           ~s({"channel":"ApiProxy"}),
-           ~s({"channel":"StateChannel","scope":"user","id":"cb1b0a46"})
-         ],
-         cable_url: "ws://nimbus-prod.voipappz.io:4000/cable",
+         subjects: ["call_events", "state.user.cb1b0a46"],
+         broker_url: "nats://connectix-nats:4222",
          socket_open?: true
        }}
     end
@@ -69,14 +66,10 @@ defmodule Connectix.Tui.AppTest do
       assert out =~ "0s"
     end
 
-    test "names the confirmed subscriptions, decoded", %{model: m} do
+    test "names the subjects actually subscribed to", %{model: m} do
       out = screen(m)
-      # The identifier is JSON the node echoed back; 60 characters of quoting
-      # would push the useful part off the pane.
-      assert out =~ "ApiProxy"
-      assert out =~ "StateChannel"
-      assert out =~ "user.cb1b0a46"
-      refute out =~ ~s({"channel")
+      assert out =~ "call_events"
+      assert out =~ "state.user.cb1b0a46"
     end
 
     test "lists the events newest first, with their ages", %{model: m} do
@@ -93,7 +86,8 @@ defmodule Connectix.Tui.AppTest do
 
   describe "moving and selecting" do
     setup do
-      {:ok, model: %Model{events: Enum.map(1..3, &event(%{"sid" => "call-#{&1}"})), focus: :events}}
+      {:ok,
+       model: %Model{events: Enum.map(1..3, &event(%{"sid" => "call-#{&1}"})), focus: :events}}
     end
 
     test "j and k move, and cannot walk off either end", %{model: m} do
@@ -148,7 +142,9 @@ defmodule Connectix.Tui.AppTest do
       }
 
       assert Model.cycle_filter(m).filter == "CallEvents"
-      assert m |> Model.cycle_filter() |> Model.cycle_filter() |> Map.get(:filter) == "StateChannel"
+
+      assert m |> Model.cycle_filter() |> Model.cycle_filter() |> Map.get(:filter) ==
+               "StateChannel"
     end
 
     test "shows the active filter in the pane title" do
@@ -175,42 +171,31 @@ defmodule Connectix.Tui.AppTest do
               remote_ip: "84.110.57.30"
             }
           ],
-          cable: %{
-            user_uuid: "be5bc5f0-feb3-4c96-a370-3219f7ede250",
-            agent_ids: ["cb1b0a46-77d5-4b3a-92d8-31768fea74e4"],
-            connected?: true,
-            welcomed?: true,
-            subscribed: 4,
-            confirmed: 4,
-            attempts: 0,
-            last_frame_ms_ago: 2_000
-          }
+          # No per-user upstream any more: one subscription carries everyone,
+          # and it is reported in its own pane rather than per row.
+          upstream: nil
         },
         overrides
       )
     end
 
-    test "one row per agent, with both halves" do
+    test "one row per agent, with the ids the switch knows them by" do
       out = screen(%Model{agents: [agent()]})
       assert out =~ "be5bc5f0"
       assert out =~ "cb1b0a46"
       assert out =~ "1h28m"
       assert out =~ "84.110.57.30"
-      assert out =~ "4/4"
       assert out =~ "412"
       assert out =~ "agents (1)"
     end
 
-    test "a missing half is named, not blank" do
-      out = screen(%Model{agents: [agent(%{cable: nil})]})
-      assert out =~ "none"
-
+    test "an agent with no socket is still a row, not a blank" do
       out = screen(%Model{agents: [agent(%{sockets: []})]})
       assert out =~ "0 "
     end
 
     test "an empty portal says nobody is wired up" do
-      assert screen(%Model{}) =~ "no agent has a socket or a cable client"
+      assert screen(%Model{}) =~ "no agent has a socket"
     end
 
     test "closes are listed with lifetime and reason" do
@@ -218,7 +203,13 @@ defmodule Connectix.Tui.AppTest do
 
       m = %Model{
         closes: [
-          %{at: now, user_uuid: "be5bc5f0-x", reason: :remote, lived_ms: 5_333_000, last_pong_at: now - 4_000}
+          %{
+            at: now,
+            user_uuid: "be5bc5f0-x",
+            reason: :remote,
+            lived_ms: 5_333_000,
+            last_pong_at: now - 4_000
+          }
         ]
       }
 
@@ -243,14 +234,21 @@ defmodule Connectix.Tui.AppTest do
     test "enter on an agent shows the whole row" do
       m = %Model{agents: [agent()], focus: :agents}
       assert {:cont, opened} = App.key("\r", m)
-      assert screen(opened) =~ "last_frame_ms_ago"
+      assert screen(opened) =~ "remote_ip"
     end
 
     test "x kicks the selected agent's sockets through the portal and reports it" do
       # `Inspector.kick/1` finds the socket rows by user, and this test
       # process is registered as one of them, so the kick lands here.
       uuid = "tui-kick-#{System.unique_integer([:positive])}"
-      :ok = Connectix.Realtime.Sessions.opened(self(), %{user_uuid: uuid, environment_uuid: nil, agent_ids: []})
+
+      :ok =
+        Connectix.Realtime.Sessions.opened(self(), %{
+          user_uuid: uuid,
+          environment_uuid: nil,
+          agent_ids: []
+        })
+
       on_exit(fn -> Connectix.Realtime.Sessions.closed(self(), :normal) end)
 
       m = %Model{agents: [agent(%{user_uuid: uuid})], focus: :agents}
@@ -260,10 +258,10 @@ defmodule Connectix.Tui.AppTest do
       assert screen(after_kick) =~ "kicked 1 socket"
     end
 
-    test "c asks for a cable reconnect and reports when there is no client" do
+    test "c asks the portal to retake the upstream subscription" do
       m = %Model{agents: [agent(%{user_uuid: "nobody-here"})], focus: :agents}
       assert {:cont, m} = App.key("c", m)
-      assert m.notice =~ "no_client"
+      assert m.notice =~ "upstream resubscribe"
     end
 
     test "the status pane names the source" do

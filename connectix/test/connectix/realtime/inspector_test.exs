@@ -5,9 +5,11 @@ defmodule Connectix.Realtime.InspectorTest do
 
   defp user, do: "insp-#{System.unique_integer([:positive])}"
 
-  test "an agent row joins the browser socket with its cable client, and says when one half is missing" do
+  test "an agent row carries the browser sockets and the ids the switch knows them by" do
     uuid = user()
-    :ok = Sessions.opened(self(), %{user_uuid: uuid, environment_uuid: nil, agent_ids: ["agent-1"]})
+
+    :ok =
+      Sessions.opened(self(), %{user_uuid: uuid, environment_uuid: nil, agent_ids: ["agent-1"]})
 
     assert [row] = Enum.filter(Inspector.agents(), &(&1.user_uuid == uuid))
     assert [%{pid: pid}] = row.sockets
@@ -15,7 +17,7 @@ defmodule Connectix.Realtime.InspectorTest do
     assert row.agent_ids == ["agent-1"]
     # No CABLE_URL in tests, so no client was ever started: the row says so
     # rather than hiding the user.
-    assert row.cable == nil
+    assert row.upstream == nil
 
     Sessions.closed(self(), :normal)
   end
@@ -39,7 +41,7 @@ defmodule Connectix.Realtime.InspectorTest do
     assert Inspector.kick(uuid) == 0
   end
 
-  test "reconnecting the cable of a user without a client is an error, not a crash" do
-    assert {:error, :no_client} = Inspector.reconnect_cable(user())
+  test "asking for a resubscribe without a producer is an answer, not a crash" do
+    assert :ok = Inspector.resubscribe()
   end
 end

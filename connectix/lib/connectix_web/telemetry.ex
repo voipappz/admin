@@ -83,6 +83,11 @@ defmodule ConnectixWeb.Telemetry do
         tags: [:result],
         description: "Screen-pop instruction loads by outcome"
       ),
+      counter("connectix.nats.messages.count",
+        event_name: [:connectix, :nats, :message],
+        tags: [:result],
+        description: "NATS messages by outcome: received, dropped (buffer full), undecodable"
+      ),
 
       # A call has four places it can silently stop: RTP never arrives, the
       # bridge never forwards it, the transcriber drops the socket, or the
@@ -112,7 +117,9 @@ defmodule ConnectixWeb.Telemetry do
       last_value("connectix.system.disk_free_percent",
         description: "Free space on the data volume, percent"
       ),
-      last_value("connectix.system.disk_free_bytes", description: "Free space on the data volume"),
+      last_value("connectix.system.disk_free_bytes",
+        description: "Free space on the data volume"
+      ),
       last_value("connectix.system.disk_total_bytes", description: "Size of the data volume"),
       last_value("connectix.system.disk_used_percent", description: "Used space, percent"),
       last_value("connectix.system.cpu_load1", description: "1-minute load average"),
@@ -146,6 +153,7 @@ defmodule ConnectixWeb.Telemetry do
   def prometheus_metrics do
     Enum.filter(metrics(), fn metric ->
       match?([:connectix, :screen_pop | _rest], metric.name) or
+        match?([:connectix, :nats | _rest], metric.name) or
         match?([:connectix, :call | _rest], metric.name) or
         match?([:connectix, :system | _rest], metric.name)
     end)

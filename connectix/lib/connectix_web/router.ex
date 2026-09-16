@@ -156,7 +156,7 @@ defmodule ConnectixWeb.Router do
   scope "/api", ConnectixWeb.Portal do
     pipe_through [:api, ConnectixWeb.Plugs.UserTokenAuth]
 
-    # The frames THIS portal received off the cable. Served here, not forwarded:
+    # The frames THIS portal received off the broker. Served here, not forwarded:
     # no mothership has them. See Connectix.Events.
     get "/events", EventController, :index
     get "/events/timeline", EventController, :timeline

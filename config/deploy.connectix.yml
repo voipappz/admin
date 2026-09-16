@@ -175,7 +175,22 @@ env:
     # port today, so the options are a TLS terminator in front of it or a
     # tunnel between the hosts — worth doing, and named here so it is not
     # forgotten.
-    CABLE_URL: ws://nimbus-prod.voipappz.io:4000/cable
+    CABLE_URL: ws://nimbus-prod.voipappz.io:4001/cable
+
+    # THE EVENT TRANSPORT. The portal consumes the node's streams from the
+    # broker rather than over cable — a cable stream identifier IS its NATS
+    # subject, verbatim, so these are the same frames one hop earlier.
+    #
+    # Points at the `nats` accessory below, by its network alias: kamal renames
+    # role containers on every deploy, so an alias is the only stable address.
+    NATS_URL: nats://connectix-nats:4222
+
+    # Cable's four streams, named as subjects. `*` matches any ONE token, which
+    # is every colon-form stream at once (`node:<uuid>`, `call_events`,
+    # `notifications:<uuid>`, `dashboard_user:<uuid>`); `state.>` is every
+    # state stream. NATS splits on dots alone, so there is no `notifications:*`
+    # that would match one kind — `*` is how you get them all.
+    NATS_SUBJECTS: "*,state.>"
 
     # Which model, and therefore which provider key above is the live one.
     # Stated rather than defaulted: the default is a Sonnet, and a deployment
@@ -228,6 +243,45 @@ env:
   # Chat, the LiveView UI and voice do not need it.
 
 # ---------------------------------------------------------------------------
+# The broker the portal consumes events from.
+#
+# LOCAL ON PURPOSE. The upstream broker is on another machine, and a WAN hop
+# carrying a call firehose is the part that stalls first — the same reasoning
+# that put the cable's plaintext hop in the note above. A broker on the box
+# means the portal's subscription never crosses the internet; what crosses is
+# whatever feeds this one.
+#
+# JETSTREAM IS ON, and it is the one thing cable could not do. Core NATS is
+# fire-and-forget: anything published while the portal is restarting is gone,
+# with no replay and no error, which is indistinguishable from a quiet switch.
+# `-js` with a durable store on the volume lets a consumer resume from where it
+# stopped instead. The portal uses core subscriptions today; the store is here
+# so switching to a durable consumer is a config change and not a redeploy of
+# the broker.
+#
+# BOUND TO LOOPBACK. `127.0.0.1:4222:4222` publishes the port on the host for
+# debugging (`nats sub` from an SSH session) without exposing an unauthenticated
+# broker to the internet. Containers reach it over the kamal network by the
+# alias, not through this mapping.
+accessories:
+  nats:
+    image: nats:2.10-alpine
+    host: 185.47.173.106
+    # -js          JetStream, stored under -sd
+    # -sd /data    on the volume below, so a restart keeps the stream
+    # -m 8222      monitoring endpoint, for /varz and /connz when something
+    #              is wrong and "is anything subscribed" is the question
+    cmd: "-js -sd /data -m 8222"
+    port: "127.0.0.1:4222:4222"
+    volumes:
+      - "connectix-nats:/data"
+    options:
+      # Stable address for the app container — see the note in the base
+      # deploy.yml: kamal names containers <service>-<role>-<image-hash> and
+      # that changes every deploy, so a bare hostname needs an alias.
+      network-alias: connectix-nats
+
+# ---------------------------------------------------------------------------
 # BEFORE THE FIRST DEPLOY, on the host (it is bare as of 2026-09-07: Ubuntu
 # 26.04, 4 CPU, 2.5 GiB RAM, no Docker, no /etc/connectix, ufw inactive):
 #
@@ -235,6 +289,10 @@ env:
 #   2. Secrets.       mkdir -p /etc/connectix && chmod 700 /etc/connectix
 #                     write secrets.env (chmod 600) with the keys listed above.
 #   3. Volume.        mkdir -p /var/lib/connectix
+#   3b. Broker.       kamal accessory boot nats -d connectix
+#                     Creates the `connectix-nats` volume and starts it. The
+#                     app will not consume events until it is up; /health
+#                     reports `nats` down until then.
 #   4. Ports.         80 and 443 reachable from the internet. ufw is inactive,
 #                     so anything blocking them is upstream of the host — and
 #                     80 must be open BEFORE the first deploy or ACME cannot

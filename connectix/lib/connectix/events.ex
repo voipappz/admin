@@ -1,6 +1,6 @@
 defmodule Connectix.Events do
   @moduledoc """
-  Every event this portal receives off the cable, appended to DuckDB.
+  Every event this portal receives off the broker, appended to DuckDB.
 
   One embedded file this node owns — no server, no Postgres driver. DuckDB
   because the questions asked of this table are analytical ("what did agent X
@@ -28,7 +28,7 @@ defmodule Connectix.Events do
 
   ## It never breaks the realtime path
 
-  A write is a `cast`: the caller — `CableClient.fanout/3` on a user's stream,
+  A write is a `cast`: the caller — `UserStreams` on a user's stream,
   `ScreenPop` on CallEvents — hands the frame over and moves on. If DuckDB
   cannot open, this starts anyway, logs once, and every write is a no-op. An
   event store that takes screen pops down with it is worse than no event store.
@@ -148,7 +148,7 @@ defmodule Connectix.Events do
   def insert(_server, _ev), do: :ok
 
   @doc """
-  Store one received cable frame. `source` says which stream it came from.
+  Store one received frame. `source` says which stream it came from.
 
   The convenience the realtime path calls: it holds frames, not rows, and
   should not have to know this module's column names. See `insert/2` for the
@@ -594,7 +594,8 @@ defmodule Connectix.Events do
       days ->
         cutoff = System.system_time(:microsecond) - days * 86_400 * 1_000_000
 
-        with {:ok, _} <- Duckdbex.query(conn, "DELETE FROM events WHERE create_date < ?", [cutoff]),
+        with {:ok, _} <-
+               Duckdbex.query(conn, "DELETE FROM events WHERE create_date < ?", [cutoff]),
              {:ok, _} <- Duckdbex.query(conn, "CHECKPOINT") do
           Logger.info("events: pruned rows older than #{days}d")
           maybe_compact(state)
@@ -652,7 +653,10 @@ defmodule Connectix.Events do
 
             {:error, reason} ->
               # The file is intact; the handle is not. The retry loop reopens.
-              Logger.error("events: compacted but could not reopen (#{inspect(reason)}) — retrying")
+              Logger.error(
+                "events: compacted but could not reopen (#{inspect(reason)}) — retrying"
+              )
+
               Process.send_after(self(), :retry_open, @reopen_after_ms)
               state
           end

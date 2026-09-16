@@ -1,16 +1,18 @@
 defmodule ConnectixWeb.HealthRelayTest do
   @moduledoc """
-  Health must not call a dead relay healthy.
+  Health must not call a silent portal healthy.
 
-  NO RELAY MEANS NO EVENTS. CallEvents and the per-user state streams both
-  arrive over it, so a portal without one cannot pop a screen, verify a token,
-  or open `/ws/events` — while `/auth` keeps working over the HTTP fallback,
-  which is why the failure presents as "login succeeds, then the socket 401s".
+  NO BROKER MEANS NO EVENTS. Every user's state, every notification and the
+  whole call firehose arrive on one subscription, so a portal without it pops
+  no screens and stores nothing — while every other check stays green, because
+  nothing else depends on it. That is the shape of failure this check exists
+  for: not a crash, just silence that looks like a quiet switch.
 
-  The check used to read `not enabled? or ready?`, which PASSED whenever the
-  relay was disabled — the one state where nothing can possibly work. On
-  nimbus-connectix that reported `api_relay: ok` for an hour while every
-  socket upgrade was refused for want of a secret to mint cable tokens with.
+  The earlier version of this check read `not enabled? or ready?`, which PASSED
+  whenever the transport was DISABLED — the one state where nothing can
+  possibly work. On nimbus-connectix that reported the relay ok for an hour
+  while every socket upgrade was refused. The same trap is avoided here by
+  reporting an unconfigured broker as down rather than as absent.
   """
 
   use ExUnit.Case, async: false
@@ -22,38 +24,54 @@ defmodule ConnectixWeb.HealthRelayTest do
     |> then(&Jason.decode!(&1.resp_body))
   end
 
-  defp without_cable(fun) do
-    previous = System.get_env("CABLE_URL")
-    System.delete_env("CABLE_URL")
+  defp without(vars, fun) do
+    previous = Map.new(vars, &{&1, System.get_env(&1)})
+    Enum.each(vars, &System.delete_env/1)
 
     try do
       fun.()
     after
-      if previous, do: System.put_env("CABLE_URL", previous)
+      Enum.each(previous, fn
+        {key, nil} -> System.delete_env(key)
+        {key, value} -> System.put_env(key, value)
+      end)
     end
   end
 
-  test "a disabled relay is down, and says why" do
-    without_cable(fn ->
-      refute Connectix.Realtime.ApiProxy.enabled?()
+  test "an unconfigured broker is down, and says what that costs" do
+    without(["NATS_URL", "NATS_SUBJECTS"], fn ->
+      refute Connectix.Realtime.EventPipeline.enabled?()
 
       body = report()
-      relay = body["checks"]["api_relay"]
+      nats = body["checks"]["nats"]
 
-      assert relay["status"] == "down",
-             "a portal with no relay cannot consume events; health must not call that ok"
+      assert nats["status"] == "down",
+             "a portal with no broker consumes nothing; health must not call that ok"
 
-      assert relay["detail"] =~ "cannot consume events"
-      assert relay["detail"] =~ "relay disabled"
+      assert nats["detail"] =~ "no events"
 
       assert body["status"] == "degraded"
       refute body["ready"]
     end)
   end
 
-  test "the cable check is down for the same reason" do
-    without_cable(fn ->
-      assert report()["checks"]["cable"]["status"] == "down"
+  test "a broker named but not subscribed is down too" do
+    # Configured-but-not-subscribed is the failure worth seeing: the URL is
+    # right, the subjects are named, and the producer never got a subscription.
+    without([], fn ->
+      System.put_env("NATS_URL", "nats://127.0.0.1:4222")
+      System.put_env("NATS_SUBJECTS", "node:test1")
+
+      on_exit(fn ->
+        System.delete_env("NATS_URL")
+        System.delete_env("NATS_SUBJECTS")
+      end)
+
+      assert Connectix.Realtime.EventPipeline.enabled?()
+
+      nats = report()["checks"]["nats"]
+      assert nats["status"] == "down"
+      assert nats["detail"] =~ "not up"
     end)
   end
 end

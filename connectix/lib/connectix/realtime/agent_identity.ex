@@ -23,8 +23,6 @@ defmodule Connectix.Realtime.AgentIdentity do
 
   require Logger
 
-  alias Connectix.Realtime.ApiProxy
-
   @doc """
   The ids an event may use to name this user: the `powerlink_token` on the
   user record, and nothing else. Empty when the record has none or cannot be
@@ -81,22 +79,50 @@ defmodule Connectix.Realtime.AgentIdentity do
 
   def powerlink_token(_record), do: nil
 
-  # GET the record with the user's own bearer, over the cable relay.
+  # GET the record with the user's own bearer.
+  #
+  # Over HTTP to `ENGINE_URL`, the same upstream `Plugs.EngineProxy` forwards
+  # to. This used to go over a WebSocket relay, which is gone; the API judges the
+  # bearer exactly as it did, because it is the same request to the same place
+  # with one fewer hop in front of it.
   defp fetch_record(user_uuid, token) do
-    case ApiProxy.request("GET", "/api/users/#{user_uuid}", "", nil, "Bearer #{token}") do
-      {:ok, 200, body, _content_type} ->
-        case Jason.decode(body) do
+    case engine() do
+      "" ->
+        {:error, :no_engine}
+
+      upstream ->
+        request(upstream <> "/api/users/#{user_uuid}", token)
+    end
+  end
+
+  defp request(url, token) do
+    case Req.request(
+           method: :get,
+           url: url,
+           headers: [{"authorization", "Bearer #{token}"}],
+           decode_body: false,
+           retry: false,
+           receive_timeout: 10_000
+         ) do
+      {:ok, %{status: 200, body: body}} ->
+        case Jason.decode(body || "") do
           {:ok, %{} = record} -> {:ok, record}
-          _ -> {:error, :malformed_body}
+          _undecodable -> {:error, :malformed_body}
         end
 
-      {:ok, status, _body, _content_type} ->
+      {:ok, %{status: status}} ->
         {:error, {:status, status}}
 
       {:error, reason} ->
         {:error, reason}
     end
   end
+
+  # Same resolution as the proxy's, so one variable configures both.
+  defp engine,
+    do:
+      (System.get_env("ENGINE_URL") || System.get_env("MOTHERSHIP_URL") || "")
+      |> String.trim_trailing("/")
 
   defp ids(list), do: list |> Enum.reject(&(is_nil(&1) or &1 == "")) |> Enum.uniq()
 end

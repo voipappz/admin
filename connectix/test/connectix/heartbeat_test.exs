@@ -51,7 +51,7 @@ defmodule Connectix.HeartbeatTest do
 
   describe "report/0" do
     test "names the failing check rather than reporting a bare status" do
-      # No cable relay in the test env, so this is the real failure path.
+      # No broker in the test env, so this is the real failure path.
       {status, message} = Heartbeat.report()
 
       assert status in [:up, :down]
@@ -59,7 +59,7 @@ defmodule Connectix.HeartbeatTest do
       assert message != ""
 
       if status == :down do
-        assert message =~ ~r/cable relay|event store|disk/
+        assert message =~ ~r/broker subscription|event store|disk/
       end
     end
 

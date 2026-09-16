@@ -115,9 +115,13 @@ defmodule Connectix.MixProject do
       # ActionCable client transport. Cable owns authentication, channel names
       # and event streams; Elixir holds no direct NATS connection.
       {:mint_web_socket, "~> 1.0"},
-      # Kept only for the dormant Realtime.Bus compatibility module. It is not
-      # supervised or used by the static screen-pop path.
+      # Kept for the dormant Realtime.Bus compatibility module, and used by
+      # `Realtime.Nats` when the Broadway event pipeline is switched on.
       {:gnat, "~> 1.9"},
+      # The event pipeline (`Realtime.EventPipeline`): parallel decode of the
+      # NATS event stream with back-pressure, instead of one process decoding
+      # the whole firehose.
+      {:broadway, "~> 1.3"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_metrics_prometheus_core, "~> 1.1"},
       {:telemetry_poller, "~> 1.0"},
@@ -187,7 +191,13 @@ defmodule Connectix.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", &parrot_patch/1, "deps.compile parrot_platform --force", "assets.setup", "assets.build"],
+      setup: [
+        "deps.get",
+        &parrot_patch/1,
+        "deps.compile parrot_platform --force",
+        "assets.setup",
+        "assets.build"
+      ],
       # `deps.get` re-downloads a pristine parrot_platform every time, wiping
       # priv/parrot_patches/*.patch — re-apply and force-recompile by hand
       # with `mix parrot.patch` after any `deps.get`/`deps.update parrot_platform`.

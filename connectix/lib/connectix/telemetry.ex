@@ -8,9 +8,20 @@ defmodule Connectix.Telemetry do
 
   @screen_pop_event [:connectix, :screen_pop, :event]
   @screen_pop_load [:connectix, :screen_pop, :instruction_load]
+  @nats_message [:connectix, :nats, :message]
 
-  @event_results [:received, :ignored, :queued, :unloaded, :dispatched, :duplicate, :offline, :rejected]
+  @event_results [
+    :received,
+    :ignored,
+    :queued,
+    :unloaded,
+    :dispatched,
+    :duplicate,
+    :offline,
+    :rejected
+  ]
   @load_results [:started, :loaded, :failed]
+  @nats_results [:received, :dropped, :undecodable]
 
   @call_audio [:connectix, :call, :audio]
   @call_stt [:connectix, :call, :stt]
@@ -20,7 +31,8 @@ defmodule Connectix.Telemetry do
   @stt_events [:connected, :closed, :transcript]
   @sip_events [:registered, :register_refused, :calling, :ringing, :answered, :ended, :failed]
 
-  def events, do: [@screen_pop_event, @screen_pop_load, @call_audio, @call_stt, @call_sip]
+  def events,
+    do: [@screen_pop_event, @screen_pop_load, @nats_message, @call_audio, @call_stt, @call_sip]
 
   def screen_pop_event(result) when result in @event_results do
     :telemetry.execute(@screen_pop_event, %{count: 1}, %{result: result})
@@ -28,6 +40,15 @@ defmodule Connectix.Telemetry do
 
   def instruction_load(result) when result in @load_results do
     :telemetry.execute(@screen_pop_load, %{count: 1}, %{result: result})
+  end
+
+  @doc """
+  One message off NATS: `:received` by the producer, `:dropped` when its
+  buffer overflowed, `:undecodable` when the body was not a JSON object.
+  `received` minus the other two is what reached a handler.
+  """
+  def nats_message(result) when result in @nats_results do
+    :telemetry.execute(@nats_message, %{count: 1}, %{result: result})
   end
 
   @doc """

@@ -67,13 +67,13 @@ defmodule ConnectixWeb.RealtimeSocket do
     Connectix.Realtime.ScreenPop.load_environment(claims.environment_uuid)
     register_session(claims.user_uuid, claims.environment_uuid)
 
-    # Hold this user's cable connection for as long as a browser of theirs is
-    # here. The uuid and token come from the verified claims, never from the
-    # client — which is the whole reason this is opened here and not there.
-    ConnectixWeb.RealtimeSocket.ensure_cable(claims)
+    # Resolve and register the ids the switch knows this user by, so a frame
+    # off the broker can be attributed to them. The uuid and token come from
+    # the verified claims, never from the client.
+    ConnectixWeb.RealtimeSocket.register_identity(claims)
 
     # The row that outlives this process — see `Realtime.Sessions`. Written
-    # after `ensure_cable/1` so the agent ids it resolved are on it.
+    # after `register_identity/1` so the agent ids it resolved are on it.
     Connectix.Realtime.Sessions.opened(self(), %{
       user_uuid: claims.user_uuid,
       environment_uuid: claims.environment_uuid,
@@ -89,7 +89,7 @@ defmodule ConnectixWeb.RealtimeSocket do
       ts: DateTime.utc_now() |> DateTime.to_iso8601(),
       subscribed: MapSet.to_list(state.topics),
       clients: 1,
-      cable_ready: true
+      events_ready: true
     }
 
     schedule_heartbeat()
@@ -180,7 +180,7 @@ defmodule ConnectixWeb.RealtimeSocket do
   def handle_in(_frame, state), do: {:ok, state}
 
   @impl true
-  # The cable connection deliberately OUTLIVES one socket: a reload or a second
+  # Registration deliberately OUTLIVES one socket: a reload or a second
   # tab must not drop the user's registration and re-stamp it a moment later.
   # It is reaped when its own connection dies, not per browser socket.
   def terminate(reason, _state) do
@@ -188,60 +188,73 @@ defmodule ConnectixWeb.RealtimeSocket do
     :ok
   end
 
-  @doc false
-  def ensure_cable(%{user_uuid: user_uuid, token: token} = claims)
+  @doc """
+  Resolve every id the switch may name this user by, and register them.
+
+  This is what is left of opening a per-user upstream connection. That
+  connection is gone, and a user's streams arrive on the one broker
+  subscription now, but the lookup it used to do still has to happen, and it
+  has to happen HERE, because this is the only place a verified token exists.
+
+  **The callcenter names an agent by `powerlink_token`, not by portal uuid.**
+  That value is also the key of the state stream the node publishes to
+  (`state.user.<powerlink_token>`), so without it a frame about this agent
+  belongs to nobody and is dropped. Measured: an `agent-state-change` for
+  `cb1b0a46…` while the browser held `be5bc5f0…`, and the former was that
+  user's `powerlink_token`.
+
+  Registering is what lets `Realtime.UserStreams` and `ScreenPop` turn an agent
+  id back into a signed-in user. The registration lives on this socket process
+  and disappears with it, which is correct: an agent with no socket has nowhere
+  to receive anything.
+  """
+  def register_identity(%{user_uuid: user_uuid, token: token} = claims)
       when is_binary(user_uuid) and is_binary(token) do
-    if Connectix.Realtime.CableClient.enabled?() do
-      # What cable is given is minted here from the identity NATS already
-      # verified — not the browser's own token passed along unread. Without a
-      # configured secret this returns that token unchanged, so an
-      # unconfigured deployment is untouched. See `Realtime.CableToken`.
-      # Every id the switch may use for this user. The callcenter names an agent
-      # by `powerlink_token`, not by user uuid, and that is also the key of the
-      # state stream the node publishes to — so it must be known before the
-      # cable client subscribes, which is why it is resolved here and not later.
-      agent_ids = Connectix.Realtime.AgentIdentity.resolve(user_uuid, token)
+    user_uuid
+    |> Connectix.Realtime.AgentIdentity.resolve(token)
+    |> then(&register_agent_ids(user_uuid, &1))
 
-      # Registered so a NODE-WIDE CallEvents frame can be attributed. Such a
-      # frame names an agent and no environment, and until it could be traced
-      # back to a signed-in user there was nobody to pop it at — see
-      # `ScreenPop.user_for_agent/1`.
-      #
-      # Registered here rather than in `register_session/2` because this is
-      # where the ids already exist: resolving them costs a lookup against the
-      # mothership, and doing it twice per connect to avoid passing an argument
-      # would be a poor trade.
-      register_agent_ids(user_uuid, agent_ids)
-
-      spec =
-        {Connectix.Realtime.CableClient,
-         user_uuid: user_uuid,
-         environment_uuid: claims.environment_uuid,
-         token: Connectix.Realtime.CableToken.for(claims),
-         agent_ids: agent_ids}
-
-      case DynamicSupervisor.start_child(Connectix.Realtime.CableSupervisor, spec) do
-        {:ok, _pid} ->
-          :ok
-
-        {:error, {:already_started, _pid}} ->
-          # The client outlives one socket, so it may predate this identity.
-          # If the first connect resolved no agent ids — a record without a
-          # `powerlink_token` yet, or one the relay could not reach — the
-          # client subscribed to the portal uuid alone and accepts no pop.
-          # Hand it what this connect resolved rather than discarding it.
-          Connectix.Realtime.CableClient.adopt_agent_ids(user_uuid, agent_ids)
-
-        {:error, reason} ->
-          require Logger
-          Logger.warning("cable: start failed — #{inspect(reason)}")
-      end
-    end
-
+    announce_presence(user_uuid, Map.get(claims, :environment_uuid))
     :ok
   end
 
-  def ensure_cable(_claims), do: :ok
+  def register_identity(_claims), do: :ok
+
+  # THE REGISTRATION THAT USED TO BE A SIDE EFFECT.
+  #
+  # Subscribing to the node's per-user channel is what stamped
+  # `user:<uuid>:logged_in_at`, so holding that connection WAS the presence
+  # record. Nothing subscribes now, so nobody would ever be marked present
+  # again — and the failure is silent, which is the worst kind: every consumer
+  # of that field simply reads a stale timestamp forever.
+  #
+  # So the portal says it itself, in the node's own envelope and on the node's
+  # own subject, which is what the node published when it did this. Best
+  # effort: a broker that is away must not stop a socket from opening.
+  defp announce_presence(user_uuid, environment_uuid) do
+    at = DateTime.utc_now()
+
+    payload = %{
+      event: "user.login",
+      at: DateTime.to_unix(at),
+      scope: "user",
+      id: user_uuid,
+      data: %{
+        action: "user.login",
+        logged_in_at: Calendar.strftime(at, "%Y-%m-%d %H:%M:%S")
+      },
+      metadata:
+        if(is_binary(environment_uuid) and environment_uuid != "",
+          do: %{environment_uuid: environment_uuid},
+          else: %{}
+        )
+    }
+
+    case Connectix.Realtime.Nats.publish("state.user.#{user_uuid}", payload) do
+      :ok -> :ok
+      {:error, reason} -> Logger.debug("presence: not announced (#{inspect(reason)})")
+    end
+  end
 
   @doc false
   def register_session(user_uuid, environment_uuid)
@@ -293,7 +306,7 @@ defmodule ConnectixWeb.RealtimeSocket do
   Logged at info with the ids, because "which agent ids is this user answering
   to" is the first question when a pop does not happen, and it was previously
   unanswerable from the outside — the ids were resolved and then only handed to
-  the cable client.
+  the registration.
   """
   @spec register_agent_ids(String.t(), [String.t()]) :: :ok
   def register_agent_ids(user_uuid, agent_ids) when is_list(agent_ids) do
@@ -319,7 +332,7 @@ defmodule ConnectixWeb.RealtimeSocket do
 
   def register_agent_ids(_user_uuid, _agent_ids), do: :ok
 
-  # The ids `ensure_cable/1` registered for this user, read back from the
+  # The ids `register_identity/1` registered for this user, read back from the
   # registry rather than threaded through — they were resolved inside a
   # function whose contract is `:ok`.
   defp agent_ids_for(user_uuid) when is_binary(user_uuid) do

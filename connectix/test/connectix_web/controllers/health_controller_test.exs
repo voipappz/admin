@@ -3,11 +3,14 @@ defmodule ConnectixWeb.HealthControllerTest do
   use Mimic
 
   describe "GET /health" do
-    test "does not report a direct Elixir NATS dependency", %{conn: conn} do
+    test "reports the broker, because it is where every event comes from", %{conn: conn} do
       body = conn |> get(~p"/health") |> json_response(200)
 
+      assert Map.has_key?(body["checks"], "nats")
+      # The transports it replaced are gone, and so are their checks.
       refute Map.has_key?(body["checks"], "bus")
-      assert Map.has_key?(body["checks"], "cable")
+      refute Map.has_key?(body["checks"], "cable")
+      refute Map.has_key?(body["checks"], "api_relay")
     end
   end
 

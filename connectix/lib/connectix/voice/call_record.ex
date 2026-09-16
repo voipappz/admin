@@ -7,7 +7,7 @@ defmodule Connectix.Voice.CallRecord do
   voice session gets, with `source: "call"` — so it lists in the same sidebar,
   loads the same transcript, and is answered by the same bot. `Connectix.Events`
   is not that: it is an append-only log of frames received from the *external*
-  va-crystal cable, sharing no key with conversations.
+  va-crystal, sharing no key with conversations.
 
   What is call-specific lives in `metadata`: who was dialed, the SIP call-id,
   and the three times a call actually has. `SipBridge`'s struct carries no

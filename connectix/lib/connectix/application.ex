@@ -15,6 +15,11 @@ defmodule Connectix.Application do
       )
     end
 
+    # THE EVENT TRANSPORT. One broker connection, then the Broadway
+    # pipeline subscribed on it. Both empty unless NATS_URL (and, for the
+    # pipeline, NATS_SUBJECTS) is set — an unconfigured deployment starts
+    # no process rather than one that fails, and `/health` says `nats` is
+    # down rather than leaving the silence unexplained.
     children =
       [
         ConnectixWeb.Telemetry,
@@ -25,7 +30,7 @@ defmodule Connectix.Application do
       ] ++
         Connectix.Logging.Influx.children() ++
         [
-          # Every event received off the cable, appended to DuckDB. Starts even
+          # Every event this portal receives, appended to DuckDB. Starts even
           # when the file cannot be opened — it then stores nothing rather than
           # taking the realtime path down. See Connectix.Events.
           Connectix.Events,
@@ -45,25 +50,16 @@ defmodule Connectix.Application do
             start: {Task, :start_link, [&Connectix.Realtime.TokenAuth.init_cache/0]},
             restart: :transient
           },
-          # Cable (va-crystal) held server-side, one connection per signed-in user.
-          # This is the LISTEN half: events arrive here, and cable's own semantics
-          # come with them — a confirmed subscription is what stamps
-          # `user:<uuid>:logged_in_at`. Inert without CABLE_URL.
-          #
-          # `Realtime.ApiProxy` below is a THIRD connection on the same cable and
-          # not a duplicate of these: one for the whole server, carrying `/auth`,
-          # `/api/` and `/tasks/` as request/reply so credentials reach the API
-          # over cable rather than over HTTP. Started after the registry so the
-          # listen path is up first — a login is worth nothing if the events that
-          # follow it have nowhere to arrive.
           # Browser-socket bookkeeping that outlives the sockets (open rows and
           # a close log), so "what happened to this agent's socket" has an
           # answer after the fact. Read by the TUI over RPC.
           Connectix.Realtime.Sessions,
-          {Registry, keys: :unique, name: Connectix.Realtime.CableRegistry},
           {Registry, keys: :duplicate, name: Connectix.Realtime.SessionRegistry},
-          {DynamicSupervisor, strategy: :one_for_one, name: Connectix.Realtime.CableSupervisor},
           Connectix.Realtime.ScreenPop,
+          # The per-user half of the broker's streams: one signed-in
+          # user's state folded into a view and pushed to their browser. Before
+          # the pipeline below, which casts into it.
+          Connectix.Realtime.UserStreams,
           # Browser<->SIP WebRTC bridge (Connectix.WebRtc.*, ported from
           # connectix.io/phone): keyed registry so a Membrane pipeline leg
           # (leg B, the SIP side) can find its browser peer (leg A) by the
@@ -76,7 +72,8 @@ defmodule Connectix.Application do
           Connectix.WebRtc.Transport,
           Connectix.WebRtc.SipBridge
         ] ++
-        Connectix.Realtime.ApiProxy.children() ++
+        Connectix.Realtime.Nats.children() ++
+        Connectix.Realtime.EventPipeline.children() ++
         Connectix.Heartbeat.children() ++
         [
           # Sagents infrastructure (registry + dynamic supervisors).

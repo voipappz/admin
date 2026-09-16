@@ -3,8 +3,8 @@ defmodule Connectix.Realtime.ScreenPop do
   Executes validated screen-pop instructions against Crystal call events.
 
   One supervised process owns the instruction cache and dedupe set for the
-  whole portal. It receives the node-wide `CallEvents` stream once through the
-  singleton `Realtime.ApiProxy` cable connection. A result is broadcast only
+  whole portal. It receives the node's firehose once, off the broker through
+  `Realtime.EventPipeline`. A result is broadcast only
   when the event names a user with a currently connected, verified
   `/ws/events` process; PubSub does not persist or replay it.
   """
@@ -77,11 +77,13 @@ defmodule Connectix.Realtime.ScreenPop do
   """
   # NO server parameter, deliberately. With both a leading `server \\ __MODULE__`
   # and a trailing `agent_ids \\ nil` the 3-arity call is ambiguous, and Elixir
-  # binds it to (server, user_uuid, event) — so `CableClient`'s
+  # binds it to (server, user_uuid, event) — so `UserStreams`'s
   # `user_event(user_uuid, message, agent_ids)` passed the message as a uuid and
   # the ids as the event. It raised inside the cast, where nothing surfaced it.
-  def user_event(user_uuid, event, agent_ids \\ nil),
-    do: GenServer.cast(__MODULE__, {:user_event, user_uuid, event, agent_ids})
+  def user_event(server \\ __MODULE__, user_uuid, event, agent_ids)
+
+  def user_event(server, user_uuid, event, agent_ids),
+    do: GenServer.cast(server, {:user_event, user_uuid, event, agent_ids})
 
   @doc "Whether a verified `/ws/events` process is registered for this user and environment."
   def online?(user_uuid, environment_uuid)
@@ -344,7 +346,7 @@ defmodule Connectix.Realtime.ScreenPop do
     else
       # Same gate as `route_event/2`: the user's own stream carries every
       # state change and queue event, and the rule names the one that pops.
-      # The frame itself still reaches the browser — `CableClient.fanout/3`
+      # The frame itself still reaches the browser — `UserStreams`
       # broadcast it before handing it here — only the pop evaluation stops.
       Telemetry.screen_pop_event(:ignored)
       state
@@ -407,13 +409,23 @@ defmodule Connectix.Realtime.ScreenPop do
         Logger.info(
           "screen pop: no pop for #{user_uuid} — " <>
             cond do
-              not is_map(event) -> "event is not a map"
-              not state_allowed?(event) -> "agent state #{inspect(PopRule.dig(event, "user_state"))} is not one that pops"
-              event_name(event) not in PopRule.triggers() -> "event #{inspect(event_name(event))} is not one of #{inspect(PopRule.triggers())}"
-              is_nil(agent_uuid(event)) -> "event names no agent (no CC-Agent/user_uuid)"
+              not is_map(event) ->
+                "event is not a map"
+
+              not state_allowed?(event) ->
+                "agent state #{inspect(PopRule.dig(event, "user_state"))} is not one that pops"
+
+              event_name(event) not in PopRule.triggers() ->
+                "event #{inspect(event_name(event))} is not one of #{inspect(PopRule.triggers())}"
+
+              is_nil(agent_uuid(event)) ->
+                "event names no agent (no CC-Agent/user_uuid)"
+
               agent_uuid(event) not in accepted ->
                 "event names agent #{agent_uuid(event)}, not one of #{inspect(accepted)}"
-              true -> "agent has no live /ws/events socket (#{inspect(reason)})"
+
+              true ->
+                "agent has no live /ws/events socket (#{inspect(reason)})"
             end
         )
 

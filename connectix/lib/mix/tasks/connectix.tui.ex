@@ -2,7 +2,7 @@ defmodule Mix.Tasks.Connectix.Tui do
   @shortdoc "Live terminal cockpit: what this portal is receiving, and who is wired up"
 
   @moduledoc """
-  The cockpit — the store's totals, the cable subscriptions the node confirmed,
+  The cockpit — the store's totals, the broker subscriptions in effect,
   one row per signed-in agent, the last socket closes, and the events as they
   land.
 
@@ -12,7 +12,7 @@ defmodule Mix.Tasks.Connectix.Tui do
 
   By default it does NOT boot the application: it connects to the portal that
   is already running (`connectix@127.0.0.1`, the name `Connectix.Mnesia` gives
-  it) and reads over RPC, so the sessions and cable clients shown are the ones
+  it) and reads over RPC, so the sessions shown are the ones
   the browsers are actually on. When that node does not answer it falls back
   to booting the app in this process and says so in the status pane.
 

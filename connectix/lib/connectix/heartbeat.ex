@@ -6,7 +6,7 @@ defmodule Connectix.Heartbeat do
   have to reach in, and a node that has stopped — crashed, wedged, cut off,
   never booted — stops pushing and Kuma notices on its own timer. The failure
   we hit today is exactly the one a poll would have missed: the process was
-  alive and answering HTTP while its cable connection was dead.
+  alive and answering HTTP while its event subscription was dead.
 
   It reports WHY, not merely whether. Kuma's push endpoint takes `status` and
   `msg`, so a node with a full disk arrives as
@@ -70,8 +70,11 @@ defmodule Connectix.Heartbeat do
   def report do
     failures =
       []
-      |> check(Connectix.Realtime.ApiProxy.enabled?() and Connectix.Realtime.ApiProxy.ready?(),
-          "cable relay down — no events, no token checks")
+      |> check(
+        Connectix.Realtime.EventPipeline.enabled?() and
+          match?({:subscribed, _}, Connectix.Realtime.NatsProducer.status()),
+        "broker subscription down — no events"
+      )
       |> check(Connectix.Events.open?(), "event store not open — events are not recorded")
       |> check(Connectix.Disk.ok?(), disk_detail())
       |> Enum.reverse()

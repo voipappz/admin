@@ -2,29 +2,21 @@ defmodule Connectix.Realtime.TokenAuth do
   @moduledoc """
   Authenticates a realtime client by the token it already holds.
 
-  Both questions — is it real, and who is it — are answered by the node in one
-  `verify` on the cable relay (`Realtime.ApiProxy.verify/1`).
+  Both questions — is it real, and who is it — are answered here, by
+  `Realtime.Jwt.verify/1`, with the secret this app already holds.
 
-  **Over the cable, not NATS and not HTTP.** The cable is this app's only
-  transport to the platform: the login that produced the token went over it
-  (`ApiProxy.request/6` → the node → whichever mothership the node's `API_URL`
-  names), and the per-user event stream this check gates is opened over it too
-  (`CableClient`, which the node admits by verifying the same token against its
-  own `SECRET_KEY`). So the node is the one party whose answer cannot disagree
-  with either. The previous verifier was a NATS request to the LOCAL API
-  (`auth.request.verify`), which after a login relayed to a different
-  mothership answered `token verification unavailable (:timeout)` and then
-  `refused websocket upgrade (:unauthenticated)` — a 200 login followed by a
-  socket that never opened. It also held a broker connection this app is not
-  supposed to have.
+  **Nothing is asked of anyone.** Verification used to be a round trip: first a
+  NATS request to the API (`auth.request.verify`), then a `verify` on a
+  WebSocket relay. Each was on the critical path of every socket open, each could time
+  out, and each made "is this token real" depend on a service being reachable.
+  The portal is configured with the issuer's signing secret, so the signature
+  can be checked locally — the round trip was never buying a second opinion,
+  only a slower copy of the same one.
 
-  **And the reply carries the claims.** The alternative is base64-decoding a JWT
-  this app cannot verify — safe only by accident of having asked first. Being
-  *told* the identity removes that: no token is ever interpreted here.
-
-  There is deliberately **no HTTP fallback**. If the cable is down this app has
-  no events to deliver anyway, so authenticating someone onto a socket that will
-  stay silent is a worse failure than refusing them — it looks like it worked.
+  Two consequences worth naming. Expiry is now enforced, which the node never
+  did. And a revoked-but-unexpired token stays valid until it expires, because
+  there is nobody to ask about revocation; that was equally true of the relay
+  verifier, which also only checked a signature.
 
   A client NEVER supplies an identity. The reference implementation this was
   modelled on falls back to a `state_user` query parameter when the payload has
@@ -34,7 +26,7 @@ defmodule Connectix.Realtime.TokenAuth do
 
   require Logger
 
-  alias Connectix.Realtime.ApiProxy
+  alias Connectix.Realtime.Jwt
 
   @positive_ttl_ms 30_000
   @negative_ttl_ms 5_000
@@ -47,9 +39,8 @@ defmodule Connectix.Realtime.TokenAuth do
           user_uuid: String.t() | nil,
           account_uuid: String.t() | nil,
           environment_uuid: String.t() | nil,
-          # Carried so the upstream cable connection can authenticate AS THIS
-          # USER. Cable authorizes by token, so the person's own credential is
-          # what entitles them to their streams — there is no service account.
+          # Carried so an upstream request can be made AS THIS USER — the
+          # agent-id lookup in `Realtime.AgentIdentity` presents it.
           token: String.t() | nil
         }
 
@@ -85,20 +76,8 @@ defmodule Connectix.Realtime.TokenAuth do
     end
   end
 
-  # A token check sits on the critical path of every socket open, so it refuses
-  # on timeout rather than hanging: a slow relay must not become a slow login.
-  # Repeats are absorbed by the cache above.
-  #
-  # What the node checks is the signature, against the same `SECRET_KEY` its
-  # connection admits sockets with — which is exactly the check that decides
-  # whether the `CableClient` this app opens next for the user would be
-  # accepted. What it does NOT check is expiry: `VaShared::CableAuth.decode_jwt`
-  # verifies the signature and stops. The NATS verifier this replaces did check
-  # expiry (it ran the API's own `Authorize` mediator), so an expired token that
-  # used to be refused here is now refused only when the API refuses the
-  # relayed requests it is used on. That is a known gap, named in the node's
-  # `verify` action too, and not one this app can close by decoding the token
-  # itself — see the moduledoc.
+  # One HMAC, no network. The cache above still earns its place: a browser
+  # reconnecting in a loop presents the same token many times a second.
   defp ask_issuer(token) do
     result =
       case verifier().verify(token) do
@@ -110,25 +89,24 @@ defmodule Connectix.Realtime.TokenAuth do
             token: token
           }
 
-        # A refusal is the node's verdict on the token, and a stale browser
-        # tab is the usual cause: debug, because it is not the operator's
-        # problem.
+        # A bad signature or an expired token is a verdict, and a stale
+        # browser tab is the usual cause: debug, because it is not the
+        # operator's problem.
         {:error, :invalid} ->
-          Logger.debug("realtime: the node refused a token (invalid)")
+          Logger.debug("realtime: refused a token (invalid or expired)")
           false
 
+        # Nothing was judged. Same refusal for the client, but an error for
+        # the operator, because every socket will be refused until a secret
+        # is configured.
         {:error, :disabled} ->
           Logger.error(
-            "realtime: cannot verify tokens — CABLE_URL is not set, so every connection will be refused"
+            "realtime: cannot verify tokens — SECRET_KEY is not set, " <>
+              "so every connection will be refused"
           )
 
           false
 
-        # Everything else is "could not ask", not "no". Same refusal for the
-        # client, but a warning and not a debug line, because every one of
-        # these is the operator's problem: a node that has not confirmed the
-        # relay, a reply that never came, or a node too old to know the
-        # action (that last one is logged once, by name, in ApiProxy).
         {:error, reason} ->
           Logger.warning("realtime: token verification unavailable (#{inspect(reason)})")
           false
@@ -138,12 +116,9 @@ defmodule Connectix.Realtime.TokenAuth do
     result
   end
 
-  # Configurable so a test can answer the question without a node. Same
-  # pattern as `EngineProxy`'s `:api_relay`: `ApiProxy.enabled?/0` reads
-  # CABLE_URL from the environment, and the dev container sets it, so a test
-  # that reached the real module would ask whatever node happens to be running
-  # beside it and pass or fail on that.
-  defp verifier, do: Application.get_env(:connectix, :token_verifier, ApiProxy)
+  # Configurable so a test can present an identity without minting a signed
+  # token for it.
+  defp verifier, do: Application.get_env(:connectix, :token_verifier, Jwt)
 
   defp cached(token) do
     now = System.monotonic_time(:millisecond)

@@ -238,17 +238,16 @@ defmodule Connectix.Config do
   Named SIP/calling environments the LiveView phone can dial through
   (`CONNECTIX_ENVIRONMENTS`), as a list of `%{name:, domain:, wss_url:}` maps.
 
-  `name:domain:wss_url` triples, comma-separated — same shape as
-  `event_streams/0`'s `scope:id` pairs, for the same reason: one env var, no
-  JSON to escape in a `.env` file.
+  `name:domain:wss_url` triples, comma-separated — one env var, no JSON to
+  escape in a `.env` file.
 
       CONNECTIX_ENVIRONMENTS=prod:sip.example.com:wss://sip.example.com:8443,staging:sip-staging.example.com:wss://sip-staging.example.com:8443
 
   Unset, this is a single placeholder `"default"` environment with `domain:
   nil, wss_url: nil` — enough for the UI to render a switcher with one entry
   before any real SIP target is configured. A malformed entry is dropped
-  rather than raised on, same as `event_streams/0`: a typo in one environment
-  should not take down every other one.
+  rather than raised on: a typo in one environment should not take down every
+  other one.
   """
   @spec environments() :: [
           %{name: String.t(), domain: String.t() | nil, wss_url: String.t() | nil}
@@ -297,13 +296,14 @@ defmodule Connectix.Config do
   the credential for whichever environment is selected, same as
   `basic_auth/0` is one operator identity rather than per-user accounts.
   """
-  @spec sip_credentials() :: %{
-          user: String.t(),
-          pass: String.t(),
-          domain: String.t(),
-          server: String.t(),
-          port: pos_integer()
-        }
+  @spec sip_credentials() ::
+          %{
+            user: String.t(),
+            pass: String.t(),
+            domain: String.t(),
+            server: String.t(),
+            port: pos_integer()
+          }
           | nil
   def sip_credentials do
     with user when is_binary(user) <- env("CONNECTIX_SIP_USER"),
@@ -362,7 +362,8 @@ defmodule Connectix.Config do
   """
   @spec voice_greeting() :: String.t()
   def voice_greeting,
-    do: env("CONNECTIX_VOICE_GREETING") || "Hello, this is the Connectix assistant. How can I help?"
+    do:
+      env("CONNECTIX_VOICE_GREETING") || "Hello, this is the Connectix assistant. How can I help?"
 
   @doc """
   STUN server URLs for the WebRTC bridge (`STUN_URLS`, comma-separated), or
@@ -527,7 +528,7 @@ defmodule Connectix.Config do
   def mnesia_dir, do: env("MNESIA_DIR") || Path.join(data_dir(), "mnesia")
 
   @doc """
-  Directory holding the DuckDB file of received cable events (`EVENTS_DIR`).
+  Directory holding the DuckDB file of received events (`EVENTS_DIR`).
 
   Defaults to `events/` under `CONNECTIX_DATA_DIR`, for the same reason
   `mnesia_dir/0` does: a deploy replaces the release directory wholesale.
@@ -557,7 +558,7 @@ defmodule Connectix.Config do
   def uptime_push_interval_ms,
     do: int_env("UPTIME_KUMA_PUSH_INTERVAL_MS", 60_000, 5_000..3_600_000)
 
-    @doc """
+  @doc """
   Free-space floor for the data volume, as a percentage
   (`DISK_MIN_FREE_PERCENT`), default 15.
 
@@ -571,7 +572,7 @@ defmodule Connectix.Config do
   @spec disk_min_free_percent() :: non_neg_integer()
   def disk_min_free_percent, do: int_env("DISK_MIN_FREE_PERCENT", 15, 0..99)
 
-    @doc """
+  @doc """
   Memory ceiling for the DuckDB buffer pool (`EVENTS_DB_MEMORY_LIMIT`),
   default `"512MB"`.
 
@@ -598,7 +599,7 @@ defmodule Connectix.Config do
   @spec events_db_threads() :: pos_integer()
   def events_db_threads, do: int_env("EVENTS_DB_THREADS", 2, 1..64)
 
-    @doc """
+  @doc """
   Whether to store FreeSWITCH channel variables
   (`EVENTS_KEEP_CHANNEL_VARIABLES`), default `false`.
 
@@ -609,7 +610,7 @@ defmodule Connectix.Config do
   @spec events_keep_channel_variables?() :: boolean()
   def events_keep_channel_variables?, do: flag("EVENTS_KEEP_CHANNEL_VARIABLES", false)
 
-    @doc """
+  @doc """
   How many days of events the store keeps (`EVENTS_RETENTION_DAYS`), default 7.
 
   The store had no retention at all, and this is not a tidiness question: a
@@ -625,7 +626,7 @@ defmodule Connectix.Config do
   @spec events_retention_days() :: non_neg_integer()
   def events_retention_days, do: int_env("EVENTS_RETENTION_DAYS", 7, 0..3_650)
 
-    @doc """
+  @doc """
   The event store's DuckDB file (`EVENTS_DB`), or `nil` for
   `<events_dir/0>/events.duckdb`.
 
@@ -638,44 +639,55 @@ defmodule Connectix.Config do
   def events_db, do: env("EVENTS_DB")
 
   @doc """
-  Extra `StateChannel` streams the application cable connection subscribes to,
-  so their frames are stored (`EVENT_STREAMS`).
+  The NATS broker the event pipeline consumes from (`NATS_URL`), or nil.
 
-  `scope:id` pairs, comma-separated:
+      NATS_URL=nats://internal:<password>@185.28.152.124:4222
 
-      EVENT_STREAMS=environment:319a6ccf-…,user:be5bc5f0-…
-
-  Empty by default, and empty means the singleton connection carries exactly
-  what it always did — `ApiProxy` and the node-wide `CallEvents`.
-
-  This exists because **cable has no firehose**. `CallEvents` streams every
-  baked call event, but everything else the node publishes goes to
-  `state.<scope>.<id>`, and `StateChannel` requires both a scope AND an id —
-  subscribing to a whole scope is deliberately not offered, so no client can
-  tap every account's state by omitting one. The full per-node stream exists
-  only on NATS (`node.<VA_NODE_UUID>`), which this app deliberately does not
-  connect to. So the only way to store a state stream is to name it, and this
-  is where it is named.
-
-  Without this the event store cannot answer the question it exists for: an
-  absent row means either "the node sent nothing" or "we were not listening",
-  and those are the two answers a troubleshooter is trying to tell apart.
-
-  Malformed entries are dropped rather than raised on: a typo in one stream
-  should not stop the relay that carries every login.
+  `nats://host:port` with optional `user:pass@` or `token@` userinfo — the same
+  URL the va-crystal node takes, so one value configures both. Unset, no
+  connection is opened and `Realtime.EventPipeline` does not start.
   """
-  @spec event_streams() :: [{String.t(), String.t()}]
-  def event_streams do
-    "EVENT_STREAMS"
+  @spec nats_url() :: String.t() | nil
+  def nats_url, do: env("NATS_URL")
+
+  @doc """
+  The NATS subjects the event pipeline subscribes to (`NATS_SUBJECTS`).
+
+  Comma-separated. **A stream identifier IS its NATS subject, verbatim**, so
+  these are the platform's own stream names:
+
+  | stream | subject |
+  |---|---|
+  | the call firehose | `call_events`, and `node:<uuid>` which is relayed onto it unchanged |
+  | one user's notifications | `notifications:<user_uuid>` |
+  | one user's dashboard state | `dashboard_user:<user_uuid>` |
+  | one entity's state | `state.<scope>.<id>` |
+
+  **Wildcards only span dots.** NATS splits a subject on `.` alone, so
+  `notifications:<uuid>` is a SINGLE token and there is no `notifications:*`
+  that matches every user's. `*` matches any one token, which is every
+  colon-form stream at once; `state.>` matches every state stream. So the
+  subscription that covers all four is:
+
+      NATS_SUBJECTS=*,state.>
+
+  Naming subjects one at a time is also supported and is what a deployment
+  watching one node wants:
+
+      NATS_SUBJECTS=node:test1,state.user.>
+
+  Empty by default, and empty means no pipeline even when `NATS_URL` is set: a
+  subject has to be named to be consumed, so that an absent row in the event
+  store means "the node sent nothing" and never "we were not listening".
+  """
+  @spec nats_subjects() :: [String.t()]
+  def nats_subjects do
+    "NATS_SUBJECTS"
     |> env()
     |> to_string()
     |> String.split(",", trim: true)
-    |> Enum.flat_map(fn pair ->
-      case String.split(String.trim(pair), ":", parts: 2) do
-        [scope, id] when scope != "" and id != "" -> [{String.trim(scope), String.trim(id)}]
-        _malformed -> []
-      end
-    end)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
     |> Enum.uniq()
   end
 
@@ -737,7 +749,9 @@ defmodule Connectix.Config do
       {"MNESIA_DIR", mnesia_dir()},
       {"EVENTS_DIR", events_dir()},
       {"EVENTS_DB", events_db() || "not set"},
-      {"EVENT_STREAMS", event_streams_summary()},
+      {"NATS_URL", presence(nats_url())},
+      {"NATS_SUBJECTS",
+       if(nats_subjects() == [], do: "not set", else: Enum.join(nats_subjects(), ","))},
       {"WHATSAPP_ACCESS_TOKEN", presence(whatsapp_access_token())},
       {"WHATSAPP_PHONE_NUMBER_ID", presence(whatsapp_phone_number_id())},
       {"WHATSAPP_APP_SECRET", presence(whatsapp_app_secret())},
@@ -750,13 +764,6 @@ defmodule Connectix.Config do
       {"VA_INFLUXDB_DATABASE", influxdb_database()},
       {"VA_MONITOR_TOKEN", presence(monitor_token())}
     ]
-  end
-
-  defp event_streams_summary do
-    case event_streams() do
-      [] -> "not set"
-      streams -> Enum.map_join(streams, ",", fn {scope, id} -> "#{scope}:#{id}" end)
-    end
   end
 
   defp presence(value) when is_binary(value), do: "set"

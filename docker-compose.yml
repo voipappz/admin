@@ -30,11 +30,55 @@ services:
       - "seccomp=unconfined"
     command: sleep infinity
 
+  # The broker the portal consumes events from. No profile: without it there
+  # are no events at all, so it is as much a part of `make dev` as the app.
+  #
+  # LOCAL ON PURPOSE. Events are published here — by the node, or by hand with
+  # `make nats-send` — and the portal subscribes here. Nothing crosses a
+  # network, so a development stack keeps working with no upstream reachable.
+  #
+  # `-js` is JetStream: core NATS drops anything published while the portal is
+  # restarting, with no error and no replay, which in development looks exactly
+  # like code that does not work. The store is on a named volume so a
+  # `docker compose down` does not take the stream with it.
+  #
+  # Host networking like everything else here, so the portal reaches it at
+  # 127.0.0.1:4222 and so can `nats` on the host.
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js", "-sd", "/data", "-m", "8222"]
+    network_mode: host
+    volumes:
+      - nats-data:/data
+    restart: unless-stopped
+
+  # A PUBLIC TCP ADDRESS FOR THE BROKER ABOVE. Opt-in: --profile tunnel, or
+  # `make tunnel`.
+  #
+  # bore (github.com/ekzhang/bore), not ngrok. Two reasons, and neither is
+  # taste: ngrok's agent refuses to start without an account token even for an
+  # anonymous tunnel, and its free tunnel is HTTP — NATS is its own protocol on
+  # a raw socket, so an HTTP tunnel cannot carry it and fails in a way that
+  # reads like a broken broker. bore forwards TCP and needs no account.
+  #
+  # THE BROKER IT EXPOSES HAS NO AUTHENTICATION, deliberately. While this runs,
+  # whoever has the address can read every event and publish events the portal
+  # will act on — a forged frame on `node:<uuid>` opens a CRM tab on a real
+  # agent's screen. Take it down when you are done: `make tunnel-stop`.
+  #
+  # Host networking so `local 4222` means the broker beside it. bore.pub is the
+  # author's public relay; `--to` names a different one when you run your own.
+  bore:
+    profiles: ["tunnel"]
+    image: ekzhang/bore:latest
+    network_mode: host
+    command: ["local", "4222", "--to", "${BORE_SERVER:-bore.pub}"]
+    restart: unless-stopped
+
   # The Elixir portal — the origin, and now the whole app. It serves the
-  # LiveView UI and /ws/events, verifies tokens over NATS, holds ONE cable
-  # connection and fans out over PubSub, and forwards the mothership's own
-  # routes (/auth, /api/, /tasks/) upstream so it is a complete origin on its
-  # own. No second runtime beside it: the React/Vite/Node frontend this repo
+  # LiveView UI and /ws/events, verifies tokens itself, consumes every event
+  # from the broker above, and forwards the mothership's own routes
+  # (/auth, /api/, /tasks/) upstream so it is a complete origin on its own. No second runtime beside it: the React/Vite/Node frontend this repo
   # used to ship is gone — connectix/ is a pure-BEAM app.
   #
   # DEV STAGE, MOUNTED SOURCE. `target: dev` stops at the toolchain and runs
@@ -66,21 +110,20 @@ services:
       # the same three local processes, so local is the default and one
       # explicit variable moves it.
       ENGINE_URL: ${PORTAL_ENGINE_URL:-http://127.0.0.1:5000}
-      # The LISTEN half: one upstream cable connection for the whole app.
-      CABLE_URL: ${PORTAL_CABLE_URL:-ws://127.0.0.1:${CABLE_PORT:-4100}/cable}
-      # Mints the cable credential instead of forwarding the browser's token —
-      # cable is then handed a statement this app makes about an identity the
-      # node already verified, carrying the uuid and nothing else. Unset, the
-      # caller's own token is forwarded, which also works. `make dev` supplies
-      # this from the API container, the same value the cable verifies with.
-      CABLE_SECRET_KEY: ${SECRET_KEY:-}
-      # Extra `state.<scope>.<id>` streams the ONE application connection
-      # subscribes to purely so their frames land in the DuckDB event store —
-      # `scope:id`, comma-separated. Cable has no firehose: `CallEvents` is
-      # node-wide, but everything else lives on `state.<scope>.<id>` and
-      # StateChannel requires both halves, so an unnamed stream is an unwatched
-      # one. Empty here means the connection carries what it always did.
-      EVENT_STREAMS: ${EVENT_STREAMS:-}
+      # THE EVENT TRANSPORT: the `nats` service above, on the host's loopback
+      # because everything here is host-networked.
+      NATS_URL: ${NATS_URL:-nats://127.0.0.1:4222}
+      # What to consume. `*` matches any ONE token, which is every colon-form
+      # stream at once (`node:<uuid>`, `call_events`, `notifications:<uuid>`,
+      # `dashboard_user:<uuid>`); `state.>` is every state stream. NATS splits
+      # subjects on dots alone, so a colon-form name is a single token and
+      # there is no `notifications:*` that would match one kind on its own.
+      NATS_SUBJECTS: ${NATS_SUBJECTS:-*,state.>}
+      # Verifies the user tokens the browser presents. The SAME secret the API
+      # signs them with, so the portal checks the signature itself instead of
+      # asking anyone. Unset, every socket upgrade is refused and the log says
+      # why.
+      SECRET_KEY: ${SECRET_KEY:-}
       # Log shipping to InfluxDB 3 — the SAME four names the node reads, so one
       # .env configures both. Empty unless set, and empty means "not
       # configured": no handler is installed and nothing is posted. The console
@@ -120,5 +163,6 @@ services:
   # it is only built/run when you ask.
 
 volumes:
+  nats-data:
   elixir_build:
   elixir_deps:

@@ -18,11 +18,11 @@ defmodule Connectix.Tui.Model do
 
   defstruct events: [],
             stats: %{},
-            cable: [],
-            cable_url: nil,
+            subjects: [],
+            broker_url: nil,
             socket_open?: false,
             relay_ready?: false,
-            # One row per agent: %{user_uuid, agent_ids, sockets, cable}.
+            # One row per agent: %{user_uuid, agent_ids, sockets, upstream}.
             agents: [],
             # Recent socket closes, newest first.
             closes: [],
@@ -50,9 +50,9 @@ defmodule Connectix.Tui.Model do
   end
 
   @doc """
-  Re-read the store, the cable connection and the agents.
+  Re-read the store, the upstream subscription and the agents.
 
-  Each can fail independently and none is fatal: a portal whose cable is down
+  Each can fail independently and none is fatal: a portal whose upstream is down
   still has a store worth reading, and a store that cannot open still has
   sessions worth watching. A failure is shown, not raised.
   """
@@ -86,10 +86,10 @@ defmodule Connectix.Tui.Model do
 
     %{
       m
-      | cable: proxy.confirmed,
+      | subjects: proxy.confirmed,
         socket_open?: proxy.connected?,
         relay_ready?: proxy.relay_ready?,
-        cable_url: proxy.url,
+        broker_url: proxy.url,
         agents: snap.agents,
         closes: snap.closes,
         agent_selected: min(m.agent_selected, max(length(snap.agents) - 1, 0))
@@ -117,8 +117,7 @@ defmodule Connectix.Tui.Model do
   def move(%__MODULE__{focus: :agents} = m, delta) do
     %{
       m
-      | agent_selected:
-          m.agent_selected |> Kernel.+(delta) |> max(0) |> min(length(m.agents) - 1)
+      | agent_selected: m.agent_selected |> Kernel.+(delta) |> max(0) |> min(length(m.agents) - 1)
     }
   end
 
@@ -139,20 +138,16 @@ defmodule Connectix.Tui.Model do
     e -> %{m | notice: "kick failed: #{Exception.message(e)}"}
   end
 
-  @doc "Tell the portal to drop and reopen the selected agent's cable connection."
-  def reconnect_cable(%__MODULE__{} = m) do
-    case current_agent(m) do
-      nil ->
-        %{m | notice: "no agent selected"}
-
-      %{user_uuid: uuid} ->
-        case Source.call(m.source, Connectix.Realtime.Inspector, :reconnect_cable, [uuid]) do
-          :ok -> %{m | notice: "cable reconnect requested for #{short(uuid)}"}
-          {:error, reason} -> %{m | notice: "cable reconnect: #{inspect(reason)}"}
-        end
+  @doc "Tell the portal to retake the upstream subscription."
+  def resubscribe(%__MODULE__{} = m) do
+    # Not per-agent: one subscription carries everyone, so this asks the portal
+    # to take it again rather than singling out the selected row.
+    case Source.call(m.source, Connectix.Realtime.Inspector, :resubscribe, []) do
+      :ok -> %{m | notice: "upstream resubscribe requested"}
+      other -> %{m | notice: "upstream resubscribe: #{inspect(other)}"}
     end
   rescue
-    e -> %{m | notice: "reconnect failed: #{Exception.message(e)}"}
+    e -> %{m | notice: "resubscribe failed: #{Exception.message(e)}"}
   end
 
   @doc """
