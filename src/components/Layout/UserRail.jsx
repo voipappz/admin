@@ -21,6 +21,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { useUserAuth } from '../../context/UserAuthContext';
 import { useAIChatSidebar } from '../../context/AIChatSidebarContext';
 import { useThemeMode } from '../../context/ThemeContext';
+import CopyableEmail from '../common/CopyableEmail/CopyableEmail.jsx';
 
 export const RAIL_WIDTH = 88;
 
@@ -165,7 +166,7 @@ export default function UserRail() {
       >
         <Box sx={{ px: 2, py: 1.5 }}>
           <Typography sx={{ fontWeight: 700 }} noWrap>{user?.name || user?.fullname || 'Signed in'}</Typography>
-          {user?.email && <Typography variant="body2" color="text.secondary" noWrap>{user.email}</Typography>}
+          {user?.email && <Typography variant="body2" color="text.secondary" noWrap><CopyableEmail email={user.email} /></Typography>}
         </Box>
         <Divider />
         <MenuItem

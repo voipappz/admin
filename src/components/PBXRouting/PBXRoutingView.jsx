@@ -38,7 +38,7 @@ import {
   Dns as DnsIcon,
 } from '@mui/icons-material';
 
-import { didsApi } from '../../services/api/didsApi';
+import { didsApi } from '../../services/api/routesApi';
 import { providersApi } from '../../services/api/providersApi';
 import { voipResourcesApi } from '../../services/api/voipResourcesApi';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';

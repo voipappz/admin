@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { formatDate } from '../../../utils/dateUtils';
+import CopyableEmail from '../../common/CopyableEmail/CopyableEmail.jsx';
 
 /**
  * AccountsList Component
@@ -350,7 +351,7 @@ const AccountsList = ({
                           mb: 0.5,
                         }}
                       >
-                        {account.email || 'No email'}
+                        <CopyableEmail email={account.email} fallback="No email" />
                       </Typography>
                       {account.customer?.name && (
                         <Typography

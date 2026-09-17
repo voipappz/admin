@@ -18,6 +18,7 @@ import { useVersionCheck } from '../../hooks/useVersionCheck';
 import useIdleTimeout from '../../hooks/useIdleTimeout';
 import { useThemeMode } from '../../context/ThemeContext';
 import WebRTCPanel from '../Users/UserDialog/WebRTCPanel';
+import { useZendeskWidget } from '../../services/zendeskWidget';
 import './Layout.css';
 
 const AIChat = lazy(() => import('../AIChat/AIChat.jsx'));
@@ -85,7 +86,7 @@ const LOGO_WHITE = '/images/VA_logo_white.png';
 const Layout = ({ children }) => {
   useLayout();
   const location = useLocation();
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, user, customerUuid } = useAuth();
   const userAuth = useUserAuth();
   const { isDarkMode } = useThemeMode();
   // `/login` still matches for a moment while it redirects to `/admin`.
@@ -99,6 +100,9 @@ const Layout = ({ children }) => {
   // admin sidebar/topbar/WebRTCPanel are all admin-console concepts a portal
   // user has no business seeing.
   const isUserOnlySession = userAuth.isAuthenticated && !isAuthenticated;
+  // Zendesk support widget (answer bot + "Get in touch" tickets) — admin
+  // console only; the portal's corner belongs to the phone FAB.
+  useZendeskWidget(isAuthenticated && !isLoginPage, user, customerUuid);
   const customerDataLoadedRef = useRef(false);
   const { updateAvailable, refresh, dismiss } = useVersionCheck();
 

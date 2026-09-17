@@ -39,7 +39,6 @@ const Notifications = lazy(() => import('./components/Notifications/Notification
 const Users = lazy(() => import('./components/Users/Users.jsx'));
 const Account = lazy(() => import('./components/Account/Account.jsx'));
 const Accounts = lazy(() => import('./components/Accounts/Accounts.jsx'));
-const Acls = lazy(() => import('./components/Acls/Acls.jsx'));
 const Subscriptions = lazy(() => import('./components/Subscriptions/Subscriptions.jsx'));
 const Providers = lazy(() => import('./components/Providers/Providers.jsx'));
 const Environments = lazy(() => import('./components/Environments/Environments.jsx'));
@@ -352,10 +351,6 @@ function AppContent() {
               </Layout>
             </ProtectedRoute>
           }
-        />
-        <Route
-          path="/acls"
-          element={<ProtectedRoute requiredAcl="acls"><Layout><Acls /></Layout></ProtectedRoute>}
         />
         <Route
           path="/subscriptions"

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
-import { didsApi } from '../../services/api/didsApi';
+import { didsApi } from '../../services/api/routesApi';
 import { voipResourcesApi } from '../../services/api/voipResourcesApi';
 
 /**
@@ -322,7 +322,7 @@ export const useDIDs = () => {
   // Dialog handlers - defined after fetch functions to avoid hoisting issues
   /**
    * Handle opening create/edit dialog
-   * For edit: fetches individual DID data via GET /api/dids/{uuid}
+   * For edit: fetches individual DID data via GET /api/routes/{uuid}
    * For create: opens empty dialog
    */
   const handleOpenDialog = useCallback(async (did = null) => {

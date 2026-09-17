@@ -1,38 +1,52 @@
-import { useState, useMemo, useCallback } from 'react';
+import { Fragment, useState, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
-  Checkbox,
-  FormControlLabel,
+  Switch,
   Button,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Chip,
   Skeleton,
   Alert,
   TextField,
   InputAdornment,
-  IconButton
+  IconButton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
-import IndeterminateCheckBoxIcon from '@mui/icons-material/IndeterminateCheckBox';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 /**
- * PermissionsTable Component
- * Displays a hierarchical permissions selector organized by categories
+ * PermissionsTable — the ACL permissions editor inside ACLDialog.
+ *
+ * Laid out like the old read-only ACLs screen (removed): one row per service
+ * with a Read and a Write switch. Those two switches are the service's `main`
+ * element. Anything else a service carries — `calls` has click2call, `reports`
+ * one element per report, most `user` services have sub-screens with their own
+ * verbs — is an "extra": the row's "more" button opens them as switches.
  *
  * Props:
- * - typeData: Object - Available permissions structure { category: { element: ['perm1', 'perm2'] } }
- * - value: Object - Currently selected permissions { category: { element: ['perm1'] } }
- * - onChange: Function - Callback when permissions change
- * - loading: Boolean - Show loading skeleton
- * - disabled: Boolean - Disable all interactions
+ * - typeData: { service: { element: ['perm', ...] } } — what can be granted
+ * - value:    same shape — what is granted
+ * - onChange: receives the new value
+ * - loading, disabled
  */
+const MAIN = 'main';
+const BASE_PERMS = ['read', 'write'];
+
+const label = (s) => String(s).replace(/[_.]/g, ' ');
+
+// Every grantable permission of a service that is not main read/write.
+const extrasOf = (elements) => Object.entries(elements).flatMap(([element, perms]) => (
+  Array.isArray(perms)
+    ? perms.filter((p) => element !== MAIN || !BASE_PERMS.includes(p)).map((p) => ({ element, perm: p }))
+    : []
+));
+
 const PermissionsTable = ({
   typeData,
   value = {},
@@ -40,371 +54,218 @@ const PermissionsTable = ({
   loading = false,
   disabled = false
 }) => {
-  // Track expanded categories
   const [expanded, setExpanded] = useState([]);
-  // Search across category / element / permission names
   const [search, setSearch] = useState('');
   const query = search.trim().toLowerCase();
 
-  // Categories/elements filtered by the search query. A category matches by its
-  // own name (→ keep all its elements) or by any element/permission name (→ keep
-  // only the matching elements). Empty query = everything.
-  const filteredCategories = useMemo(() => {
+  // A service matches by its own name (all of it stays) or by any element or
+  // permission name (only the matching extras stay).
+  const services = useMemo(() => {
     const all = typeData ? Object.entries(typeData) : [];
-    if (!query) return all;
     return all
-      .map(([category, elements]) => {
-        if (category.replace(/_/g, ' ').toLowerCase().includes(query)) return [category, elements];
-        const els = Object.fromEntries(
-          Object.entries(elements).filter(([element, perms]) =>
-            element.replace(/_/g, ' ').toLowerCase().includes(query) ||
-            (Array.isArray(perms) && perms.some((p) => String(p).toLowerCase().includes(query)))
-          )
-        );
-        return Object.keys(els).length ? [category, els] : null;
+      .map(([service, elements]) => {
+        const extras = extrasOf(elements);
+        if (!query || label(service).toLowerCase().includes(query)) return { service, elements, extras };
+        const hits = extras.filter(({ element, perm }) =>
+          label(element).toLowerCase().includes(query) || String(perm).toLowerCase().includes(query));
+        return hits.length ? { service, elements, extras: hits } : null;
       })
       .filter(Boolean);
   }, [typeData, query]);
 
-  // Calculate total counts for display
   const counts = useMemo(() => {
-    if (!typeData) return { total: 0, selected: 0 };
-
     let total = 0;
     let selected = 0;
-
-    Object.entries(typeData).forEach(([category, elements]) => {
-      Object.entries(elements).forEach(([element, permissions]) => {
-        if (Array.isArray(permissions)) {
-          total += permissions.length;
-          const selectedPerms = value?.[category]?.[element] || [];
-          selected += selectedPerms.length;
-        }
+    Object.entries(typeData || {}).forEach(([service, elements]) => {
+      Object.entries(elements).forEach(([element, perms]) => {
+        if (!Array.isArray(perms)) return;
+        total += perms.length;
+        selected += (value?.[service]?.[element] || []).filter((p) => perms.includes(p)).length;
       });
     });
-
     return { total, selected };
   }, [typeData, value]);
 
-  // Check if a specific permission is selected
-  const isPermissionSelected = useCallback((category, element, permission) => {
-    return value?.[category]?.[element]?.includes(permission) || false;
-  }, [value]);
+  const has = useCallback(
+    (service, element, perm) => Boolean(value?.[service]?.[element]?.includes(perm)),
+    [value]
+  );
 
-  // Toggle a single permission
-  const togglePermission = useCallback((category, element, permission) => {
+  const toggle = useCallback((service, element, perm) => {
     if (disabled) return;
-
-    const newValue = { ...value };
-    if (!newValue[category]) newValue[category] = {};
-    if (!newValue[category][element]) newValue[category][element] = [];
-
-    const perms = [...newValue[category][element]];
-    const index = perms.indexOf(permission);
-
-    if (index > -1) {
-      perms.splice(index, 1);
-    } else {
-      perms.push(permission);
-    }
-
-    newValue[category][element] = perms;
-    onChange?.(newValue);
+    const perms = value?.[service]?.[element] || [];
+    const next = perms.includes(perm) ? perms.filter((p) => p !== perm) : [...perms, perm];
+    onChange?.({ ...value, [service]: { ...(value?.[service] || {}), [element]: next } });
   }, [value, onChange, disabled]);
 
-  // Get category selection state
-  const getCategoryState = useCallback((category) => {
-    if (!typeData?.[category]) return 'none';
-
-    let total = 0;
-    let selected = 0;
-
-    Object.entries(typeData[category]).forEach(([element, permissions]) => {
-      if (Array.isArray(permissions)) {
-        total += permissions.length;
-        const selectedPerms = value?.[category]?.[element] || [];
-        selected += selectedPerms.length;
-      }
-    });
-
-    if (selected === 0) return 'none';
-    if (selected === total) return 'all';
-    return 'partial';
-  }, [typeData, value]);
-
-  // Toggle all permissions in a category
-  const toggleCategory = useCallback((category) => {
-    if (disabled || !typeData?.[category]) return;
-
-    const state = getCategoryState(category);
-    const newValue = { ...value };
-
-    if (state === 'all') {
-      // Deselect all
-      newValue[category] = {};
-    } else {
-      // Select all
-      newValue[category] = {};
-      Object.entries(typeData[category]).forEach(([element, permissions]) => {
-        if (Array.isArray(permissions)) {
-          newValue[category][element] = [...permissions];
-        }
-      });
-    }
-
-    onChange?.(newValue);
-  }, [typeData, value, onChange, disabled, getCategoryState]);
-
-  // Select all permissions globally
-  const selectAll = useCallback(() => {
-    if (disabled || !typeData) return;
-
-    const newValue = {};
-    Object.entries(typeData).forEach(([category, elements]) => {
-      newValue[category] = {};
-      Object.entries(elements).forEach(([element, permissions]) => {
-        if (Array.isArray(permissions)) {
-          newValue[category][element] = [...permissions];
-        }
+  const setAll = useCallback((on) => {
+    if (disabled) return;
+    if (!on) { onChange?.({}); return; }
+    const next = {};
+    Object.entries(typeData || {}).forEach(([service, elements]) => {
+      next[service] = {};
+      Object.entries(elements).forEach(([element, perms]) => {
+        if (Array.isArray(perms)) next[service][element] = [...perms];
       });
     });
-
-    onChange?.(newValue);
+    onChange?.(next);
   }, [typeData, onChange, disabled]);
 
-  // Deselect all permissions globally
-  const deselectAll = useCallback(() => {
-    if (disabled) return;
-    onChange?.({});
-  }, [onChange, disabled]);
+  const toggleExpanded = (service) => setExpanded((prev) => (
+    prev.includes(service) ? prev.filter((s) => s !== service) : [...prev, service]
+  ));
 
-  // Handle accordion expansion
-  const handleAccordionChange = (category) => (event, isExpanded) => {
-    setExpanded(prev =>
-      isExpanded
-        ? [...prev, category]
-        : prev.filter(c => c !== category)
-    );
-  };
-
-  // Render loading skeleton
   if (loading) {
     return (
       <Box sx={{ p: 2 }}>
-        {[1, 2, 3].map((i) => (
-          <Skeleton
-            key={i}
-            variant="rectangular"
-            height={60}
-            sx={{ mb: 1, borderRadius: 1 }}
-          />
-        ))}
+        {[1, 2, 3].map((i) => <Skeleton key={i} variant="rectangular" height={36} sx={{ mb: 1, borderRadius: 1 }} />)}
       </Box>
     );
   }
 
-  // Render empty state
   if (!typeData || Object.keys(typeData).length === 0) {
-    return (
-      <Alert severity="info" sx={{ m: 2 }}>
-        Select an ACL type to configure permissions
-      </Alert>
-    );
+    return <Alert severity="info" sx={{ m: 2 }}>Select an ACL type to configure permissions</Alert>;
   }
+
+  const baseSwitch = (service, elements, perm) => {
+    if (!elements[MAIN]?.includes(perm)) {
+      return <Typography variant="body2" color="text.disabled" aria-hidden>—</Typography>;
+    }
+    return (
+      <Switch
+        size="small"
+        checked={has(service, MAIN, perm)}
+        onChange={() => toggle(service, MAIN, perm)}
+        disabled={disabled}
+        slotProps={{ input: { role: 'switch', 'aria-label': `${label(service)} ${perm}` } }}
+      />
+    );
+  };
 
   return (
     <Box>
-      {/* Global controls */}
       <Box
         sx={{
           display: 'flex',
+          flexWrap: 'wrap',
           justifyContent: 'space-between',
           alignItems: 'center',
-          p: 2,
+          gap: 1,
+          p: 1.5,
           borderBottom: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'grey.50'
+          borderColor: 'divider'
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="subtitle2">
-            Permissions
-          </Typography>
+          <Typography variant="subtitle2">Permissions</Typography>
           <Chip
             size="small"
             label={`${counts.selected} / ${counts.total}`}
-            color={counts.selected === counts.total ? 'success' : 'default'}
+            color={counts.total && counts.selected === counts.total ? 'success' : 'default'}
           />
         </Box>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {/* Search fields for easy management of large ACLs */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <TextField
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search fields…"
+            placeholder="Search permissions…"
             size="small"
-            sx={{ width: 220, '& .MuiInputBase-root': { fontSize: '0.82rem', height: 34 } }}
+            sx={{ width: 220 }}
+            inputProps={{ 'aria-label': 'Search permissions' }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                  <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
                 </InputAdornment>
               ),
               endAdornment: search ? (
                 <InputAdornment position="end">
                   <IconButton size="small" onClick={() => setSearch('')} aria-label="Clear search">
-                    <ClearIcon sx={{ fontSize: 15 }} />
+                    <ClearIcon fontSize="small" />
                   </IconButton>
                 </InputAdornment>
               ) : null
             }}
           />
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={selectAll}
-            disabled={disabled || counts.selected === counts.total}
-          >
-            Select All
+          <Button size="small" variant="outlined" onClick={() => setAll(true)}
+            disabled={disabled || counts.selected === counts.total}>
+            Select all
           </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={deselectAll}
-            disabled={disabled || counts.selected === 0}
-          >
-            Clear All
+          <Button size="small" variant="outlined" onClick={() => setAll(false)}
+            disabled={disabled || counts.selected === 0}>
+            Clear all
           </Button>
         </Box>
       </Box>
 
-      {/* Categories */}
-      <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
-        {query && filteredCategories.length === 0 && (
-          <Alert severity="info" sx={{ m: 2 }}>
-            No fields match “{search.trim()}”.
-          </Alert>
+      <Box sx={{ maxHeight: 420, overflow: 'auto' }}>
+        {query && services.length === 0 ? (
+          <Alert severity="info" sx={{ m: 2 }}>No permissions match “{search.trim()}”.</Alert>
+        ) : (
+          <Table size="small" stickyHeader aria-label="Permissions">
+            <TableHead>
+              <TableRow>
+                <TableCell>Service</TableCell>
+                <TableCell align="center" sx={{ width: 90 }}>Read</TableCell>
+                <TableCell align="center" sx={{ width: 90 }}>Write</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {services.map(({ service, elements, extras }) => {
+                const open = Boolean(query) || expanded.includes(service);
+                const granted = extras.filter(({ element, perm }) => has(service, element, perm)).length;
+                return (
+                  <Fragment key={service}>
+                    <TableRow hover>
+                      <TableCell sx={{ textTransform: 'capitalize' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <span>{label(service)}</span>
+                          {extras.length > 0 && (
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={() => toggleExpanded(service)}
+                              aria-expanded={open}
+                              aria-label={`${label(service)}: ${granted} of ${extras.length} more permissions`}
+                              endIcon={<ExpandMoreIcon sx={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />}
+                              sx={{ textTransform: 'none', minWidth: 0, py: 0 }}
+                            >
+                              {granted}/{extras.length} more
+                            </Button>
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell align="center">{baseSwitch(service, elements, 'read')}</TableCell>
+                      <TableCell align="center">{baseSwitch(service, elements, 'write')}</TableCell>
+                    </TableRow>
+                    {open && extras.length > 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} sx={{ bgcolor: 'action.hover', py: 1 }}>
+                          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', columnGap: 2 }}>
+                            {extras.map(({ element, perm }) => (
+                              <Box key={`${element}:${perm}`} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                                <Typography variant="body2" sx={{ textTransform: 'capitalize' }} noWrap>
+                                  {element === MAIN ? perm : `${label(element)} · ${perm}`}
+                                </Typography>
+                                <Switch
+                                  size="small"
+                                  checked={has(service, element, perm)}
+                                  onChange={() => toggle(service, element, perm)}
+                                  disabled={disabled}
+                                  slotProps={{ input: { role: 'switch', 'aria-label': `${label(service)} ${label(element)} ${perm}` } }}
+                                />
+                              </Box>
+                            ))}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
-        {filteredCategories.map(([category, elements]) => {
-          const state = getCategoryState(category);
-          const categoryElements = Object.entries(elements);
-          const categoryTotal = categoryElements.reduce(
-            (sum, [, perms]) => sum + (Array.isArray(perms) ? perms.length : 0),
-            0
-          );
-          const categorySelected = categoryElements.reduce(
-            (sum, [element]) =>
-              sum + (value?.[category]?.[element]?.length || 0),
-            0
-          );
-
-          return (
-            <Accordion
-              key={category}
-              expanded={query ? true : expanded.includes(category)}
-              onChange={handleAccordionChange(category)}
-              disableGutters
-              sx={{
-                '&:before': { display: 'none' },
-                borderBottom: '1px solid',
-                borderColor: 'divider'
-              }}
-            >
-              <AccordionSummary
-                expandIcon={<ExpandMoreIcon />}
-                sx={{
-                  bgcolor: (query || expanded.includes(category)) ? 'grey.100' : 'transparent',
-                  '&:hover': { bgcolor: 'grey.50' }
-                }}
-              >
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    flex: 1
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Checkbox
-                    checked={state === 'all'}
-                    indeterminate={state === 'partial'}
-                    onChange={() => toggleCategory(category)}
-                    disabled={disabled}
-                    size="small"
-                    icon={<CheckBoxOutlineBlankIcon />}
-                    checkedIcon={<CheckBoxIcon />}
-                    indeterminateIcon={<IndeterminateCheckBoxIcon />}
-                  />
-                  <Typography
-                    variant="subtitle2"
-                    sx={{ textTransform: 'capitalize', flex: 1 }}
-                  >
-                    {category.replace(/_/g, ' ')}
-                  </Typography>
-                  <Chip
-                    size="small"
-                    label={`${categorySelected}/${categoryTotal}`}
-                    color={categorySelected === categoryTotal ? 'success' : 'default'}
-                    sx={{ mr: 1 }}
-                  />
-                </Box>
-              </AccordionSummary>
-              <AccordionDetails sx={{ p: 0 }}>
-                {categoryElements.map(([element, permissions]) => {
-                  if (!Array.isArray(permissions)) return null;
-
-                  return (
-                    <Box
-                      key={element}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 2,
-                        py: 1,
-                        px: 3,
-                        borderTop: '1px solid',
-                        borderColor: 'divider',
-                        '&:hover': { bgcolor: 'grey.50' }
-                      }}
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          minWidth: 150,
-                          textTransform: 'capitalize',
-                          color: 'text.secondary'
-                        }}
-                      >
-                        {element.replace(/_/g, ' ')}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                        {permissions.map((permission) => (
-                          <FormControlLabel
-                            key={permission}
-                            control={
-                              <Checkbox
-                                checked={isPermissionSelected(category, element, permission)}
-                                onChange={() => togglePermission(category, element, permission)}
-                                disabled={disabled}
-                                size="small"
-                              />
-                            }
-                            label={
-                              <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
-                                {permission}
-                              </Typography>
-                            }
-                          />
-                        ))}
-                      </Box>
-                    </Box>
-                  );
-                })}
-              </AccordionDetails>
-            </Accordion>
-          );
-        })}
       </Box>
     </Box>
   );

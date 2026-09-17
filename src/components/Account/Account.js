@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
 import { apiService } from '../../services/apiService';
@@ -6,8 +6,8 @@ import { accountsApi } from '../../services/api/accountsApi';
 import { customersApi } from '../../services/api/customersApi';
 
 export const useAccount = () => {
-  const { user, isRoot, accountUuid, logout } = useAuth();
-  const { selectedEnvironments } = useCustomerEnvironment();
+  const { user, accountUuid, logout } = useAuth();
+  const { selectedEnvironments, selectedCustomer } = useCustomerEnvironment();
 
   // UI state
   const [saving, setSaving] = useState(false);
@@ -212,22 +212,38 @@ export const useAccount = () => {
     }
   };
 
-  // Fetch ALL environments for create account dialog (with pre-selection)
-  const fetchEnvironments = useCallback(async () => {
+  // Search environments for the create-account picker.
+  //
+  // The dialog opens with NO request: it pre-selects from
+  // CustomerEnvironmentContext, which is already in memory. Only a user
+  // hunting for some other environment needs options, and then one searched
+  // page is enough — this used to pull the whole tenant (per_page=9999) to
+  // filter it in the browser.
+  const searchEnvironments = useCallback(async (term = '') => {
+    const query = term.trim();
+    if (!query) {
+      setEnvironments(selectedEnvironments || []);
+      return;
+    }
     setEnvironmentsLoading(true);
     try {
-      // Fetch ALL environments from API (not just selected ones)
-      const response = await accountsApi.getEnvironments({ per_page: 9999 });
+      const response = await accountsApi.getEnvironments({
+        search: query,
+        customer_uuid: selectedCustomer?.uuid,
+      });
       const environmentsList = Array.isArray(response) ? response : response.data || [];
-      setEnvironments(environmentsList);
+      // Keep the selected ones present whatever the search returns, so their
+      // chips never turn into bare uuids mid-search.
+      const bySelection = new Map((selectedEnvironments || []).map((e) => [e.uuid, e]));
+      environmentsList.forEach((e) => bySelection.set(e.uuid, e));
+      setEnvironments([...bySelection.values()]);
     } catch (error) {
-      console.error('Failed to fetch environments:', error);
-      // Fallback to selected environments from context
+      console.error('Failed to search environments:', error);
       setEnvironments(selectedEnvironments || []);
     } finally {
       setEnvironmentsLoading(false);
     }
-  }, [selectedEnvironments]);
+  }, [selectedEnvironments, selectedCustomer]);
 
   // Fetch ACLs for create account dialog
   const fetchAcls = useCallback(async () => {
@@ -247,9 +263,9 @@ export const useAccount = () => {
   // Open create account dialog
   const handleOpenCreateDialog = useCallback(() => {
     setCreateDialogOpen(true);
-    fetchEnvironments();
+    setEnvironments(selectedEnvironments || []);
     fetchAcls();
-  }, [fetchEnvironments, fetchAcls]);
+  }, [selectedEnvironments, fetchAcls]);
 
   // Close create account dialog
   const handleCloseCreateDialog = useCallback(() => {
@@ -293,14 +309,6 @@ export const useAccount = () => {
     }
   };
 
-  // Fetch environments when hook mounts (for root users)
-  useEffect(() => {
-    // Only fetch if user has root access (VA_ROOT — the signed `root` claim)
-    if (isRoot) {
-      fetchEnvironments();
-    }
-  }, [isRoot, fetchEnvironments]);
-
   return {
     // State
     user,
@@ -321,7 +329,7 @@ export const useAccount = () => {
     // Actions
     fetchAccountDetails,
     fetchCustomerDetails,
-    fetchEnvironments,
+    searchEnvironments,
     fetchAcls,
     updateAccountData,
     updateCustomerData,

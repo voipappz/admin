@@ -42,7 +42,7 @@ import { ExtensionBridge } from '../Bridges/ExtensionBridge/ExtensionBridge.jsx'
 import { ivrApi } from '../../services/api/ivrApi';
 import { queuesApi } from '../../services/api/queuesApi';
 import { botsApi } from '../../services/api/botsApi';
-import { didsApi } from '../../services/api/didsApi';
+import { didsApi } from '../../services/api/routesApi';
 import { getAnnouncement } from '../../services/api/announcementsApi';
 import { getVML } from '../../services/api/vmlsApi';
 import { getCallCondition } from '../../services/api/callConditionsApi';

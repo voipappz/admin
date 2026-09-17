@@ -48,6 +48,7 @@ import { Z } from '../../utils/zIndex';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CloseIcon from '@mui/icons-material/Close';
@@ -90,6 +91,7 @@ import NotificationPanel from '../Notifications/NotificationPanel/NotificationPa
 import TicketDialog from '../Tickets/TicketDialog/TicketDialog';
 import TicketDetailView from '../Tickets/TicketDetailView/TicketDetailView';
 import { useTickets } from '../Tickets/Tickets';
+import { openZendeskWidget } from '../../services/zendeskWidget';
 import { useApiHealth } from '../../hooks/useApiHealth';
 import GatusHealthPanel from '../Monitoring/GatusHealthPanel.jsx';
 import ApiHealthPanel from '../Monitoring/ApiHealthPanel.jsx';
@@ -216,7 +218,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     detailedAccountData,
     detailedCustomerData,
     fetchAccountDetails,
-    fetchEnvironments: fetchAccountEnvironments,
+    searchEnvironments: searchAccountEnvironments,
     fetchAcls: fetchAccountAcls,
     updateCustomerData,
     createDialogOpen: accountCreateDialogOpen,
@@ -326,13 +328,13 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
   useEffect(() => {
     const handler = () => {
       fetchAccountDetails();
-      fetchAccountEnvironments();
+      searchAccountEnvironments();
       fetchAccountAcls();
       setAccountDialogOpen(true);
     };
     window.addEventListener('openAccountDialog', handler);
     return () => window.removeEventListener('openAccountDialog', handler);
-  }, [fetchAccountDetails, fetchAccountEnvironments, fetchAccountAcls]);
+  }, [fetchAccountDetails, searchAccountEnvironments, fetchAccountAcls]);
 
   // Notifications drawer — the bell moved to the sidebar bottom and dispatches this.
   useEffect(() => {
@@ -1688,6 +1690,18 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1.5, pr: 1 }}>
           <ConfirmationNumberIcon color="primary" sx={{ fontSize: 22 }} />
           <Typography variant="h6" sx={{ flex: 1 }}>Tickets</Typography>
+          {/* Support widget — Zendesk's answer bot suggests Help Center
+              articles first, and "Get in touch" opens a ticket that lands in
+              this same list (tagged with the account's customer). */}
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<AutoAwesomeIcon />}
+            onClick={openZendeskWidget}
+            sx={{ textTransform: 'none', fontSize: '0.8rem', mr: 1 }}
+          >
+            Get help
+          </Button>
           <Button
             size="small"
             variant="contained"
@@ -1901,6 +1915,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         loading={accountSaving}
         environments={accountEnvironments}
         environmentsLoading={accountEnvironmentsLoading}
+        onSearchEnvironments={searchAccountEnvironments}
         acls={accountAcls}
         aclsLoading={accountAclsLoading}
       />

@@ -42,6 +42,7 @@ import { orEmpty, stripedTableRowSx } from '../shared/tableTheme.jsx';
 import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
 import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';
+import CopyableEmail from '../common/CopyableEmail/CopyableEmail.jsx';
 
 /**
  * DeleteConfirmDialog Component
@@ -366,7 +367,7 @@ const Accounts = () => {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {orEmpty(account.email)}
+                            <CopyableEmail email={account.email} fallback={orEmpty(account.email)} />
                           </Typography>
                         </TableCell>
                         <TableCell>

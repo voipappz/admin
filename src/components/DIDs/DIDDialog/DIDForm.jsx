@@ -24,7 +24,7 @@ import {
 import { useCustomerEnvironment } from '../../../context/CustomerEnvironmentContext';
 import { NumberSelector } from '../../Bridges/NumberBridge/NumberSelector.jsx';
 import RoutingChain from './RoutingChain.jsx';
-import { didsApi } from '../../../services/api/didsApi';
+import { didsApi } from '../../../services/api/routesApi';
 import { parseServerErrors, is406Error } from '../../../utils/formValidation';
 import { Z, menuProps } from '../../../utils/zIndex.js';
 import './DIDForm.css';

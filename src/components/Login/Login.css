@@ -378,3 +378,57 @@
     max-width: 150px;
   }
 }
+
+/* ───── Portal (end-user) login: one centred card, no hero ───── */
+.login-page.login-page--portal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  background: var(--theme-bg-secondary, #f4f5f7);
+}
+
+.login-page--portal .login-paper {
+  max-width: 400px;
+  padding: 36px 32px;
+  border: 1px solid var(--theme-border, #e5e7eb);
+  background: var(--theme-bg-primary, #fff) !important;
+}
+
+.login-page--portal .form-title {
+  margin: 0 0 4px;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+/* Full-width buttons and 16px inputs: easy to tap, and iOS does not zoom. */
+.login-page--portal .form-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-page--portal .login-button,
+.login-page--portal .back-button,
+.login-page--portal .forgot-submit-button {
+  width: 100%;
+  min-height: 48px;
+}
+
+.login-page--portal .form-control input {
+  font-size: 16px;
+}
+
+@media (max-width: 480px) {
+  .login-page.login-page--portal {
+    align-items: flex-start;
+    padding: 32px 12px;
+  }
+
+  .login-page--portal .login-paper {
+    padding: 28px 20px;
+  }
+}

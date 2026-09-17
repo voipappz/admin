@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { didsApi } from '../../services/api/didsApi';
+import { didsApi } from '../../services/api/routesApi';
 import { queuesApi } from '../../services/api/queuesApi';
 import { getAllCallConditions } from '../../services/api/callConditionsApi';
 import { bridgeApi } from '../../services/api/bridgeApi';

@@ -51,11 +51,6 @@ export const aclsApi = {
     return apiService.get(url, {}, `fetching ACL type data for ${type}`, false);
   },
 
-  getCapabilities: async (type = 'account') => {
-    const url = `/api/acls?action=capabilities&type=${encodeURIComponent(type)}`;
-    return apiService.get(url, {}, 'fetching ACL capabilities', false);
-  },
-
   /**
    * Create a new ACL
    * @param {Object} aclData - ACL data (name, type, data, notes)

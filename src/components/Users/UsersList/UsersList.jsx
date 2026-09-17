@@ -27,6 +27,7 @@ import {
 import { useState } from 'react';
 import { formatDate } from '../../../utils/dateUtils';
 import SkillSelect from '../../common/SkillSelect/SkillSelect.jsx';
+import CopyableEmail from '../../common/CopyableEmail/CopyableEmail.jsx';
 
 /**
  * UsersList Component
@@ -403,7 +404,7 @@ const UsersList = ({
                           mb: 0.5,
                         }}
                       >
-                        {user.email || 'No email'}
+                        <CopyableEmail email={user.email} fallback="No email" />
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {formatDate(user.created_at)}

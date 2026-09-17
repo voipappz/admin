@@ -410,6 +410,7 @@ const BridgeEditModal = ({
                       error={!!errors.password}
                       helperText={errors.password}
                       placeholder="Enter device password"
+                      autoComplete="new-password"
                     />
                   )}
                   

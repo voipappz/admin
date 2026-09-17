@@ -15,23 +15,45 @@ vi.mock('../../services/api/callsApi', () => ({
   callsApi: { getCalls: (...a) => mockGetCalls(...a) },
 }));
 
+const mockDial = vi.fn(() => Promise.resolve());
+let mockConnected = false;
+
 vi.mock('../../context/SoftphoneContext', () => ({
-  useSoftphone: () => ({ dial: vi.fn(() => Promise.resolve()), connected: false }),
+  useSoftphone: () => ({ dial: mockDial, connected: mockConnected }),
 }));
 
+// The detail panel loads a transcript; keep it off the network.
+vi.mock('../../services/conversationService', () => ({
+  default: { getConversationByCallId: vi.fn(() => Promise.resolve(null)), getMessages: vi.fn() },
+}));
+
+vi.mock('../../context/AuthContext', () => ({
+  useAuth: () => ({ access: null }),
+}));
+
+// The API's :portal_list shape (voipappz-api lib/serializers/call.rb): the
+// call's facts live under `profile`, not at the top level. Reading them from
+// the top level is what rendered every row as "–" / 00:00.
 const row = (i) => ({
   uuid: `call-${i}`,
-  direction: 'inbound',
-  caller: `05000000${String(i).padStart(2, '0')}`,
-  callee: '201',
-  disposition: 'answered',
   created_at: '2026-09-15T10:00:00Z',
-  billsec_duration: 42,
+  recording: { url: null },
+  meta: {},
+  tags: [],
+  profile: {
+    direction: 'in',
+    caller: `05000000${String(i).padStart(2, '0')}`,
+    callee: '201',
+    cause: 'answer',
+    talk_duration: 42,
+  },
 });
 
 describe('PortalCalls', () => {
   beforeEach(() => {
     mockGetCalls.mockReset();
+    mockDial.mockClear();
+    mockConnected = false;
   });
 
   it('fetches from /api/calls with page, per_page and a created_at range', async () => {
@@ -89,5 +111,34 @@ describe('PortalCalls', () => {
 
     expect(await screen.findByText(/Could not load your calls/)).toBeInTheDocument();
     expect(screen.queryByText('No calls in this period.')).not.toBeInTheDocument();
+  });
+
+  it('reads caller, callee and cause from the nested profile', async () => {
+    mockGetCalls.mockResolvedValue([row(3)]);
+
+    render(<PortalCalls />);
+
+    expect(await screen.findByText('0500000003')).toBeInTheDocument();
+    expect(screen.getByText('201')).toBeInTheDocument();
+    expect(screen.getByText('Answer')).toBeInTheDocument();
+  });
+
+  it('opens the shared call detail panel when a row is clicked', async () => {
+    mockGetCalls.mockResolvedValue([row(4)]);
+
+    render(<PortalCalls />);
+
+    fireEvent.click(await screen.findByText('0500000004'));
+    expect(await screen.findByText('Transcription')).toBeInTheDocument();
+  });
+
+  it('calls an inbound caller back from the row', async () => {
+    mockConnected = true;
+    mockGetCalls.mockResolvedValue([row(5)]);
+
+    render(<PortalCalls />);
+
+    fireEvent.click(await screen.findByTestId('portal-calls-dial'));
+    expect(mockDial).toHaveBeenCalledWith('0500000005');
   });
 });

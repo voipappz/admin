@@ -584,6 +584,7 @@ const ProviderDialog = ({
                   error={!!errors.password || (submitAttempted && !formData.password?.trim())}
                   helperText={errors.password || (submitAttempted && !formData.password?.trim() ? 'Password is required' : '')}
                   disabled={loading}
+                  autoComplete="new-password"
                   data-testid="password-input"
                   required
                 />
@@ -782,6 +783,7 @@ const ProviderDialog = ({
                   error={!!errors['profile.api_key']}
                   helperText={errors['profile.api_key'] || 'Your API key for the selected service'}
                   disabled={loading}
+                  autoComplete="new-password"
                   data-testid="llm-api-key-input"
                   required
                   placeholder="sk-..."
@@ -852,6 +854,7 @@ const ProviderDialog = ({
                   error={!!errors.password}
                   helperText={errors.password || 'Authentication password or secret (optional)'}
                   disabled={loading}
+                  autoComplete="new-password"
                   data-testid="password-input"
                 />
               </Grid>
