@@ -297,6 +297,12 @@ export const useTickets = () => {
     await Promise.all([fetchTickets(), fetchTicketStats()]);
   }, [fetchTickets, fetchTicketStats]);
 
+  // A ticket sent from the Zendesk widget — reload so it shows up here.
+  useEffect(() => {
+    window.addEventListener(ZENDESK_TICKET_SUBMITTED, handleRefresh);
+    return () => window.removeEventListener(ZENDESK_TICKET_SUBMITTED, handleRefresh);
+  }, [handleRefresh]);
+
   return {
     // State
     tickets,
