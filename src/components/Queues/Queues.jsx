@@ -37,7 +37,7 @@ import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react
 import { useSearchParams, useNavigate } from 'react-router';
 import { useQueues } from './Queues';
 import { queuesApi } from '../../services/api/queuesApi';
-import { didsApi } from '../../services/api/didsApi';
+import { didsApi } from '../../services/api/routesApi';
 import { useNotification } from '../../context/NotificationContext';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import { usePermissions } from '../../hooks/usePermissions';

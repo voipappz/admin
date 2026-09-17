@@ -42,7 +42,7 @@ import { orEmpty, stripedTableRowSx } from '../shared/tableTheme.jsx';
 import DIDWizard, { useWizard } from './DIDWizard/DIDWizard.jsx';
 import ImportCSVDialog from '../common/ImportCSVDialog/ImportCSVDialog';
 import DuplicateDIDDialog from './DuplicateDIDDialog/DuplicateDIDDialog';
-import { didsApi } from '../../services/api/didsApi';
+import { didsApi } from '../../services/api/routesApi';
 import { providersApi } from '../../services/api/providersApi';
 import { voipResourcesApi } from '../../services/api/voipResourcesApi';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
@@ -213,7 +213,7 @@ const DIDs = () => {
     { name: 'enabled', label: 'Status', type: 'select', data: [{ uuid: 'true', name: 'Enabled' }, { uuid: 'false', name: 'Disabled' }] },
     { name: 'environment_uuid', label: 'Application', type: 'select', data: (environments || []).map(e => ({ uuid: e.uuid, name: e.name })) },
     { name: 'provider_uuid', label: 'Provider', type: 'select', data: (providers || []).map(p => ({ uuid: p.uuid, name: p.name })) },
-    { name: 'meta', label: 'Tag', type: 'tag', url: '/api/dids?action=meta_keys' },
+    { name: 'meta', label: 'Tag', type: 'tag', url: '/api/routes?action=meta_keys' },
   ], [bridgeTypes, environments, providers]);
 
   useEffect(() => {
