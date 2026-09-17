@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { zendeskApi } from '../../services/api/zendeskApi';
 import { useNotification } from '../../context/NotificationContext';
+import { ZENDESK_TICKET_SUBMITTED } from '../../services/zendeskWidget';
 
 /**
  * Custom hook for Tickets management

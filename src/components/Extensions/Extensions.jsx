@@ -58,6 +58,8 @@ import { formatDate } from '../../utils/dateUtils';
 import { getEnabledChipProps } from '../../utils/chipStyles';
 import { usePhoneContext } from '../../context/PhoneContext';
 import useNavigateToLogs from '../../hooks/useNavigateToLogs';
+import useEnvironmentEdit from '../../hooks/useEnvironmentEdit';
+import EnvironmentDialog from '../Environments/EnvironmentDialog/EnvironmentDialog';
 import { useEventCounts } from '../../hooks/useEventCounts';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import HelpButton from '../common/HelpButton';
@@ -107,6 +109,7 @@ const DeleteConfirmDialog = ({ open, onClose, onConfirm, extension, loading }) =
 const Extensions = () => {
   const { can } = usePermissions();
   const canWrite = can('extensions', 'write');
+  const canEditEnv = can('environments', 'write');
   const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const { showSuccess, showError } = useNotification();
@@ -114,6 +117,11 @@ const Extensions = () => {
   const { openWebRTC } = usePhoneContext();
   const goToLogs = useNavigateToLogs();
   const { counts: eventCounts } = useEventCounts('extension');
+  // Inline application edit — the application name in the table links here.
+  const {
+    envDialogOpen, envDialogEnvironment, envDialogLoading,
+    handleEnvEdit, handleEnvSave, handleEnvClose
+  } = useEnvironmentEdit();
 
   const {
     extensions,
@@ -614,9 +622,22 @@ const Extensions = () => {
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2">
-                            {orEmpty(extension.environment?.name)}
-                          </Typography>
+                          {/* Application name links to the application edit dialog */}
+                          {extension.environment?.uuid && canEditEnv ? (
+                            <Tooltip title="Edit application" placement="top-start">
+                              <Typography
+                                variant="body2"
+                                onClick={(e) => { e.stopPropagation(); handleEnvEdit(extension.environment); }}
+                                sx={{ cursor: 'pointer', color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
+                              >
+                                {orEmpty(extension.environment.name)}
+                              </Typography>
+                            </Tooltip>
+                          ) : (
+                            <Typography variant="body2">
+                              {orEmpty(extension.environment?.name)}
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell>
                           <MetaTagChips meta={extension.meta} />
@@ -726,6 +747,15 @@ const Extensions = () => {
         hideEnvironment={false}
         handleApiInternally={false}
         loading={dialogLoading}
+      />
+
+      {/* Application edit — opened from the application name link in the table */}
+      <EnvironmentDialog
+        open={envDialogOpen}
+        onClose={handleEnvClose}
+        onSave={async (formData) => { await handleEnvSave(formData); fetchExtensions(); }}
+        environment={envDialogEnvironment}
+        loading={envDialogLoading}
       />
 
       {/* Delete Confirmation Dialog */}
