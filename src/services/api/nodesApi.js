@@ -1,5 +1,10 @@
 import apiService from '../apiService';
 
+// The API sends X-Total with both node lists, and apiService wraps an array
+// that has one as { data, total }. The Nodes screen wants the rows, so both
+// reads unwrap here; without it the screen showed "No nodes" over a full list.
+const rowsOf = (r) => (Array.isArray(r) ? r : (r?.data ?? r?.nodes ?? []));
+
 /**
  * Nodes & Organization API Service — centralized access to node and organization data.
  *
@@ -31,7 +36,7 @@ export const nodesApi = {
    */
   getNodes: async () => {
     try {
-      return await apiService.get('/api/nodes', {}, 'fetching nodes', false, true);
+      return rowsOf(await apiService.get('/api/nodes', {}, 'fetching nodes', false, true));
     } catch (err) {
       // Fall back ONLY when the route is genuinely absent. A bare catch here
       // treated 401 as "endpoint missing" and retried, and since apiService
@@ -40,7 +45,7 @@ export const nodesApi = {
       // 404/405 means "pre-nodes-table API"; anything else is the caller's.
       if (err?.status !== 404 && err?.status !== 405) throw err;
       // Pre-nodes-table API: no /api/nodes, and no source/editable/profile either.
-      return apiService.get('/api/customers/nodes', {}, 'fetching fallback nodes', false, true);
+      return rowsOf(await apiService.get('/api/customers/nodes', {}, 'fetching fallback nodes', false, true));
     }
   },
 
@@ -60,7 +65,7 @@ export const nodesApi = {
    * @returns {Promise<Array<{uuid: string, name: string, connected: boolean, ok?: boolean, health?: Object, reason?: string}>>}
    */
   getConnectedNodes: async () => {
-    return apiService.get('/api/nodes?action=connected', {}, 'fetching node bus status', false, true);
+    return rowsOf(await apiService.get('/api/nodes?action=connected', {}, 'fetching node bus status', false, true));
   },
 
   /**
