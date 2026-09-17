@@ -35,6 +35,7 @@ import { useThemeMode } from '../../context/ThemeContext';
 import { config } from '../../config.js';
 import { TourButton } from '../Tour';
 import McpConsole from './McpConsole';
+import McpConnect from './McpConnect';
 
 const STATUS_COLORS = {
   'operational-incident': 'error',
@@ -512,12 +513,12 @@ export default function ApiDocs() {
               <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'stretch', sm: 'center' }} spacing={1.5}>
                 <TerminalIcon sx={{ color: '#93c5fd', mt: 0.25 }} />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant="overline" sx={{ color: '#94a3b8', lineHeight: 1.4 }}>MCP endpoint</Typography>
+                  <Typography variant="overline" sx={{ color: 'var(--mui-palette-text-secondary)', lineHeight: 1.4 }}>MCP endpoint</Typography>
                   <Typography sx={{ fontFamily: MONO, fontSize: 12.5, wordBreak: 'break-all' }}>
                     {publicMcpUrl}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', mt: 0.5 }}>
-                    JSON-RPC 2.0 over POST · Authorization: Bearer &lt;token&gt;
+                  <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', display: 'block', mt: 0.5 }}>
+                    JSON-RPC 2.0 over POST · Authorization: Bearer &lt;token&gt; or Basic &lt;email:password&gt;
                   </Typography>
                 </Box>
                 <Button
@@ -528,6 +529,10 @@ export default function ApiDocs() {
                 </Button>
               </Stack>
             </Box>
+
+            {/* How an account attaches its own agent — the recipes, with this
+                endpoint filled in and the credential left as a placeholder. */}
+            <McpConnect endpointUrl={publicMcpUrl} copyText={copyText} />
 
             <Accordion
               disableGutters elevation={0}
