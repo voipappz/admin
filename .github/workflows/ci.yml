@@ -233,3 +233,58 @@ jobs:
             nirlevi/va-admin:latest
           cache-from: ${{ steps.hub.outputs.push == 'true' && 'type=registry,ref=nirlevi/va-admin:latest' || '' }}
           cache-to: ${{ steps.hub.outputs.push == 'true' && 'type=inline' || '' }}
+
+  # One mail per release, pass or fail, so a red main does not wait to be
+  # noticed. Only on a push to main: a pull request already reports itself on
+  # the PR page. Credentials are repository secrets (SES, eu-central-1); the
+  # step is skipped rather than failed when they are absent, so a fork or a
+  # checkout without secrets still gets a green run.
+  notify:
+    name: release email
+    runs-on: ubuntu-latest
+    needs: [check, audit, nginx, e2e, docker]
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Check SMTP credentials
+        id: smtp
+        env:
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: |
+          if [ -z "$SMTP_PASSWORD" ]; then
+            echo "::notice::Release email skipped: no SMTP_PASSWORD repository secret"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Send the release email
+        if: steps.smtp.outputs.ready == 'true'
+        uses: dawidd6/action-send-mail@v4
+        with:
+          server_address: ${{ secrets.SMTP_ADDRESS }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          secure: false
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          from: VoipAppz CI <${{ secrets.SMTP_FROM }}>
+          to: ${{ secrets.SMTP_TO }}
+          subject: >-
+            admin ${{ (needs.check.result == 'success' && needs.audit.result == 'success'
+            && needs.nginx.result == 'success' && needs.docker.result == 'success')
+            && 'released' || 'FAILED' }}: gh-${{ github.run_number }}
+          body: |
+            ${{ github.repository }} on main — ${{ github.sha }}
+
+            lint, unit, build : ${{ needs.check.result }}
+            dependency audit  : ${{ needs.audit.result }}
+            nginx.conf syntax : ${{ needs.nginx.result }}
+            end-to-end        : ${{ needs.e2e.result }}
+            Docker image      : ${{ needs.docker.result }}
+
+            ${{ needs.docker.result == 'success'
+            && format('Published nirlevi/va-admin:release-gh-{0} and :latest', github.run_number)
+            || 'No image published.' }}
+
+            ${{ github.event.head_commit.message }}
+
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
