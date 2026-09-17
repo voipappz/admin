@@ -163,7 +163,7 @@ describe('ApiDocs', () => {
     // Scoped to the card: the MCP console tab shows the same URL.
     const endpointCard = within(document.querySelector('[data-tour="devzone-mcp"]'));
     expect(endpointCard.getByText('https://api.example.test/api/mcp')).toBeVisible();
-    expect(endpointCard.getByText('JSON-RPC 2.0 over POST · Authorization: Bearer <token>')).toBeVisible();
+    expect(endpointCard.getByText('JSON-RPC 2.0 over POST · Authorization: Bearer <token> or Basic <email:password>')).toBeVisible();
     expect(screen.queryByText(/tasks\/mcp/)).not.toBeInTheDocument();
     expect(screen.getByText('Or read them directly')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Quick tour' })).toBeVisible();
