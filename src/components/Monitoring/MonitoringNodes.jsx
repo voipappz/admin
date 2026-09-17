@@ -12,6 +12,7 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
+import ArticleIcon from '@mui/icons-material/Article';
 import { nodesApi } from '../../services/api/nodesApi';
 import { toHealth } from '../../utils/gatus';
 import { useAuth } from '../../context/AuthContext';
@@ -32,6 +33,11 @@ import NodeEditDialog from './NodeEditDialog.jsx';
  * that are rows. A node still declared only in va.yaml shows a source chip and
  * is imported (POST /api/nodes/import) before it can be edited.
  */
+const openNodeLogs = (host) => {
+  const qs = new URLSearchParams({ app: 'node', host, period: '24h' });
+  window.dispatchEvent(new CustomEvent('openLogsModal', { detail: qs.toString() }));
+};
+
 export default function MonitoringNodes() {
   const { isRoot } = useAuth();
   const [nodes, setNodes] = useState([]);
@@ -318,6 +324,18 @@ export default function MonitoringNodes() {
                       <Chip size="small" variant="outlined" label="va.yaml" sx={{ height: 16, fontSize: '0.55rem' }} />
                     </Tooltip>
                   )}
+                  {/* The node's own log lines: it ships them to the API (app
+                      "node", host = the node's name). Same Logs modal as
+                      useNavigateToLogs, filtered by host instead of a uuid. */}
+                  <Tooltip title="Node logs">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => { e.stopPropagation(); openNodeLogs(node.name || id); }}
+                      data-testid={`node-logs-${id}`}
+                    >
+                      <ArticleIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
                   {isEditable(node) && (
                     <>
                       <Tooltip title="Edit node">
