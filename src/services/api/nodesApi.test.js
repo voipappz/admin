@@ -21,6 +21,15 @@ describe('nodesApi.getNodes', () => {
     expect(nodes[0].editable).toBe(true);
   });
 
+  // /api/nodes sends X-Total, so apiService hands back { data, total }.
+  it('returns the rows when apiService wraps them with the X-Total count', async () => {
+    apiService.get.mockResolvedValue({ data: [{ uuid: 'n1' }, { uuid: 'n2' }], total: 2 });
+
+    const nodes = await nodesApi.getNodes();
+
+    expect(nodes.map((n) => n.uuid)).toEqual(['n1', 'n2']);
+  });
+
   const httpError = (status) => Object.assign(new Error(`HTTP ${status}`), { status });
 
   it('falls back to the legacy read when /api/nodes is absent', async () => {
@@ -104,6 +113,14 @@ describe('nodesApi writes', () => {
 });
 
 describe('nodesApi.getConnectedNodes', () => {
+  it('returns the rows when apiService wraps them with the X-Total count', async () => {
+    apiService.get.mockResolvedValue({ data: [{ uuid: 'n1', connected: true }], total: 1 });
+
+    const rows = await nodesApi.getConnectedNodes();
+
+    expect(rows).toEqual([{ uuid: 'n1', connected: true }]);
+  });
+
   // One request for the fleet; the API does the per-node NATS fan-out. Quiet
   // (no toast) and outside the circuit breaker, like the other health reads.
   it('asks the API which nodes answer on the bus, in one call', async () => {
