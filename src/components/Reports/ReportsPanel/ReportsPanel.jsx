@@ -74,7 +74,7 @@ const ReportTable = ({ columns, rows, linkedColumns = {} }) => (
       <TableHead>
         <TableRow>
           {columns.map((c) => (
-            <TableCell key={c} sx={{ fontWeight: 700, whiteSpace: 'nowrap', backgroundColor: '#f5f5f5' }}>{c}</TableCell>
+            <TableCell key={c} sx={{ fontWeight: 700, whiteSpace: 'nowrap', backgroundColor: 'var(--mui-palette-surface-muted)' }}>{c}</TableCell>
           ))}
         </TableRow>
       </TableHead>
@@ -208,14 +208,14 @@ const ReportsPanel = ({ category, open = true, homeStyle = false }) => {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
         <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
         {range && (
-          <Typography variant="caption" sx={{ color: '#6b7280', ml: 0.5 }}>
+          <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', ml: 0.5 }}>
             {formatRange(range.start, range.end)}
           </Typography>
         )}
         <Box sx={{ flexGrow: 1 }} />
         <Tooltip title="Refresh">
           <span>
-            <IconButton size="small" onClick={fetchReports} disabled={loading} sx={{ color: '#666' }}>
+            <IconButton size="small" onClick={fetchReports} disabled={loading} sx={{ color: 'var(--mui-palette-text-secondary)' }}>
               <RefreshIcon fontSize="small" />
             </IconButton>
           </span>
@@ -239,11 +239,11 @@ const ReportsPanel = ({ category, open = true, homeStyle = false }) => {
               ? report.rows[0][numericCols[0]]
               : report.rows.length;
             return (
-              <Paper key={report.name} elevation={0} sx={{ p: 1.5, textAlign: 'center', border: '1px solid #e0e0e0', borderRadius: 2, bgcolor: '#fafafa' }}>
+              <Paper key={report.name} elevation={0} sx={{ p: 1.5, textAlign: 'center', border: '1px solid var(--mui-palette-divider)', borderRadius: 2, bgcolor: 'var(--mui-palette-surface-muted)' }}>
                 <Typography sx={{ fontSize: '1.75rem', fontWeight: 800, color: colors[i % colors.length], lineHeight: 1.2 }}>
                   {value}
                 </Typography>
-                <Typography sx={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase' }}>
+                <Typography sx={{ fontSize: '0.7rem', color: 'var(--mui-palette-text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>
                   {report.name}
                 </Typography>
               </Paper>
@@ -259,17 +259,17 @@ const ReportsPanel = ({ category, open = true, homeStyle = false }) => {
       )}
 
       {!loading && !error && reports.length === 0 && (
-        <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>
+        <Typography variant="body2" sx={{ color: 'var(--mui-palette-text-secondary)', textAlign: 'center', py: 4 }}>
           No reports defined for this screen yet.
         </Typography>
       )}
 
       {!loading && nonEmpty.map((report) => (
-        <Paper key={report.name} elevation={0} sx={{ border: '1px solid #e0e0e0', borderRadius: 2, p: 2, mb: 2, backgroundColor: '#fff' }}>
+        <Paper key={report.name} elevation={0} sx={{ border: '1px solid var(--mui-palette-divider)', borderRadius: 2, p: 2, mb: 2, backgroundColor: 'var(--mui-palette-background-paper)' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#333' }}>{report.name}</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'var(--mui-palette-text-primary)' }}>{report.name}</Typography>
             <Chip label={report.chart || report.type} size="small" variant="outlined" sx={{ fontSize: 11 }} />
-            <Typography variant="caption" sx={{ color: '#999' }}>{report.rows.length} rows</Typography>
+            <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)' }}>{report.rows.length} rows</Typography>
           </Box>
           {/* Blazer layout: the chart first, the full result table underneath —
               never one instead of the other. A report the server typed as
@@ -284,7 +284,7 @@ const ReportsPanel = ({ category, open = true, homeStyle = false }) => {
       ))}
 
       {!loading && empty.length > 0 && (
-        <Typography variant="caption" sx={{ color: '#999', display: 'block', mb: 1 }}>
+        <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', display: 'block', mb: 1 }}>
           No data in this period: {empty.map((r) => r.name).join(', ')}
         </Typography>
       )}

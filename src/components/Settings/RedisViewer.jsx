@@ -90,7 +90,7 @@ const RedisViewer = () => {
             <Chip size="small" variant="outlined" label={`Clients: ${info.connected_clients ?? '?'}`} />
           </>
         ) : (
-          <Typography variant="caption" sx={{ color: '#999' }}>Server info unavailable</Typography>
+          <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)' }}>Server info unavailable</Typography>
         )}
         <Box sx={{ flexGrow: 1 }} />
         <Tooltip title="Refresh">
@@ -109,7 +109,7 @@ const RedisViewer = () => {
         onKeyDown={(e) => { if (e.key === 'Enter') fetchKeys(); }}
         sx={{ mb: 2, maxWidth: 480 }}
         InputProps={{
-          startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ color: '#999' }} /></InputAdornment>),
+          startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ color: 'var(--mui-palette-text-secondary)' }} /></InputAdornment>),
         }}
       />
 
@@ -117,13 +117,13 @@ const RedisViewer = () => {
 
       <Box sx={{ display: 'flex', gap: 2, minHeight: 400 }}>
         {/* Key list */}
-        <Paper elevation={0} sx={{ width: 380, flexShrink: 0, border: '1px solid #e0e0e0', borderRadius: 2, overflow: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
+        <Paper elevation={0} sx={{ width: 380, flexShrink: 0, border: '1px solid var(--mui-palette-divider)', borderRadius: 2, overflow: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={24} /></Box>
           ) : (
             <List dense disablePadding>
               {keys.length === 0 && (
-                <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 3 }}>
+                <Typography variant="body2" sx={{ color: 'var(--mui-palette-text-secondary)', textAlign: 'center', py: 3 }}>
                   No keys match this pattern
                 </Typography>
               )}
@@ -143,9 +143,9 @@ const RedisViewer = () => {
         </Paper>
 
         {/* Key detail */}
-        <Paper elevation={0} sx={{ flexGrow: 1, border: '1px solid #e0e0e0', borderRadius: 2, p: 2, overflow: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
+        <Paper elevation={0} sx={{ flexGrow: 1, border: '1px solid var(--mui-palette-divider)', borderRadius: 2, p: 2, overflow: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
           {!selectedKey ? (
-            <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 6 }}>
+            <Typography variant="body2" sx={{ color: 'var(--mui-palette-text-secondary)', textAlign: 'center', py: 6 }}>
               Select a key to inspect its value
             </Typography>
           ) : keyLoading ? (
@@ -169,7 +169,7 @@ const RedisViewer = () => {
                 <Alert severity="warning">{keyData.error}</Alert>
               ) : (
                 <Box component="pre" sx={{
-                  m: 0, p: 1.5, backgroundColor: '#f8f9fa', border: '1px solid #eee', borderRadius: 1,
+                  m: 0, p: 1.5, backgroundColor: 'var(--mui-palette-surface-muted)', border: '1px solid var(--mui-palette-divider)', borderRadius: 1,
                   fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all',
                 }}>
                   {formatValue(keyData?.value ?? keyData)}

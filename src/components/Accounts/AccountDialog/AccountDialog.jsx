@@ -831,9 +831,9 @@ const AccountDialog = ({
               </Typography>
               <Box sx={{
                 p: 2,
-                backgroundColor: '#f8f9fa',
+                backgroundColor: 'var(--mui-palette-surface-muted)',
                 borderRadius: 1,
-                border: '1px solid #e9ecef',
+                border: '1px solid var(--mui-palette-divider)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -924,9 +924,9 @@ const AccountDialog = ({
               </Typography>
               <Box sx={{
                 p: 2,
-                backgroundColor: '#f8f9fa',
+                backgroundColor: 'var(--mui-palette-surface-muted)',
                 borderRadius: 1,
-                border: '1px solid #e9ecef',
+                border: '1px solid var(--mui-palette-divider)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',

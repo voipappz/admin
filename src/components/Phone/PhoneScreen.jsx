@@ -179,11 +179,11 @@ export default function PhoneScreen({ embedded = false }) {
               </Stack>
               <Box sx={{ flex: 1, maxHeight: 320, overflow: 'auto', bgcolor: '#0f172a', borderRadius: 1, p: 1, fontFamily: 'monospace', fontSize: '0.66rem', direction: 'ltr' }}>
                 {logs.length === 0 ? (
-                  <Typography variant="caption" sx={{ color: '#64748b' }}>No logs yet — connect or place a call.</Typography>
+                  <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)' }}>No logs yet — connect or place a call.</Typography>
                 ) : logs.map((l, i) => (
                   <Box key={i} sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mb: 0.25, color: LOG_COLOR[l.level] || '#cbd5e1' }}>
                     <span style={{ color: '#475569' }}>{new Date(l.ts).toLocaleTimeString()} </span>
-                    <span style={{ color: '#64748b' }}>[{l.category}] </span>{l.content}
+                    <span style={{ color: 'var(--mui-palette-text-secondary)' }}>[{l.category}] </span>{l.content}
                   </Box>
                 ))}
                 <div ref={logEndRef} />
@@ -243,11 +243,11 @@ export default function PhoneScreen({ embedded = false }) {
                 <TextField
                   fullWidth size="small" value={number} onChange={(e) => setNumber(e.target.value)}
                   placeholder="Enter number"
-                  inputProps={{ style: { direction: 'ltr', textAlign: 'center', fontSize: '1.25rem', color: '#0f172a' } }}
-                  sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#fff', borderRadius: 1.5 } }}
+                  inputProps={{ style: { direction: 'ltr', textAlign: 'center', fontSize: '1.25rem', color: 'var(--mui-palette-text-primary)' } }}
+                  sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'var(--mui-palette-background-paper)', borderRadius: 1.5 } }}
                 />
                 {number && (
-                  <IconButton size="small" onClick={() => setNumber((n) => n.slice(0, -1))} sx={{ position: 'absolute', insetInlineEnd: 4, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
+                  <IconButton size="small" onClick={() => setNumber((n) => n.slice(0, -1))} sx={{ position: 'absolute', insetInlineEnd: 4, top: '50%', transform: 'translateY(-50%)', color: 'var(--mui-palette-text-secondary)' }}>
                     <BackspaceIcon fontSize="small" />
                   </IconButton>
                 )}
@@ -277,7 +277,7 @@ export default function PhoneScreen({ embedded = false }) {
               {!connected && <Typography variant="caption" sx={{ display: 'block', mt: 1, textAlign: 'center', color: MUTED }}>Not connected — see Settings</Typography>}
             </Box>
           ) : (
-            <Box sx={{ p: 1, '& .MuiInputBase-root': { bgcolor: '#fff', borderRadius: 1 }, '& label, & .MuiFormControlLabel-label, & .MuiTypography-root': { color: '#e5e7eb' } }}>
+            <Box sx={{ p: 1, '& .MuiInputBase-root': { bgcolor: 'var(--mui-palette-background-paper)', borderRadius: 1 }, '& label, & .MuiFormControlLabel-label, & .MuiTypography-root': { color: '#e5e7eb' } }}>
               <SipSettingsForm />
               {/* The portal has no other sign-out affordance (the rail is just
                   Dashboard + Phone), so this is it — as in the legacy panel.

@@ -19,7 +19,7 @@ import { useSoftphone } from '../../context/SoftphoneContext';
 import { ACCENT, DANGER, GREEN, MUTED } from './panelTheme';
 
 const FIELD_SX = {
-  '& .MuiOutlinedInput-root': { bgcolor: '#fff', borderRadius: 1.5 }
+  '& .MuiOutlinedInput-root': { bgcolor: 'var(--mui-palette-background-paper)', borderRadius: 1.5 }
 };
 
 export default function TransferControls({ open, onClose, callActive }) {
@@ -103,7 +103,7 @@ export default function TransferControls({ open, onClose, callActive }) {
             onChange={(e) => setTarget(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && canStart) blind(); }}
             placeholder="Extension or number"
-            inputProps={{ style: { direction: 'ltr', color: '#0f172a' } }}
+            inputProps={{ style: { direction: 'ltr', color: 'var(--mui-palette-text-primary)' } }}
             sx={FIELD_SX}
           />
           <Stack direction="row" spacing={1} sx={{ mt: 1 }}>

@@ -58,7 +58,7 @@ const ReportsDashboards = () => {
 
   if (!dashboards.length) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 8, color: '#999' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 8, color: 'var(--mui-palette-text-secondary)' }}>
         <AssessmentIcon sx={{ fontSize: 48, mb: 1, opacity: 0.4 }} />
         <Typography variant="body1" sx={{ fontWeight: 500 }}>No report dashboards defined</Typography>
         <Typography variant="body2" sx={{ mt: 0.5, color: '#bbb' }}>
@@ -69,7 +69,7 @@ const ReportsDashboards = () => {
   }
 
   return (
-    <Paper sx={{ backgroundColor: '#fff', border: '1px solid #e0e0e0', borderRadius: 2 }}>
+    <Paper sx={{ backgroundColor: 'var(--mui-palette-background-paper)', border: '1px solid var(--mui-palette-divider)', borderRadius: 2 }}>
       {/* Category tabs — same look as the old Home screen */}
       <Tabs
         value={category || false}
@@ -78,8 +78,8 @@ const ReportsDashboards = () => {
         scrollButtons="auto"
         textColor="inherit"
         sx={{
-          borderBottom: '1px solid #e0e0e0',
-          '& .MuiTab-root': { color: '#666', textTransform: 'capitalize', '&.Mui-selected': { color: '#10b981' } },
+          borderBottom: '1px solid var(--mui-palette-divider)',
+          '& .MuiTab-root': { color: 'var(--mui-palette-text-secondary)', textTransform: 'capitalize', '&.Mui-selected': { color: '#10b981' } },
           '& .MuiTabs-indicator': { backgroundColor: '#10b981' },
         }}
       >

@@ -50,9 +50,9 @@ const DIDsList = ({
   const hasActiveFilters = filters.name || filters.number || filters.bridge_type || filters.type || filters.enabled !== '';
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'var(--mui-palette-background-paper)' }}>
       {/* Add New DID Button */}
-      <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
+      <Box sx={{ p: 2, borderBottom: '1px solid var(--mui-palette-divider)' }}>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -66,7 +66,7 @@ const DIDsList = ({
       </Box>
 
       {/* Filters Section */}
-      <Box sx={{ borderBottom: '1px solid #e0e0e0', flexGrow: 1, overflow: 'auto' }}>
+      <Box sx={{ borderBottom: '1px solid var(--mui-palette-divider)', flexGrow: 1, overflow: 'auto' }}>
         <Accordion
           expanded={filtersExpanded}
           onChange={() => setFiltersExpanded(!filtersExpanded)}

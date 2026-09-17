@@ -98,7 +98,7 @@ const CogNode = memo(({ data, selected }) => {
           maxHeight: 54,
           overflow: 'hidden',
           whiteSpace: 'pre',
-          bgcolor: '#fafafa',
+          bgcolor: 'var(--mui-palette-surface-muted)',
         }}>
           {preview}
           {moreLines && (
@@ -108,7 +108,7 @@ const CogNode = memo(({ data, selected }) => {
           )}
         </Box>
       ) : (
-        <Box sx={{ px: 1.5, py: 1, bgcolor: '#fafafa' }}>
+        <Box sx={{ px: 1.5, py: 1, bgcolor: 'var(--mui-palette-surface-muted)' }}>
           <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>
             Click to add code
           </Typography>

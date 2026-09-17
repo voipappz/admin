@@ -64,7 +64,7 @@ const SubscriptionsFilters = ({
             minHeight: 56,
             '&.Mui-expanded': { minHeight: 56 },
             bgcolor: hasActiveFilters ? 'primary.50' : 'background.paper',
-            borderBottom: '1px solid #e0e0e0'
+            borderBottom: '1px solid var(--mui-palette-divider)'
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
@@ -306,7 +306,7 @@ const SubscriptionsFilters = ({
             {/* Action Buttons */}
             {hasActiveFilters && (
               <Grid item xs={12}>
-                <Box sx={{ display: 'flex', gap: 1, mt: 2, pt: 2, borderTop: '1px solid #e0e0e0' }}>
+                <Box sx={{ display: 'flex', gap: 1, mt: 2, pt: 2, borderTop: '1px solid var(--mui-palette-divider)' }}>
                   <Button
                     variant="outlined"
                     color="inherit"

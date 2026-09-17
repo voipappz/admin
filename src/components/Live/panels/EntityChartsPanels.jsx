@@ -50,7 +50,7 @@ export const QueueChartsPanel = ({ open = true }) => {
           { field: 'answer_count', name: 'Answered', color: '#10b981' },
           { field: 'abandoned_count', name: 'Abandoned', color: '#ef4444' },
           { field: 'no_answer_count', name: 'No Answer', color: '#f59e0b' },
-          { field: 'timeout_count', name: 'Timeout', color: '#6b7280' },
+          { field: 'timeout_count', name: 'Timeout', color: 'var(--mui-palette-text-secondary)' },
         ]}
       />
       <LiveChartStrip
@@ -59,7 +59,7 @@ export const QueueChartsPanel = ({ open = true }) => {
         title="Live Queue State"
         series={[
           { field: 'ringing_current', name: 'Ringing', color: '#f59e0b' },
-          { field: 'pending_current', name: 'Pending', color: '#6b7280' },
+          { field: 'pending_current', name: 'Pending', color: 'var(--mui-palette-text-secondary)' },
           { field: 'call_current', name: 'In Call', color: '#ef4444' },
           { field: 'answer_current', name: 'Answered', color: '#10b981' },
         ]}

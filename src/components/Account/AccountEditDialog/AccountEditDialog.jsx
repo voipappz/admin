@@ -305,7 +305,7 @@ const AccountEditDialog = ({
                 <Alert severity="error" sx={{ mt: 1 }}>{resetPasswordError}</Alert>
               )}
               {generatedPassword && (
-                <Box sx={{ mt: 1.5, p: 2, backgroundColor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                <Box sx={{ mt: 1.5, p: 2, backgroundColor: 'var(--mui-palette-surface-muted)', borderRadius: 1, border: '1px solid var(--mui-palette-divider)' }}>
                   <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
                     Generated Password
                   </Typography>
@@ -343,7 +343,7 @@ const AccountEditDialog = ({
                 <Alert severity="error" sx={{ mt: 1 }}>{basicAuthError}</Alert>
               )}
               {basicAuthToken && (
-                <Box sx={{ mt: 1.5, p: 2, backgroundColor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                <Box sx={{ mt: 1.5, p: 2, backgroundColor: 'var(--mui-palette-surface-muted)', borderRadius: 1, border: '1px solid var(--mui-palette-divider)' }}>
                   <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
                     Basic Auth Token
                   </Typography>

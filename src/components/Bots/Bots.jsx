@@ -188,7 +188,7 @@ const Bots = () => {
         {/* Top Bar */}
         <Box className="bots-topbar">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton size="small" onClick={() => setSelectedBot(null)} sx={{ color: '#888' }}>
+            <IconButton size="small" onClick={() => setSelectedBot(null)} sx={{ color: 'var(--mui-palette-text-secondary)' }}>
               <ArrowBackIcon fontSize="small" />
             </IconButton>
             <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
@@ -281,7 +281,7 @@ const Bots = () => {
                           setPreviewLua(result?.lua || 'No Lua generated');
                         } catch { setPreviewLua('Preview failed'); }
                       }
-                    }} sx={{ color: '#888' }}>
+                    }} sx={{ color: 'var(--mui-palette-text-secondary)' }}>
                       <CodeIcon sx={{ fontSize: 20 }} />
                     </IconButton>
                   </Tooltip>
@@ -306,7 +306,7 @@ const Bots = () => {
               {repliesLoading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress size={28} /></Box>
               ) : replies.length === 0 ? (
-                <Paper sx={{ textAlign: 'center', p: 4, color: '#888' }}>
+                <Paper sx={{ textAlign: 'center', p: 4, color: 'var(--mui-palette-text-secondary)' }}>
                   <PlaylistAddIcon sx={{ fontSize: 48, opacity: 0.3, mb: 1 }} />
                   <Typography variant="body2" sx={{ mb: 1 }}>No states defined</Typography>
                   <Typography variant="caption">Add states to build the IVR flow</Typography>
@@ -325,9 +325,9 @@ const Bots = () => {
                     const content = reply.content || {};
                     const transitions = content.transitions || [];
                     return (
-                      <Paper key={reply.uuid} variant="outlined" sx={{ p: 1.5, bgcolor: '#fafafa', '&:hover': { bgcolor: '#f0f0f0' } }}>
+                      <Paper key={reply.uuid} variant="outlined" sx={{ p: 1.5, bgcolor: 'var(--mui-palette-surface-muted)', '&:hover': { bgcolor: '#f0f0f0' } }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="caption" sx={{ color: '#999', width: 20 }}>{idx + 1}</Typography>
+                          <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', width: 20 }}>{idx + 1}</Typography>
                           {typeIcons[reply.reply_type] || <BoltIcon sx={{ fontSize: 14 }} />}
                           <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'monospace', flex: 1 }}>
                             {reply.state_name}
@@ -363,7 +363,7 @@ const Bots = () => {
                           )}
                         </Box>
                         {content.text && (
-                          <Typography variant="caption" sx={{ ml: 5, color: '#666', display: 'block', mt: 0.5 }}>
+                          <Typography variant="caption" sx={{ ml: 5, color: 'var(--mui-palette-text-secondary)', display: 'block', mt: 0.5 }}>
                             &quot;{content.text.substring(0, 80)}{content.text.length > 80 ? '...' : ''}&quot;
                           </Typography>
                         )}
@@ -391,7 +391,7 @@ const Bots = () => {
                 <Paper variant="outlined" sx={{ mt: 2, overflow: 'hidden', bgcolor: '#1a1d23' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1.5, py: 0.5 }}>
                     <Typography variant="caption" sx={{ color: '#10b981' }}>Generated Lua</Typography>
-                    <IconButton size="small" onClick={() => setPreviewLua(null)} sx={{ color: '#888' }}>
+                    <IconButton size="small" onClick={() => setPreviewLua(null)} sx={{ color: 'var(--mui-palette-text-secondary)' }}>
                       <CloseIcon sx={{ fontSize: 14 }} />
                     </IconButton>
                   </Box>
@@ -404,7 +404,7 @@ const Bots = () => {
           {/* ── Test Tab ── */}
           {activeTab === 1 && (
             <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 500 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, borderBottom: '1px solid #e5e7eb' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, borderBottom: '1px solid var(--mui-palette-divider)' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <SmartToyIcon sx={{ fontSize: 18, color: '#10b981' }} />
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
@@ -418,7 +418,7 @@ const Bots = () => {
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Clear Chat">
-                    <IconButton size="small" onClick={clearChat} sx={{ color: '#888' }}>
+                    <IconButton size="small" onClick={clearChat} sx={{ color: 'var(--mui-palette-text-secondary)' }}>
                       <RefreshIcon sx={{ fontSize: 16 }} />
                     </IconButton>
                   </Tooltip>
@@ -427,7 +427,7 @@ const Bots = () => {
 
               {/* Quick Test Suggestions */}
               <Box className="bots-chat-suggestions">
-                <Typography variant="caption" sx={{ color: '#666', mr: 1 }}>Quick test:</Typography>
+                <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', mr: 1 }}>Quick test:</Typography>
                 {testSuggestions.map((suggestion) => (
                   <Chip
                     key={suggestion}
@@ -449,7 +449,7 @@ const Bots = () => {
               {/* Chat Messages */}
               <Box className="bots-chat-messages" sx={{ flex: 1 }}>
                 {chatMessages.length === 0 ? (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666', p: 3 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--mui-palette-text-secondary)', p: 3 }}>
                     <SmartToyIcon sx={{ fontSize: 48, mb: 2, opacity: 0.3 }} />
                     <Typography variant="body2" sx={{ textAlign: 'center', mb: 1 }}>
                       Test your bot conversation
@@ -474,7 +474,7 @@ const Bots = () => {
                         </Typography>
                         {showInspect && (
                           <Box className="bots-chat-inspect">
-                            <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: 10, color: '#888' }}>
+                            <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--mui-palette-text-secondary)' }}>
                               {JSON.stringify(msg.result || {
                                 role: msg.role,
                                 content: msg.content,
@@ -513,7 +513,7 @@ const Bots = () => {
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '20px',
-                      bgcolor: '#f3f4f6',
+                      bgcolor: 'var(--mui-palette-surface-muted)',
                       '& fieldset': { border: 'none' },
                     },
                   }}
@@ -666,7 +666,7 @@ const Bots = () => {
 
             {/* Structured content fields per reply type */}
             <Divider sx={{ my: 1 }} />
-            <Typography variant="caption" sx={{ color: '#888', mb: 1, display: 'block' }}>Content</Typography>
+            <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', mb: 1, display: 'block' }}>Content</Typography>
 
             {/* Speech fields */}
             {replyForm.reply_type === 'speech' && (
@@ -724,7 +724,7 @@ const Bots = () => {
                     sx={{ width: 120 }}
                   />
                 </Box>
-                <Typography variant="caption" sx={{ color: '#888', mb: 1, display: 'block' }}>
+                <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', mb: 1, display: 'block' }}>
                   Transitions (digit → next state)
                 </Typography>
                 {(replyForm.content?.transitions || []).map((t, i) => (
@@ -741,7 +741,7 @@ const Bots = () => {
                       sx={{ width: 80 }}
                       inputProps={{ style: { fontFamily: 'monospace' } }}
                     />
-                    <Typography variant="body2" sx={{ color: '#888' }}>→</Typography>
+                    <Typography variant="body2" sx={{ color: 'var(--mui-palette-text-secondary)' }}>→</Typography>
                     <TextField
                       label="Next State"
                       value={t.to || ''}
@@ -789,7 +789,7 @@ const Bots = () => {
                   inputProps={{ style: { fontFamily: 'monospace' } }}
                   helperText="API action to execute (e.g., check_balance, validate_pin)"
                 />
-                <Typography variant="caption" sx={{ color: '#888', mb: 1, display: 'block' }}>
+                <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', mb: 1, display: 'block' }}>
                   Transitions (condition → next state)
                 </Typography>
                 {(replyForm.content?.transitions || []).map((t, i) => (
@@ -807,7 +807,7 @@ const Bots = () => {
                       inputProps={{ style: { fontFamily: 'monospace' } }}
                       placeholder="success"
                     />
-                    <Typography variant="body2" sx={{ color: '#888' }}>→</Typography>
+                    <Typography variant="body2" sx={{ color: 'var(--mui-palette-text-secondary)' }}>→</Typography>
                     <TextField
                       label="Next State"
                       value={t.to || ''}

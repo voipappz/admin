@@ -130,7 +130,7 @@ const WebRTCPanel = () => {
         </Box>
 
         {/* Body */}
-        <Box sx={{ flex: 1, position: 'relative', bgcolor: '#fff' }}>
+        <Box sx={{ flex: 1, position: 'relative', bgcolor: 'var(--mui-palette-background-paper)' }}>
           {error && (
             <Box sx={{ p: 2 }}>
               <Alert severity="error">{error}</Alert>

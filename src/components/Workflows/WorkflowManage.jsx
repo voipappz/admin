@@ -547,7 +547,7 @@ const TestPanel = ({ workflow }) => {
                 <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
                   Event Data Sent
                 </Typography>
-                <Paper variant="outlined" sx={{ p: 1, bgcolor: '#fafafa', maxHeight: 100, overflow: 'auto' }}>
+                <Paper variant="outlined" sx={{ p: 1, bgcolor: 'var(--mui-palette-surface-muted)', maxHeight: 100, overflow: 'auto' }}>
                   <pre style={{ margin: 0, fontSize: '10px', lineHeight: 1.3, whiteSpace: 'pre-wrap', color: '#555' }}>
                     {JSON.stringify(result.event_data, null, 2)}
                   </pre>

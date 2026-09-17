@@ -984,7 +984,7 @@ const EnhancedSchemaForm = ({
               {Array.isArray(sectionValue) && sectionValue.length > 0 ? (
                 <Box>
                   {sectionValue.map((entry, index) => (
-                    <Paper key={index} sx={{ p: 2, mb: 2, border: '1px solid #e0e0e0' }}>
+                    <Paper key={index} sx={{ p: 2, mb: 2, border: '1px solid var(--mui-palette-divider)' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                         <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
                           {sectionData.obj_title || 'Entry'} #{index + 1}

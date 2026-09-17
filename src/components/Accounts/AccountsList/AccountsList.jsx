@@ -106,9 +106,9 @@ const AccountsList = ({
     filters.acl_uuid || filters.created_at || filters.updated_at;
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'var(--mui-palette-background-paper)' }}>
       {/* Add New Account Button */}
-      <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
+      <Box sx={{ p: 2, borderBottom: '1px solid var(--mui-palette-divider)' }}>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -121,7 +121,7 @@ const AccountsList = ({
       </Box>
 
       {/* Filters Section */}
-      <Box sx={{ borderBottom: '1px solid #e0e0e0' }}>
+      <Box sx={{ borderBottom: '1px solid var(--mui-palette-divider)' }}>
         <Accordion
           expanded={filtersExpanded}
           onChange={() => setFiltersExpanded(!filtersExpanded)}
@@ -280,7 +280,7 @@ const AccountsList = ({
       </Box>
 
       {/* Accounts Count */}
-      <Box sx={{ px: 2, py: 1, bgcolor: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
+      <Box sx={{ px: 2, py: 1, bgcolor: 'var(--mui-palette-surface-muted)', borderBottom: '1px solid var(--mui-palette-divider)' }}>
         <Typography variant="caption" color="text.secondary">
           {`Total: ${accounts.length}`}
         </Typography>
@@ -301,7 +301,7 @@ const AccountsList = ({
               const isSelected = selectedAccountId === accountId;
 
               return (
-                <ListItem key={accountId} disablePadding sx={{ borderBottom: '1px solid #f0f0f0' }}>
+                <ListItem key={accountId} disablePadding sx={{ borderBottom: '1px solid var(--mui-palette-divider)' }}>
                   <ListItemButton
                     selected={isSelected}
                     onClick={() => onSelect(accountId)}
@@ -309,7 +309,7 @@ const AccountsList = ({
                       py: 1.5,
                       px: 2,
                       transition: 'background-color 0.2s',
-                      '&:hover': { bgcolor: '#f5f5f5' },
+                      '&:hover': { bgcolor: 'var(--mui-palette-surface-muted)' },
                       '&.Mui-selected': {
                         bgcolor: '#e3f2fd !important',
                         borderLeft: '3px solid',

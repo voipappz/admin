@@ -66,7 +66,7 @@ const cardNode = (id, x, y, label, sub, color, extra = {}, icon = null) => ({
     ),
     ...extra,
   },
-  style: { width: 210, borderRadius: 12, border: `1.5px solid ${color}`, padding: 11, background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+  style: { width: 210, borderRadius: 12, border: `1.5px solid ${color}`, padding: 11, background: 'var(--mui-palette-background-paper)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
   sourcePosition: 'right',
   targetPosition: 'left',
 });

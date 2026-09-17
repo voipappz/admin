@@ -153,7 +153,7 @@ const Layout = ({ children }) => {
   const [sidebarExpanded, setSidebarExpanded] = useState(() => {
     try { return localStorage.getItem('nimbus_sidebar_expanded') === 'true'; } catch { return false; }
   });
-  const isMobile = useMediaQuery('(max-width:899px)');
+  const isMobile = useMediaQuery((t) => t.breakpoints.down('md'));
   const handleToggleSidebar = () => {
     if (isMobile) setMobileDrawerOpen(open => !open);
     else setSidebarCollapsed(collapsed => !collapsed);

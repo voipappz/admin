@@ -66,7 +66,7 @@ const MessageInput = ({ conversationId, onSend, onSendNote }) => {
   const isNote = messageType === 'note';
 
   return (
-    <Box sx={{ borderTop: '1px solid #e5e7eb', backgroundColor: isNote ? '#fffde7' : '#f0f2f5' }}>
+    <Box sx={{ borderTop: '1px solid var(--mui-palette-divider)', backgroundColor: isNote ? '#fffde7' : '#f0f2f5' }}>
       {/* Reply/Note Toggle */}
       <Box sx={{ display: 'flex', alignItems: 'center', px: 2, pt: 1, gap: 1 }}>
         <ToggleButtonGroup
@@ -81,7 +81,7 @@ const MessageInput = ({ conversationId, onSend, onSendNote }) => {
               fontSize: '0.75rem',
               py: 0.25,
               px: 1,
-              border: '1px solid #e5e7eb',
+              border: '1px solid var(--mui-palette-divider)',
               '&.Mui-selected': {
                 backgroundColor: isNote ? '#fff8e1' : 'rgba(101, 117, 142, 0.1)',
                 color: isNote ? '#f57f17' : '#65758E',
@@ -117,10 +117,10 @@ const MessageInput = ({ conversationId, onSend, onSendNote }) => {
           sx={{
             '& .MuiOutlinedInput-root': {
               borderRadius: '24px',
-              backgroundColor: '#ffffff',
+              backgroundColor: 'var(--mui-palette-background-paper)',
               fontFamily: 'Rubik, sans-serif',
               fontSize: '0.9rem',
-              '& fieldset': { border: '1px solid #e5e7eb' },
+              '& fieldset': { border: '1px solid var(--mui-palette-divider)' },
               '&:hover fieldset': { borderColor: isNote ? '#f57f17' : '#65758E' },
               '&.Mui-focused fieldset': { borderColor: isNote ? '#f57f17' : '#65758E' }
             },

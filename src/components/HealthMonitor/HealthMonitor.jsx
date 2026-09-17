@@ -64,7 +64,7 @@ const HealthMonitor = () => {
 
     if (totalCount === 0) {
       return {
-        color: '#374151',
+        color: 'var(--mui-palette-text-primary)',
         bgColor: '#1f2937',
         icon: <WarningIcon />,
         text: 'No monitors configured'
@@ -164,11 +164,11 @@ const HealthMonitor = () => {
             />
           </Box>
 
-          <Typography variant="body2" sx={{ color: '#94a3b8', minWidth: 180 }}>
+          <Typography variant="body2" sx={{ color: 'var(--mui-palette-text-secondary)', minWidth: 180 }}>
             Last refresh: {lastRefresh.toLocaleTimeString()}
           </Typography>
 
-          <Typography variant="body2" sx={{ color: '#94a3b8', minWidth: 130 }}>
+          <Typography variant="body2" sx={{ color: 'var(--mui-palette-text-secondary)', minWidth: 130 }}>
             {autoRefresh ? `Refresh in ${countdown}s` : 'Auto-refresh paused'}
           </Typography>
 
@@ -255,7 +255,7 @@ const HealthMonitor = () => {
                 Active Incidents ({incidents.length})
               </Typography>
             </Box>
-            <IconButton size="small" sx={{ color: '#94a3b8' }}>
+            <IconButton size="small" sx={{ color: 'var(--mui-palette-text-secondary)' }}>
               {eventsExpanded ? <CollapseIcon /> : <ExpandIcon />}
             </IconButton>
           </Box>
@@ -287,11 +287,11 @@ const HealthMonitor = () => {
                     <Typography variant="body2" fontWeight={600}>
                       {incident.name}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                    <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)' }}>
                       {incident.notes || `Status: ${incident.status}`}
                     </Typography>
                   </Box>
-                  <Typography variant="caption" sx={{ color: '#64748b' }}>
+                  <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)' }}>
                     {incident.last_check ? new Date(incident.last_check).toLocaleTimeString() : '--'}
                   </Typography>
                 </Box>
@@ -329,10 +329,10 @@ const HealthMonitor = () => {
             borderRadius: 2
           }}
         >
-          <Typography variant="h6" sx={{ color: '#94a3b8', mb: 2 }}>
+          <Typography variant="h6" sx={{ color: 'var(--mui-palette-text-secondary)', mb: 2 }}>
             No monitors configured
           </Typography>
-          <Typography variant="body2" sx={{ color: '#64748b', mb: 3 }}>
+          <Typography variant="body2" sx={{ color: 'var(--mui-palette-text-secondary)', mb: 3 }}>
             Create your first monitor to start tracking service health
           </Typography>
           {canWrite && (

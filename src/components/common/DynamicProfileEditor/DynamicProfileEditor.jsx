@@ -479,7 +479,7 @@ const DynamicProfileEditor = ({
                   alignItems: 'center',
                   gap: 1,
                   p: 1,
-                  backgroundColor: '#f5f5f5',
+                  backgroundColor: 'var(--mui-palette-surface-muted)',
                   borderRadius: 1,
                   border: '1px solid',
                   borderColor: 'divider',

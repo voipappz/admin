@@ -73,7 +73,7 @@ const FeatureFlags = () => {
 
   return (
     <Box>
-      <Typography variant="body2" sx={{ color: '#666', mb: 2 }}>
+      <Typography variant="body2" sx={{ color: 'var(--mui-palette-text-secondary)', mb: 2 }}>
         Per-user feature rollouts. Consumer apps read the resolved set at
         {' '}<code>GET /api/features</code>. User-login OTP is a per-environment
         setting, managed under Security — not here.
@@ -82,7 +82,7 @@ const FeatureFlags = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
 
       {flags.length === 0 && (
-        <Typography variant="body2" sx={{ color: '#999', py: 4, textAlign: 'center' }}>
+        <Typography variant="body2" sx={{ color: 'var(--mui-palette-text-secondary)', py: 4, textAlign: 'center' }}>
           No feature flags are declared. Add one to <code>AppFeatures::REGISTRY</code> in voipappz-api.
         </Typography>
       )}
@@ -93,12 +93,12 @@ const FeatureFlags = () => {
           const users = flag.users || [];
           const isBusy = busy === flag.name;
           return (
-            <Paper key={flag.name} elevation={0} sx={{ border: '1px solid #e0e0e0', borderRadius: 2, p: 2, opacity: isBusy ? 0.7 : 1 }}>
+            <Paper key={flag.name} elevation={0} sx={{ border: '1px solid var(--mui-palette-divider)', borderRadius: 2, p: 2, opacity: isBusy ? 0.7 : 1 }}>
               {/* Header + global switch */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <Box sx={{ flexGrow: 1 }}>
                   <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{flag.label || flag.name}</Typography>
-                  <Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#999' }}>{flag.name}</Typography>
+                  <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'var(--mui-palette-text-secondary)' }}>{flag.name}</Typography>
                 </Box>
                 <FormControlLabel
                   control={
@@ -127,7 +127,7 @@ const FeatureFlags = () => {
                     if (pct !== (flag.percentage_of_actors || 0)) apply(flag.name, { scope: 'percentage', percentage: pct });
                   }}
                 />
-                <Typography variant="caption" sx={{ color: '#999' }}>
+                <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)' }}>
                   deterministic per user{flag.global ? ' — overridden while global is on' : ''}
                 </Typography>
               </Box>
@@ -136,7 +136,7 @@ const FeatureFlags = () => {
               <Box sx={{ mb: 1.5 }}>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>Enabled for users ({users.length})</Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
-                  {users.length === 0 && <Typography variant="caption" sx={{ color: '#999' }}>none</Typography>}
+                  {users.length === 0 && <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)' }}>none</Typography>}
                   {users.map((uuid) => (
                     <Chip key={uuid} size="small" label={uuid} onDelete={isBusy ? undefined : () => apply(flag.name, { scope: 'user', uuid, enabled: false })}
                       sx={{ fontFamily: 'monospace', fontSize: 11 }} />

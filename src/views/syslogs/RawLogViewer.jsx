@@ -149,8 +149,8 @@ const RawLogViewer = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        bgcolor: '#ffffff',
-        border: '1px solid #e5e7eb',
+        bgcolor: 'var(--mui-palette-background-paper)',
+        border: '1px solid var(--mui-palette-divider)',
         borderRadius: 1,
         fontFamily: 'monospace'
       }}>
@@ -170,11 +170,11 @@ const RawLogViewer = ({
         gap: 1,
         px: 2,
         py: 0.5,
-        bgcolor: '#f8fafc',
-        borderBottom: '1px solid #e5e7eb',
+        bgcolor: 'var(--mui-palette-surface-muted)',
+        borderBottom: '1px solid var(--mui-palette-divider)',
         flexShrink: 0
       }}>
-        <Typography variant="caption" sx={{ color: '#64748b', fontFamily: 'monospace' }}>
+        <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', fontFamily: 'monospace' }}>
           {formattedLogs.length} entries
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
@@ -207,11 +207,11 @@ const RawLogViewer = ({
         sx={{
           flexGrow: 1,
           overflow: 'auto',
-          bgcolor: '#ffffff',
+          bgcolor: 'var(--mui-palette-background-paper)',
           fontFamily: '"JetBrains Mono", "Fira Code", "SF Mono", Consolas, monospace',
           fontSize: '12px',
           lineHeight: 1.6,
-          border: '1px solid #e5e7eb',
+          border: '1px solid var(--mui-palette-divider)',
           borderTop: 'none',
           borderRadius: '0 0 4px 4px'
         }}
@@ -229,7 +229,7 @@ const RawLogViewer = ({
               bgcolor: selectedLine === log.index ? '#f0f9ff' : 'transparent',
               borderLeft: selectedLine === log.index ? '3px solid #3b82f6' : '3px solid transparent',
               '&:hover': {
-                bgcolor: '#f8fafc'
+                bgcolor: 'var(--mui-palette-surface-muted)'
               },
               transition: 'background-color 0.1s'
             }}
@@ -241,11 +241,11 @@ const RawLogViewer = ({
                 sx={{
                   width: 50,
                   flexShrink: 0,
-                  color: '#9ca3af',
+                  color: 'var(--mui-palette-text-secondary)',
                   textAlign: 'right',
                   pr: 1.5,
                   userSelect: 'none',
-                  borderRight: '1px solid #e5e7eb',
+                  borderRight: '1px solid var(--mui-palette-divider)',
                   mr: 1.5
                 }}
               >
@@ -257,7 +257,7 @@ const RawLogViewer = ({
             <Box
               component="span"
               sx={{
-                color: '#6b7280',
+                color: 'var(--mui-palette-text-secondary)',
                 flexShrink: 0,
                 mr: 1
               }}
@@ -354,7 +354,7 @@ const RawLogViewer = ({
                   </Box>
                 ))}
                 {log.tags.length > 3 && (
-                  <Box component="span" sx={{ color: '#64748b', fontSize: '10px' }}>
+                  <Box component="span" sx={{ color: 'var(--mui-palette-text-secondary)', fontSize: '10px' }}>
                     +{log.tags.length - 3}
                   </Box>
                 )}
@@ -365,7 +365,7 @@ const RawLogViewer = ({
             <Box
               component="span"
               sx={{
-                color: '#1f2937',
+                color: 'var(--mui-palette-text-primary)',
                 flexGrow: 1,
                 wordBreak: 'break-word',
                 whiteSpace: 'pre-wrap'

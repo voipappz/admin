@@ -117,7 +117,7 @@ const SMSCreator = ({
           textAlign: 'center', 
           mb: 4, 
           fontWeight: 'bold',
-          color: '#333'
+          color: 'var(--mui-palette-text-primary)'
         }}
       >
         Schema Creator
@@ -223,7 +223,7 @@ const SMSCreator = ({
             >
               Upload CSV
             </Button>
-            <Typography variant="caption" display="block" sx={{ mt: 1, color: '#666' }}>
+            <Typography variant="caption" display="block" sx={{ mt: 1, color: 'var(--mui-palette-text-secondary)' }}>
               Upload a CSV file with column 'Name' and schema fields
             </Typography>
           </Box>

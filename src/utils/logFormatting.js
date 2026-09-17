@@ -1,3 +1,5 @@
+import { severity } from '../theme/tokens';
+
 /**
  * Shared log formatting helpers used by both the Events and SystemLogs screens.
  *
@@ -13,24 +15,30 @@
  * Level severity config — canonical event-store levels plus syslog aliases.
  * Each entry exposes `{ color, bg, label }`.
  */
+// Severity colours live in src/theme/tokens.js and reach the page as MUI CSS
+// variables (`--mui-palette-severity-<level>-color|bg`), which flip with dark
+// mode. These strings work anywhere CSS does (sx, style); SVG presentation
+// attributes need a real colour — use `severityHex` for those.
+const v = (lvl, part) => `var(--mui-palette-severity-${lvl}-${part})`;
+const lvlCfg = (lvl, label) => ({ color: v(lvl, 'color'), bg: v(lvl, 'bg'), label });
 export const LEVEL_CONFIG = {
-  // Canonical event-store levels
-  crit:  { color: '#dc2626', bg: '#fef2f2', label: 'CRIT' },
-  error: { color: '#ea580c', bg: '#fff7ed', label: 'ERROR' },
-  warn:  { color: '#ca8a04', bg: '#fefce8', label: 'WARN' },
-  info:  { color: '#0891b2', bg: '#ecfeff', label: 'INFO' },
-  debug: { color: '#16a34a', bg: '#f0fdf4', label: 'DEBUG' },
-  trace: { color: '#7c3aed', bg: '#faf5ff', label: 'TRACE' },
-
-  // Syslog aliases that some backends emit
-  err:       { color: '#ea580c', bg: '#fff7ed', label: 'ERR' },
-  warning:   { color: '#ca8a04', bg: '#fefce8', label: 'WARNING' },
-  notice:    { color: '#2563eb', bg: '#eff6ff', label: 'NOTICE' },
-  emerg:     { color: '#991b1b', bg: '#fef2f2', label: 'EMERG' },
-  emergency: { color: '#991b1b', bg: '#fef2f2', label: 'EMERGENCY' },
-  alert:     { color: '#b91c1c', bg: '#fef2f2', label: 'ALERT' },
-  critical:  { color: '#dc2626', bg: '#fef2f2', label: 'CRITICAL' },
+  crit:  lvlCfg('crit', 'CRIT'),
+  error: lvlCfg('error', 'ERROR'),
+  warn:  lvlCfg('warn', 'WARN'),
+  info:  lvlCfg('info', 'INFO'),
+  debug: lvlCfg('debug', 'DEBUG'),
+  trace: lvlCfg('trace', 'TRACE'),
+  err:       lvlCfg('error', 'ERR'),
+  warning:   lvlCfg('warn', 'WARNING'),
+  notice:    lvlCfg('notice', 'NOTICE'),
+  emerg:     lvlCfg('emerg', 'EMERG'),
+  emergency: lvlCfg('emerg', 'EMERGENCY'),
+  alert:     lvlCfg('alert', 'ALERT'),
+  critical:  lvlCfg('crit', 'CRITICAL'),
 };
+
+/** Light-scheme hex for a level, for SVG attributes that cannot take var(). */
+export const severityHex = (level) => (severity.light[level] || severity.light.info).color;
 
 /**
  * Return the `{ text, bg }` shape the Events DataGrid renderCell expects.

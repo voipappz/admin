@@ -51,7 +51,7 @@ const SHAPE_RADIUS = {
  * Children define the interior content and source handles.
  */
 const PBXBaseNode = memo(({ type, width = 340, selected, onClick, children }) => {
-  const config = TYPE_CONFIG[type] || { icon: PhoneIcon, color: '#757575', label: type, shape: 'entry' };
+  const config = TYPE_CONFIG[type] || { icon: PhoneIcon, color: 'var(--mui-palette-text-secondary)', label: type, shape: 'entry' };
   const Icon = config.icon;
   const borderRadius = SHAPE_RADIUS[config.shape] || '8px';
 

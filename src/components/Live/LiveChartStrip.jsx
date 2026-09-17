@@ -71,7 +71,7 @@ const LiveChartStrip = ({ chartType, series, title, uuid = null, autoSeries = fa
   return (
     <Box sx={{ mb: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <Typography variant="subtitle2" sx={{ color: '#666', fontWeight: 600 }}>
+        <Typography variant="subtitle2" sx={{ color: 'var(--mui-palette-text-secondary)', fontWeight: 600 }}>
           {title}
         </Typography>
         <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto' }}>

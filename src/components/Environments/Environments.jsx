@@ -201,7 +201,7 @@ const Environments = () => {
         height: '100%',
         display: 'flex',
         overflow: 'hidden',
-        backgroundColor: '#f5f5f5'
+        backgroundColor: 'var(--mui-palette-surface-muted)'
       }}
     >
       {/* Application live charts (relocated from the removed Home screen) */}
@@ -390,7 +390,7 @@ const Environments = () => {
             rowsPerPage={rowsPerPage}
             onRowsPerPageChange={handleRowsPerPageChange}
             rowsPerPageOptions={[10, 25, 50, 100]}
-            sx={{ borderTop: '1px solid #e0e0e0' }}
+            sx={{ borderTop: '1px solid var(--mui-palette-divider)' }}
           />
         </Box>
       </Paper>

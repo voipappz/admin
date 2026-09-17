@@ -54,7 +54,7 @@ import {
   SEVERITY_ORDER,
 } from '../../utils/logFormatting';
 
-const TOTAL_PILL = { color: '#0f172a', bg: '#f1f5f9' };
+const TOTAL_PILL = { color: 'var(--mui-palette-text-primary)', bg: 'var(--mui-palette-surface-muted)' };
 
 const METRICS_PILLS = [
   { key: 'total', label: 'TOTAL' },
@@ -270,7 +270,7 @@ const SystemLogs = ({ initialParams }) => {
         const t = params.row.time || params.row.timestamp || params.row.isodate;
         return (
           <Tooltip title={formatAbsolute(t)} placement="top">
-            <Typography variant="body2" sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: '0.72rem', color: '#6b7280', whiteSpace: 'nowrap' }}>
+            <Typography variant="body2" sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: '0.72rem', color: 'var(--mui-palette-text-secondary)', whiteSpace: 'nowrap' }}>
               {formatRelative(t)}
             </Typography>
           </Tooltip>
@@ -289,7 +289,7 @@ const SystemLogs = ({ initialParams }) => {
           <Chip
             label={level.toUpperCase()}
             size="small"
-            sx={{ fontWeight: 700, fontSize: '0.6rem', height: 20, minWidth: 52, color: sev.text, bgcolor: sev.bg, border: `1px solid ${sev.text}30` }}
+            sx={{ fontWeight: 700, fontSize: '0.6rem', height: 20, minWidth: 52, color: sev.text, bgcolor: sev.bg, border: `1px solid color-mix(in srgb, ${sev.text} 20%, transparent)` }}
           />
         );
       },
@@ -301,14 +301,14 @@ const SystemLogs = ({ initialParams }) => {
       sortable: false,
       renderCell: (params) => {
         const host = params.value;
-        if (!host || host === '-') return <Typography variant="caption" sx={{ color: '#cbd5e1' }}>—</Typography>;
+        if (!host || host === '-') return <Typography variant="caption" sx={{ color: 'text.disabled' }}>—</Typography>;
         const isFiltered = selectedHost === host;
         return (
           <Tooltip title={`Filter by ${host}`}>
             <Typography
               variant="body2"
               onClick={(e) => { e.stopPropagation(); setSelectedHost((prev) => (prev === host ? '' : host)); }}
-              sx={{ fontSize: '0.72rem', color: isFiltered ? '#0f766e' : '#0f766e', fontWeight: isFiltered ? 700 : 500, cursor: 'pointer', fontFamily: '"JetBrains Mono", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
+              sx={{ fontSize: '0.72rem', color: 'info.main', fontWeight: isFiltered ? 700 : 500, cursor: 'pointer', fontFamily: '"JetBrains Mono", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
             >
               {host}
             </Typography>
@@ -331,7 +331,7 @@ const SystemLogs = ({ initialParams }) => {
             size="small"
             variant={isFiltered ? 'filled' : 'outlined'}
             onClick={(e) => { e.stopPropagation(); setSelectedApp((prev) => (prev === app ? '' : app)); }}
-            sx={{ fontSize: '0.6rem', height: 20, cursor: 'pointer', bgcolor: isFiltered ? '#3b82f6' : undefined, color: isFiltered ? '#fff' : undefined, borderColor: isFiltered ? '#3b82f6' : undefined, '&:hover': { bgcolor: isFiltered ? '#2563eb' : '#f0f9ff' } }}
+            sx={{ fontSize: '0.6rem', height: 20, cursor: 'pointer', bgcolor: isFiltered ? 'info.main' : undefined, color: isFiltered ? 'info.contrastText' : undefined, borderColor: isFiltered ? 'info.main' : undefined, '&:hover': { bgcolor: isFiltered ? 'info.dark' : 'action.hover' } }}
           />
         );
       },
@@ -343,7 +343,7 @@ const SystemLogs = ({ initialParams }) => {
       sortable: false,
       renderCell: (params) =>
         params.value && params.value !== '-' ? (
-          <Typography variant="body2" sx={{ fontSize: '0.72rem', color: '#6d28d9', fontWeight: 600, fontFamily: '"JetBrains Mono", monospace' }}>
+          <Typography variant="body2" sx={{ fontSize: '0.72rem', color: 'var(--mui-palette-severity-trace-color)', fontWeight: 600, fontFamily: '"JetBrains Mono", monospace' }}>
             {params.value}
           </Typography>
         ) : null,
@@ -361,7 +361,7 @@ const SystemLogs = ({ initialParams }) => {
       flex: 1,
       sortable: false,
       renderCell: (params) => (
-        <Typography variant="body2" noWrap sx={{ fontSize: '0.78rem', color: '#1f2937', fontFamily: '"JetBrains Mono", monospace' }}>
+        <Typography variant="body2" noWrap sx={{ fontSize: '0.78rem', color: 'var(--mui-palette-text-primary)', fontFamily: '"JetBrains Mono", monospace' }}>
           {params.value || params.row.msg || ''}
         </Typography>
       ),
@@ -374,7 +374,7 @@ const SystemLogs = ({ initialParams }) => {
       renderCell: (params) => (
         <Tooltip title="Copy message">
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(params.row.message || params.row.msg || '')); }} sx={{ p: 0.25 }}>
-            <ContentCopyIcon sx={{ fontSize: 14, color: '#9ca3af' }} />
+            <ContentCopyIcon sx={{ fontSize: 14, color: 'var(--mui-palette-text-secondary)' }} />
           </IconButton>
         </Tooltip>
       ),
@@ -405,7 +405,7 @@ const SystemLogs = ({ initialParams }) => {
         height: '100%',
         minHeight: 0,
         width: '100%',
-        bgcolor: '#f8fafc',
+        bgcolor: 'var(--mui-palette-surface-muted)',
       }}
     >
       {/* App error-rate alerts (/api/logs/alerts). Click to see that app's errors. */}
@@ -429,8 +429,8 @@ const SystemLogs = ({ initialParams }) => {
         elevation={0}
         sx={{
           p: 1.5,
-          bgcolor: '#ffffff',
-          border: '1px solid #e5e7eb',
+          bgcolor: 'var(--mui-palette-background-paper)',
+          border: '1px solid var(--mui-palette-divider)',
           borderRadius: 1,
           flexShrink: 0,
         }}
@@ -530,7 +530,7 @@ const SystemLogs = ({ initialParams }) => {
                     <DotIcon
                       sx={{
                         fontSize: 10,
-                        color: '#22c55e',
+                        color: 'success.main',
                         animation: 'pulse 1.5s infinite',
                         '@keyframes pulse': {
                           '0%, 100%': { opacity: 1 },
@@ -625,8 +625,8 @@ const SystemLogs = ({ initialParams }) => {
         sx={{
           px: 1.5,
           py: 1,
-          bgcolor: '#ffffff',
-          border: '1px solid #e5e7eb',
+          bgcolor: 'var(--mui-palette-background-paper)',
+          border: '1px solid var(--mui-palette-divider)',
           borderRadius: 1,
           flexShrink: 0,
         }}
@@ -745,7 +745,7 @@ const SystemLogs = ({ initialParams }) => {
                 px: 1.25,
                 py: 0.5,
                 bgcolor: cfg.bg,
-                border: '1px solid #e5e7eb',
+                border: '1px solid var(--mui-palette-divider)',
                 borderRadius: 1,
                 cursor: 'pointer',
                 minWidth: 72,
@@ -830,31 +830,31 @@ const SystemLogs = ({ initialParams }) => {
               sx={{
                 ...stripedDataGridSx,
                 height: '100%',
-                border: '1px solid #e5e7eb',
+                border: '1px solid var(--mui-palette-divider)',
                 borderRadius: '8px',
-                backgroundColor: '#ffffff',
+                backgroundColor: 'var(--mui-palette-background-paper)',
                 fontFamily: 'Rubik, sans-serif',
                 fontSize: '0.85rem',
                 '& .MuiDataGrid-columnHeaders': {
-                  backgroundColor: '#f8fafc',
-                  borderBottom: '1px solid #e5e7eb',
+                  backgroundColor: 'var(--mui-palette-surface-muted)',
+                  borderBottom: '1px solid var(--mui-palette-divider)',
                 },
-                '& .MuiDataGrid-columnHeader': { backgroundColor: '#f8fafc' },
+                '& .MuiDataGrid-columnHeader': { backgroundColor: 'var(--mui-palette-surface-muted)' },
                 '& .MuiDataGrid-columnHeaderTitle': {
                   fontWeight: 600,
                   fontSize: '0.7rem',
-                  color: '#6b7280',
+                  color: 'var(--mui-palette-text-secondary)',
                   letterSpacing: '0.05em',
                 },
-                '& .MuiDataGrid-cell': { borderBottom: '1px solid #f1f5f9', py: 0.5 },
+                '& .MuiDataGrid-cell': { borderBottom: '1px solid var(--mui-palette-divider)', py: 0.5 },
                 '& .MuiDataGrid-row': {
                   cursor: 'pointer',
-                  '&:hover': { backgroundColor: '#f0f9ff' },
-                  '&:focus-visible': { outline: '2px solid #2563eb', outlineOffset: -2 },
+                  '&:hover': { backgroundColor: 'action.hover' },
+                  '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
                 },
-                '& .MuiDataGrid-virtualScroller': { backgroundColor: '#ffffff' },
-                '& .severity-row-error': { bgcolor: '#fef2f2', '&:hover': { bgcolor: '#fee2e2' } },
-                '& .severity-row-warn': { bgcolor: '#fffbeb', '&:hover': { bgcolor: '#fef3c7' } },
+                '& .MuiDataGrid-virtualScroller': { backgroundColor: 'var(--mui-palette-background-paper)' },
+                '& .severity-row-error': { bgcolor: 'var(--mui-palette-severity-crit-bg)', '&:hover': { bgcolor: 'var(--mui-palette-severity-crit-bg)', filter: 'brightness(0.97)' } },
+                '& .severity-row-warn': { bgcolor: 'var(--mui-palette-severity-warn-bg)', '&:hover': { bgcolor: 'var(--mui-palette-severity-warn-bg)', filter: 'brightness(0.97)' } },
               }}
             />
           </Box>
@@ -895,7 +895,7 @@ const SystemLogs = ({ initialParams }) => {
             ))}
           </Box>
           <Typography component="h3" sx={{ mt: 2, mb: 0.5, fontWeight: 700, fontSize: '0.85rem' }}>Raw message</Typography>
-          <Box component="pre" tabIndex={0} sx={{ m: 0, p: 1.5, bgcolor: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 1, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: '0.78rem' }}>
+          <Box component="pre" tabIndex={0} sx={{ m: 0, p: 1.5, bgcolor: 'var(--mui-palette-surface-muted)', border: '1px solid var(--mui-palette-divider)', borderRadius: 1, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: '0.78rem' }}>
             {selectedLog?.message || selectedLog?.msg || ''}
           </Box>
         </DialogContent>

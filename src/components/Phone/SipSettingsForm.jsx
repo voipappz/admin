@@ -33,7 +33,7 @@ export default function SipSettingsForm() {
         value={form[k] ?? ''}
         onChange={set(k)}
         sx={{
-          '& .MuiOutlinedInput-root': { bgcolor: '#fff', borderRadius: '8px' },
+          '& .MuiOutlinedInput-root': { bgcolor: 'var(--mui-palette-background-paper)', borderRadius: '8px' },
           '& .MuiOutlinedInput-notchedOutline': { border: 'none' }
         }}
       />
