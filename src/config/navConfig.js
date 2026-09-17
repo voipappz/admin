@@ -16,6 +16,7 @@ import CallIcon from '@mui/icons-material/Call';
 import ChatIcon from '@mui/icons-material/Chat';
 import BoltIcon from '@mui/icons-material/Bolt';
 import CodeIcon from '@mui/icons-material/Code';
+import SubjectIcon from '@mui/icons-material/Subject';
 import { canAccessScreen } from '../utils/jwt';
 
 // Sidebar — kept deliberately simple. The Studio is the landing/home and
@@ -38,14 +39,12 @@ export const NAV_ITEMS = [
   // (UserRail.jsx), and App.jsx sends an admin session away from both.
   { text: 'Calls',         path: '/calls',          iconComponent: CallIcon,                  aclKey: 'calls',                          group: 'MONITOR'  },
   { text: 'Messages',      path: '/messages',       iconComponent: ChatIcon,                  aclKey: 'calls',                          group: 'MONITOR'  },
-  // Logs has no rail entry on purpose: a log stream is only meaningful next to
-  // the record that produced it, so it opens as a modal from a record's
-  // "View Logs" action (useNavigateToLogs → openLogsModal). The /logs route
-  // still exists for direct URLs and the modal's "Open full page".
-  // Events is the operational half of the pair: Logs reads the InfluxDB syslog
-  // stream, Events reads the Postgres event store (a log line naming an `action`
-  // becomes an event — see config/initializers/log.rb). The route existed at
-  // /events but had no rail entry, so the screen was only reachable via ⌘K.
+  // Logs: the app log stream (/api/logs, the telemetry Redis). It is also
+  // opened as a modal from a record's "View Logs" action (useNavigateToLogs),
+  // but that left the screen itself unreachable except by typing /logs.
+  // Events is the durable half of the pair: the Postgres event store (a log
+  // line naming an `action` becomes an event — config/initializers/log.rb).
+  { text: 'Logs',          path: '/logs',           iconComponent: SubjectIcon,               aclKey: 'logs',                           group: 'MONITOR'  },
   { text: 'Events',        path: '/events',         iconComponent: BoltIcon,                  aclKey: 'logs',                           group: 'MONITOR'  },
   { text: 'Monitoring',    path: '/monitoring',     iconComponent: TimelineIcon,              aclKey: 'monitors',                       group: 'MONITOR'  },
   // Every node with full CRUD over the nodes API (writes are root-only, so the
