@@ -398,7 +398,7 @@ const EnvironmentDialog = ({
                   <Typography variant="h6" sx={{ color: 'primary.main', mb: 1 }}>
                     Customer Details
                   </Typography>
-                  <Box sx={{ p: 2, backgroundColor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                  <Box sx={{ p: 2, backgroundColor: 'var(--mui-palette-surface-muted)', borderRadius: 1, border: '1px solid var(--mui-palette-divider)' }}>
                     <Grid container spacing={2}>
                       <Grid item xs={12} sm={6}>
                         <Typography variant="caption" color="text.secondary">Customer Name</Typography>
@@ -421,7 +421,7 @@ const EnvironmentDialog = ({
                   <Typography variant="h6" sx={{ color: 'primary.main', mb: 1 }}>
                     Technical Configuration
                   </Typography>
-                  <Box sx={{ p: 2, backgroundColor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                  <Box sx={{ p: 2, backgroundColor: 'var(--mui-palette-surface-muted)', borderRadius: 1, border: '1px solid var(--mui-palette-divider)' }}>
                     <Grid container spacing={2}>
                       {environment.domain && (
                         <Grid item xs={12} sm={4}>
@@ -451,7 +451,7 @@ const EnvironmentDialog = ({
                 <Typography variant="h6" sx={{ color: 'primary.main', mb: 1 }}>
                   Environment Info
                 </Typography>
-                <Box sx={{ p: 2, backgroundColor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                <Box sx={{ p: 2, backgroundColor: 'var(--mui-palette-surface-muted)', borderRadius: 1, border: '1px solid var(--mui-palette-divider)' }}>
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={4}>
                       <Typography variant="caption" color="text.secondary">UUID</Typography>

@@ -975,14 +975,14 @@ const Reports = () => {
                   border: 'none',
                 },
                 '& .MuiDataGrid-cell': {
-                  borderBottom: '1px solid #f0f0f0',
+                  borderBottom: '1px solid var(--mui-palette-divider)',
                 },
                 '& .MuiDataGrid-columnHeaders': {
-                  backgroundColor: '#fafafa',
-                  borderBottom: '2px solid #e0e0e0',
+                  backgroundColor: 'var(--mui-palette-surface-muted)',
+                  borderBottom: '2px solid var(--mui-palette-divider)',
                 },
                 '& .MuiDataGrid-virtualScroller': {
-                  backgroundColor: '#fff',
+                  backgroundColor: 'var(--mui-palette-background-paper)',
                 }
               }}>
                 <DataGrid

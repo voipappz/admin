@@ -36,7 +36,7 @@ const CallConditionNode = memo(({ data, selected }) => {
           </Typography>
           {visibleResources.map((res, i) => {
             const bt = res.bridge_type === 'que' ? 'queue' : res.bridge_type;
-            const config = TYPE_CONFIG[bt] || { color: '#757575', label: bt || '?' };
+            const config = TYPE_CONFIG[bt] || { color: 'var(--mui-palette-text-secondary)', label: bt || '?' };
             const Icon = config.icon;
             return (
               <Box key={res.uuid || i} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.25 }}>

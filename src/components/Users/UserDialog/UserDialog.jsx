@@ -738,7 +738,7 @@ const UserDialog = ({ open, onClose, onSave, onResetPassword, user, loading, env
                         <Alert severity="error" sx={{ mt: 1 }}>{resetPasswordError}</Alert>
                       )}
                       {generatedPassword && (
-                        <Box sx={{ mt: 1.5, p: 2, backgroundColor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                        <Box sx={{ mt: 1.5, p: 2, backgroundColor: 'var(--mui-palette-surface-muted)', borderRadius: 1, border: '1px solid var(--mui-palette-divider)' }}>
                           <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
                             Generated Password
                           </Typography>
@@ -838,7 +838,7 @@ const UserDialog = ({ open, onClose, onSave, onResetPassword, user, loading, env
                   <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
                     Current State
                   </Typography>
-                  <Box sx={{ p: 2, backgroundColor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                  <Box sx={{ p: 2, backgroundColor: 'var(--mui-palette-surface-muted)', borderRadius: 1, border: '1px solid var(--mui-palette-divider)' }}>
                     <Grid container spacing={2}>
                       <Grid item xs={12} sm={4}>
                         <Typography variant="caption" color="text.secondary">State</Typography>
@@ -989,7 +989,7 @@ const UserDialog = ({ open, onClose, onSave, onResetPassword, user, loading, env
           )}
           {qrImageUrl && (
             <>
-              <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, border: '1px solid #e0e0e0' }}>
+              <Box sx={{ p: 2, bgcolor: 'var(--mui-palette-background-paper)', borderRadius: 1, border: '1px solid var(--mui-palette-divider)' }}>
                 <img
                   src={qrImageUrl}
                   alt={`QR Code for ${user?.name}`}

@@ -163,8 +163,8 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
 
   // Responsive: below md the fixed sidebar is hidden (hamburger drives the drawer);
   // on phones the secondary top-right tools collapse into a single ⋮ overflow menu.
-  const isMobile = useMediaQuery('(max-width:899px)');
-  const isPhone = useMediaQuery('(max-width:600px)');
+  const isMobile = useMediaQuery((t) => t.breakpoints.down('md'));
+  const isPhone = useMediaQuery((t) => t.breakpoints.down('sm'));
   const [toolsMenuAnchor, setToolsMenuAnchor] = useState(null);
   const { notifications, markAsRead, deleteNotification, refreshNotifications, fetchNotificationCount, fetchNotificationDetails } = useNotifications();
   const {

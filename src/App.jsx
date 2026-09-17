@@ -17,119 +17,9 @@ import { TourOverlay } from './components/Tour';
 import { usePermissions } from './hooks/usePermissions';
 import { canAccessScreen } from './utils/jwt';
 import { CircularProgress, Box, Typography, Button } from '@mui/material';
-import { createTheme, ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
-const muiTheme = createTheme({
-  // voipappz brand indigo — the exact color from the reports date selector,
-  // now the primary action color for buttons/toggles across the whole app.
-  palette: {
-    primary: {
-      main: '#5c6bc0',
-      dark: '#3f4fb5',
-      light: '#7986cb',
-      contrastText: '#ffffff',
-    },
-  },
-  typography: {
-    fontFamily: "'Rubik', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif",
-    fontSize: 15,
-    h1: { fontFamily: "'Rubik', sans-serif", fontWeight: 600 },
-    h2: { fontFamily: "'Rubik', sans-serif", fontWeight: 600 },
-    h3: { fontFamily: "'Rubik', sans-serif", fontWeight: 600 },
-    h4: { fontFamily: "'Rubik', sans-serif", fontWeight: 600 },
-    h5: { fontFamily: "'Rubik', sans-serif", fontWeight: 600 },
-    h6: { fontFamily: "'Rubik', sans-serif", fontWeight: 600 },
-    subtitle1: { fontFamily: "'Rubik', sans-serif", fontWeight: 500 },
-    subtitle2: { fontFamily: "'Rubik', sans-serif", fontWeight: 500 },
-    body1: { fontFamily: "'Rubik', sans-serif", fontSize: '0.9375rem' },
-    body2: { fontFamily: "'Rubik', sans-serif", fontSize: '0.875rem' },
-    button: { fontFamily: "'Rubik', sans-serif", fontWeight: 500, textTransform: 'none' },
-    caption: { fontFamily: "'Rubik', sans-serif" },
-    overline: { fontFamily: "'Rubik', sans-serif" },
-  },
-  components: {
-    MuiTableCell: {
-      styleOverrides: {
-        root: {
-          fontFamily: "'Rubik', sans-serif",
-          fontSize: '0.8rem',
-          padding: '8px 14px',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          maxWidth: 320,
-        },
-        head: {
-          fontWeight: 600,
-          fontSize: '0.72rem',
-          letterSpacing: '0.03em',
-          textTransform: 'uppercase',
-          position: 'sticky',
-          top: 0,
-          zIndex: 2,
-          backgroundColor: 'var(--theme-bg-primary, #fff)',
-          boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.08)',
-        },
-      },
-    },
-    MuiTableRow: {
-      styleOverrides: {
-        root: {
-          '&:hover': { backgroundColor: 'rgba(101, 117, 142, 0.04)' },
-        },
-      },
-    },
-    MuiSkeleton: {
-      defaultProps: { animation: 'wave' },
-      styleOverrides: {
-        root: { borderRadius: '6px' },
-      },
-    },
-    MuiInputBase: {
-      styleOverrides: {
-        root: { fontFamily: "'Rubik', sans-serif", fontSize: '0.9375rem' },
-      },
-    },
-    // Menu paper is capped so a long option (a customer name like "LAURUS
-    // AFRICA SECURITIES LTD") can't stretch the dropdown across the screen;
-    // the item then ellipsises inside it instead of overflowing.
-    MuiMenu: {
-      styleOverrides: {
-        paper: { maxWidth: 'min(480px, calc(100vw - 32px))' },
-      },
-    },
-    MuiMenuItem: {
-      styleOverrides: {
-        root: {
-          fontFamily: "'Rubik', sans-serif",
-          fontSize: '0.9rem',
-          overflow: 'hidden',
-          // MenuItem is a flex row: a label element only shrinks once its
-          // automatic min-width is cleared. ListItemIcon is left alone so its
-          // gutter survives.
-          '& > .MuiBox-root, & > .MuiTypography-root, & > span': {
-            minWidth: 0,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          },
-        },
-      },
-    },
-    MuiTooltip: {
-      styleOverrides: {
-        tooltip: { fontFamily: "'Rubik', sans-serif", fontSize: '0.8rem' },
-      },
-    },
-    MuiChip: {
-      styleOverrides: {
-        root: { fontFamily: "'Rubik', sans-serif", maxWidth: '100%' },
-        // Chip already ellipsises its label; the cap stops one long resource
-        // name from making a chip wider than the row that holds it.
-        label: { fontWeight: 500, maxWidth: 280 },
-      },
-    },
-  },
-});
+import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
+// ONE theme, light + dark, driven by src/theme/tokens.js — see theme.js.
+import muiTheme from './theme/theme';
 
 // Eager: Login and UserLogin are the entry points for unauthenticated users
 import Login from './components/Login/Login.jsx';
@@ -750,7 +640,10 @@ function AppContent() {
 function App() {
   return (
     <ErrorBoundary>
-      <MuiThemeProvider theme={muiTheme}>
+      {/* modeStorageKey/defaultMode match ThemeContext, so MUI's own mode
+          state boots in step with the app's `data-theme` (ThemeContext keeps
+          them in step afterwards through useColorScheme). */}
+      <MuiThemeProvider theme={muiTheme} modeStorageKey="theme-preference" defaultMode="light" disableTransitionOnChange>
         <ThemeProvider>
           <QueryProvider>
             <AuthProvider>

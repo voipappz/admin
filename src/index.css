@@ -1,5 +1,4 @@
-/* Google Fonts — Rubik */
-@import url('https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap');
+/* Rubik is loaded once, in index.html. */
 
 /* Global Design System - Sentry Inspired (LIGHT THEME) */
 :root {
@@ -108,6 +107,7 @@
   --theme-surface: #ffffff;
   --theme-text-primary: #1a202c;
   --theme-text-secondary: #4a5568;
+  --theme-text-tertiary: #9ca3af;
   --theme-border: #e2e8f0;
   --theme-hover: rgba(0, 0, 0, 0.04);
   --theme-scrollbar-track: #f1f1f1;
@@ -198,7 +198,6 @@
 
   /* Hover states */
   --theme-hover: rgba(255, 255, 255, 0.1);
-  --hover-bg: rgba(255, 255, 255, 0.08);
 
   /* Scrollbar */
   --theme-scrollbar-track: #202124;
@@ -219,13 +218,6 @@
   /* Accent colors for dark mode — lighter indigo for contrast */
   --accent-primary: #7986cb;
   --accent-primary-hover: #5c6bc0;
-  --accent-primary-alpha-8: rgba(121, 134, 203, 0.12);
-  --accent-primary-alpha-10: rgba(121, 134, 203, 0.16);
-  --accent-primary-alpha-12: rgba(121, 134, 203, 0.20);
-  --accent-primary-alpha-15: rgba(121, 134, 203, 0.24);
-  --accent-primary-alpha-18: rgba(121, 134, 203, 0.28);
-  --accent-primary-alpha-20: rgba(121, 134, 203, 0.32);
-  --accent-primary-dark: #669df6;
 
   /* Semantic Colors with better dark mode contrast */
   --color-success: #81c995;
@@ -235,28 +227,14 @@
   --color-neutral: #9aa0a6;
 
   /* Counter colors optimized for dark backgrounds */
-  --counter-total: #8ab4f8;
-  --counter-answered: #81c995;
-  --counter-no-answer: #f28b82;
-  --counter-outgoing: #78d9ec;
-  --counter-incoming: #fdd663;
 
   /* Chip colors */
-  --chip-error-bg: rgba(244, 67, 54, 0.12);
-  --chip-error-border: rgba(244, 67, 54, 0.3);
 
   /* Shadows for dark mode */
-  --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-hover: 0 2px 8px rgba(0, 0, 0, 0.5);
-  --shadow-focus: 0 0 0 3px rgba(121, 134, 203, 0.2);
-  --shadow-accent-hover: 0 2px 8px rgba(121, 134, 203, 0.15);
 
   /* Input background */
-  --input-bg: #292a2d;
 
   /* Background variants */
-  --background-primary: #202124;
-  --background-secondary: #292a2d;
   --color-gold: #FFD54F;
 
   /* Accent alpha variants */
@@ -297,6 +275,21 @@
   --background-primary: var(--theme-bg-primary);
   --background-secondary: var(--theme-bg-secondary);
   --hover-bg: var(--theme-hover);
+  /* These used to have NO dark value, so cards, borders and semantic colours
+     stayed light-mode in the dark theme. */
+  --bg-primary: #202124;
+  --bg-secondary: #292a2d;
+  --bg-tertiary: #3c4043;
+  --bg-elevated: #292a2d;
+  --text-muted: #5f6368;
+  --border-color: #3c4043;
+  --border-color-hover: #5f6368;
+  --divider-color: #3c4043;
+  --accent-success: #34d399;
+  --accent-warning: #fbbf24;
+  --accent-error: #f87171;
+  --accent-info: #60a5fa;
+  --theme-text-tertiary: #5f6368;
 }
 
 /* Global Font & Reset */

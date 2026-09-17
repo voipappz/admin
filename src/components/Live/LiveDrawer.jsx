@@ -16,13 +16,13 @@ const LiveDrawer = ({ open, onClose, title, icon, count, onRefresh, loading, chi
     PaperProps={{
       sx: {
         width: width || { xs: '100%', sm: '80%', md: '68%', lg: '58%' },
-        backgroundColor: '#f5f5f5',
+        backgroundColor: 'var(--mui-palette-surface-muted)',
       },
     }}
   >
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.5, borderBottom: '1px solid #e0e0e0', backgroundColor: '#fff' }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.5, borderBottom: '1px solid var(--mui-palette-divider)', backgroundColor: 'var(--mui-palette-background-paper)' }}>
       {icon}
-      <Typography variant="h6" sx={{ color: '#333', fontWeight: 700 }}>
+      <Typography variant="h6" sx={{ color: 'var(--mui-palette-text-primary)', fontWeight: 700 }}>
         {title}
       </Typography>
       {count !== undefined && count !== null && (
@@ -34,14 +34,14 @@ const LiveDrawer = ({ open, onClose, title, icon, count, onRefresh, loading, chi
       {onRefresh && (
         <Tooltip title="Refresh">
           <span>
-            <IconButton onClick={onRefresh} disabled={loading} sx={{ color: '#666' }}>
+            <IconButton onClick={onRefresh} disabled={loading} sx={{ color: 'var(--mui-palette-text-secondary)' }}>
               <RefreshIcon />
             </IconButton>
           </span>
         </Tooltip>
       )}
       <Tooltip title="Close">
-        <IconButton onClick={onClose} sx={{ color: '#666' }}>
+        <IconButton onClick={onClose} sx={{ color: 'var(--mui-palette-text-secondary)' }}>
           <CloseIcon />
         </IconButton>
       </Tooltip>

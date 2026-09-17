@@ -71,7 +71,7 @@ const ImportCSVDialog = ({
   templateHeaders = [],
   templateData = []
 }) => {
-  const isNarrow = useMediaQuery('(max-width:600px)');
+  const isNarrow = useMediaQuery((t) => t.breakpoints.down('sm'));
   const [importFile, setImportFile] = useState(null);
   const [environmentUuid, setEnvironmentUuid] = useState(selectedEnvironment);
   const [loading, setLoading] = useState(false);

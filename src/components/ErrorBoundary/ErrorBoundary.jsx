@@ -99,7 +99,7 @@ class ErrorBoundary extends React.Component {
             alignItems: 'center',
             justifyContent: 'center',
             p: 3,
-            backgroundColor: '#f5f5f5'
+            backgroundColor: 'var(--mui-palette-surface-muted)'
           }}
         >
           <Paper 

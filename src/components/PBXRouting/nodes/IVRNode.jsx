@@ -45,7 +45,7 @@ const IVRNode = memo(({ data, selected }) => {
           {visibleEntries.map((entry, i) => {
             const digit = entry.key || entry.digit || entry.name || i;
             const bt = entry.bridge_type === 'que' ? 'queue' : entry.bridge_type;
-            const config = TYPE_CONFIG[bt] || { color: '#757575', label: bt || '?' };
+            const config = TYPE_CONFIG[bt] || { color: 'var(--mui-palette-text-secondary)', label: bt || '?' };
             return (
               <Box key={entry.uuid || `${digit}-${i}`} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.25 }}>
                 <Chip label={digit} size="small" sx={{ fontSize: '0.65rem', height: 20, minWidth: 26, fontWeight: 700 }} />

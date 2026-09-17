@@ -147,7 +147,7 @@ const StatCard = ({ icon, label, value, color }) => (
   }}>
     {icon}
     <Box>
-      <Typography sx={{ fontSize: '0.65rem', color: '#6b7280', lineHeight: 1, fontWeight: 600 }}>{label}</Typography>
+      <Typography sx={{ fontSize: '0.65rem', color: 'var(--mui-palette-text-secondary)', lineHeight: 1, fontWeight: 600 }}>{label}</Typography>
       <Typography sx={{ fontSize: '1rem', fontWeight: 700, color, lineHeight: 1.2, fontFamily: 'monospace' }}>
         {value ?? '—'}
       </Typography>
@@ -268,7 +268,7 @@ const Events = ({ initialParams, leftSlot } = {}) => {
             sx={{
               fontFamily: '"JetBrains Mono", monospace',
               fontSize: '0.72rem',
-              color: '#6b7280',
+              color: 'var(--mui-palette-text-secondary)',
               whiteSpace: 'nowrap',
             }}
           >
@@ -296,7 +296,7 @@ const Events = ({ initialParams, leftSlot } = {}) => {
               minWidth: 44,
               color: sev.text,
               bgcolor: sev.bg,
-              border: `1px solid ${sev.text}30`,
+              border: `1px solid color-mix(in srgb, ${sev.text} 20%, transparent)`,
             }}
           />
         );
@@ -423,7 +423,7 @@ const Events = ({ initialParams, leftSlot } = {}) => {
         <Typography
           variant="body2"
           noWrap
-          sx={{ fontSize: '0.78rem', color: '#1f2937' }}
+          sx={{ fontSize: '0.78rem', color: 'var(--mui-palette-text-primary)' }}
         >
           {formatAuditMessage(params.row)}
         </Typography>
@@ -447,7 +447,7 @@ const Events = ({ initialParams, leftSlot } = {}) => {
               }}
               sx={{ p: 0.25 }}
             >
-              <ContentCopyIcon sx={{ fontSize: 14, color: '#9ca3af' }} />
+              <ContentCopyIcon sx={{ fontSize: 14, color: 'var(--mui-palette-text-secondary)' }} />
             </IconButton>
           </Tooltip>
         );
@@ -505,7 +505,7 @@ const Events = ({ initialParams, leftSlot } = {}) => {
         height: '100%',
         minHeight: 0,
         width: '100%',
-        bgcolor: '#f8fafc'
+        bgcolor: 'var(--mui-palette-surface-muted)'
       }}
     >
       {/* Row 1: Time Range & Search */}
@@ -513,8 +513,8 @@ const Events = ({ initialParams, leftSlot } = {}) => {
         elevation={0}
         sx={{
           p: 1.5,
-          bgcolor: '#ffffff',
-          border: '1px solid #e5e7eb',
+          bgcolor: 'var(--mui-palette-background-paper)',
+          border: '1px solid var(--mui-palette-divider)',
           borderRadius: 1,
           flexShrink: 0
         }}
@@ -672,8 +672,8 @@ const Events = ({ initialParams, leftSlot } = {}) => {
         sx={{
           px: 1.5,
           py: 1,
-          bgcolor: '#ffffff',
-          border: '1px solid #e5e7eb',
+          bgcolor: 'var(--mui-palette-background-paper)',
+          border: '1px solid var(--mui-palette-divider)',
           borderRadius: 1,
           flexShrink: 0
         }}
@@ -684,7 +684,7 @@ const Events = ({ initialParams, leftSlot } = {}) => {
             Level:
           </Typography>
           {allLevels.map((level) => {
-            const config = LEVEL_CONFIG[level] || { color: '#6b7280', bg: '#f3f4f6', label: level.toUpperCase() };
+            const config = LEVEL_CONFIG[level] || { color: 'var(--mui-palette-text-secondary)', bg: 'var(--mui-palette-surface-muted)', label: level.toUpperCase() };
             const isActive = selectedLevels.has(level);
             return (
               <Chip
@@ -700,7 +700,7 @@ const Events = ({ initialParams, leftSlot } = {}) => {
                   fontFamily: 'monospace',
                   cursor: 'pointer',
                   bgcolor: isActive ? config.bg : 'transparent',
-                  color: isActive ? config.color : '#9ca3af',
+                  color: isActive ? config.color : 'var(--mui-palette-text-secondary)',
                   border: `1px solid ${isActive ? config.color : '#e5e7eb'}`,
                   opacity: isActive ? 1 : 0.6,
                   '&:hover': {
@@ -878,26 +878,26 @@ const Events = ({ initialParams, leftSlot } = {}) => {
               sx={{
                 ...stripedDataGridSx,
                 height: '100%',
-                border: '1px solid #e5e7eb',
+                border: '1px solid var(--mui-palette-divider)',
                 borderRadius: '8px',
-                backgroundColor: '#ffffff',
+                backgroundColor: 'var(--mui-palette-background-paper)',
                 fontFamily: 'Rubik, sans-serif',
                 fontSize: '0.85rem',
                 '& .MuiDataGrid-columnHeaders': {
-                  backgroundColor: '#f8fafc',
-                  borderBottom: '1px solid #e5e7eb',
+                  backgroundColor: 'var(--mui-palette-surface-muted)',
+                  borderBottom: '1px solid var(--mui-palette-divider)',
                 },
                 '& .MuiDataGrid-columnHeader': {
-                  backgroundColor: '#f8fafc',
+                  backgroundColor: 'var(--mui-palette-surface-muted)',
                 },
                 '& .MuiDataGrid-columnHeaderTitle': {
                   fontWeight: 600,
                   fontSize: '0.7rem',
-                  color: '#6b7280',
+                  color: 'var(--mui-palette-text-secondary)',
                   letterSpacing: '0.05em',
                 },
                 '& .MuiDataGrid-cell': {
-                  borderBottom: '1px solid #f1f5f9',
+                  borderBottom: '1px solid var(--mui-palette-divider)',
                   py: 0.5,
                 },
                 '& .MuiDataGrid-row': {
@@ -913,7 +913,7 @@ const Events = ({ initialParams, leftSlot } = {}) => {
                   },
                 },
                 '& .MuiDataGrid-virtualScroller': {
-                  backgroundColor: '#ffffff',
+                  backgroundColor: 'var(--mui-palette-background-paper)',
                 },
                 '& .severity-row-error': {
                   bgcolor: '#fef2f2',
@@ -929,8 +929,8 @@ const Events = ({ initialParams, leftSlot } = {}) => {
 
           {/* Pagination Controls */}
           <Box sx={{
-            borderTop: '1px solid #e5e7eb',
-            bgcolor: '#f8fafc',
+            borderTop: '1px solid var(--mui-palette-divider)',
+            bgcolor: 'var(--mui-palette-surface-muted)',
             display: 'flex',
             justifyContent: 'flex-end',
             alignItems: 'center',

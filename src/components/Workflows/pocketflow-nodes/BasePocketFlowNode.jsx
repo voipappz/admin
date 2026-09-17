@@ -72,7 +72,7 @@ const BasePocketFlowNode = memo(({ data, selected, type }) => {
       sx={{
         padding: '12px 16px',
         borderRadius: '10px',
-        backgroundColor: '#fff',
+        backgroundColor: 'var(--mui-palette-background-paper)',
         border: `2px solid ${selected ? '#1976d2' : color}`,
         boxShadow: selected
           ? '0 4px 16px rgba(25, 118, 210, 0.35)'
@@ -139,7 +139,7 @@ const BasePocketFlowNode = memo(({ data, selected, type }) => {
             variant="body2"
             sx={{
               fontWeight: 600,
-              color: '#333',
+              color: 'var(--mui-palette-text-primary)',
               lineHeight: 1.2,
               overflow: 'hidden',
               textOverflow: 'ellipsis',

@@ -72,9 +72,9 @@ const TicketsList = ({
   const hasActiveFilters = filters.status || filters.priority || filters.search;
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'var(--mui-palette-background-paper)' }}>
       {/* Add New Ticket Button */}
-      <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
+      <Box sx={{ p: 2, borderBottom: '1px solid var(--mui-palette-divider)' }}>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -87,7 +87,7 @@ const TicketsList = ({
       </Box>
 
       {/* Filters Section */}
-      <Box sx={{ borderBottom: '1px solid #e0e0e0' }}>
+      <Box sx={{ borderBottom: '1px solid var(--mui-palette-divider)' }}>
         <Accordion
           expanded={filtersExpanded}
           onChange={() => setFiltersExpanded(!filtersExpanded)}

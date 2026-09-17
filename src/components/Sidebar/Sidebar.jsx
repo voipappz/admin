@@ -40,7 +40,7 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
   const { selectedCustomer } = useCustomerEnvironment();
   // The assistant opened only on Cmd/Ctrl+Shift+A, so nobody found it.
   const { openAIDrawer } = useAIChatSidebar() || {};
-  const isMobile = useMediaQuery('(max-width:899px)');
+  const isMobile = useMediaQuery((t) => t.breakpoints.down('md'));
   // ── Health, as one colour ────────────────────────────────────────────────
   // Two sources, because neither alone tells the truth:
   //   useApiHealth   the app plane — DB / Redis / NATS, from GET /health

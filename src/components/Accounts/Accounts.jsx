@@ -227,7 +227,7 @@ const Accounts = () => {
           }}
         >
           {/* Header */}
-          <Box sx={{ borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ borderBottom: '1px solid var(--mui-palette-divider)', display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <CentralizedSearch
                 segments={accountSegments}
@@ -443,7 +443,7 @@ const Accounts = () => {
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={handleRowsPerPageChange}
               rowsPerPageOptions={[10, 25, 50, 100]}
-              sx={{ borderTop: '1px solid #e0e0e0' }}
+              sx={{ borderTop: '1px solid var(--mui-palette-divider)' }}
             />
           </Box>
         </Paper>

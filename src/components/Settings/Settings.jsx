@@ -81,8 +81,8 @@ const Settings = () => {
   return (
     <Box sx={{ display: 'flex', gap: 2, p: { xs: 1, sm: 2, md: 3 }, height: '100%', overflow: 'hidden' }}>
       {/* Option views */}
-      <Paper elevation={0} sx={{ width: 240, flexShrink: 0, border: '1px solid #e0e0e0', borderRadius: 2, overflow: 'auto' }}>
-        <Typography variant="subtitle2" sx={{ px: 2, pt: 2, pb: 1, fontWeight: 700, color: '#333' }}>
+      <Paper elevation={0} sx={{ width: 240, flexShrink: 0, border: '1px solid var(--mui-palette-divider)', borderRadius: 2, overflow: 'auto' }}>
+        <Typography variant="subtitle2" sx={{ px: 2, pt: 2, pb: 1, fontWeight: 700, color: 'var(--mui-palette-text-primary)' }}>
           Settings
         </Typography>
         <List dense>
@@ -98,7 +98,7 @@ const Settings = () => {
       </Paper>
 
       {/* Active view */}
-      <Paper elevation={0} sx={{ flexGrow: 1, border: '1px solid #e0e0e0', borderRadius: 2, p: 2, overflow: 'auto' }}>
+      <Paper elevation={0} sx={{ flexGrow: 1, border: '1px solid var(--mui-palette-divider)', borderRadius: 2, p: 2, overflow: 'auto' }}>
         <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>{active.label}</Typography>
         <ActiveView />
       </Paper>

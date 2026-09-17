@@ -346,7 +346,7 @@ const EntityLogsDialog = ({
       }}
     >
       <DialogTitle sx={{
-        borderBottom: '1px solid #e5e7eb',
+        borderBottom: '1px solid var(--mui-palette-divider)',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -369,8 +369,8 @@ const EntityLogsDialog = ({
           elevation={0}
           sx={{
             p: 1.5,
-            bgcolor: '#ffffff',
-            border: '1px solid #e5e7eb',
+            bgcolor: 'var(--mui-palette-background-paper)',
+            border: '1px solid var(--mui-palette-divider)',
             borderRadius: 1,
             flexShrink: 0
           }}
@@ -568,7 +568,7 @@ const EntityLogsDialog = ({
             display: 'flex',
             flexDirection: 'column',
             minHeight: 0,
-            border: '1px solid #e5e7eb',
+            border: '1px solid var(--mui-palette-divider)',
             borderRadius: 1,
             overflow: 'hidden'
           }}
@@ -577,8 +577,8 @@ const EntityLogsDialog = ({
           <Box sx={{
             px: 2,
             py: 0.5,
-            bgcolor: '#f8fafc',
-            borderBottom: '1px solid #e5e7eb',
+            bgcolor: 'var(--mui-palette-surface-muted)',
+            borderBottom: '1px solid var(--mui-palette-divider)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center'
@@ -619,8 +619,8 @@ const EntityLogsDialog = ({
 
           {/* Pagination Controls */}
           <Box sx={{
-            borderTop: '1px solid #e5e7eb',
-            bgcolor: '#f8fafc',
+            borderTop: '1px solid var(--mui-palette-divider)',
+            bgcolor: 'var(--mui-palette-surface-muted)',
             display: 'flex',
             justifyContent: 'flex-end',
             alignItems: 'center'

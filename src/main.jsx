@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client'
 import * as Sentry from "@sentry/react";
 import { sentryBeforeSend } from './services/sentryZendeskIntegration';
 import './index.css'
-import './global-forms.css'
 import App from './App.jsx'
 
 // Only initialize Sentry in production to avoid noisy dev errors and unnecessary Zendesk tickets

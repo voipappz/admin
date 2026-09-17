@@ -148,7 +148,7 @@ const DynamicSchemaForm = ({
           textAlign: 'center', 
           mb: 4, 
           fontWeight: 'bold',
-          color: '#333'
+          color: 'var(--mui-palette-text-primary)'
         }}
       >
         Create {formatTypeName(schemaType)} Schema

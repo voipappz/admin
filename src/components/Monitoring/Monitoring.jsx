@@ -59,7 +59,7 @@ const LOG_CARDS = [
 ];
 
 const SEVERITY_SERIES = [
-  { field: 'debug',   name: 'Debug',    color: '#9ca3af' },
+  { field: 'debug',   name: 'Debug',    color: 'var(--mui-palette-text-secondary)' },
   { field: 'info',    name: 'Info',     color: '#3b82f6' },
   { field: 'notice',  name: 'Notice',   color: '#06b6d4' },
   { field: 'warning', name: 'Warning',  color: '#f59e0b' },

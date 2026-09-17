@@ -800,7 +800,7 @@ const Calls = () => {
               }}
             />
           ) : (
-            <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 3 }}>
+            <Typography variant="body2" sx={{ color: 'var(--mui-palette-text-secondary)', textAlign: 'center', py: 3 }}>
               No calls in the selected period.
             </Typography>
           ))}

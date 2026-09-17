@@ -8,9 +8,9 @@ import { Chip } from '@mui/material';
 const EDGE_STYLES = {
   'did-bridge':    { color: '#1976d2', dash: false, chipColor: 'primary' },
   'ivr-entry':     { color: '#7b1fa2', dash: false, chipColor: 'secondary' },
-  'ivr-timeout':   { color: '#9e9e9e', dash: true,  chipColor: 'default' },
+  'ivr-timeout':   { color: 'var(--mui-palette-text-secondary)', dash: true,  chipColor: 'default' },
   'ivr-invalid':   { color: '#d32f2f', dash: true,  chipColor: 'error' },
-  'queue-timeout': { color: '#9e9e9e', dash: true,  chipColor: 'default' },
+  'queue-timeout': { color: 'var(--mui-palette-text-secondary)', dash: true,  chipColor: 'default' },
   'queue-intro':   { color: '#0288d1', dash: false, chipColor: 'info' },
   'queue-hold':    { color: '#0288d1', dash: false, chipColor: 'info' },
   'cc-rule':       { color: '#ed6c02', dash: false, chipColor: 'warning' },

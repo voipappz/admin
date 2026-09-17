@@ -246,19 +246,19 @@ const StatusCard = ({
 
       {/* Stats */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-        <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+        <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)' }}>
           LT: <span style={{ color: '#fff' }}>{stats.lt}</span>
         </Typography>
-        <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+        <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)' }}>
           AVG: <span style={{ color: '#fff' }}>{stats.avg}</span>
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 'auto' }}>
           <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#22c55e' }} />
-          <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.6rem' }}>Online</Typography>
+          <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', fontSize: '0.6rem' }}>Online</Typography>
           <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#f59e0b', ml: 0.5 }} />
-          <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.6rem' }}>Maint.</Typography>
+          <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', fontSize: '0.6rem' }}>Maint.</Typography>
           <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#ef4444', ml: 0.5 }} />
-          <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.6rem' }}>Offline</Typography>
+          <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', fontSize: '0.6rem' }}>Offline</Typography>
         </Box>
       </Box>
 
@@ -276,7 +276,7 @@ const StatusCard = ({
           size="small"
           sx={{
             '& .MuiToggleButton-root': {
-              color: '#94a3b8',
+              color: 'var(--mui-palette-text-secondary)',
               borderColor: '#374151',
               fontSize: '0.65rem',
               py: 0.25,
@@ -324,7 +324,7 @@ const StatusCard = ({
                   borderRadius: 4,
                   fontSize: 11
                 }}
-                labelStyle={{ color: '#94a3b8' }}
+                labelStyle={{ color: 'var(--mui-palette-text-secondary)' }}
                 formatter={(value) => [`${value} ms`, 'Response']}
               />
               <Line
@@ -339,7 +339,7 @@ const StatusCard = ({
           </ResponsiveContainer>
         ) : (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <Typography variant="caption" sx={{ color: '#64748b' }}>
+            <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)' }}>
               No data available
             </Typography>
           </Box>
@@ -349,10 +349,10 @@ const StatusCard = ({
       {/* Current Value */}
       {monitor?.last_value !== undefined && (
         <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid #374151' }}>
-          <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+          <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)' }}>
             Current: <span style={{ color: '#fff', fontWeight: 600 }}>{monitor.last_value}</span>
             {monitor?.threshold && (
-              <span style={{ color: '#64748b' }}>
+              <span style={{ color: 'var(--mui-palette-text-secondary)' }}>
                 {' '}(threshold: {monitor.operator === 'lt' ? '<' : monitor.operator === 'gt' ? '>' : '='} {monitor.threshold})
               </span>
             )}

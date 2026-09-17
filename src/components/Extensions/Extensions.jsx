@@ -708,7 +708,7 @@ const Extensions = () => {
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={handleRowsPerPageChange}
               rowsPerPageOptions={[10, 25, 50, 100]}
-              sx={{ borderTop: '1px solid #e0e0e0' }}
+              sx={{ borderTop: '1px solid var(--mui-palette-divider)' }}
             />
           </Box>
         </Paper>
@@ -874,7 +874,7 @@ const Extensions = () => {
             <CircularProgress sx={{ my: 4 }} />
           ) : (
             <>
-              <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, border: '1px solid #e0e0e0' }}>
+              <Box sx={{ p: 2, bgcolor: 'var(--mui-palette-background-paper)', borderRadius: 1, border: '1px solid var(--mui-palette-divider)' }}>
                 <img
                   src={qrImageUrl}
                   alt={`QR Code for ${qrExtension?.name}`}

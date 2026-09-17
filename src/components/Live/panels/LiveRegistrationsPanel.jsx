@@ -9,23 +9,23 @@ import LiveChartStrip from '../LiveChartStrip';
 
 const gridSx = {
   ...stripedDataGridSx,
-  backgroundColor: '#fff', color: '#333', border: '1px solid #e0e0e0',
-  '& .MuiDataGrid-cell': { color: '#333', borderColor: '#e0e0e0', cursor: 'pointer' },
-  '& .MuiDataGrid-columnHeader': { backgroundColor: '#f5f5f5', color: '#333', borderColor: '#e0e0e0' },
-  '& .MuiDataGrid-footerContainer': { backgroundColor: '#f5f5f5', color: '#333', borderColor: '#e0e0e0' },
+  backgroundColor: 'var(--mui-palette-background-paper)', color: 'var(--mui-palette-text-primary)', border: '1px solid var(--mui-palette-divider)',
+  '& .MuiDataGrid-cell': { color: 'var(--mui-palette-text-primary)', borderColor: 'var(--mui-palette-divider)', cursor: 'pointer' },
+  '& .MuiDataGrid-columnHeader': { backgroundColor: 'var(--mui-palette-surface-muted)', color: 'var(--mui-palette-text-primary)', borderColor: 'var(--mui-palette-divider)' },
+  '& .MuiDataGrid-footerContainer': { backgroundColor: 'var(--mui-palette-surface-muted)', color: 'var(--mui-palette-text-primary)', borderColor: 'var(--mui-palette-divider)' },
 };
 
 const getRowId = (row) => row.id || row.uuid || `row-${Math.random().toString(36).slice(2, 11)}`;
 
 const RegDetail = ({ row, onClose }) => (
-  <Paper elevation={0} sx={{ width: 300, flexShrink: 0, border: '1px solid #e0e0e0', borderRadius: 2, p: 2, backgroundColor: '#fff', overflowY: 'auto' }}>
+  <Paper elevation={0} sx={{ width: 300, flexShrink: 0, border: '1px solid var(--mui-palette-divider)', borderRadius: 2, p: 2, backgroundColor: 'var(--mui-palette-background-paper)', overflowY: 'auto' }}>
     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#333', flexGrow: 1 }}>Registration Detail</Typography>
+      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'var(--mui-palette-text-primary)', flexGrow: 1 }}>Registration Detail</Typography>
       <IconButton size="small" onClick={onClose}><CloseIcon fontSize="small" /></IconButton>
     </Box>
     {Object.entries(row).filter(([, v]) => v !== null && v !== undefined && v !== '' && typeof v !== 'object').map(([k, v]) => (
-      <Box key={k} sx={{ display: 'flex', py: 0.5, borderBottom: '1px solid #f1f5f9' }}>
-        <Typography variant="caption" sx={{ width: 110, flexShrink: 0, color: '#6b7280', fontFamily: 'monospace', fontSize: 11, fontWeight: 600 }}>{k}</Typography>
+      <Box key={k} sx={{ display: 'flex', py: 0.5, borderBottom: '1px solid var(--mui-palette-divider)' }}>
+        <Typography variant="caption" sx={{ width: 110, flexShrink: 0, color: 'var(--mui-palette-text-secondary)', fontFamily: 'monospace', fontSize: 11, fontWeight: 600 }}>{k}</Typography>
         <Typography variant="caption" sx={{ color: '#111', wordBreak: 'break-all' }}>{String(v)}</Typography>
       </Box>
     ))}
@@ -68,7 +68,7 @@ const LiveRegistrationsPanel = ({ open = true }) => {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         sx={{ my: 2, width: { xs: '100%', sm: 320 } }}
-        InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ color: '#999' }} /></InputAdornment>) }}
+        InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ color: 'var(--mui-palette-text-secondary)' }} /></InputAdornment>) }}
       />
 
       {error && (
@@ -91,7 +91,7 @@ const LiveRegistrationsPanel = ({ open = true }) => {
             onRowClick={(params) => setSelectedRow(params.row)}
             sx={gridSx}
           />
-          <Typography variant="caption" sx={{ color: '#999', mt: 0.5, display: 'block' }}>
+          <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', mt: 0.5, display: 'block' }}>
             {search ? `Showing ${filtered.length} of ${totalCount}` : `${totalCount} registration${totalCount === 1 ? '' : 's'}`} · auto-refreshes every 30s
           </Typography>
         </Box>

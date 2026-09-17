@@ -334,7 +334,7 @@ const CampaignNumbersDialog = ({ open, onClose, campaign, canWrite = true }) => 
           rowsPerPage={rowsPerPage}
           onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
           rowsPerPageOptions={[10, 25, 50, 100]}
-          sx={{ borderTop: '1px solid #e0e0e0' }}
+          sx={{ borderTop: '1px solid var(--mui-palette-divider)' }}
         />
       </DialogContent>
 

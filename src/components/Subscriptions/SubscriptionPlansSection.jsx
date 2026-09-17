@@ -90,7 +90,7 @@ const SubscriptionPlansSection = ({ subscriptionId }) => { // Accept subscriptio
       {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
 
       {/* Plans Table */}
-      <TableContainer component={Paper} sx={{ boxShadow: 'none', border: '1px solid #e0e0e0' }}> {/* Added subtle border */}
+      <TableContainer component={Paper} sx={{ boxShadow: 'none', border: '1px solid var(--mui-palette-divider)' }}> {/* Added subtle border */}
         <Table size="small"> {/* Made table smaller */}
           <TableHead>
             <TableRow>

@@ -109,7 +109,7 @@ export const useSkillEditor = (initialSkills = [], typeFilter = 'user') => {
     const placeholders = missingUuids.map(uuid => ({
       uuid,
       name: 'Unknown Skill',
-      color: '#9E9E9E'
+      color: 'var(--mui-palette-text-secondary)'
     }));
 
     setSkills([...skillObjects, ...placeholders]);
