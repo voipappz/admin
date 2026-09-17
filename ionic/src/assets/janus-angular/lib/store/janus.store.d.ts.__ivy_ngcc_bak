@@ -1,0 +1,40 @@
+import { OnDestroy } from '@angular/core';
+import { ComponentStore } from '@ngrx/component-store';
+import { Observable } from 'rxjs';
+import { VideoroomState } from './reducers/janus.reducers';
+import * as actions from './actions/janus.actions';
+import { JanusService } from '../services/janus.service';
+import { IceServer, RoomInfo, RemoteFeed } from '../models/janus.models';
+/** @internal */
+export declare class JanusStore extends ComponentStore<VideoroomState> implements OnDestroy {
+    private readonly janusService;
+    private debug;
+    constructor(janusService: JanusService);
+    /************************************
+     *          Selectors
+     ************************************/
+    readonly remoteFeeds$: Observable<RemoteFeed[]>;
+    readonly readyRemoteFeeds$: Observable<RemoteFeed[]>;
+    readonly roomInfo$: Observable<RoomInfo>;
+    readonly state$: Observable<VideoroomState>;
+    /************************************
+     *            Reducers
+     ************************************/
+    readonly reduce: (t: actions.InitializeJanus | actions.InitializeJanusSuccess | actions.InitializeJanusFail | actions.AttachVideoRoom | actions.AttachVideoRoomFail | actions.AttachCallback | actions.Register | actions.AttachRemoteFeed | actions.AttachRemoteFeedFail | actions.PublishOwnFeed | actions.PublishOwnFeedSuccess | actions.PublishOwnFeedFail | actions.RequestSubstream | actions.ToggleMuteSuccess | actions.AnswerRemoteFeedJsepSuccess | actions.AnswerRemoteFeedJsepFail | Observable<actions.JanusAction>) => import("rxjs").Subscription;
+    readonly resetState: () => void;
+    readonly testAddRemoteFeed: (t: RemoteFeed | Observable<RemoteFeed>) => import("rxjs").Subscription;
+    /************************************
+     *            Effects
+     ************************************/
+    readonly initialize: (observableOrValue: IceServer[] | Observable<IceServer[]>) => import("rxjs").Subscription;
+    readonly attachVideoRoom: (observableOrValue: string | Observable<string>) => import("rxjs").Subscription;
+    readonly publishOwnFeed: (observableOrValue: actions.PublishOwnFeedPayload | Observable<actions.PublishOwnFeedPayload>) => import("rxjs").Subscription;
+    readonly attachRemoteFeed: (observableOrValue: actions.AttachRemoteFeedPayload | Observable<actions.AttachRemoteFeedPayload>) => import("rxjs").Subscription;
+    readonly register: (observableOrValue: actions.RegisterPayload | Observable<actions.RegisterPayload>) => import("rxjs").Subscription;
+    readonly requestSubstream: (observableOrValue: actions.RequestSubstreamPayload | Observable<actions.RequestSubstreamPayload>) => import("rxjs").Subscription;
+    readonly setMute: (observableOrValue: boolean | Observable<boolean>) => import("rxjs").Subscription;
+    readonly reset: (observableOrValue: IceServer[] | Observable<IceServer[]>) => import("rxjs").Subscription;
+    attachMediaStream(elemId: any, streamId: any): void;
+    ngOnDestroy(): void;
+    log(msg: any, ...args: any[]): void;
+}

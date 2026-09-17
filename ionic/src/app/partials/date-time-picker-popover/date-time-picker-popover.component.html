@@ -1,0 +1,20 @@
+<ion-header translucent="true">
+    <ion-toolbar>
+      <ion-buttons slot="start">
+        <ion-button (click)="dismiss()">
+          <ion-icon name="arrow-back-outline"></ion-icon>
+        </ion-button>
+      </ion-buttons>
+  
+      
+  
+      <ion-buttons slot="end">
+        <!-- <ion-button fill="solid" color="primary" (click)="setTime()">
+          <ion-label>{{'BUTTONS.SAVE'|translate}}</ion-label>
+        </ion-button> -->
+        <ion-button fill="solid" color="primary"  (click)="setTime()" strong>{{'BUTTONS.DONE'|translate}}</ion-button>
+      </ion-buttons>
+    </ion-toolbar>
+  </ion-header>
+<!-- <ion-datetime (ionChange)="timeChanged($event)" presentation="time"  [(ngModel)]="data" ></ion-datetime> -->
+<ion-datetime hourCycle="h23" [min]="min_date" presentation="time" (ionChange)="timeChanged($event)"   [value]="data.time" ></ion-datetime>

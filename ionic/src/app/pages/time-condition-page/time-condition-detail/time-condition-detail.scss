@@ -1,0 +1,36 @@
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+}
+
+.tc-embedded-content {
+    padding: 0;
+}
+
+ion-card {
+    margin: 8px 0;
+}
+
+ion-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+}
+
+.count-badge {
+    font-size: 12px;
+    padding: 2px 8px;
+}
+
+ion-item h3 {
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+ion-item p {
+    color: var(--ion-color-medium);
+    font-size: 14px;
+}

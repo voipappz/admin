@@ -86,6 +86,57 @@ RUN test -f extension-build.zip && \
       if(!m.background||!m.background.service_worker) throw new Error("manifest missing background.service_worker"); \
       console.log("manifest ok:", m.name, m.version)'
 
+# ---------------------------------------------------------------------------
+# The Ionic app.
+# ---------------------------------------------------------------------------
+# A SEPARATE STAGE, for the same reason as the extension above: node lives and
+# dies here. The final image copies ONE DIRECTORY of static files out of it and
+# carries no node, no npm and no node_modules.
+#
+# NODE 22, per ionic/.nvmrc. Angular 21 is below neither — it refuses node 20
+# at its engines floor, so this is not interchangeable with the extension's
+# node:20 stage above.
+FROM node:22 AS ionic
+WORKDIR /ionic
+
+# Dependencies first, so a source-only change reuses this layer.
+# --legacy-peer-deps: the tree does not satisfy npm 7+ peer resolution
+# (@angular-eslint 19 against Angular 21, protractor against current rxjs).
+COPY ionic/package.json ionic/package-lock.json ./
+RUN npm ci --legacy-peer-deps --no-audit --no-fund
+
+COPY ionic/ ./
+
+# --base-href /app/ IS NOT OPTIONAL. index.html references every asset
+# relatively (`assets/config/main.js`, the hashed bundles), so built at / and
+# served at /app every one of them 404s — a build that compiles perfectly and
+# renders a blank page, which only shows in front of a user.
+RUN npx ng build --configuration=production --base-href /app/
+
+# Plug.Static's `gzip: true` serves `foo.js.gz` IF IT EXISTS, and it is
+# `mix phx.digest` that normally writes those. This bundle deliberately lives
+# outside priv/static so digest never sees it — so the .gz files are made here
+# or not at all, and without them the option silently does nothing and every
+# phone downloads the uncompressed bundle. -k keeps the original: Plug.Static
+# needs both, and falls back to the plain file for a client that sent no
+# accept-encoding.
+RUN find www -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' \
+      -o -name '*.json' -o -name '*.svg' \) -exec gzip -9 -k -f {} + \
+    && echo "compressed $(find www -name '*.gz' | wc -l) files"
+
+# THE SAME ASSERTIONS `make -C ionic check` runs, here where a broken build
+# cannot reach a deploy. A wrong base href and a stale index.html naming a
+# chunk the build no longer emits are both silent: the image builds, the node
+# boots, /app answers 200, and the page is blank.
+RUN set -eu; \
+    test -f www/index.html || { echo "no www/index.html — the build produced nothing"; exit 1; }; \
+    grep -q '<base href="/app/"' www/index.html \
+      || { echo "index.html has no <base href=\"/app/\"> — every asset would 404"; exit 1; }; \
+    main=$(grep -oE 'src="main[^"]*\.js"' www/index.html | head -1 | sed 's/src="//;s/"//'); \
+    test -n "$main" || { echo "index.html names no main bundle"; exit 1; }; \
+    test -f "www/$main" || { echo "index.html names www/$main, absent from the build"; exit 1; }; \
+    echo "ionic ok: $main"
+
 FROM ${BASE_IMAGE} AS builder
 
 WORKDIR /app
@@ -130,6 +181,16 @@ COPY connectix/lib lib
 # `static_paths()` and `mix phx.digest` leaves it alone -- a digested zip under
 # a content-hashed name is a file no install instruction can name.
 COPY --from=extension /ext/extension-build.zip priv/extension/voipappz-extension.zip
+
+# The Ionic app, into the release. priv/app/ and NOT priv/static/app/ for a
+# neighbouring reason: `mix phx.digest` (run by `mix assets.deploy` below)
+# walks ALL of priv/static whatever `static_paths()` says, so a bundle there
+# gets a second content-hashed copy of every Angular chunk and a
+# cache_manifest entry -- for nothing, because Angular already hashes its own
+# filenames. Here, digest never sees it and the copy can sit before or after
+# `assets.deploy` without the order mattering. Served by its own `Plug.Static`
+# declaration in the endpoint, at /app.
+COPY --from=ionic /ionic/www priv/app
 
 # WHICH BUILD, as opposed to which version. mix.exs is bumped deliberately and
 # therefore rarely: two deploys a week apart are both "0.1.0", so the version

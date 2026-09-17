@@ -4,10 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**This is a pure-BEAM app.** There is no Node, no Vite, no React anywhere in
-this stack — the React SPA this repo used to ship was removed. `connectix/`
-(a Phoenix/Elixir app) is the whole product: it serves the LiveView UI, the
-realtime socket, and the API forwarder from one process, on one port.
+**WHAT SHIPS IS PURE BEAM.** `connectix/` (a Phoenix/Elixir app) is the whole
+runtime: one process, one port, serving the UI, the realtime socket and the
+API forwarder. The release image carries no node, no npm and no
+`node_modules`, and the React SPA this repo used to ship is gone.
+
+**Two clients are BUILT here, in node, and neither one runs here.** They are
+static artefacts the portal serves:
+
+| | | |
+|---|---|---|
+| `chrome/` | Angular 11, node:20 | the Chrome extension — `make extension`, then Load unpacked from `chrome/angular/dist` |
+| `ionic/` | Angular 21 / Ionic 8 / Capacitor 6, node:22 | the app — `make app` bundles it into `connectix/priv/app`, served at **`/app`** |
+
+Each has its own `package.json`, its own container and its own
+`node_modules` volume; node lives and dies in a build stage
+(`Dockerfile.production`'s `extension` and `ionic` stages) and the final image
+copies one zip and one directory out. "Pure BEAM" is a property of what
+**ships**, and it still holds — but "there is no node in this repo" stopped
+being true and was worth correcting rather than working around.
 
 **VoipAppZ portal** — a VoIP/telecom portal for **users** — access is
 user-based (user → permissions → environments); no tenant model in the app.
@@ -28,6 +43,8 @@ changes **env, not code**.
 | `make up` / `make down` | Same stack, detached |
 | `make logs` | Follow the portal's logs |
 | `make health` | Where it is, whether it answers, and whether events are arriving |
+| `make app` | Build the Ionic app and bundle it into the portal — served at `/app` |
+| `make extension` | Build the Chrome extension into `chrome/angular/dist` |
 | `make test` | `mix compile --warnings-as-errors` then the Elixir suite, in Docker — `TEST=path/pattern` narrows it |
 | `make ci` | Run the CI workflow locally with `act` — `JOB=portal\|prod-image\|all` |
 | `make iex` / `make tui` / `make tmux` | Cockpit — attach a shell to the running portal, a live terminal dashboard, or a three-pane log+health view |
@@ -150,8 +167,15 @@ release alone, no frontend build).
 event projection, calls-per-hour, the dashboard/widget store, transcript
 reads, an event inspector and a read-only MCP surface. It was deleted when
 Elixir took over the origin. Later, a React SPA (`src/`) served as the UI
-while the LiveView equivalent was being restored; it too is gone — the
-LiveView UI is the UI now.
+while the LiveView equivalent was being restored; it too is gone.
+
+**The Ionic app at `/app` is not a third one of those.** The difference is
+that it is not a second SERVER: it is static files inside this release, served
+by this origin, with no process, port or deploy of its own. It is also
+intended to become THE UI — the LiveView `/chat` retires when the Ionic app
+reaches parity on the agent chat, and not before, because `ChatLive` is also
+the only UI for the softphone. What is decided and what is left is in
+`docs/ionic-app.md`.
 
 **What that leaves unserved**, until each lands in Elixir: `/dashboard/*`,
 `/events`, `/transcript`, and the `/rest/v1` PostgREST plane. Those routes

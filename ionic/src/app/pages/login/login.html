@@ -1,0 +1,159 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-title>{{'AUTH.LOGIN.TITLE'|translate}}</ion-title>
+    <ion-buttons slot="end">
+      <va-settings [page]="'login'"></va-settings>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <ion-grid class="auth-grid">
+    <ion-row class="ion-justify-content-center">
+      <ion-col size="12">
+
+        <div class="login-logo ion-text-center">
+          <img [src]="customer_data?.logo_url">
+        </div>
+
+        <ion-text color="danger" *ngIf="errorMessage">
+          <p class="ion-text-center auth-message">{{ errorMessage }}</p>
+        </ion-text>
+        <ion-text color="success" *ngIf="successMessage">
+          <p class="ion-text-center auth-message">{{ successMessage }}</p>
+        </ion-text>
+
+        <!-- ============ STEP: LOGIN ============ -->
+        <ion-card *ngIf="step === 'login'">
+          <ion-card-header>
+            <ion-card-title>{{'AUTH.LOGIN.TITLE'|translate}}</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <form #loginForm="ngForm" novalidate autocomplete="off">
+              <ion-input
+                [(ngModel)]="login.email" name="email" #email="ngModel"
+                label="{{'AUTH.INPUT.EMAIL'|translate}}" labelPlacement="stacked"
+                fill="outline" type="email" inputmode="email"
+                autocapitalize="off" dir="ltr" required>
+              </ion-input>
+
+              <ion-input class="ion-margin-top"
+                [(ngModel)]="login.password" name="password" #password="ngModel"
+                label="{{'AUTH.INPUT.PASSWORD'|translate}}" labelPlacement="stacked"
+                fill="outline" type="password" dir="ltr" required>
+                <ion-input-password-toggle slot="end"></ion-input-password-toggle>
+              </ion-input>
+
+              <ion-button class="ion-margin-top" expand="block"
+                (click)="onLogin(loginForm)" [disabled]="loginForm.invalid" type="submit">
+                {{'AUTH.LOGIN.BUTTON'|translate}}
+              </ion-button>
+
+              <ion-button expand="block" fill="clear" size="small" (click)="openForgot()">
+                {{'AUTH.GENERAL.FORGOT_BUTTON'|translate}}
+              </ion-button>
+            </form>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- ============ STEP: OTP (login + forgot share this) ============ -->
+        <ion-card *ngIf="isOtpStep">
+          <ion-card-header class="ion-text-center">
+            <ion-icon name="shield-checkmark-outline" class="auth-icon" color="primary"></ion-icon>
+            <ion-card-title>{{'AUTH.OTP.TITLE'|translate}}</ion-card-title>
+            <ion-card-subtitle>{{'AUTH.OTP.DESC'|translate:{email: otpEmail} }}</ion-card-subtitle>
+          </ion-card-header>
+          <ion-card-content>
+            <div class="otp-boxes ion-text-center" dir="ltr">
+              <ion-input-otp
+                [(ngModel)]="otpCode" type="number" [length]="otpLength"
+                autocapitalize="off" (ionComplete)="onOtpComplete($event)">
+              </ion-input-otp>
+            </div>
+
+            <ion-button class="ion-margin-top" expand="block"
+              (click)="submitActiveOtp()" [disabled]="!otpComplete">
+              {{'AUTH.OTP.VERIFY'|translate}}
+            </ion-button>
+
+            <div class="ion-text-center ion-margin-top">
+              <ion-button *ngIf="resendSeconds === 0" fill="clear" size="small" (click)="resendOtp()">
+                {{'AUTH.OTP.RESEND'|translate}}
+              </ion-button>
+              <ion-note *ngIf="resendSeconds > 0" color="medium">
+                {{'AUTH.OTP.RESEND_IN'|translate:{sec: resendSeconds} }}
+              </ion-note>
+            </div>
+
+            <ion-button expand="block" fill="clear" size="small" (click)="backToLogin()">
+              {{'AUTH.GENERAL.BACK_BUTTON'|translate}}
+            </ion-button>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- ============ STEP: FORGOT - EMAIL ============ -->
+        <ion-card *ngIf="step === 'forgot-email'">
+          <ion-card-header class="ion-text-center">
+            <ion-icon name="mail-outline" class="auth-icon" color="primary"></ion-icon>
+            <ion-card-title>{{'AUTH.FORGOT.TITLE'|translate}}</ion-card-title>
+            <ion-card-subtitle>{{'AUTH.FORGOT.DESC'|translate}}</ion-card-subtitle>
+          </ion-card-header>
+          <ion-card-content>
+            <ion-input
+              [(ngModel)]="forgotEmail" name="forgotEmail"
+              label="{{'AUTH.INPUT.EMAIL'|translate}}" labelPlacement="stacked"
+              fill="outline" type="email" inputmode="email"
+              autocapitalize="off" dir="ltr">
+            </ion-input>
+
+            <ion-button class="ion-margin-top" expand="block"
+              (click)="onForgotEmail()" [disabled]="!forgotEmail">
+              {{'AUTH.GENERAL.SUBMIT_BUTTON'|translate}}
+            </ion-button>
+            <ion-button expand="block" fill="clear" size="small" (click)="backToLogin()">
+              {{'AUTH.GENERAL.BACK_BUTTON'|translate}}
+            </ion-button>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- ============ STEP: FORGOT - RESET ============ -->
+        <ion-card *ngIf="step === 'forgot-reset'">
+          <ion-card-header class="ion-text-center">
+            <ion-icon name="lock-closed-outline" class="auth-icon" color="primary"></ion-icon>
+            <ion-card-title>{{'AUTH.RESET.TITLE'|translate}}</ion-card-title>
+            <ion-card-subtitle>{{'AUTH.RESET.DESC'|translate}}</ion-card-subtitle>
+          </ion-card-header>
+          <ion-card-content>
+            <ion-input
+              [(ngModel)]="newPassword" name="newPassword"
+              label="{{'AUTH.INPUT.PASSWORD'|translate}}" labelPlacement="stacked"
+              fill="outline" type="password" dir="ltr"
+              helperText="{{'AUTH.RESET.MIN_HINT'|translate}}">
+              <ion-input-password-toggle slot="end"></ion-input-password-toggle>
+            </ion-input>
+            <ion-input class="ion-margin-top"
+              [(ngModel)]="confirmPassword" name="confirmPassword"
+              label="{{'AUTH.INPUT.CONFIRM_PASSWORD'|translate}}" labelPlacement="stacked"
+              fill="outline" type="password" dir="ltr">
+              <ion-input-password-toggle slot="end"></ion-input-password-toggle>
+            </ion-input>
+
+            @if (confirmPassword && newPassword !== confirmPassword) {
+              <ion-text color="danger"><p class="auth-message">{{'AUTH.RESET.MISMATCH'|translate}}</p></ion-text>
+            }
+
+            <ion-button class="ion-margin-top" expand="block"
+              (click)="onForgotReset()"
+              [disabled]="!newPassword || newPassword.length < 8 || newPassword !== confirmPassword">
+              {{'AUTH.RESET.BUTTON'|translate}}
+            </ion-button>
+            <ion-button expand="block" fill="clear" size="small" (click)="backToLogin()">
+              {{'AUTH.GENERAL.BACK_BUTTON'|translate}}
+            </ion-button>
+          </ion-card-content>
+        </ion-card>
+
+      </ion-col>
+    </ion-row>
+  </ion-grid>
+</ion-content>

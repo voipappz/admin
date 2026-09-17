@@ -1,0 +1,65 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/app/reports"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{ name || ('REPORTS.RESULT' | translate) }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="run()">
+        <ion-icon slot="icon-only" name="refresh"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-refresher slot="fixed" (ionRefresh)="run($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="ion-padding ion-text-center">
+    <ion-spinner name="dots"></ion-spinner>
+    <p><ion-note>{{'REPORTS.RUNNING' | translate}}</ion-note></p>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="!loading && errored" class="ion-text-center ion-padding">
+    <ion-icon name="alert-circle-outline" color="danger" class="empty-icon"></ion-icon>
+    <p>{{'REPORTS.RUN_ERROR' | translate}}</p>
+    <p *ngIf="errorMsg"><ion-note color="medium">{{ errorMsg }}</ion-note></p>
+    <ion-button fill="outline" size="small" (click)="run()">{{'COMMON.RETRY' | translate}}</ion-button>
+  </div>
+
+  <!-- Empty result -->
+  <div *ngIf="!loading && !errored && rows.length === 0" class="ion-text-center ion-padding">
+    <ion-icon name="document-outline" color="medium" class="empty-icon"></ion-icon>
+    <p>{{'REPORTS.NO_DATA' | translate}}</p>
+  </div>
+
+  <!-- Results: one card per row (mobile-friendly, no wide tables) -->
+  <ng-container *ngIf="!loading && !errored && rows.length > 0">
+    <div class="result-count ion-padding-horizontal">
+      <ion-note>{{ 'REPORTS.ROW_COUNT' | translate:{ count: rows.length } }}</ion-note>
+    </div>
+
+    <ion-card *ngFor="let row of rows; let idx = index" class="row-card">
+      <ion-card-content>
+        <div class="kv" *ngFor="let col of columns">
+          <span class="kv-label">{{ col.label }}</span>
+          <span class="kv-value">{{ cell(row, col.field) }}</span>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Footer / totals -->
+    <ion-card *ngIf="footer" class="footer-card" color="light">
+      <ion-card-content>
+        <div class="kv" *ngFor="let k of (footer | keyvalue)">
+          <span class="kv-label">{{ k.key }}</span>
+          <span class="kv-value"><strong>{{ k.value }}</strong></span>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </ng-container>
+</ion-content>

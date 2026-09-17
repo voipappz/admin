@@ -1,0 +1,41 @@
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 8px;
+}
+
+.result-count {
+  margin: 8px 0 4px;
+}
+
+.row-card {
+  border-radius: 12px;
+  margin: 8px;
+}
+
+.kv {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--ion-color-light-shade);
+
+  &:last-child { border-bottom: none; }
+
+  .kv-label {
+    font-size: 12px;
+    color: var(--ion-color-medium);
+    flex-shrink: 0;
+  }
+  .kv-value {
+    font-size: 14px;
+    color: var(--ion-text-color);
+    text-align: end;
+    word-break: break-word;
+  }
+}
+
+.footer-card {
+  border-radius: 12px;
+  margin: 8px;
+}

@@ -1,0 +1,63 @@
+<div class='video-room-viewport' #viewport>
+  @if (publishing) {
+    <div
+    [ngStyle]="{ 'width.px': selfVideoWidth,
+                 'height.px': selfVideoHeight,
+                 'right.px': selfVideoRight,
+                 'bottom.px': selfVideoBottom}"
+      [class.speaker]='mode === "speaker"'
+      >
+      @if (roomInfo && roomInfo.state === 'joined') {
+        <janus-self-video
+          data-cy='default-video-room-self-video'
+          [roomInfo]="roomInfo"
+          [devices]='devices'
+          (publishOwnFeed)='onPublishOwnFeed($event)'
+        ></janus-self-video>
+      }
+    </div>
+  }
+
+  @if (mode === "grid") {
+    @for (remoteFeed of readyRemoteFeeds; track trackByFeedId($index, remoteFeed)) {
+      <div
+        [style.width.px]="videoWidth"
+        [style.height.px]="videoHeight"
+        >
+        <janus-video-box
+          data-cy='default-video-room-video-box'
+          [remoteFeed]='remoteFeed'
+          [mode]='mode'
+          [devices]='devices'
+          (maximize)='onMaximize($event)'
+          (requestSubstream)='onRequestSubstream($event)'
+        ></janus-video-box>
+      </div>
+    }
+  }
+
+  @if (mode === "speaker") {
+    <div
+      class='speaker-box'
+      [ngStyle]="{ 'width.px': speakerWidth, 'height.px': speakerHeight }">
+      <janus-video-box
+        data-cy='default-video-room-speaker-video-box'
+        [remoteFeed]='speaker'
+        [mode]='mode'
+        [devices]='devices'
+        (maximize)='onMaximize($event)'
+        (requestSubstream)='onRequestSubstream($event)'
+      ></janus-video-box>
+    </div>
+    @for (remoteFeed of readyRemoteFeeds; track trackByFeedId($index, remoteFeed)) {
+      @if (remoteFeed.id !== speaker.id) {
+        <janus-audio-box
+          data-cy='default-video-room-speaker-audio-box'
+          [remoteFeed]='remoteFeed'
+          [devices]='devices'
+          (maximize)='onMaximize($event)'>
+        </janus-audio-box>
+      }
+    }
+  }
+</div>

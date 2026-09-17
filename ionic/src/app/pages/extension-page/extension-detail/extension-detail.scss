@@ -1,0 +1,56 @@
+// Embedded mode wrapper (no ion-content)
+.extension-embedded-content {
+    // No extra padding - parent handles it
+}
+
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+}
+
+// Card styling
+ion-card {
+    margin: 16px 0;
+
+    ion-card-title {
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    ion-card-content {
+        padding-top: 0;
+    }
+
+    ion-list {
+        padding: 0;
+    }
+
+    ion-item {
+        --padding-start: 0;
+
+        h3 {
+            font-weight: 500;
+        }
+
+        p {
+            font-size: 12px;
+            color: var(--ion-color-medium);
+        }
+    }
+}
+
+// Notes
+.notes-text {
+    color: var(--ion-color-medium-shade);
+    font-style: italic;
+    white-space: pre-wrap;
+}
+
+// Delete button
+.delete-button {
+    margin: 24px 0;
+}

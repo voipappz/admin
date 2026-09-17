@@ -1,0 +1,51 @@
+// Simple vertical tree with connector lines. Uses Ionic step colors so it
+// adapts to light/dark automatically.
+.routing-tree {
+  padding: 8px 2px;
+
+  .tree-node {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--ion-color-step-150, #e3e3e3);
+    border-radius: 10px;
+    background: var(--ion-color-step-50, #fff);
+
+    ion-icon { font-size: 1.25rem; }
+    .node-label { font-weight: 500; }
+  }
+
+  .tree-branches {
+    margin-left: 20px;
+    border-left: 2px solid var(--ion-color-step-200, #cfcfcf);
+    margin-top: 6px;
+  }
+
+  .tree-child {
+    position: relative;
+    padding-left: 18px;
+    margin-top: 12px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 24px;
+      width: 16px;
+      height: 2px;
+      background: var(--ion-color-step-200, #cfcfcf);
+    }
+
+    .branch-label {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--ion-color-medium);
+      margin-bottom: 3px;
+    }
+  }
+
+  .tree-loading {
+    padding: 12px 0 0 24px;
+  }
+}

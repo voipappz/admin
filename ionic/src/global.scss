@@ -1,0 +1,118 @@
+/*
+ * App Global CSS
+ * ----------------------------------------------------------------------------
+ * Put style rules here that you want to apply globally. These styles are for
+ * the entire app and not just one component. Additionally, this file can be
+ * used as an entry point to import other CSS/Sass files to be included in the
+ * output CSS.
+ * For more information on global stylesheets, visit the documentation:
+ * https://ionicframework.com/docs/layout/global-stylesheets
+ */
+
+/* Core CSS required for Ionic components to work properly */
+@import "@ionic/angular/css/core.css";
+
+/* Basic CSS for apps built with Ionic */
+@import "@ionic/angular/css/normalize.css";
+@import "@ionic/angular/css/structure.css";
+@import "@ionic/angular/css/typography.css";
+
+/* Optional CSS utils that can be commented out */
+@import "@ionic/angular/css/padding.css";
+@import "@ionic/angular/css/float-elements.css";
+@import "@ionic/angular/css/text-alignment.css";
+@import "@ionic/angular/css/text-transformation.css";
+@import "@ionic/angular/css/flex-utils.css";
+
+
+/*
+ * App CSS
+ * ----------------------------------------------------------------------------
+ * Imports a file that can contain Sass/CSS that should be used throughout
+ * the entire app.
+ */
+
+@import "./app/app.scss";
+
+@import 'swiper/scss';
+@import '@ionic/angular/css/ionic-swiper';
+
+// placed here instead of tutorial.scss due to slide els not getting ng scoping attribute
+.swiper-slide {
+  display: block;
+}
+.toast-danger {
+  --background:#FF4127;
+  --border-color:#852114;
+  --border-radius:1px;
+  --border-style:solid;
+  --border-width:4px;
+  --button-color:#FFDD00;
+  --color:#fff;
+}
+
+ion-toast.error-toast {
+  --background: #f4f4fa;
+  --box-shadow: 3px 3px 10px 0 rgba(0, 0, 0, 0.2);
+  --color: #4b4a50;
+}
+
+ion-toast.error-toast::part(message) {
+  font-style: italic;
+}
+
+ion-toast.error-toast::part(button) {
+  border-left: 1px solid #d2d2d2;
+  color: #030207;
+  font-size: 15px;
+}
+
+ion-select {
+  &::part(container) {
+      width: 100%;
+  }
+}
+
+// Toggle styling
+ion-toggle {
+  --background: #e0e0e0;
+  --background-checked: var(--ion-color-success, #2dd36f);
+  --handle-background: #ffffff;
+  --handle-background-checked: #ffffff;
+  --handle-box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+
+  &::part(track) {
+    border-radius: 16px;
+  }
+
+  &::part(handle) {
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+}
+
+// Dark mode toggle
+body.dark ion-toggle {
+  --background: #555;
+  --background-checked: var(--ion-color-success, #2dd36f);
+}
+
+// Mobile-only presentation: on wide screens, render the app as a centered
+// phone-width column instead of stretching across the desktop viewport.
+// Ionic overlays (modals, action sheets, toasts) live inside ion-app,
+// so they stay within the frame too.
+@media (min-width: 600px) {
+  html,
+  body {
+    background: #1f2027;
+  }
+
+  ion-app {
+    position: absolute;
+    inset: 0;
+    max-width: 430px;
+    margin: 0 auto;
+    background: var(--ion-background-color, #fff);
+    box-shadow: 0 0 32px rgba(0, 0, 0, 0.45);
+  }
+}

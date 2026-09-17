@@ -1,0 +1,362 @@
+/**
+ * Conversation Page Styles
+ * WhatsApp-style chat interface for call transcripts
+ */
+
+// Variables - using theme colors for brand consistency
+$agent-bubble-color: rgba(var(--ion-color-primary-rgb), 0.12);  // Light theme tint (agent/outgoing)
+$caller-bubble-color: #ffffff;      // White (incoming/caller)
+$system-bg-color: rgba(0, 0, 0, 0.05);
+$chat-bg-color: #f5f5f5;           // Neutral light gray background
+$timestamp-color: #667781;
+$bubble-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+
+// Dark theme overrides
+:host-context(.dark-theme) {
+  .conversation-content {
+    --background: #1a1a1a;
+  }
+
+  .message-bubble {
+    box-shadow: none;
+  }
+
+  .message-agent .message-bubble {
+    background-color: rgba(var(--ion-color-primary-rgb), 0.25);
+    color: #e9edef;
+  }
+
+  .message-caller .message-bubble {
+    background-color: #2d2d2d;
+    color: #e9edef;
+  }
+
+  .system-message {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #8696a0;
+  }
+
+  .call-info-toolbar,
+  .footer-toolbar {
+    --background: #202c33;
+  }
+}
+
+// Header styles
+.header-title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+
+  .contact-name {
+    font-weight: 600;
+    font-size: 16px;
+  }
+}
+
+.call-info-toolbar {
+  --min-height: 36px;
+  --padding-start: 16px;
+  --padding-end: 16px;
+
+  .call-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--ion-color-medium);
+
+    .direction-icon {
+      font-size: 14px;
+    }
+
+    .call-date {
+      flex: 1;
+    }
+
+    .call-duration {
+      color: var(--ion-color-medium-shade);
+    }
+
+    .status-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      text-transform: uppercase;
+    }
+  }
+}
+
+// Content area
+.conversation-content {
+  --background: #{$chat-bg-color};
+
+  // Optional: WhatsApp-style pattern background
+  // background-image: url('/assets/img/chat-bg-pattern.png');
+  // background-repeat: repeat;
+}
+
+// Loading state
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  color: var(--ion-color-medium);
+
+  ion-spinner {
+    --color: var(--ion-color-primary);
+    width: 48px;
+    height: 48px;
+  }
+}
+
+// Error state
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 32px;
+  text-align: center;
+  gap: 12px;
+
+  ion-icon {
+    font-size: 64px;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  p {
+    color: var(--ion-color-medium);
+    margin: 0 0 16px 0;
+  }
+}
+
+// Processing state
+.processing-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 32px;
+  text-align: center;
+  gap: 16px;
+
+  ion-spinner {
+    --color: var(--ion-color-warning);
+    width: 48px;
+    height: 48px;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 18px;
+    color: var(--ion-color-warning-shade);
+  }
+
+  p {
+    color: var(--ion-color-medium);
+    margin: 0;
+  }
+}
+
+// Unavailable state
+.unavailable-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 32px;
+  text-align: center;
+  gap: 12px;
+
+  ion-icon {
+    font-size: 64px;
+    color: var(--ion-color-medium);
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  p {
+    color: var(--ion-color-medium);
+    margin: 0;
+  }
+}
+
+// Messages container
+.messages-container {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  gap: 4px;
+  overflow-y: auto;
+  min-height: 100%;
+}
+
+// Message wrapper
+.message-wrapper {
+  display: flex;
+  max-width: 85%;
+  margin-bottom: 2px;
+
+  &.message-agent {
+    align-self: flex-end;
+    justify-content: flex-end;
+  }
+
+  &.message-caller {
+    align-self: flex-start;
+    justify-content: flex-start;
+  }
+
+  &.message-system {
+    align-self: center;
+    max-width: 90%;
+  }
+}
+
+// Chat bubble
+.message-bubble {
+  padding: 6px 12px 8px;
+  border-radius: 8px;
+  box-shadow: $bubble-shadow;
+  position: relative;
+  word-wrap: break-word;
+  word-break: break-word;
+
+  .message-agent & {
+    background-color: $agent-bubble-color;
+    border-top-right-radius: 0;
+  }
+
+  .message-caller & {
+    background-color: $caller-bubble-color;
+    border-top-left-radius: 0;
+  }
+}
+
+.speaker-name {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 2px;
+
+  .message-agent & {
+    color: var(--ion-color-primary-shade);
+  }
+
+  .message-caller & {
+    color: var(--ion-color-medium-shade);
+  }
+}
+
+.message-text {
+  font-size: 14px;
+  line-height: 1.4;
+  color: #303030;
+
+  :host-context(.dark-theme) & {
+    color: #e9edef;
+  }
+}
+
+.message-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.message-time {
+  font-size: 11px;
+  color: $timestamp-color;
+}
+
+.low-confidence-icon {
+  font-size: 12px;
+  color: var(--ion-color-warning);
+}
+
+// System message
+.system-message {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: $system-bg-color;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+
+  .system-text {
+    color: var(--ion-color-medium-shade);
+  }
+
+  .system-time {
+    color: var(--ion-color-medium);
+    font-size: 10px;
+  }
+}
+
+// Footer
+.footer-toolbar {
+  --min-height: 44px;
+
+  .footer-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--ion-color-medium);
+
+    ion-icon {
+      font-size: 18px;
+    }
+
+    .contact-number {
+      font-family: monospace;
+    }
+  }
+}
+
+// RTL support
+:host-context([dir="rtl"]) {
+  .message-wrapper {
+    &.message-agent {
+      align-self: flex-start;
+      justify-content: flex-start;
+    }
+
+    &.message-caller {
+      align-self: flex-end;
+      justify-content: flex-end;
+    }
+  }
+
+  .message-bubble {
+    .message-agent & {
+      border-top-right-radius: 8px;
+      border-top-left-radius: 0;
+    }
+
+    .message-caller & {
+      border-top-left-radius: 8px;
+      border-top-right-radius: 0;
+    }
+  }
+
+  .message-footer {
+    justify-content: flex-start;
+  }
+}

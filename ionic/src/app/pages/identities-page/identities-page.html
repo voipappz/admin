@@ -1,0 +1,67 @@
+<ion-header translucent="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="arrow-back-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+
+    <ion-title>
+      {{'IDENTITIES.TITLE'|translate}}
+    </ion-title>
+
+    <!-- <ion-buttons slot="end">
+    <ion-button fill="solid" color="primary" (click)="applyFilters()">
+      <ion-label>{{'BUTTONS.SAVE'|translate}}</ion-label>
+    </ion-button>
+  </ion-buttons> -->
+</ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <!-- Loading state -->
+  @if (!dataAvailable) {
+    <div class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+    </div>
+  }
+
+  <!-- Data loaded -->
+  @if (dataAvailable) {
+    @if (identities.length > 0) {
+      <ion-radio-group [value]="user.active_id" (ionChange)="updateActiveId($event.detail.value)">
+        @for (id of identities; track id.uuid) {
+          <ion-card>
+            <ion-card-header class="identity-header">
+              <ion-radio [value]="id.uuid" mode="md"></ion-radio>
+              <div class="identity-info">
+                <ion-icon [color]="(user.active_id==id.uuid)?'success':'primary'" name="call-outline"></ion-icon>
+                <span class="identity-name">
+                  {{id.name}}
+                  @if (user.active_id==id.uuid) {
+                    <span class="default-badge">({{'TIME_CONDITION.BRIDGE.DEFAULT'|translate}})</span>
+                  }
+                </span>
+              </div>
+            </ion-card-header>
+            <ion-card-content>
+              <ion-item lines="none">
+                <ion-icon name="call-outline" slot="start" color="medium"></ion-icon>
+                {{id.number}}
+              </ion-item>
+            </ion-card-content>
+          </ion-card>
+        }
+      </ion-radio-group>
+    } @else {
+      <!-- Empty state -->
+      <div class="empty-state">
+        <ion-icon name="person-circle-outline" color="medium"></ion-icon>
+        <h2>{{'IDENTITIES.EMPTY_TITLE' | translate}}</h2>
+        <p>{{'IDENTITIES.EMPTY_DESCRIPTION' | translate}}</p>
+      </div>
+    }
+  }
+</ion-content>
+
+

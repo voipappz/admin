@@ -1,0 +1,127 @@
+@if (!embedded) {
+<ion-header>
+    <ion-toolbar>
+        <ion-buttons slot="start">
+            <ion-button (click)="goBack()">
+                <ion-icon name="arrow-back-outline"></ion-icon>
+            </ion-button>
+        </ion-buttons>
+        <ion-title>{{timeCondition?.name || ('TIME_CONDITION.TITLE' | translate)}}</ion-title>
+        <ion-buttons slot="end">
+            @if (timeCondition) {
+                <ion-button (click)="editTimeCondition()">
+                    <ion-icon slot="icon-only" name="create-outline"></ion-icon>
+                </ion-button>
+            }
+        </ion-buttons>
+    </ion-toolbar>
+</ion-header>
+}
+
+<!-- Use ion-content when standalone, div when embedded -->
+@if (!embedded) {
+<ion-content [fullscreen]="true" class="ion-padding">
+    <ng-container *ngTemplateOutlet="tcContent"></ng-container>
+</ion-content>
+} @else {
+<div class="tc-embedded-content">
+    <ng-container *ngTemplateOutlet="tcContent"></ng-container>
+</div>
+}
+
+<!-- Shared template for Time Condition content -->
+<ng-template #tcContent>
+    <!-- Loading state -->
+    @if (loading) {
+        <div class="loading-container">
+            <ion-spinner name="crescent"></ion-spinner>
+        </div>
+    }
+
+    <!-- Error state -->
+    @if (error && !loading) {
+        <ion-list>
+            <ion-item color="danger">
+                <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
+                {{error}}
+            </ion-item>
+        </ion-list>
+    }
+
+    <!-- Time Condition Details -->
+    @if (timeCondition && !loading) {
+        <!-- Status Section -->
+        <ion-card>
+            <ion-card-header>
+                <ion-card-title>{{'TIME_CONDITION.DETAIL.STATUS' | translate}}</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+                <ion-item lines="none">
+                    <ion-icon name="time-outline" slot="start" color="primary"></ion-icon>
+                    <ion-label>
+                        <h3>{{timeCondition.name}}</h3>
+                        <p>{{getTypeLabel()}}</p>
+                    </ion-label>
+                </ion-item>
+            </ion-card-content>
+        </ion-card>
+
+        <!-- Fallback Bridge Section (shows location info) -->
+        <ion-card>
+            <ion-card-header>
+                <ion-card-title>{{'TIME_CONDITION.BRIDGE.FALLBACK_TITLE' | translate}}</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+                <ion-item lines="none">
+                    <ion-icon [name]="getFallbackBridgeIcon()" slot="start" color="success"></ion-icon>
+                    <ion-label>
+                        <h3>{{getFallbackBridgeLabel()}}</h3>
+                        <!-- Old approach - show bridge_type:
+                        @if (timeCondition.fallback_bridge_type) {
+                            <p>{{'TIME_CONDITION.BRIDGE.BRIDGE_TYPES.' + timeCondition.fallback_bridge_type | translate}}</p>
+                        }
+                        -->
+                    </ion-label>
+                </ion-item>
+            </ion-card-content>
+        </ion-card>
+
+        <!-- Schedule Section -->
+        @if (timeCondition.resources && timeCondition.resources.length > 0) {
+            <ion-card>
+                <ion-card-header>
+                    <ion-card-title>
+                        {{'TIME_CONDITION.DETAIL.SCHEDULE' | translate}}
+                        <ion-badge class="count-badge">{{getResourcesCount()}}</ion-badge>
+                    </ion-card-title>
+                </ion-card-header>
+                <ion-card-content>
+                    <ion-list>
+                        @for (resource of timeCondition.resources; track resource.week_day) {
+                            <ion-item>
+                                <ion-label>
+                                    <h3>{{getDayLabel(resource.week_day)}}</h3>
+                                    <p dir="ltr">{{getTimeRange(resource)}}</p>
+                                </ion-label>
+                                <!-- Old approach - badge only:
+                                @if (resource.bridge_type && resource.bridge_uuid) {
+                                    <ion-badge slot="end" color="tertiary">
+                                        {{getResourceBridgeLabel(resource)}}
+                                    </ion-badge>
+                                }
+                                -->
+                                <!-- New approach - location icon + name -->
+                                @if (resource.bridge_type && resource.bridge_uuid) {
+                                    <ion-icon [name]="getResourceBridgeIcon(resource)" slot="end" color="tertiary" style="margin-inline-end: 8px;"></ion-icon>
+                                    <ion-note slot="end" color="tertiary">
+                                        {{getResourceBridgeLabel(resource)}}
+                                    </ion-note>
+                                }
+                            </ion-item>
+                        }
+                    </ion-list>
+                </ion-card-content>
+            </ion-card>
+        }
+    }
+</ng-template>

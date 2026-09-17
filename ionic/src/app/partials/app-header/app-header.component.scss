@@ -1,0 +1,127 @@
+// Light, search-first mobile header: avatar | search (or title) | actions + phone.
+ion-toolbar {
+  --min-height: 56px;
+  --padding-top: 6px;
+  --padding-bottom: 6px;
+  --padding-start: 6px;
+  --padding-end: 6px;
+  --background: #ffffff;
+  --color: #1c1c1e;
+  --border-width: 0;
+  border-bottom: 0.55px solid rgba(0, 0, 0, 0.08);
+}
+
+ion-title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+// Inline pill search field
+.header-search {
+  --background: #f2f3f5;
+  --color: #1c1c1e;
+  --placeholder-color: #8a8a8e;
+  --icon-color: #8a8a8e;
+  --clear-button-color: #8a8a8e;
+  --border-radius: 22px;
+  --box-shadow: none;
+  height: 44px;
+  padding: 0 4px;
+}
+
+// Account entry (left)
+.user-avatar-btn {
+  --padding-start: 4px;
+  --padding-end: 4px;
+  position: relative;
+
+  ion-avatar {
+    width: 38px;
+    height: 38px;
+
+    .avatar-circle {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--ion-color-primary, #3498db);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 600;
+      font-size: 14px;
+    }
+  }
+
+  // Unread-notifications indicator (logical inset so it tracks RTL)
+  .avatar-dot {
+    position: absolute;
+    top: 4px;
+    inset-inline-end: 2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--ion-color-danger, #eb445a);
+    border: 2px solid #fff;
+  }
+}
+
+// Phone entry (right) — the one accented action
+.phone-btn {
+  --padding-start: 0;
+  --padding-end: 0;
+  width: 44px;
+  height: 44px;
+  --border-radius: 50%;
+  --background: rgba(var(--ion-color-primary-rgb, 52, 152, 219), 0.12);
+  --color: var(--ion-color-primary, #3498db);
+  margin-inline-start: 4px;
+
+  ion-icon {
+    font-size: 22px;
+  }
+}
+
+// Page-specific action icons stay quiet
+ion-buttons[slot="end"] {
+  ion-button:not(.phone-btn) {
+    --color: #6e6e73;
+    --min-height: 44px;
+    --padding-start: 10px;
+    --padding-end: 10px;
+
+    ion-icon {
+      font-size: 24px;
+    }
+  }
+}
+
+// Solid buttons projected into the header (e.g. Save / Add)
+ion-button[fill="solid"] {
+  min-width: 60px;
+  font-size: 14px;
+}
+
+// Dark mode support using :host-context
+:host-context(body.dark-theme) {
+  ion-toolbar {
+    --background: #1c1c1e;
+    --color: #f2f2f7;
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .header-search {
+    --background: #2c2c2e;
+    --color: #f2f2f7;
+    --placeholder-color: #8a8a8e;
+  }
+
+  .user-avatar-btn .avatar-dot {
+    border-color: #1c1c1e;
+  }
+
+  ion-buttons[slot="end"] ion-button:not(.phone-btn) {
+    --color: #a1a1a6;
+  }
+}

@@ -1,0 +1,101 @@
+<ion-header translucent="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="arrow-back-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+
+    <ion-title>
+      {{'LOCATIONS.ADD.TITLE'|translate}}
+    </ion-title>
+
+    <ion-buttons slot="end">
+      <ion-button fill="solid" [disabled]="!locationForm.valid" color="primary" (click)="save()">
+        <ion-label>{{'BUTTONS.SAVE'|translate}}</ion-label>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <!-- <ion-list> -->
+  @if (dataAvailable) {
+    <form [formGroup]="locationForm">
+      <ion-card >
+        <!-- <ion-card-header>
+        ----{{timeRange|json}}----
+      </ion-card-header> -->
+      <ion-card-content>
+        <ion-list>
+          <ion-item>
+            <ion-grid [fixed]="true" size="2">
+              <ion-row >
+                <ion-col style="min-width: 90px;" size="auto">
+                  <ion-fab style="margin-inline-end: 30px;" horizontal="start" vertical="center">
+                    <ion-fab-button  size="small">
+                      <ion-icon [name]="selected_icon"></ion-icon>
+                    </ion-fab-button>
+                    <ion-fab-list side="end">
+                      @for (icon of icons; track icon) {
+                        <ion-fab-button (click)="_location.meta.icon=icon.ionicon_name;selected_icon=icon.ionicon_name;">
+                          <ion-icon [name]="icon.ionicon_name"></ion-icon>
+                        </ion-fab-button>
+                      }
+                    </ion-fab-list>
+                  </ion-fab>
+                </ion-col>
+                <ion-col>
+                  <ion-item>
+                    <ion-label position="floating" style="    padding: 0px;">{{'LOCATIONS.ADD.FORM.NAME'|translate}}</ion-label>
+                    <ion-input formControlName="name" [(ngModel)]="_location.name" required class="ion-text-start"></ion-input>
+                  </ion-item>
+                </ion-col>
+              </ion-row>
+            </ion-grid>
+          </ion-item>
+          <ion-item>
+            <ion-grid size="2">
+              <ion-row>
+                <ion-col>
+                  <ion-item>
+                    <ion-select interface="popover" formControlName="bridge_type" [value]="_location.bridge_type" (ionChange)="handleSelectChange($event.detail.value, 'bridge_type')" [placeholder]="'TIME_CONDITION.PLACEHOLDERS.SELECT_TYPE' | translate">
+                      @for (option of bridge_types_array; track option) {
+                        <ion-select-option [value]="option">{{'TIME_CONDITION.BRIDGE.BRIDGE_TYPES.'+option|translate}}</ion-select-option>
+                      }
+                      <!-- <ion-select-option value="number">Number</ion-select-option>
+                      <ion-select-option value="extension">Extension</ion-select-option>
+                      <ion-select-option value="ivr">Ivr</ion-select-option> -->
+                    </ion-select>
+                  </ion-item>
+                </ion-col>
+                <ion-col>
+                  <ion-item>
+                    <!-- <span> -->
+                    @if (_location.bridge_type=='number') {
+                      <ion-input formControlName="bridge_uuid" [name]="_location.name+'_input'" [value]="_location.bridge_number" (ionChange)="handleSelectChange($event.detail.value, 'bridge_uuid')" style="margin-inline-start: 5px;;" type="tel" [placeholder]="'TIME_CONDITION.PLACEHOLDERS.PHONE_NUMBER' | translate"></ion-input>
+                    }
+                    @if (_location.bridge_type!='number') {
+                      <ion-select formControlName="bridge_uuid" interface="popover" [compareWith]="compareFn"  [value]="_location.bridge_uuid" (ionChange)="handleSelectChange($event.detail.value, 'bridge_uuid')" [placeholder]="'TIME_CONDITION.PLACEHOLDERS.SELECT_TYPE' | translate">
+                        @for (option of _data[_location.bridge_type]; track option) {
+                          <ion-select-option [value]="option.uuid">{{option.name}}</ion-select-option>
+                        }
+                      </ion-select>
+                    }
+                  <!-- </span> -->
+                </ion-item>
+              </ion-col>
+            </ion-row>
+          </ion-grid>
+        </ion-item>
+      </ion-list>
+    </ion-card-content>
+  </ion-card>
+</form>
+}
+
+<!-- </ion-list> -->
+
+</ion-content>
+
+

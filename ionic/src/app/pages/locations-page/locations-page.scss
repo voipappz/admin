@@ -1,0 +1,65 @@
+/*
+ * Material Design
+ */
+
+.md ion-toolbar ion-button {
+  text-transform: capitalize;
+  letter-spacing: 0;
+}
+
+.md ion-checkbox {
+  --background-checked: transparent;
+  --border-color: transparent;
+  --border-color-checked: transparent;
+  --checkmark-color: var(--ion-color-primary);
+}
+
+.md ion-list {
+  background: inherit;
+}
+
+
+/*
+ * iOS
+ */
+
+.ios ion-list-header {
+  margin-top: 10px;
+}
+
+.ios ion-label {
+  color: var(--ion-color-primary);
+}
+
+// Empty state styling
+.empty-state-card {
+  margin-top: 20%;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+
+  ion-card-content {
+    padding: 40px 20px;
+  }
+}
+
+.empty-state-icon {
+  font-size: 64px;
+  color: var(--ion-color-medium);
+  margin-bottom: 16px;
+  display: block;
+}
+
+.empty-state-card h2 {
+  margin: 16px 0 8px;
+  font-weight: 600;
+  font-size: 20px;
+  color: var(--ion-text-color);
+}
+
+.empty-state-card p {
+  color: var(--ion-color-medium);
+  margin-bottom: 24px;
+  line-height: 1.5;
+  font-size: 14px;
+}

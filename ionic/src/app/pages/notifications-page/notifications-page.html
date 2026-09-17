@@ -1,0 +1,54 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/app/dashboard"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{'NOTIFICATIONS.TITLE' | translate}}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button [disabled]="unreadCount === 0" (click)="markAll()">
+        {{'NOTIFICATIONS.MARK_ALL_READ' | translate}}
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-refresher slot="fixed" (ionRefresh)="load($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  @if (loading) {
+    <ion-list>
+      @for (i of [1,2,3,4,5,6]; track i) {
+        <ion-item lines="full">
+          <ion-icon slot="start" name="ellipse-outline" color="medium"></ion-icon>
+          <ion-label>
+            <h3><ion-skeleton-text [animated]="true" style="width: 55%"></ion-skeleton-text></h3>
+            <p><ion-skeleton-text [animated]="true" style="width: 85%"></ion-skeleton-text></p>
+          </ion-label>
+        </ion-item>
+      }
+    </ion-list>
+  } @else if (notifications.length === 0) {
+    <div class="empty-state ion-text-center ion-padding">
+      <ion-icon name="notifications-off-outline" color="medium"></ion-icon>
+      <p>{{'NOTIFICATIONS.NO_NEW' | translate}}</p>
+    </div>
+  } @else {
+    <ion-list>
+      @for (n of notifications; track n.uuid || n) {
+        <ion-item button detail="false" lines="full" [class.unread]="isUnread(n)" (click)="open(n)">
+          <ion-icon slot="start" [name]="iconFor(n)" [color]="colorFor(n)"></ion-icon>
+          <ion-label class="ion-text-wrap">
+            <h3>{{ title(n) }}</h3>
+            @if (body(n)) { <p>{{ body(n) }}</p> }
+            @if (time(n)) { <ion-note class="ts">{{ time(n) | date:'short' }}</ion-note> }
+          </ion-label>
+          @if (isUnread(n)) {
+            <ion-badge slot="end" color="primary">●</ion-badge>
+          }
+        </ion-item>
+      }
+    </ion-list>
+  }
+</ion-content>

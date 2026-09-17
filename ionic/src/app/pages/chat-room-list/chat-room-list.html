@@ -1,0 +1,66 @@
+<ion-header>
+    <ion-toolbar>
+      <ion-buttons slot="start">
+        <ion-menu-button></ion-menu-button>
+      </ion-buttons>
+      <ion-title>Rooms</ion-title>
+    </ion-toolbar>
+  </ion-header>
+  
+  <ion-content fullscreen="true">
+    <ion-header collapse="condense">
+      <ion-toolbar>
+        <ion-title size="large">Rooms</ion-title>
+      </ion-toolbar>
+    </ion-header>
+  
+    <ion-grid fixed>
+      <ion-row>
+          <ion-col size="12">
+              <ion-card class="room-card">
+                <ion-card-header>
+                  <ion-item detail="false" lines="none" class="room-item" (click)="createRoom()">
+                    <ion-label>
+                      <h2>create room</h2>
+                    </ion-label>
+                  </ion-item>
+                </ion-card-header>
+              </ion-card>
+            </ion-col>
+        <ion-col size="12" *ngFor="let room of rooms">
+          <ion-card class="room-card">
+            <ion-card-header>
+              <ion-item detail="false" lines="none" class="room-item" routerLink="/app/tabs/chat/room/{{room.room}}">
+                <!--<ion-avatar slot="start">
+                  <img [src]="room.profilePic" [alt]="room.name + ' profile picture'">
+                  </ion-avatar><ion-avatar slot="start">
+                    <img [src]="room.profilePic" [alt]="room.name + ' profile picture'">
+                  </ion-avatar> -->
+                <ion-label>
+                  <h2>{{room.description}}</h2>
+                  <p>{{room.room}}</p>
+                </ion-label>
+              </ion-item>
+            </ion-card-header>
+  
+            <!-- <ion-card-content>
+              <ion-list lines="none">
+                <ion-item *ngFor="let session of room.sessions" detail="false" routerLink="/app/tabs/rooms/session/{{session.id}}">
+                  <ion-label>
+                    <h3>{{session.name}}</h3>
+                  </ion-label>
+                </ion-item>
+  
+                <ion-item detail="false" routerLink="/app/tabs/rooms/room-details/{{room.id}}">
+                  <ion-label>
+                    <h3>About {{room.name}}</h3>
+                  </ion-label>
+                </ion-item>
+              </ion-list>
+            </ion-card-content> -->
+          </ion-card>
+        </ion-col>
+      </ion-row>
+    </ion-grid>
+  </ion-content>
+  

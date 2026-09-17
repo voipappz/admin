@@ -1,0 +1,41 @@
+@if (devicesForm) {
+  <form
+    [formGroup]='devicesForm'>
+    <div class='form-row'>
+      <label>Microphone</label>
+      <span class='flex'></span>
+      <select formControlName='audioDevice'>
+        @for (device of availableAudioDevices; track device) {
+          <option
+            [value]='device.deviceId'
+          >{{ device.label }}</option>
+        }
+      </select>
+    </div>
+    <div class='form-row'>
+      <label>Camera</label>
+      <span class='flex'></span>
+      <select formControlName='videoDevice'>
+        @for (device of availableVideoDevices; track device) {
+          <option
+            [value]='device.deviceId'
+          >{{ device.label }}</option>
+        }
+      </select>
+    </div>
+    @if (supportsSpeakerSelection) {
+      <div
+        class='form-row'>
+        <label>Speakers</label>
+        <span class='flex'></span>
+        <select formControlName='speakerDevice'>
+          @for (device of availableSpeakerDevices; track device) {
+            <option
+              [value]='device.deviceId'
+            >{{ device.label }}</option>
+          }
+        </select>
+      </div>
+    }
+  </form>
+}

@@ -1,0 +1,226 @@
+<!-- Shared light header with inline search and filter action -->
+<app-header [title]="'LOGS.CALLS.TITLE'" [showSearch]="true"
+  [searchPlaceholder]="'LOGS.CALLS.FILTER.INLINE_PLACEHOLDER'" [searchDebounce]="1000"
+  (search)="search($event)">
+  <!-- Page-specific actions -->
+  <ng-container header-actions>
+    <!-- Filter Button with Popover -->
+    <ion-button id="popover-filter-button">
+      <ion-icon name="options-outline"></ion-icon>
+    </ion-button>
+    <ion-popover trigger="popover-filter-button" [dismissOnSelect]="true" size="auto" [arrow]="true">
+      <ng-template>
+        <ion-content>
+          <ion-list>
+            <ion-radio-group [value]="filters.type">
+              @for (option of callTypes; track option) {
+                <ion-item button (click)="filter(option)">
+                  <ion-label>{{('LOGS.CALLS.FILTER.TYPES.' + option) | translate}}</ion-label>
+                  <ion-radio slot="start" [value]="option"></ion-radio>
+                </ion-item>
+              }
+            </ion-radio-group>
+          </ion-list>
+        </ion-content>
+      </ng-template>
+    </ion-popover>
+  </ng-container>
+
+</app-header>
+
+<!-- OLD HEADER - COMMENTED OUT
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start" class="header-logo">
+      <va-logo></va-logo>
+    </ion-buttons>
+    <ion-grid>
+      <ion-row>
+        <ion-col size="12">
+          <ion-title>{{'LOGS.CALLS.TITLE'|translate}}</ion-title>
+        </ion-col>
+      </ion-row>
+    </ion-grid>
+    <ion-buttons slot="end">
+      <ion-button (click)="togglePhoneMenu()">
+        <ion-icon name="call-outline"></ion-icon>
+      </ion-button>
+      <ion-button id="popover-filter-button">
+        <ion-icon name="options-outline"></ion-icon>
+      </ion-button>
+      <ion-popover trigger="popover-filter-button" [dismissOnSelect]="true" size="auto" [arrow]="true">
+        <ng-template>
+          <ion-content>
+            <ion-list>
+              <ion-radio-group [value]="filters.type" (ionChange)="filter($event)">
+                @for (option of callTypes; track option) {
+                  <ion-item>
+                    <ion-label>{{('LOGS.CALLS.FILTER.TYPES.'+option)|translate}}</ion-label>
+                    <ion-radio slot="start" [value]="option"></ion-radio>
+                  </ion-item>
+                }
+              </ion-radio-group>
+            </ion-list>
+          </ion-content>
+        </ng-template>
+      </ion-popover>
+      <va-settings></va-settings>
+    </ion-buttons>
+  </ion-toolbar>
+  <ion-toolbar>
+    <ion-searchbar show-clear-button="focus" [placeholder]="'LOGS.CALLS.FILTER.INLINE_PLACEHOLDER'|translate" [debounce]="1000" (ionChange)="search($event)">
+    </ion-searchbar>
+  </ion-toolbar>
+</ion-header>
+END OLD HEADER -->
+
+<ion-content fullscreen="true">
+  <!-- <ion-grid fixed>
+  <ion-row>
+    <ion-col size="12" size-md="12" *ngFor="let call of calls"> -->
+      <ion-list lines="inset">
+        @for (group of calls|groupByDate:'created_at'; track group) {
+          <ion-item-group>
+            <ion-item-divider>
+                <ion-label style="width:calc(100% ); padding: 2px 0px 2px;align-items: center;
+                display: flex;
+                justify-content: space-between;">
+                {{group.date}}
+                @if (filters.type!='all') {
+                  <ion-badge>{{'LOGS.CALLS.FILTER.TYPES.'+filters.type|translate}}</ion-badge>
+                }
+              </ion-label>
+            </ion-item-divider>
+            @for (call of group.events; track call) {
+              <ion-item [class]="(call.show_notes)? 'show-notes':''" button (click)="moreBtnPressed($event, call.uuid, call)">
+                <em item-left style="font-size:1em;margin: 0px 10px 0px 10px;">
+                  <img [hidden]="call.meta._direction != 'incoming'" src="assets/img/incoming_call_color.png" class="call-icon">
+                  <img [hidden]="call.meta._direction != 'outgoing'" src="assets/img/outgoing_call_color.png" class="call-icon">
+                  <img [hidden]="call.meta._direction != 'missed'" src="assets/img/missed_call_color.png" class="call-icon">
+                </em>
+              <div item-content style="width:calc(100% ); padding: 2px 0px 2px;align-items: center;
+              display: flex;
+              justify-content: space-between;">
+                  <span style="display: flex;">
+                    @if (call.meta._blacklisted) {
+                      <h5><ion-icon name="ban-outline"></ion-icon></h5>
+                    }
+                    @if (call.meta._contact_fullname && call.meta._contact_fullname!='unknown') {
+                      <h5 style="display:inline-block">{{call.meta._contact_fullname}} </h5>
+                    }
+                    <!-- <h5 style="display:inline-block" *ngIf="call.fullname && call.fullname=='unknown'" >{{'LOGS.CALLS.INFO.UNKNOWN'|translate}}</h5> -->
+                    @if (call.meta._contact_number && call.meta._contact_fullname=='unknown') {
+                      <h5 style="display:inline-block" dir="ltr">
+                        {{call.meta._contact_number}}
+                      </h5>
+                    }
+                  </span>
+                  <span slot="end" style="font-size: 12px;">{{call.created_at | date:'H:mm'}}</span>
+                </div>
+                <!-- <div class="call-info" item-right style=""> -->
+                <!-- <ion-button size="small" fill="clear" slot="icon-only" color="lightdark" (click)="showCall($event, call.contact_uuid)">
+                <ion-icon name="information-circle-outline"></ion-icon>
+              </ion-button>
+              <ion-button size="small" fill="clear" slot="icon-only"   (click)="download(call.src, call.uuid)" >
+                <ion-icon name="download-outline"></ion-icon>
+              </ion-button> -->
+              <ion-icon slot="end" [name]="call.show_notes ? 'chevron-up-outline' : 'chevron-down-outline'" color="medium" style="font-size: 16px;"></ion-icon>
+            <!-- </div> -->
+          </ion-item>
+          @if (call.show_notes) {
+            <ion-item>
+              <p style="display: flex;flex-wrap: wrap;
+              justify-content: space-between;
+              align-items: center;width: 100%;">
+                <ion-label class="ion-text-wrap">
+                  <b>{{'LOGS.CALLS.INFO.MOBILE'|translate}} <span dir="ltr">{{call.meta._contact_number}}</span></b>
+                  <ion-label class="ion-text-wrap">
+                    {{('LOGS.CALLS.INFO.DIRECTION.'+call.meta._direction)|translate}}, {{call.meta._duration}}
+                  </ion-label>
+                </ion-label>
+                @if (call.play_audio && call.recording?.url) {
+                  <div class="audio-player" (click)="$event.stopPropagation()">
+                    <button class="play-btn" type="button" (click)="playRecording(call)">
+                      <ion-icon [name]="isPlaying && activeCallUuid === call.uuid ? 'pause' : 'play'"></ion-icon>
+                    </button>
+                    <div class="audio-track">
+                      <div class="waveform" (click)="seekAudio($event)">
+                        @for (bar of waveformBars; track $index) {
+                          <div class="bar" [class.active]="activeCallUuid === call.uuid && $index <= (audioProgress / 100) * waveformBars.length"></div>
+                        }
+                      </div>
+                      <div class="audio-time">{{activeCallUuid === call.uuid ? formatTime(currentTime) : '0:00'}} / {{activeCallUuid === call.uuid ? formatTime(audioDuration) : '0:00'}}</div>
+                    </div>
+                  </div>
+                }
+                <ion-label class="ion-text-wrap" style="width: 100%;
+                display: flex;
+                justify-content: space-evenly;">
+                  <!-- <ion-button style="margin-inline-start: 10px !important;" size="small" fill="clear" slot="end" (click)="play($event, call.uuid, call)" >
+                  <ion-icon slot="icon-only" name="mic-circle-outline"></ion-icon>
+                </ion-button>
+                <ion-button style="margin-inline-start: 10px !important;" size="small" fill="clear" slot="end" (click)="block($event, call.uuid, call)" >
+                  <ion-icon [name]="(call.blacklisted)?'checkmark-circle-outline':'ban-outline'"></ion-icon>
+                </ion-button>
+                <ion-button style="margin-inline-start: 10px !important;" size="small" fill="clear" slot="end" (click)="showCall($event, call.uuid, call)" >
+                  <ion-icon  slot="icon-only" name="information-circle-outline"></ion-icon>
+                </ion-button> -->
+                <ion-button size="small" fill="clear" (click)="play($event, call.uuid, call)">
+                  <ion-icon slot="start" name="mic-circle-outline"></ion-icon>
+                  {{'LOGS.CALLS.ACTIONS.RECORDING'|translate}}
+                </ion-button>
+                <ion-button size="small" fill="clear" (click)="openConversation(call.uuid)">
+                  <ion-icon slot="start" name="chatbubbles-outline"></ion-icon>
+                  {{'LOGS.CALLS.ACTIONS.TRANSCRIPT'|translate}}
+                </ion-button>
+                <ion-button size="small" fill="clear" (click)="block($event, call.uuid, call)">
+                  <ion-icon slot="start" [name]="(call.meta._blacklisted)?'checkmark-circle-outline':'ban-outline'"></ion-icon>
+                  @if (call.meta._blacklisted) {
+                    {{'LOGS.CALLS.ACTIONS.UNBLOCK'|translate}}
+                  }
+                  @if (!call.meta._blacklisted) {
+                    {{'LOGS.CALLS.ACTIONS.BLOCK'|translate}}
+                  }
+                </ion-button>
+                <ion-button size="small" fill="clear" (click)="showCall($event, call.uuid, call)">
+                  <ion-icon slot="start" name="information-circle-outline"></ion-icon>
+                  {{'LOGS.CALLS.ACTIONS.MORE'|translate}}
+                </ion-button>
+              </ion-label>
+            </p>
+          </ion-item>
+        }
+      }
+    </ion-item-group>
+  }
+</ion-list>
+<ion-infinite-scroll (ionInfinite)="onIonInfinite($event)">
+  <ion-infinite-scroll-content></ion-infinite-scroll-content>
+</ion-infinite-scroll>
+<!-- <ion-list class="call-card" *ngFor="let call of calls">
+<ion-list-header>
+  <ion-item detail="false" lines="none" class="call-item" >
+    <!- - <ion-avatar slot="start">
+    <img [src]="call.profilePic" [alt]="call.name + ' profile picture'">
+  </ion-avatar> - ->
+  <ion-label>
+    <h2>{{call.name}}</h2>
+    <p>{{call.number}}</p>
+  </ion-label>
+  <ion-buttons slot="end">
+    <ion-button  *ngIf="permissions.allow_video"   title="Video call" strong>
+      <ion-icon name="videocam-outline"></ion-icon>
+    </ion-button>
+    <ion-button  *ngIf="permissions.allow_audio"   title="Voice call" strong>
+      <ion-icon name="call-outline"></ion-icon>
+    </ion-button>
+  </ion-buttons>
+</ion-item>
+</ion-list-header>
+
+
+</ion-list> -->
+<!-- </ion-col>
+</ion-row>
+</ion-grid> -->
+</ion-content>

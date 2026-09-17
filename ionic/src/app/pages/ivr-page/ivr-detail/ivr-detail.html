@@ -1,0 +1,196 @@
+@if (!embedded) {
+<ion-header>
+    <ion-toolbar>
+        <ion-buttons slot="start">
+            <ion-button (click)="goBack()">
+                <ion-icon name="arrow-back-outline"></ion-icon>
+            </ion-button>
+        </ion-buttons>
+        <ion-title>{{ivr?.name || 'IVR Details'}}</ion-title>
+        <ion-buttons slot="end">
+            @if (ivr) {
+                <ion-button (click)="editIvr()">
+                    <ion-icon slot="icon-only" name="create-outline"></ion-icon>
+                </ion-button>
+            }
+        </ion-buttons>
+    </ion-toolbar>
+</ion-header>
+}
+
+<!-- Use ion-content when standalone, div when embedded -->
+@if (!embedded) {
+<ion-content [fullscreen]="true" class="ion-padding">
+    <ng-container *ngTemplateOutlet="ivrContent"></ng-container>
+</ion-content>
+} @else {
+<div class="ivr-embedded-content">
+    <ng-container *ngTemplateOutlet="ivrContent"></ng-container>
+</div>
+}
+
+<!-- Shared template for IVR content -->
+<ng-template #ivrContent>
+    <!-- Loading state -->
+    @if (loading) {
+        <div class="loading-container">
+            <ion-spinner name="crescent"></ion-spinner>
+        </div>
+    }
+
+    <!-- Error state -->
+    @if (error && !loading) {
+        <ion-list>
+            <ion-item color="danger">
+                <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
+                {{error}}
+            </ion-item>
+        </ion-list>
+    }
+
+    <!-- IVR Details -->
+    @if (ivr && !loading) {
+        <!-- Status Section -->
+        <ion-card>
+            <ion-card-header>
+                <ion-card-title>{{'IVR.DETAIL.STATUS' | translate}}</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+                <ion-item lines="none">
+                    <ion-icon slot="start"
+                        [name]="ivr.enabled ? 'checkmark-circle' : 'close-circle'"
+                        [color]="ivr.enabled ? 'success' : 'medium'"></ion-icon>
+                    <ion-label>
+                        <h3>{{ivr.name}}</h3>
+                        <p>{{(ivr.enabled ? 'IVR.STATUS.ENABLED' : 'IVR.STATUS.DISABLED') | translate}}</p>
+                    </ion-label>
+                </ion-item>
+                @if (ivr.profile?.direct_dial === 'true') {
+                    <ion-item lines="none">
+                        <ion-icon name="keypad-outline" slot="start" color="primary"></ion-icon>
+                        <ion-label>{{'IVR.MENU.DIRECT_DIAL' | translate}}</ion-label>
+                        <ion-icon name="checkmark-circle" slot="end" color="success"></ion-icon>
+                    </ion-item>
+                }
+            </ion-card-content>
+        </ion-card>
+
+        <!-- Greeting Section -->
+        <ion-card>
+            <ion-card-header>
+                <ion-card-title>{{'IVR.GREETING.TITLE' | translate}}</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+                <p class="announcement-label">{{getAnnouncementName()}}</p>
+                <!-- WhatsApp-style Audio Player -->
+                <div class="audio-player" [class.playing]="isPlaying">
+                    <button class="play-btn" type="button" (click)="playAnnouncement()">
+                        <ion-icon [name]="isPlaying ? 'pause' : 'play'"></ion-icon>
+                    </button>
+                    <div class="audio-track">
+                        <div class="waveform" (click)="seekAudio($event)">
+                            @for (bar of waveformBars; track $index) {
+                                <div class="bar" [class.active]="$index <= (audioProgress / 100) * waveformBars.length"></div>
+                            }
+                        </div>
+                        <div class="audio-time">{{formatTime(currentTime)}} / {{formatTime(audioDuration)}}</div>
+                    </div>
+                </div>
+            </ion-card-content>
+        </ion-card>
+
+        <!-- Menu Options Section -->
+        <ion-card>
+            <ion-card-header>
+                <ion-card-title>
+                    {{'IVR.MENU.TITLE' | translate}}
+                    <ion-badge class="count-badge">{{getConfiguredEntriesCount()}}</ion-badge>
+                </ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+                <!-- Read-only Keypad Grid -->
+                <div class="keypad-container readonly">
+                    @for (row of keypadLayout; track $index) {
+                        <div class="keypad-row">
+                            @for (key of row; track key) {
+                                <div
+                                    class="keypad-key"
+                                    [class.configured]="isKeyConfigured(key)">
+                                    <span class="key-digit">{{key}}</span>
+                                    @if (isKeyConfigured(key)) {
+                                        <span class="key-label">{{getKeyDestinationLabel(key)}}</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- List view of configured entries -->
+                @if (ivr.entries && ivr.entries.length > 0) {
+                    <ion-list class="entries-list">
+                        @for (entry of ivr.entries; track entry.entry) {
+                            <ion-item>
+                                <ion-badge slot="start" color="primary" class="key-badge">{{entry.entry}}</ion-badge>
+                                <ion-label>
+                                    <h3>{{entry.name}}</h3>
+                                    <p>{{getBridgeTypeLabel(entry.bridge_type)}}: <span [dir]="entry.bridge_type === 'number' ? 'ltr' : 'auto'">{{getDestinationName(entry.bridge_type, entry.bridge_uuid)}}</span></p>
+                                </ion-label>
+                            </ion-item>
+                        }
+                    </ion-list>
+                }
+            </ion-card-content>
+        </ion-card>
+
+        <!-- Fallback Section -->
+        <ion-card>
+            <ion-card-header>
+                <ion-card-title>{{'IVR.FALLBACK.TITLE' | translate}}</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+                <ion-list>
+                    <ion-item>
+                        <ion-icon name="time-outline" slot="start" color="warning"></ion-icon>
+                        <ion-label>
+                            <h3>{{'IVR.FALLBACK.TIMEOUT' | translate}}</h3>
+                            <p>{{ivr.timeout || 5}} {{'IVR.FALLBACK.SECONDS' | translate}} <span class="flow-arrow"></span> <span [dir]="ivr.timeout_bridge_type === 'number' ? 'ltr' : 'auto'">{{getTimeoutDestinationLabel()}}</span></p>
+                        </ion-label>
+                    </ion-item>
+                    <ion-item lines="none">
+                        <ion-icon name="alert-circle-outline" slot="start" color="danger"></ion-icon>
+                        <ion-label>
+                            <h3>{{'IVR.FALLBACK.INVALID' | translate}}</h3>
+                            <p>{{ivr.invalid || 3}} {{'IVR.FALLBACK.ATTEMPTS' | translate}} <span class="flow-arrow"></span> <span [dir]="ivr.invalid_bridge_type === 'number' ? 'ltr' : 'auto'">{{getInvalidDestinationLabel()}}</span></p>
+                        </ion-label>
+                    </ion-item>
+                </ion-list>
+            </ion-card-content>
+        </ion-card>
+
+        <!-- Notes Section -->
+        @if (ivr.notes) {
+            <ion-card>
+                <ion-card-header>
+                    <ion-card-title>{{'IVR.EDIT.NOTES' | translate}}</ion-card-title>
+                </ion-card-header>
+                <ion-card-content>
+                    <p class="notes-text">{{ivr.notes}}</p>
+                </ion-card-content>
+            </ion-card>
+        }
+
+        <!-- Delete Button (only show when NOT embedded) -->
+        @if (!embedded) {
+            <ion-button
+                expand="block"
+                fill="outline"
+                color="danger"
+                class="delete-button"
+                (click)="deleteIvr()">
+                <ion-icon slot="start" name="trash-outline"></ion-icon>
+                {{'BUTTONS.DELETE' | translate}}
+            </ion-button>
+        }
+    }
+</ng-template>

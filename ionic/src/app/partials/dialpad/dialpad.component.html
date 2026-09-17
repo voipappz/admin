@@ -1,0 +1,61 @@
+@if (permissions.allow_dialer) {
+  <ion-grid dir="ltr">
+    <ion-row class="no-lines row" align-items-center>
+      <ion-input type="tel" name="number" id="numDisplay" class="form-control text-center input-sm" autocomplete="off" placeholder=""
+      dir="ltr" [(ngModel)]="dialInput"></ion-input>
+    </ion-row>
+    <ion-row  class="no-lines row" align-items-center>
+      <ion-col col-4 col-sm><button ion-button shape="round" outline type="button" class="btn-default digit" (click)="digitClick('1')" data-digit="1">1</button></ion-col>
+      <ion-col col-4 col-sm><button ion-button  shape="round" outline type="button" class="btn-default digit" (click)="digitClick('2')" data-digit="2">2</button></ion-col>
+      <ion-col col-4 col-sm><button ion-button  shape="round" outline type="button" class="btn-default digit" (click)="digitClick('3')" data-digit="3">3</button></ion-col>
+    </ion-row>
+    <ion-row class="no-lines" align-items-center>
+      <ion-col col-4 col-sm><button ion-button  round outline type="button" class="btn-default digit" (click)="digitClick('4')" data-digit="4">4</button></ion-col>
+      <ion-col col-4 col-sm><button ion-button  round outline type="button" class="btn-default digit" (click)="digitClick('5')" data-digit="5">5</button></ion-col>
+      <ion-col col-4 col-sm><button ion-button  round outline type="button" class="btn-default digit" (click)="digitClick('6')" data-digit="6">6</button></ion-col>
+    </ion-row>
+    <ion-row class="no-lines"  align-items-center>
+      <ion-col col-4 col-sm><button ion-button  round outline type="button" class="btn-default digit" (click)="digitClick('7')" data-digit="7">7</button></ion-col>
+      <ion-col col-4 col-sm><button ion-button  round outline type="button" class="btn-default digit" (click)="digitClick('8')" data-digit="8">8</button></ion-col>
+      <ion-col col-4 col-sm><button ion-button  round outline type="button" class="btn-default digit" (click)="digitClick('9')" data-digit="9">9</button></ion-col>
+    </ion-row>
+    <ion-row class="no-lines" align-items-center>
+      <ion-col col-4 col-sm><button ion-button  round outline type="button" class="btn-default digit" (click)="digitClick('*')" data-digit="*">*</button></ion-col>
+      <ion-col col-4 col-sm><button ion-button  round outline type="button" class="btn-default digit" (click)="digitClick('0')" data-digit="0">0</button></ion-col>
+      <ion-col col-4 col-sm><button ion-button  round outline type="button" class="btn-default digit" (click)="digitClick('#')" data-digit="#">#</button></ion-col>
+    </ion-row>
+    <ion-row class="no-lines" align-items-center>
+      <ion-col col-4 col-sm></ion-col>
+      <ion-col col-4 col-sm><button ion-button  round outline type="button" class="btn-default digit" (click)="digitClick('+')" data-digit="+">+</button></ion-col>
+      <ion-col col-4 col-sm></ion-col>
+    </ion-row>
+    <ion-row class="no-lines" align-items-center>
+      @if (dialInput.length>0) {
+        <ion-col col-sm>
+          @if (permissions.allow_video) {
+            <button ion-button round [disabled]="dialInput.length<=4"(click)="call('video')" class="btn-success btn-block btnCallVideo"
+              [title]="'COMMON.VIDEO_CALL' | translate">
+              <ion-icon name="videocam-outline"></ion-icon>
+            </button>
+          }
+        </ion-col>
+      }
+      <ion-col col-sm >
+        @if (permissions.allow_audio) {
+          <button ion-button [disabled]="dialInput.length<=4" (click)="call('voice')" class="btn-success btn-block btnCall"
+            [title]="'COMMON.CALL' | translate">
+            <ion-icon name="call"></ion-icon>
+          </button>
+        }
+      </ion-col>
+      @if (dialInput.length>0) {
+        <ion-col col-sm >
+          <button class="clear-btn"  (click)="clear()">
+            <ion-icon icon-only name="backspace" item-left></ion-icon>
+          </button>
+        </ion-col>
+      }
+    </ion-row>
+  </ion-grid>
+}
+

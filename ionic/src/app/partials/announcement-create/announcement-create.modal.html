@@ -1,0 +1,154 @@
+<ion-header>
+    <ion-toolbar>
+        <ion-buttons slot="start">
+            <ion-button (click)="dismiss()">
+                <ion-icon name="close-outline"></ion-icon>
+            </ion-button>
+        </ion-buttons>
+        <ion-title>{{ 'ANNOUNCEMENT.CREATE.TITLE' | translate }}</ion-title>
+    </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+    <div class="form-content">
+        <!-- Type Selection -->
+        <div class="type-cards">
+            <div
+                class="type-card"
+                [class.selected]="formData.type === 'file'"
+                (click)="selectType('file')">
+                <ion-icon name="musical-notes-outline"></ion-icon>
+                <span class="type-label">{{ 'ANNOUNCEMENT.CREATE.TYPE_FILE' | translate }}</span>
+            </div>
+
+            <div
+                class="type-card"
+                [class.selected]="formData.type === 'tts'"
+                (click)="selectType('tts')">
+                <ion-icon name="mic-outline"></ion-icon>
+                <span class="type-label">{{ 'ANNOUNCEMENT.CREATE.TYPE_TTS' | translate }}</span>
+            </div>
+        </div>
+
+        <!-- File Upload -->
+        @if (formData.type === 'file') {
+            <div class="upload-section">
+                @if (!selectedFile) {
+                    <div class="dropzone" (click)="fileInput.click()">
+                        <ion-icon name="cloud-upload-outline"></ion-icon>
+                        <span class="dropzone-text">{{ 'ANNOUNCEMENT.CREATE.UPLOAD_TITLE' | translate }}</span>
+                        <span class="dropzone-hint">{{ 'ANNOUNCEMENT.CREATE.UPLOAD_HINT' | translate }}</span>
+                    </div>
+                    <input
+                        #fileInput
+                        type="file"
+                        accept="audio/mp3,audio/mpeg,audio/wav,audio/wave,audio/x-wav"
+                        (change)="onFileSelected($event)"
+                        hidden>
+                } @else {
+                    <div class="file-selected">
+                        <div class="file-info">
+                            <ion-icon name="checkmark-circle" color="success"></ion-icon>
+                            <div class="file-details">
+                                <span class="file-name">{{ selectedFile.name }}</span>
+                                <span class="file-size">{{ formatFileSize(selectedFile.size) }}</span>
+                            </div>
+                        </div>
+                        <div class="file-actions">
+                            <ion-button fill="clear" size="small" (click)="togglePlayback()">
+                                <ion-icon [name]="isPlaying ? 'pause' : 'play'" slot="icon-only"></ion-icon>
+                            </ion-button>
+                            <ion-button fill="clear" size="small" color="danger" (click)="removeFile()">
+                                <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
+                            </ion-button>
+                        </div>
+                    </div>
+
+                    <!-- Audio Player -->
+                    @if (filePreviewUrl) {
+                        <div class="audio-player">
+                            <div class="progress-bar">
+                                <div class="progress-fill" [style.width.%]="audioProgress"></div>
+                            </div>
+                            <div class="audio-time">
+                                {{ formatTime(currentTime) }} / {{ formatTime(audioDuration) }}
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Upload Progress -->
+                    @if (isUploading) {
+                        <div class="upload-progress">
+                            <ion-progress-bar [value]="uploadProgress / 100"></ion-progress-bar>
+                            <span class="progress-text">{{ uploadProgress }}%</span>
+                        </div>
+                    }
+                }
+            </div>
+        }
+
+        <!-- TTS Generation -->
+        @if (formData.type === 'tts') {
+            <div class="tts-section">
+                <ion-list>
+                    <ion-item>
+                        <ion-select
+                            label="{{ 'ANNOUNCEMENT.CREATE.TTS_LANGUAGE' | translate }}"
+                            labelPlacement="stacked"
+                            [(ngModel)]="formData.lang"
+                            interface="popover">
+                            @for (lang of languages; track lang.code) {
+                                <ion-select-option [value]="lang.code">{{ lang.name }}</ion-select-option>
+                            }
+                        </ion-select>
+                    </ion-item>
+
+                    <ion-item>
+                        <ion-textarea
+                            label="{{ 'ANNOUNCEMENT.CREATE.TTS_TEXT' | translate }}"
+                            labelPlacement="stacked"
+                            placeholder="{{ 'ANNOUNCEMENT.CREATE.TTS_TEXT_PLACEHOLDER' | translate }}"
+                            [(ngModel)]="formData.text"
+                            [counter]="true"
+                            [maxlength]="maxTextLength"
+                            [autoGrow]="true"
+                            rows="4">
+                        </ion-textarea>
+                    </ion-item>
+                </ion-list>
+            </div>
+        }
+
+        <!-- Optional Name -->
+        <ion-list class="name-section">
+            <ion-item>
+                <ion-input
+                    label="{{ 'ANNOUNCEMENT.CREATE.NAME' | translate }}"
+                    labelPlacement="stacked"
+                    [placeholder]="getNamePlaceholder()"
+                    [(ngModel)]="formData.name">
+                </ion-input>
+            </ion-item>
+        </ion-list>
+    </div>
+</ion-content>
+
+<ion-footer>
+    <ion-toolbar>
+        <div class="footer-buttons">
+            <ion-button fill="outline" (click)="dismiss()">
+                {{ 'BUTTONS.CANCEL' | translate }}
+            </ion-button>
+            <ion-button
+                fill="solid"
+                [disabled]="!canSave()"
+                (click)="save()">
+                @if (isSaving) {
+                    <ion-spinner name="crescent" class="button-spinner"></ion-spinner>
+                } @else {
+                    {{ 'BUTTONS.SAVE' | translate }}
+                }
+            </ion-button>
+        </div>
+    </ion-toolbar>
+</ion-footer>

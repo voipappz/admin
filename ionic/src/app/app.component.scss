@@ -1,0 +1,675 @@
+ion-menu ion-content {
+  --padding-top: 20px;
+  --padding-bottom: 20px;
+
+  --background: var(--ion-item-background, var(--ion-background-color, #fff));
+}
+
+/* Remove background transitions for switching themes */
+ion-menu ion-item {
+  --transition: none;
+}
+
+ion-item.selected {
+  --color: var(--ion-color-primary);
+}
+
+/*
+ * Material Design Menu
+*/
+ion-menu.md ion-list {
+  padding: 20px 0;
+}
+
+ion-menu.md ion-list-header {
+  padding-left: 18px;
+  padding-right: 18px;
+
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  font-weight: 450;
+}
+
+ion-menu.md ion-item {
+  --padding-start: 18px;
+
+  margin-right: 10px;
+
+  border-radius: 0 50px 50px 0;
+
+  font-weight: 500;
+}
+
+ion-menu.md ion-item.selected {
+  --background: rgba(var(--ion-color-primary-rgb), 0.14);
+}
+
+ion-menu.md ion-item.selected ion-icon {
+  color: var(--ion-color-primary);
+}
+
+ion-menu.md ion-list-header,
+ion-menu.md ion-item ion-icon {
+  color: var(--ion-color-step-650, #5f6368);
+}
+
+ion-menu.md ion-list:not(:last-of-type) {
+  border-bottom: 1px solid var(--ion-color-step-150, #d7d8da);
+}
+
+
+/*
+ * iOS Menu
+*/
+ion-menu.ios ion-list-header {
+  padding-left: 16px;
+  padding-right: 16px;
+
+  margin-bottom: 8px;
+}
+
+ion-menu.ios ion-list {
+  padding: 20px 0 0;
+}
+
+ion-menu.ios ion-item {
+  --padding-start: 16px;
+  --min-height: 50px;
+}
+
+ion-menu.ios ion-item ion-icon {
+  font-size: 24px;
+  color: #73849a;
+}
+
+ion-menu.ios ion-item.selected ion-icon {
+  color: var(--ion-color-primary);
+}
+
+/*
+ * Phone Menu Styling (End Side) - Dark Mode Compatible
+*/
+ion-menu[side="end"] {
+  --width: 380px;
+  --max-width: 90vw;
+
+  ion-toolbar {
+    --background: var(--ion-color-primary, #3880ff);
+    --color: var(--ion-color-primary-contrast, white);
+
+    ion-item {
+      --background: transparent;
+      --color: var(--ion-color-primary-contrast, white);
+      --border-color: transparent;
+
+      p {
+        color: rgba(255, 255, 255, 0.8) !important;
+      }
+    }
+  }
+
+  .avatar-placeholder {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--ion-color-step-200, #ddd);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ion-color-step-600, #666);
+    font-weight: bold;
+    font-size: 20px;
+  }
+
+  // Tab styling - adapts to dark mode
+  ion-segment {
+    --background: var(--ion-color-step-100, #f5f5f5);
+  }
+
+  ion-segment-button {
+    --color: var(--ion-color-step-500, #999);
+    --color-checked: var(--ion-color-primary, #3880ff);
+    --indicator-color: var(--ion-color-primary, #3880ff);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 14px;
+  }
+
+  // Settings icon button
+  ion-segment-button[value="settings"] {
+    min-width: 60px;
+  }
+}
+
+// Call Cards - Dark Mode Compatible
+ion-card.call-card {
+  margin: 8px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --background: var(--ion-card-background, var(--ion-background-color));
+
+  ion-card-header {
+    text-align: center;
+    padding-bottom: 8px;
+  }
+
+  ion-card-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--ion-text-color, #333);
+  }
+
+  ion-card-subtitle {
+    font-size: 14px;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--ion-color-step-600, #666);
+
+    ion-icon {
+      font-size: 16px;
+    }
+
+    .status-badge {
+      background: var(--ion-color-primary, #3880ff);
+      color: var(--ion-color-primary-contrast, white);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 500;
+      margin-left: 8px;
+    }
+  }
+
+  ion-card-content {
+    text-align: center;
+  }
+
+  &.ringing {
+    border-left: 4px solid var(--ion-color-success, #4caf50);
+    animation: pulse-border 1.5s infinite;
+  }
+
+  &.active {
+    border-left: 4px solid var(--ion-color-primary, #3880ff);
+  }
+
+  .call-action-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin: 16px 0;
+
+    .answer-btn, .hangup-btn {
+      width: 64px;
+      height: 64px;
+      --border-radius: 50%;
+      font-size: 24px;
+    }
+
+    .answer-btn {
+      --background: var(--ion-color-success, #4caf50);
+      animation: pulse-green 1.5s infinite;
+    }
+
+    .hangup-btn {
+      --background: var(--ion-color-danger, #f44336);
+    }
+  }
+
+  // Active call content layout
+  .active-call-content {
+    padding: 20px 16px 16px !important;
+  }
+
+  // Caller identity block
+  .caller-identity {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+
+    .caller-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--ion-color-primary, #3880ff);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 10px;
+
+      ion-icon {
+        font-size: 28px;
+        color: white;
+      }
+    }
+
+    .caller-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--ion-text-color, #333);
+      margin-bottom: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .call-timer {
+      font-size: 14px;
+      color: var(--ion-color-step-500, #999);
+      font-variant-numeric: tabular-nums;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-pill {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 10px;
+      border-radius: 10px;
+
+      &.hold {
+        background: rgba(var(--ion-color-warning-rgb, 255, 196, 9), 0.15);
+        color: var(--ion-color-warning-shade, #e0ac08);
+      }
+      &.mute {
+        background: rgba(var(--ion-color-danger-rgb, 244, 67, 54), 0.12);
+        color: var(--ion-color-danger, #f44336);
+      }
+    }
+  }
+
+  // 2x2 control grid
+  .call-controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 0 8px;
+
+    .ctrl-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 14px 8px;
+      border: none;
+      border-radius: 14px;
+      background: var(--ion-color-step-50, #f7f7f7);
+      color: var(--ion-text-color, #333);
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+
+      &:active {
+        transform: scale(0.96);
+      }
+
+      .ctrl-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: var(--ion-color-step-100, #eeeeee);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        ion-icon {
+          font-size: 22px;
+        }
+      }
+
+      span {
+        font-size: 12px;
+        font-weight: 500;
+      }
+
+      &.active {
+        background: rgba(var(--ion-color-primary-rgb, 56, 128, 255), 0.12);
+
+        .ctrl-icon {
+          background: var(--ion-color-primary, #3880ff);
+
+          ion-icon {
+            color: white;
+          }
+        }
+
+        span {
+          color: var(--ion-color-primary, #3880ff);
+          font-weight: 600;
+        }
+      }
+    }
+  }
+
+  // End call button
+  .end-call-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 28px;
+    background: var(--ion-color-danger, #f44336);
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: opacity 0.15s, transform 0.1s;
+
+    ion-icon {
+      font-size: 20px;
+    }
+
+    &:active {
+      transform: scale(0.97);
+      opacity: 0.9;
+    }
+  }
+
+  ion-spinner {
+    display: block;
+    margin: 16px auto;
+  }
+}
+
+@keyframes pulse-border {
+  0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+}
+
+@keyframes pulse-green {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+// Dialpad styling - Dark Mode Compatible
+.dialpad-container {
+  padding: 16px;
+
+  .phone-status {
+    text-align: center;
+    margin-bottom: 12px;
+
+    ion-chip {
+      --background: rgba(var(--ion-color-success-rgb, 76, 175, 80), 0.1);
+      font-size: 12px;
+    }
+  }
+
+  .dialpad-input-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+    background: var(--ion-color-step-100, #f5f5f5);
+    border-radius: 8px;
+    padding: 4px 8px;
+
+    .dial-input {
+      flex: 1;
+      --background: transparent;
+      --padding-start: 12px;
+      --padding-end: 8px;
+      font-size: 24px;
+      font-weight: 300;
+      text-align: center;
+      letter-spacing: 2px;
+      color: var(--ion-text-color);
+    }
+
+    .backspace-btn {
+      --color: var(--ion-color-step-600, #666);
+      font-size: 20px;
+      margin: 0;
+    }
+  }
+
+  .dialpad-grid {
+    ion-col {
+      padding: 4px;
+      text-align: center;
+    }
+
+    .digit-btn {
+      width: 64px;
+      height: 64px;
+      font-size: 24px;
+      font-weight: 400;
+      --background: var(--ion-color-step-50, #f9f9f9);
+      --color: var(--ion-text-color, #333);
+      --border-radius: 50%;
+      margin: 0 auto;
+      --padding-start: 0;
+      --padding-end: 0;
+
+      &:hover {
+        --background: var(--ion-color-step-150, #e8e8e8);
+      }
+    }
+
+    .call-row {
+      margin-top: 16px;
+
+      ion-col {
+        display: flex;
+        justify-content: center;
+      }
+    }
+
+    .call-btn {
+      width: 64px;
+      height: 64px;
+      --background: var(--ion-color-success, #0ca20c);
+      --background-hover: var(--ion-color-success-shade, #0b8f0b);
+      --color: var(--ion-color-success-contrast, white);
+      font-size: 28px;
+      --border-radius: 50%;
+      --padding-start: 0;
+      --padding-end: 0;
+
+      &[disabled] {
+        --background: var(--ion-color-step-300, #ccc);
+        opacity: 0.6;
+      }
+    }
+  }
+}
+
+// Calls Tab - Dark Mode Compatible
+.calls-tab {
+  ion-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  ion-item h2 {
+    font-weight: 600;
+  }
+
+  ion-item p {
+    font-size: 12px;
+    color: var(--ion-color-step-600, #666);
+  }
+
+  ion-note {
+    font-size: 11px;
+    text-transform: capitalize;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 16px;
+    color: var(--ion-color-step-500, #999);
+    color: #999;
+
+    ion-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+  }
+}
+
+// Settings Tab
+.settings-tab {
+  ion-list-header {
+    margin-top: 16px;
+    font-weight: 600;
+  }
+
+  ion-item {
+    --padding-start: 16px;
+  }
+
+  ion-select {
+    max-width: 180px;
+  }
+
+  ion-badge {
+    font-size: 11px;
+  }
+}
+
+// DTMF Pad - Dark Mode Compatible
+.dtmf-pad {
+  margin: 16px 0;
+  padding: 12px;
+  background: var(--ion-color-step-100, #f5f5f5);
+  border-radius: 12px;
+
+  .dtmf-display {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 500;
+    min-height: 28px;
+    margin-bottom: 12px;
+    letter-spacing: 2px;
+    color: var(--ion-text-color, #333);
+  }
+
+  .dtmf-grid {
+    ion-col {
+      text-align: center;
+      padding: 2px;
+    }
+
+    .dtmf-btn {
+      width: 48px;
+      height: 48px;
+      font-size: 20px;
+      --background: var(--ion-color-step-50, white);
+      --color: var(--ion-text-color, #333);
+      --border-radius: 50%;
+      margin: 0 auto;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+
+      &:hover {
+        --background: var(--ion-color-step-150, #e8e8e8);
+      }
+    }
+  }
+}
+
+// Conference members
+.conference-members {
+  padding: 8px 0;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--ion-color-step-100, #e0e0e0);
+
+  ion-label {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  ion-chip {
+    margin: 2px;
+  }
+}
+
+// Spy controls
+.spy-controls {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 0;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--ion-color-step-100, #e0e0e0);
+
+  ion-button {
+    --padding-start: 8px;
+    --padding-end: 8px;
+    font-size: 12px;
+
+    &.active {
+      --background: var(--ion-color-tertiary);
+      --color: white;
+      --border-radius: 8px;
+    }
+
+    span {
+      margin-left: 4px;
+    }
+  }
+}
+
+// Transfer mode banner
+.transfer-mode-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--ion-color-tertiary-tint, #e8d8f8);
+  border-radius: 8px;
+  margin: 8px;
+}
+
+// Agent status toolbar
+.phone-status-toolbar {
+  --min-height: 36px;
+}
+
+.agent-status-select {
+  text-transform: capitalize;
+  font-size: 13px;
+  color: var(--ion-color-primary-contrast, white);
+}
+
+.phone-state-badge {
+  font-size: 11px;
+}
+
+// Incoming call toast
+.incoming-call-toast {
+  --background: var(--ion-color-primary);
+  --color: white;
+}
+
+
+/* Global incoming-call banner (fixed overlay, visible anywhere) */
+.incoming-call-banner {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  left: 8px;
+  right: 8px;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--ion-color-success);
+  color: var(--ion-color-success-contrast);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
+}
+.incoming-call-banner .ic-icon { font-size: 1.6rem; }
+.incoming-call-banner .ic-info { flex: 1; display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.incoming-call-banner .ic-info small { opacity: 0.85; }
+.incoming-call-banner ion-button { margin: 0; --padding-start: 10px; --padding-end: 10px; }

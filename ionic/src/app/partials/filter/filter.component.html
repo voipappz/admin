@@ -1,0 +1,28 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="cancel()">
+        <ion-icon name="chevron-back-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>{{'LOGS.CALLS.FILTER.TITLE'|translate}}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="confirm()" [strong]="true">
+        <ion-icon name="checkmark-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+  <ion-toolbar>
+    <ion-searchbar show-clear-button="focus" [placeholder]="'LOGS.CALLS.FILTER.INLINE_PLACEHOLDER'|translate"  [debounce]="1000" (ionChange)="handleChange($event)">
+    </ion-searchbar>
+  </ion-toolbar>
+</ion-header>
+<ion-content class="ion-padding">
+  <!-- <ion-item>
+    
+  </ion-item>
+  <ion-item>
+    
+  </ion-item> -->
+</ion-content>
+

@@ -1,0 +1,23 @@
+<div class="routing-tree" dir="ltr">
+  <!-- Root: the active destination -->
+  <div class="tree-node tree-root">
+    <ion-icon [name]="rootNode.icon" [color]="rootNode.color"></ion-icon>
+    <span class="node-label">{{ rootNode.label }}</span>
+  </div>
+
+  @if (loading) {
+    <div class="tree-loading"><ion-spinner name="dots"></ion-spinner></div>
+  } @else if (children.length > 0) {
+    <div class="tree-branches">
+      @for (c of children; track $index) {
+        <div class="tree-child">
+          @if (c.branch) { <span class="branch-label">{{ c.branch }}</span> }
+          <div class="tree-node">
+            <ion-icon [name]="c.icon" [color]="c.color"></ion-icon>
+            <span class="node-label">{{ c.label }}</span>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

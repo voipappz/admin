@@ -1,0 +1,4 @@
+# Connectix.io — Android app identity for fastlane.
+# The Play service-account JSON is provided via env (never committed):
+#   SUPPLY_JSON_KEY_DATA  — contents of the service-account JSON
+package_name(ENV["ANDROID_PACKAGE_NAME"] || "connectix.io")

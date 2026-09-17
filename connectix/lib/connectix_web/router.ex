@@ -225,6 +225,30 @@ defmodule ConnectixWeb.Router do
     get "/metrics", MetricsController, :index
   end
 
+  # THE IONIC APP's deep links — `/app/calls`, `/app/login`, anything the
+  # Angular router owns.
+  #
+  # The bundle is served by `Plug.Static` in the endpoint, ahead of this
+  # router. What reaches here is every path under `/app` that is NOT a file:
+  # `Plug.Static` finds nothing and falls through, and without this the router
+  # raises `NoRouteError` on every reload and every shared link — the app works
+  # until someone presses F5, which is the worst shape for a bug to have.
+  #
+  # BOTH routes, on purpose: the glob is what catches `/app/calls`, and the
+  # bare `/` is `/app` itself, which `Plug.Static` does not answer (it serves
+  # files, and has no notion of a directory index).
+  #
+  # In NO pipeline, for the same two reasons as `/health` and `/release`: it
+  # must not require a portal session — this app signs in with its own token
+  # from `/auth/user_login`, and `Plugs.BasicAuth` would prompt for a second,
+  # unrelated credential no mobile build can supply — and it must not
+  # content-negotiate, because a Capacitor webview sends whatever Accept header
+  # it likes and a 406 there would read as a missing app.
+  scope "/app", ConnectixWeb do
+    get "/", AppController, :index
+    get "/*path", AppController, :index
+  end
+
   # WHAT THIS NODE SHIPS — the release page, and the assets on it.
   #
   # `/release`, not `/extension`: the Chrome extension is one ASSET of this

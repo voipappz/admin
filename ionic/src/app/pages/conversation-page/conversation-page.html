@@ -1,0 +1,124 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/app/calls" text=""></ion-back-button>
+    </ion-buttons>
+
+    <ion-title>
+      @if (conversation?.metadata) {
+        <div class="header-title">
+          <span class="contact-name">{{ conversation.metadata.contactName || conversation.metadata.contactNumber }}</span>
+        </div>
+      } @else {
+        {{ 'CONVERSATION.TITLE' | translate }}
+      }
+    </ion-title>
+
+    <ion-buttons slot="end">
+      <ion-button (click)="refresh()" [disabled]="loading">
+        <ion-icon name="refresh-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+
+  <!-- Call info sub-header -->
+  @if (conversation?.metadata && !loading) {
+    <ion-toolbar class="call-info-toolbar">
+      <div class="call-info">
+        <ion-icon [name]="getDirectionIcon()" class="direction-icon"></ion-icon>
+        <span class="call-date">{{ formatCallDate(conversation.metadata.callDate) }}</span>
+        @if (conversation.metadata.duration) {
+          <span class="call-duration">{{ formatDuration(conversation.metadata.duration) }}</span>
+        }
+        <ion-badge [color]="getStatusColor()" class="status-badge">
+          {{ 'CONVERSATION.STATUS.' + conversation.status.toUpperCase() | translate }}
+        </ion-badge>
+      </div>
+    </ion-toolbar>
+  }
+</ion-header>
+
+<ion-content class="conversation-content">
+  <!-- Loading State -->
+  @if (loading) {
+    <div class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>{{ 'CONVERSATION.LOADING' | translate }}</p>
+    </div>
+  }
+
+  <!-- Error State -->
+  @if (error && !loading) {
+    <div class="error-container">
+      <ion-icon name="alert-circle-outline" color="danger"></ion-icon>
+      <h3>{{ 'CONVERSATION.ERROR_TITLE' | translate }}</h3>
+      <p>{{ error }}</p>
+      <ion-button fill="outline" (click)="refresh()">
+        <ion-icon name="refresh-outline" slot="start"></ion-icon>
+        {{ 'BUTTONS.RETRY' | translate }}
+      </ion-button>
+    </div>
+  }
+
+  <!-- Processing State -->
+  @if (isProcessing && !loading && !error) {
+    <div class="processing-container">
+      <ion-spinner name="dots"></ion-spinner>
+      <h3>{{ 'CONVERSATION.PROCESSING_TITLE' | translate }}</h3>
+      <p>{{ 'CONVERSATION.PROCESSING_MESSAGE' | translate }}</p>
+    </div>
+  }
+
+  <!-- No Transcript Available -->
+  @if (conversation?.status === 'unavailable' && !loading && !error) {
+    <div class="unavailable-container">
+      <ion-icon name="document-text-outline"></ion-icon>
+      <h3>{{ 'CONVERSATION.UNAVAILABLE_TITLE' | translate }}</h3>
+      <p>{{ 'CONVERSATION.UNAVAILABLE_MESSAGE' | translate }}</p>
+    </div>
+  }
+
+  <!-- Messages List -->
+  @if (hasTranscript && !loading) {
+    <div class="messages-container" #messagesContainer>
+      @for (message of conversation.messages; track trackByMessageId($index, message)) {
+        <div class="message-wrapper" [ngClass]="getMessageClass(message)">
+          @if (message.speaker === 'system') {
+            <!-- System Message -->
+            <div class="system-message">
+              <span class="system-text">{{ message.text }}</span>
+              <span class="system-time">{{ formatTimestamp(message.timestamp) }}</span>
+            </div>
+          } @else {
+            <!-- Chat Bubble -->
+            <div class="message-bubble">
+              @if (message.speakerName) {
+                <div class="speaker-name">{{ message.speakerName }}</div>
+              }
+              <div class="message-text">{{ message.text }}</div>
+              <div class="message-footer">
+                <span class="message-time">{{ formatTimestamp(message.timestamp) }}</span>
+                @if (message.confidence !== undefined && message.confidence < 0.9) {
+                  <ion-icon name="help-circle-outline" class="low-confidence-icon"
+                    title="{{ 'CONVERSATION.LOW_CONFIDENCE' | translate }}"></ion-icon>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+</ion-content>
+
+<!-- Footer with call info -->
+@if (conversation?.metadata && !loading) {
+  <ion-footer>
+    <ion-toolbar class="footer-toolbar">
+      <div class="footer-info">
+        <ion-icon name="call-outline"></ion-icon>
+        <span class="contact-number" dir="ltr">{{ conversation.metadata.contactNumber }}</span>
+      </div>
+    </ion-toolbar>
+  </ion-footer>
+}

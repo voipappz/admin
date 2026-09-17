@@ -1,0 +1,17 @@
+// Minimal — Ionic handles the rest.
+.unread h3 {
+  font-weight: 600;
+}
+
+.ts {
+  display: block;
+  margin-top: 4px;
+}
+
+.empty-state {
+  margin-top: 25%;
+
+  ion-icon {
+    font-size: 3rem;
+  }
+}

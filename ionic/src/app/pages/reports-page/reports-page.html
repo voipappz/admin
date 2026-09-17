@@ -1,0 +1,57 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/app/dashboard"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{'REPORTS.TITLE' | translate}}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="load()">
+        <ion-icon slot="icon-only" name="refresh"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-refresher slot="fixed" (ionRefresh)="load($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <!-- Loading -->
+  <ion-list *ngIf="loading">
+    <ion-item *ngFor="let i of [1,2,3,4,5]">
+      <ion-icon slot="start" name="bar-chart-outline" color="medium"></ion-icon>
+      <ion-label>
+        <h3><ion-skeleton-text [animated]="true" style="width: 60%"></ion-skeleton-text></h3>
+        <p><ion-skeleton-text [animated]="true" style="width: 30%"></ion-skeleton-text></p>
+      </ion-label>
+    </ion-item>
+  </ion-list>
+
+  <!-- Error -->
+  <div *ngIf="!loading && errored" class="ion-text-center ion-padding">
+    <ion-icon name="cloud-offline-outline" color="medium" class="empty-icon"></ion-icon>
+    <p>{{'REPORTS.ERROR' | translate}}</p>
+    <ion-button fill="outline" size="small" (click)="load()">{{'COMMON.RETRY' | translate}}</ion-button>
+  </div>
+
+  <!-- Empty -->
+  <div *ngIf="!loading && !errored && reports.length === 0" class="ion-text-center ion-padding">
+    <ion-icon name="bar-chart-outline" color="medium" class="empty-icon"></ion-icon>
+    <p>{{'REPORTS.EMPTY' | translate}}</p>
+  </div>
+
+  <!-- Reports -->
+  <ion-list *ngIf="!loading && reports.length > 0" lines="full">
+    <ion-item *ngFor="let report of reports" button detail="true" (click)="open(report)">
+      <ion-icon slot="start" name="bar-chart-outline" [color]="typeColor(report)"></ion-icon>
+      <ion-label class="ion-text-wrap">
+        <h3>{{ report.name || ('REPORTS.UNNAMED' | translate) }}</h3>
+        <p *ngIf="report.type"><ion-text [color]="typeColor(report)">{{ report.type }}</ion-text></p>
+      </ion-label>
+      <ion-badge slot="end" *ngIf="report.enabled === false" color="medium">
+        {{'REPORTS.DISABLED' | translate}}
+      </ion-badge>
+    </ion-item>
+  </ion-list>
+</ion-content>

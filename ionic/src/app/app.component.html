@@ -1,0 +1,593 @@
+<ion-app [class.dark-theme]="dark">
+
+  <!-- Right-side Phone Menu -->
+  <ion-menu contentId="main-content" side="end" menuId="phone-sidebar" (ionWillOpen)="phoneMenuWillOpen()">
+    <ion-header>
+      <ion-toolbar color="primary">
+        <ion-buttons slot="end">
+          <ion-button (click)="toggleDark()" title="Toggle Dark Mode">
+            <ion-icon [name]="dark ? 'sunny' : 'moon'"></ion-icon>
+          </ion-button>
+          <ion-button (click)="pinRightMenu()">
+            <ion-icon [name]="isMenuPinned ? 'pin' : 'pin-outline'"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-item lines="none">
+          <ion-avatar slot="start">
+            <div class="avatar-placeholder">{{user.name?.[0]?.toUpperCase() || user.username?.[0]?.toUpperCase() || 'U'}}</div>
+          </ion-avatar>
+          <ion-label>
+            <h2>{{user.name || user.username || ('COMMON.USER' | translate)}}</h2>
+            <p>{{user.email || ''}}</p>
+          </ion-label>
+        </ion-item>
+      </ion-toolbar>
+      <ion-toolbar color="primary" class="phone-status-toolbar">
+        <ion-icon slot="start" name="radio-button-on" style="margin-inline-start: 16px;"
+          [color]="agent.status === 'available' ? 'success' : agent.status === 'on_break' ? 'warning' : 'medium'"></ion-icon>
+        <ion-select
+          [value]="agent.status"
+          (ionChange)="changeAgentStatus($event.detail.value)"
+          interface="popover"
+          class="agent-status-select">
+          @for (status of agentStatuses; track status.title) {
+            <ion-select-option [value]="status.title">{{('PHONE.STATUS.' + status.title) | translate}}</ion-select-option>
+          }
+        </ion-select>
+        <ion-buttons slot="end">
+          <ion-button (click)="toggleRegistration()"
+            [title]="(webrtc_phone_state === 'Ready' ? 'PHONE.TOOLTIP.CLICK_DISCONNECT' : 'PHONE.TOOLTIP.CLICK_CONNECT') | translate">
+            <ion-icon [name]="webrtc_phone_state === 'Ready' ? 'radio-button-on' : 'radio-button-off'"
+              [color]="webrtc_phone_state === 'Ready' ? 'success' : 'warning'" slot="start"></ion-icon>
+            <ion-label>{{webrtc_phone_state || ('PHONE.OFFLINE' | translate)}}</ion-label>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <!-- Audio Elements -->
+      <audio id="audioRemote"></audio>
+      <audio id="ringtone" src="assets/sounds/incoming.mp3" loop></audio>
+      <audio id="ringbacktone" src="assets/sounds/outgoing.mp3" loop></audio>
+
+      <!-- Active Calls Display -->
+      @for (active_call of activeCallsArray; track active_call) {
+        <div>
+          <!-- Connecting/Trying State -->
+          @if (active_call.type === 'connecting' || active_call.type === 'trying') {
+            <ion-card class="call-card">
+              <ion-card-header>
+                <ion-card-title dir="ltr">{{active_call.consumer?.fullname}}</ion-card-title>
+                <ion-card-subtitle>{{active_call.status_text || ('PHONE.STATE.CALLING' | translate)}}</ion-card-subtitle>
+              </ion-card-header>
+              <ion-card-content>
+                <ion-spinner name="dots"></ion-spinner>
+                <ion-button expand="block" color="danger" (click)="hangup(active_call)">
+                  <ion-icon name="call" style="transform: rotate(135deg)"></ion-icon>
+                  {{'PHONE.ACTIONS.CANCEL' | translate}}
+                </ion-button>
+              </ion-card-content>
+            </ion-card>
+          }
+          <!-- Ringing State -->
+          @if (active_call.type === 'ringing') {
+            <ion-card class="call-card ringing">
+              <ion-card-header>
+                <ion-card-title dir="ltr">{{active_call.consumer?.fullname}}</ion-card-title>
+                <ion-card-subtitle>{{active_call.status_text || ('PHONE.STATE.INCOMING' | translate)}}</ion-card-subtitle>
+              </ion-card-header>
+              <ion-card-content>
+                <div class="call-action-buttons">
+                  <ion-button shape="round" color="success" (click)="answer(active_call)" class="answer-btn">
+                    <ion-icon name="call" slot="icon-only"></ion-icon>
+                  </ion-button>
+                  <ion-button shape="round" color="danger" (click)="hangup(active_call)" class="hangup-btn">
+                    <ion-icon name="call" slot="icon-only" style="transform: rotate(135deg)"></ion-icon>
+                  </ion-button>
+                </div>
+              </ion-card-content>
+            </ion-card>
+          }
+          <!-- Active Call State -->
+          @if (active_call.type === 'answer') {
+            <ion-card class="call-card active">
+              <ion-card-content class="active-call-content">
+                <!-- Caller Identity -->
+                <div class="caller-identity">
+                  <div class="caller-avatar">
+                    <ion-icon name="person"></ion-icon>
+                  </div>
+                  <div class="caller-name" dir="ltr">{{active_call.consumer?.fullname}}</div>
+                  <div class="call-timer">
+                    {{active_call.call_timer_string || '00:00:00'}}
+                    @if (active_call.on_hold) {
+                      <span class="status-pill hold">{{'PHONE.STATE.ON_HOLD' | translate}}</span>
+                    }
+                    @if (active_call.on_mute) {
+                      <span class="status-pill mute">{{'PHONE.STATE.MUTED' | translate}}</span>
+                    }
+                  </div>
+                </div>
+
+                <!-- Conference Members -->
+                @if (active_call.contacts && active_call.contacts.length > 1) {
+                  <div class="conference-members">
+                    <ion-label color="medium"><small>{{'PHONE.STATE.CONFERENCE_MEMBERS' | translate}}</small></ion-label>
+                    @for (contact of active_call.contacts; track contact.uuid) {
+                      <ion-chip>
+                        <ion-icon name="person"></ion-icon>
+                        <ion-label>{{contact.fullname || contact.caller_id_number || ('PHONE.STATE.UNKNOWN' | translate)}}</ion-label>
+                        @if (contact.on_hold) {
+                          <ion-icon name="pause-circle" color="warning"></ion-icon>
+                        }
+                        @if (contact.member_id) {
+                          <ion-icon name="close-circle" (click)="dismissMember(active_call, contact)"></ion-icon>
+                        }
+                      </ion-chip>
+                    }
+                  </div>
+                }
+
+                <!-- Spy Controls -->
+                @if (active_call.call.spy !== undefined) {
+                  <div class="spy-controls">
+                    <ion-button fill="clear" size="small" (click)="spyAction(active_call, 'listen')"
+                      [class.active]="active_call.call.spy === 'listen'">
+                      <ion-icon name="ear-outline"></ion-icon>
+                      <span>{{'PHONE.ACTIONS.LISTEN' | translate}}</span>
+                    </ion-button>
+                    <ion-button fill="clear" size="small" (click)="spyAction(active_call, 'whisper')"
+                      [class.active]="active_call.call.spy === 'whisper'">
+                      <ion-icon name="headset-outline"></ion-icon>
+                      <span>{{'PHONE.ACTIONS.WHISPER' | translate}}</span>
+                    </ion-button>
+                    <ion-button fill="clear" size="small" (click)="spyAction(active_call, 'barge')"
+                      [class.active]="active_call.call.spy === 'barge'">
+                      <ion-icon name="mic-outline"></ion-icon>
+                      <span>{{'PHONE.ACTIONS.BARGE' | translate}}</span>
+                    </ion-button>
+                  </div>
+                }
+
+                <!-- Call Controls - 2x2 Grid -->
+                <div class="call-controls-grid">
+                  <button class="ctrl-btn" [class.active]="active_call.on_mute" (click)="muteCall(active_call)">
+                    <div class="ctrl-icon">
+                      <ion-icon [name]="active_call.on_mute ? 'mic-off' : 'mic-outline'"></ion-icon>
+                    </div>
+                    <span>{{(active_call.on_mute ? 'PHONE.ACTIONS.UNMUTE' : 'PHONE.ACTIONS.MUTE') | translate}}</span>
+                  </button>
+                  <button class="ctrl-btn" [class.active]="active_call.on_hold" (click)="holdCall(active_call)">
+                    <div class="ctrl-icon">
+                      <ion-icon [name]="active_call.on_hold ? 'play' : 'pause'"></ion-icon>
+                    </div>
+                    <span>{{(active_call.on_hold ? 'PHONE.ACTIONS.RESUME' : 'PHONE.ACTIONS.HOLD') | translate}}</span>
+                  </button>
+                  <button class="ctrl-btn" [class.active]="showDtmfPad" (click)="toggleDtmfPad(active_call)">
+                    <div class="ctrl-icon">
+                      <ion-icon name="keypad-outline"></ion-icon>
+                    </div>
+                    <span>{{'PHONE.ACTIONS.KEYPAD' | translate}}</span>
+                  </button>
+                  <button class="ctrl-btn" (click)="attendedTransfer(active_call)">
+                    <div class="ctrl-icon">
+                      <ion-icon name="swap-horizontal-outline"></ion-icon>
+                    </div>
+                    <span>{{'PHONE.ACTIONS.TRANSFER' | translate}}</span>
+                  </button>
+                </div>
+
+                <!-- In-call DTMF Keypad -->
+                @if (showDtmfPad) {
+                  <div class="dtmf-pad">
+                    <div class="dtmf-display">{{dtmfInput}}</div>
+                    <ion-grid class="dtmf-grid">
+                      <ion-row>
+                        <ion-col size="4"><ion-button fill="clear" class="dtmf-btn" (click)="sendDtmf('1', active_call)">1</ion-button></ion-col>
+                        <ion-col size="4"><ion-button fill="clear" class="dtmf-btn" (click)="sendDtmf('2', active_call)">2</ion-button></ion-col>
+                        <ion-col size="4"><ion-button fill="clear" class="dtmf-btn" (click)="sendDtmf('3', active_call)">3</ion-button></ion-col>
+                      </ion-row>
+                      <ion-row>
+                        <ion-col size="4"><ion-button fill="clear" class="dtmf-btn" (click)="sendDtmf('4', active_call)">4</ion-button></ion-col>
+                        <ion-col size="4"><ion-button fill="clear" class="dtmf-btn" (click)="sendDtmf('5', active_call)">5</ion-button></ion-col>
+                        <ion-col size="4"><ion-button fill="clear" class="dtmf-btn" (click)="sendDtmf('6', active_call)">6</ion-button></ion-col>
+                      </ion-row>
+                      <ion-row>
+                        <ion-col size="4"><ion-button fill="clear" class="dtmf-btn" (click)="sendDtmf('7', active_call)">7</ion-button></ion-col>
+                        <ion-col size="4"><ion-button fill="clear" class="dtmf-btn" (click)="sendDtmf('8', active_call)">8</ion-button></ion-col>
+                        <ion-col size="4"><ion-button fill="clear" class="dtmf-btn" (click)="sendDtmf('9', active_call)">9</ion-button></ion-col>
+                      </ion-row>
+                      <ion-row>
+                        <ion-col size="4"><ion-button fill="clear" class="dtmf-btn" (click)="sendDtmf('*', active_call)">*</ion-button></ion-col>
+                        <ion-col size="4"><ion-button fill="clear" class="dtmf-btn" (click)="sendDtmf('0', active_call)">0</ion-button></ion-col>
+                        <ion-col size="4"><ion-button fill="clear" class="dtmf-btn" (click)="sendDtmf('#', active_call)">#</ion-button></ion-col>
+                      </ion-row>
+                    </ion-grid>
+                  </div>
+                }
+
+                <!-- End Call -->
+                <button class="end-call-btn" (click)="hangup(active_call)">
+                  <ion-icon name="call" style="transform: rotate(135deg)"></ion-icon>
+                  {{'PHONE.ACTIONS.END_CALL' | translate}}
+                </button>
+              </ion-card-content>
+            </ion-card>
+          }
+        </div>
+      }
+
+      <!-- Tabs -->
+      <ion-toolbar>
+        <ion-segment [(ngModel)]="phone_tab" (ionChange)="phoneTabChanged($event)">
+          <ion-segment-button value="calls">
+            <ion-label>{{'PHONE.TABS.CALLS' | translate}}</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="dialpad">
+            <ion-label>{{'PHONE.TABS.DIALPAD' | translate}}</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="settings">
+            <ion-icon name="settings"></ion-icon>
+          </ion-segment-button>
+        </ion-segment>
+      </ion-toolbar>
+
+      <!-- Tab Content -->
+      <div [hidden]="phone_tab !== 'dialpad'" class="dialpad-container" dir="ltr">
+        <!-- Transfer mode indicator -->
+        @if (phoneMode !== 'idle') {
+          <div class="transfer-mode-banner">
+            <ion-chip color="tertiary">
+              <ion-icon [name]="phoneMode === 'cold_transfer' ? 'arrow-redo' : 'swap-horizontal'"></ion-icon>
+              <ion-label>{{(phoneMode === 'cold_transfer' ? 'PHONE.TRANSFER.BLIND' : 'PHONE.TRANSFER.ATTENDED') | translate}}</ion-label>
+            </ion-chip>
+            <ion-button fill="clear" size="small" color="danger" (click)="cancelTransferMode()">{{'PHONE.ACTIONS.CANCEL' | translate}}</ion-button>
+          </div>
+        }
+
+        <!-- Phone Status -->
+        @if (webrtc_phone_state && phoneMode === 'idle') {
+          <div class="phone-status">
+            <ion-chip [color]="webrtc_phone_state === 'Ready' ? 'success' : 'warning'">
+              <ion-icon [name]="webrtc_phone_state === 'Ready' ? 'checkmark-circle' : 'time'"></ion-icon>
+              <ion-label>{{webrtc_phone_state}}</ion-label>
+            </ion-chip>
+          </div>
+        }
+
+        <!-- Dial Input with Backspace -->
+        <div class="dialpad-input-row">
+          <ion-input [(ngModel)]="dialInput" [placeholder]="(phoneMode !== 'idle' ? 'PHONE.TRANSFER.ENTER_TARGET' : 'COMMON.DIALPAD_PLACEHOLDER') | translate" type="tel" class="dial-input" dir="ltr"></ion-input>
+          @if (dialInput.length > 0) {
+            <ion-button fill="clear" class="backspace-btn" (click)="dialInput = dialInput.slice(0, -1)">
+              <ion-icon name="backspace-outline"></ion-icon>
+            </ion-button>
+          }
+        </div>
+
+        <ion-grid class="dialpad-grid">
+          <ion-row>
+            <ion-col size="4"><ion-button fill="clear" class="digit-btn" (click)="dialpadPress('1')">1</ion-button></ion-col>
+            <ion-col size="4"><ion-button fill="clear" class="digit-btn" (click)="dialpadPress('2')">2</ion-button></ion-col>
+            <ion-col size="4"><ion-button fill="clear" class="digit-btn" (click)="dialpadPress('3')">3</ion-button></ion-col>
+          </ion-row>
+          <ion-row>
+            <ion-col size="4"><ion-button fill="clear" class="digit-btn" (click)="dialpadPress('4')">4</ion-button></ion-col>
+            <ion-col size="4"><ion-button fill="clear" class="digit-btn" (click)="dialpadPress('5')">5</ion-button></ion-col>
+            <ion-col size="4"><ion-button fill="clear" class="digit-btn" (click)="dialpadPress('6')">6</ion-button></ion-col>
+          </ion-row>
+          <ion-row>
+            <ion-col size="4"><ion-button fill="clear" class="digit-btn" (click)="dialpadPress('7')">7</ion-button></ion-col>
+            <ion-col size="4"><ion-button fill="clear" class="digit-btn" (click)="dialpadPress('8')">8</ion-button></ion-col>
+            <ion-col size="4"><ion-button fill="clear" class="digit-btn" (click)="dialpadPress('9')">9</ion-button></ion-col>
+          </ion-row>
+          <ion-row>
+            <ion-col size="4"><ion-button fill="clear" class="digit-btn" (click)="dialpadPress('*')">*</ion-button></ion-col>
+            <ion-col size="4"><ion-button fill="clear" class="digit-btn" (click)="dialpadPress('0')">0</ion-button></ion-col>
+            <ion-col size="4"><ion-button fill="clear" class="digit-btn" (click)="dialpadPress('#')">#</ion-button></ion-col>
+          </ion-row>
+          <ion-row>
+            <ion-col size="4"></ion-col>
+            <ion-col size="4"><ion-button fill="clear" class="digit-btn" (click)="dialpadPress('+')">+</ion-button></ion-col>
+            <ion-col size="4"></ion-col>
+          </ion-row>
+          <ion-row class="call-row">
+            <ion-col size="12">
+              <ion-button class="call-btn" [color]="phoneMode !== 'idle' ? 'tertiary' : 'success'" shape="round" (click)="makeCall()" [disabled]="dialInput.length < 3">
+                <ion-icon [name]="phoneMode !== 'idle' ? 'arrow-redo' : 'call'" slot="icon-only"></ion-icon>
+              </ion-button>
+            </ion-col>
+          </ion-row>
+        </ion-grid>
+      </div>
+
+      <!-- Calls Tab Content -->
+      <div [hidden]="phone_tab !== 'calls'" class="calls-tab">
+        <ion-list lines="inset">
+          <ion-list-header>
+            <ion-label>{{'PHONE.CALLS.RECENT' | translate}}</ion-label>
+            <ion-button fill="clear" size="small" (click)="loadCallHistory()" [disabled]="loadingCallHistory">
+              <ion-icon name="refresh-outline" slot="icon-only"></ion-icon>
+            </ion-button>
+          </ion-list-header>
+          @for (entry of callHistory; track entry.uuid) {
+            <ion-item button (click)="callFromHistory(entry)">
+              <ion-icon slot="start"
+                [name]="entry.meta._direction === 'incoming' ? 'call-outline' : entry.meta._direction === 'missed' ? 'call-outline' : 'arrow-forward-outline'"
+                [color]="entry.meta._direction === 'missed' ? 'danger' : entry.meta._direction === 'incoming' ? 'success' : 'primary'">
+              </ion-icon>
+              <ion-label>
+                <h3 dir="ltr">{{entry.meta._contact_number || ('PHONE.STATE.UNKNOWN' | translate)}}</h3>
+                <p>{{entry.created_at | date:'MMM d, H:mm'}}</p>
+              </ion-label>
+              <ion-note slot="end">{{entry.meta._duration}}</ion-note>
+            </ion-item>
+          }
+        </ion-list>
+        @if (loadingCallHistory && callHistory.length === 0) {
+          <div class="empty-state">
+            <ion-spinner name="dots"></ion-spinner>
+          </div>
+        }
+        @if (!loadingCallHistory && callHistory.length === 0) {
+          <div class="empty-state">
+            <ion-icon name="call-outline" size="large"></ion-icon>
+            <p>{{'PHONE.CALLS.EMPTY' | translate}}</p>
+          </div>
+        }
+      </div>
+
+      <!-- Settings Tab Content -->
+      <div [hidden]="phone_tab !== 'settings'" class="settings-tab">
+        <ion-list>
+          <ion-list-header>
+            <ion-label>{{'PHONE.SETTINGS.PHONE_MODE' | translate}}</ion-label>
+          </ion-list-header>
+
+          <ion-item>
+            <ion-icon slot="start" name="call-outline"></ion-icon>
+            <ion-label>{{'PHONE.SETTINGS.WEBRTC_MODE' | translate}}</ion-label>
+            <ion-toggle [(ngModel)]="phoneModeWebrtc" (ionChange)="phoneModeChanged()"></ion-toggle>
+          </ion-item>
+
+          <ion-list-header>
+            <ion-label>{{'PHONE.SETTINGS.AGENT_STATUS' | translate}}</ion-label>
+          </ion-list-header>
+
+          @for (status of agentStatuses; track status.title) {
+            <ion-item button (click)="changeAgentStatus(status.title)"
+              [color]="agent.status === status.title ? 'light' : ''">
+              <ion-icon slot="start" [name]="status.icon + '-outline'"></ion-icon>
+              <ion-label>{{('PHONE.STATUS.' + status.title) | translate}}</ion-label>
+              @if (agent.status === status.title) {
+                <ion-icon slot="end" name="checkmark" color="success"></ion-icon>
+              }
+            </ion-item>
+          }
+
+          <ion-list-header>
+            <ion-label>{{'PHONE.SETTINGS.AUDIO_DEVICES' | translate}}</ion-label>
+          </ion-list-header>
+
+          <ion-item>
+            <ion-icon slot="start" name="mic-outline"></ion-icon>
+            <ion-label>{{'PHONE.SETTINGS.MICROPHONE' | translate}}</ion-label>
+            <ion-select [(ngModel)]="selectedInputDevice" (ionChange)="onInputDeviceChange($event)"
+              [placeholder]="'PHONE.SETTINGS.MICROPHONE_PLACEHOLDER' | translate" interface="popover">
+              @for (device of audioInputDevices; track device) {
+                <ion-select-option [value]="device.deviceId">
+                  {{device.label || ('PHONE.SETTINGS.MICROPHONE_FALLBACK' | translate:{n: audioInputDevices.indexOf(device) + 1})}}
+                </ion-select-option>
+              }
+            </ion-select>
+          </ion-item>
+
+          <ion-item>
+            <ion-icon slot="start" name="volume-high-outline"></ion-icon>
+            <ion-label>{{'PHONE.SETTINGS.SPEAKER' | translate}}</ion-label>
+            <ion-select [(ngModel)]="selectedOutputDevice" (ionChange)="onOutputDeviceChange($event)"
+              [placeholder]="'PHONE.SETTINGS.SPEAKER_PLACEHOLDER' | translate" interface="popover">
+              @for (device of audioOutputDevices; track device) {
+                <ion-select-option [value]="device.deviceId">
+                  {{device.label || ('PHONE.SETTINGS.SPEAKER_FALLBACK' | translate:{n: audioOutputDevices.indexOf(device) + 1})}}
+                </ion-select-option>
+              }
+            </ion-select>
+          </ion-item>
+
+          <ion-list-header>
+            <ion-label>{{'PHONE.SETTINGS.PHONE_STATUS' | translate}}</ion-label>
+          </ion-list-header>
+
+          <ion-item>
+            <ion-icon slot="start" name="radio-outline"></ion-icon>
+            <ion-label>
+              <h2>{{'PHONE.SETTINGS.REGISTRATION_STATUS' | translate}}</h2>
+              <p>{{webrtc_phone_state || ('PHONE.STATE.NOT_CONNECTED' | translate)}}</p>
+            </ion-label>
+            <ion-badge slot="end" [color]="webrtc_phone_state === 'Ready' ? 'success' : 'warning'">
+              {{(webrtc_phone_state === 'Ready' ? 'PHONE.ONLINE' : 'PHONE.OFFLINE') | translate}}
+            </ion-badge>
+          </ion-item>
+
+          <ion-item>
+            <ion-icon slot="start" name="person-outline"></ion-icon>
+            <ion-label>
+              <h2>{{'PHONE.SETTINGS.EXTENSION' | translate}}</h2>
+              <p>{{user.extension?.username || ('PHONE.STATE.NOT_CONFIGURED' | translate)}}</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </div>
+    </ion-content>
+  </ion-menu>
+
+  <!-- <ion-split-pane contentId="main-content">
+
+  <ion-menu contentId="main-content">
+    <ion-content>
+      <ion-list lines="none">
+        <ion-list-header>
+          Conference
+        </ion-list-header>
+        <ion-menu-toggle autoHide="false" *ngFor="let p of appPages; let i = index">
+          <ion-item [routerLink]="p.url" routerLinkActive="selected" routerDirection="root" detail="false">
+            <ion-icon slot="start" [name]="p.icon + '-outline'"></ion-icon>
+            <ion-label>
+              {{p.title}}
+            </ion-label>
+          </ion-item>
+
+        </ion-menu-toggle>
+      </ion-list>
+
+      <ion-list *ngIf="loggedIn" lines="none">
+        <ion-list-header>
+          Account
+        </ion-list-header>
+
+        <ion-menu-toggle autoHide="false">
+          <ion-item routerLink="/account" routerLinkActive="active" routerDirection="root" detail="false">
+            <ion-icon slot="start" name="person"></ion-icon>
+            <ion-label>
+              Account
+            </ion-label>
+          </ion-item>
+        </ion-menu-toggle>
+
+        <ion-menu-toggle autoHide="false">
+          <ion-item routerLink="/support" routerLinkActive="active" routerDirection="root" detail="false">
+            <ion-icon slot="start" name="help"></ion-icon>
+            <ion-label>
+              Support
+            </ion-label>
+          </ion-item>
+        </ion-menu-toggle>
+
+        <ion-menu-toggle autoHide="false">
+          <ion-item button (click)="logout()" detail="false">
+            <ion-icon slot="start" name="log-out"></ion-icon>
+            <ion-label>
+              Logout
+            </ion-label>
+          </ion-item>
+        </ion-menu-toggle>
+
+      </ion-list>
+
+      <ion-list *ngIf="!loggedIn" lines="none">
+        <ion-list-header>
+          Account
+        </ion-list-header>
+
+        <ion-menu-toggle autoHide="false">
+          <ion-item routerLink="/login" routerLinkActive="active" routerDirection="root" detail="false">
+            <ion-icon slot="start" name="log-in"></ion-icon>
+            <ion-label>
+              Login
+            </ion-label>
+          </ion-item>
+        </ion-menu-toggle>
+
+        <ion-menu-toggle autoHide="false">
+          <ion-item routerLink="/support" routerLinkActive="active" routerDirection="root" detail="false">
+            <ion-icon slot="start" name="help"></ion-icon>
+            <ion-label>
+              Support
+            </ion-label>
+          </ion-item>
+        </ion-menu-toggle>
+
+        <ion-menu-toggle autoHide="false">
+          <ion-item routerLink="/signup" routerLinkActive="active" routerDirection="root" detail="false">
+            <ion-icon slot="start" name="person-add"></ion-icon>
+            <ion-label>
+              Signup
+            </ion-label>
+          </ion-item>
+        </ion-menu-toggle>
+
+        <ion-item>
+          <ion-icon slot="start" name="moon-outline"></ion-icon>
+          <ion-label>
+            Dark Mode
+          </ion-label>
+          <ion-toggle [(ngModel)]="dark"></ion-toggle>
+        </ion-item>
+      </ion-list>
+
+      <ion-list lines="none">
+        <ion-list-header>
+          Tutorial
+        </ion-list-header>
+        <ion-menu-toggle autoHide="false">
+          <ion-item button (click)="openTutorial()" detail="false">
+            <ion-icon slot="start" name="hammer"></ion-icon>
+            <ion-label>Show Tutorial</ion-label>
+          </ion-item>
+        </ion-menu-toggle>
+      </ion-list>
+    </ion-content>
+  </ion-menu>
+</ion-split-pane> -->
+<!-- <ion-header>
+<ion-toolbar>
+  <ion-buttons slot="start">
+    <ion-menu-button></ion-menu-button>
+  </ion-buttons>
+  <ion-title>{{header_title}}</ion-title>
+  <p class="user-data" *ngIf="username && header_title=='Contacts'">
+    <!- - User: {{username}} - ->
+    <span class="user-credit">Credit: {{credit}}</span>
+  </p>
+  <ion-buttons slot="end" *ngIf="header_title!='Login'">
+    <ion-tab-button (click)="logout()">
+      <ion-icon name="log-out-outline"></ion-icon>
+      <ion-label>Logout</ion-label>
+    </ion-tab-button>
+  </ion-buttons>
+</ion-toolbar>
+</ion-header> -->
+
+<!-- <ion-tabs>
+<ion-tab-bar slot="bottom">
+  <ion-tab-button tab="home" [selected]="true" href="/calls">
+    <ion-icon name="call"></ion-icon>
+    Calls
+  </ion-tab-button>
+  <ion-tab-button tab="radio">
+    <ion-icon name="radio"></ion-icon>
+    Radio
+  </ion-tab-button>
+  <ion-tab-button tab="library">
+    <ion-icon name="library"></ion-icon>
+    Library
+  </ion-tab-button>
+  <ion-tab-button tab="search">
+    <ion-icon name="search"></ion-icon>
+    Search
+  </ion-tab-button>
+</ion-tab-bar>
+</ion-tabs> -->
+<ion-router-outlet id="main-content" (activate)="setHeader()"></ion-router-outlet>
+
+<!-- Global incoming-call banner: prominent answer/decline anywhere in the app -->
+@for (call of activeCallsArray; track call) {
+  @if (call.type === 'ringing') {
+    <div class="incoming-call-banner">
+      <ion-icon name="call" class="ic-icon"></ion-icon>
+      <div class="ic-info" dir="ltr">
+        <strong>{{ call.consumer?.fullname || ('PHONE.INCOMING' | translate) }}</strong>
+        <small>{{ call.status_text || ('PHONE.INCOMING' | translate) }}</small>
+      </div>
+      <ion-button shape="round" color="success" (click)="answer(call)" aria-label="Answer">
+        <ion-icon name="call" slot="icon-only"></ion-icon>
+      </ion-button>
+      <ion-button shape="round" color="danger" (click)="hangup(call)" aria-label="Decline">
+        <ion-icon name="call" slot="icon-only" style="transform: rotate(135deg)"></ion-icon>
+      </ion-button>
+    </div>
+  }
+}
+</ion-app>

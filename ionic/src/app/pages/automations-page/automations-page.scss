@@ -1,0 +1,44 @@
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 8px;
+}
+
+.flow-panel {
+  padding: 8px 16px 12px 56px;
+  background: var(--ion-color-light);
+}
+
+.flow-step {
+  display: flex;
+  flex-direction: column;
+}
+
+.flow-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+
+  ion-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .flow-node-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ion-text-color);
+  }
+
+  .flow-node-type {
+    margin-inline-start: auto;
+    font-size: 11px;
+  }
+}
+
+.flow-connector {
+  width: 2px;
+  height: 12px;
+  margin-inline-start: 9px;
+  background: var(--ion-color-medium-tint);
+}

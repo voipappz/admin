@@ -1,0 +1,259 @@
+// Step Progress
+.step-progress {
+    --background: var(--ion-toolbar-background);
+
+    ion-segment {
+        max-width: 300px;
+        margin: 0 auto;
+    }
+
+    ion-segment-button {
+        --indicator-color: var(--ion-color-primary);
+        --color: var(--ion-color-medium);
+        --color-checked: #ffffff;
+
+        min-width: 50px;
+
+        &[disabled] {
+            opacity: 0.5;
+        }
+    }
+}
+
+// Step Content
+.step-content {
+    padding-bottom: 20px;
+}
+
+.step-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    color: var(--ion-text-color);
+}
+
+// Keypad Grid
+.keypad-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 0;
+}
+
+.keypad-row {
+    display: flex;
+    gap: 12px;
+}
+
+.keypad-key {
+    width: 90px;
+    height: 70px;
+    border-radius: 12px;
+    border: 2px solid var(--ion-color-medium);
+    background: var(--ion-background-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 8px;
+
+    &:active {
+        transform: scale(0.95);
+    }
+
+    &.configured {
+        border-color: var(--ion-color-primary);
+        background: var(--ion-color-primary);
+
+        .key-digit {
+            color: var(--ion-color-primary-contrast, #ffffff);
+        }
+
+        .key-label {
+            color: var(--ion-color-primary-contrast, #ffffff);
+            opacity: 0.9;
+        }
+    }
+
+    .key-digit {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--ion-text-color);
+        line-height: 1;
+    }
+
+    .key-label {
+        font-size: 10px;
+        color: var(--ion-color-primary);
+        margin-top: 4px;
+        max-width: 80px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: center;
+    }
+
+    .key-hint {
+        font-size: 9px;
+        color: var(--ion-color-medium);
+        margin-top: 4px;
+        text-align: center;
+    }
+}
+
+// Fallback Cards
+ion-card {
+    margin: 16px 0;
+
+    ion-card-title {
+        font-size: 16px;
+    }
+
+    ion-card-content {
+        padding-top: 0;
+    }
+
+    ion-list {
+        padding: 0;
+    }
+
+    ion-item {
+        --padding-start: 0;
+
+        h3 {
+            font-weight: 500;
+        }
+
+        p {
+            font-size: 12px;
+            color: var(--ion-color-medium);
+        }
+    }
+}
+
+// Footer
+ion-footer {
+    ion-toolbar {
+        --padding-start: 8px;
+        --padding-end: 8px;
+    }
+}
+
+.button-spinner {
+    width: 20px;
+    height: 20px;
+}
+
+// WhatsApp-style Audio Player
+.audio-player {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--ion-color-light);
+    border-radius: 20px;
+    margin-top: 16px;
+    direction: ltr;
+}
+
+.play-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 50%;
+    border: none;
+    background: var(--ion-color-primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:active {
+        transform: scale(0.95);
+    }
+
+    ion-icon {
+        font-size: 20px;
+        margin-left: 2px; // Optical alignment for play icon
+    }
+}
+
+.audio-track {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.waveform {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 24px;
+    cursor: pointer;
+
+    .bar {
+        flex: 1;
+        height: 4px;
+        max-height: 20px;
+        background: var(--ion-color-medium-tint);
+        border-radius: 2px;
+        transition: all 0.1s ease;
+
+        &.active {
+            background: var(--ion-color-primary);
+        }
+
+        // Random heights for waveform effect
+        &:nth-child(3n) { height: 12px; }
+        &:nth-child(3n+1) { height: 18px; }
+        &:nth-child(3n+2) { height: 8px; }
+        &:nth-child(5n) { height: 20px; }
+        &:nth-child(7n) { height: 6px; }
+    }
+}
+
+.audio-time {
+    font-size: 11px;
+    color: var(--ion-color-medium);
+    font-variant-numeric: tabular-nums;
+}
+
+// Preview unavailable message
+.preview-unavailable {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    margin-top: 16px;
+    background: var(--ion-color-light);
+    border-radius: 8px;
+    color: var(--ion-color-medium);
+    font-size: 13px;
+
+    ion-icon {
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+}
+
+// Responsive adjustments for larger screens
+@media (min-width: 768px) {
+    .keypad-key {
+        width: 100px;
+        height: 80px;
+
+        .key-digit {
+            font-size: 28px;
+        }
+
+        .key-label {
+            font-size: 11px;
+        }
+    }
+}

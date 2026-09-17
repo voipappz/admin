@@ -1,0 +1,141 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <!-- Account & settings entry -->
+    <ion-buttons slot="start">
+      <ion-button class="user-avatar-btn" (click)="openUserMenu($event)" aria-label="Account and settings">
+        <ion-avatar>
+          <div class="avatar-circle">{{getUserInitial()}}</div>
+        </ion-avatar>
+        @if (unreadNotifications > 0) {
+          <span class="avatar-dot" aria-hidden="true"></span>
+        }
+      </ion-button>
+    </ion-buttons>
+
+    <!-- Search-first center: inline search when the page supports it, title otherwise -->
+    @if (showSearch) {
+      <ion-searchbar class="header-search" show-clear-button="focus"
+        [placeholder]="(searchPlaceholder || 'COMMON.SEARCH_PLACEHOLDER') | translate"
+        [debounce]="searchDebounce" (ionInput)="onSearch($event)"></ion-searchbar>
+    } @else {
+      <ion-title>{{title | translate}}</ion-title>
+    }
+
+    <ion-buttons slot="end">
+      <!-- Page-specific actions slot -->
+      <ng-content select="[header-actions]"></ng-content>
+
+      <!-- Phone panel (slides in from the right) -->
+      <ion-button class="phone-btn" (click)="togglePhoneMenu()" aria-label="Open phone">
+        <ion-icon name="call"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+
+  <!-- Optional second toolbar slot (for filters, segments, etc.) -->
+  <ng-content select="[header-toolbar]"></ng-content>
+
+  <!-- Account menu: profile, notifications, appearance, PBX management -->
+  <ion-popover #userMenuPopover [dismissOnSelect]="true" size="auto">
+    <ng-template>
+      <ion-content>
+        <ion-list lines="none">
+          <!-- User Info -->
+          <ion-item>
+            <ion-label>
+              <h2>{{getUserName()}}</h2>
+              <p dir="ltr">{{getUserEmail()}}</p>
+            </ion-label>
+          </ion-item>
+
+          <!-- Notifications -->
+          <ion-item button (click)="showNotifications()">
+            <ion-icon slot="start" name="notifications-outline"></ion-icon>
+            <ion-label>{{'NOTIFICATIONS.TITLE' | translate}}</ion-label>
+            @if (unreadNotifications > 0) {
+              <ion-badge color="danger" slot="end">{{unreadNotifications}}</ion-badge>
+            }
+          </ion-item>
+
+          <!-- Dark / light mode -->
+          <ion-item button (click)="toggleDarkMode()">
+            <ion-icon slot="start" [name]="darkMode ? 'sunny-outline' : 'moon-outline'"></ion-icon>
+            <ion-label>{{(darkMode ? 'COMMON.LIGHT_MODE' : 'COMMON.DARK_MODE') | translate}}</ion-label>
+          </ion-item>
+
+          <!-- Identities -->
+          @if (canGo('identities')) {
+            <ion-item button (click)="openIdentities()">
+              <ion-icon slot="start" name="id-card-outline"></ion-icon>
+              <ion-label>{{'IDENTITIES.TITLE' | translate}}</ion-label>
+            </ion-item>
+          }
+
+          <!-- Locations -->
+          @if (canGo('locations')) {
+            <ion-item button (click)="openLocations()">
+              <ion-icon slot="start" name="compass-outline"></ion-icon>
+              <ion-label>{{'LOCATIONS.TITLE' | translate}}</ion-label>
+            </ion-item>
+          }
+
+          <!-- IVR -->
+          @if (canGo('ivrs')) {
+            <ion-item button (click)="openIvr()">
+              <ion-icon slot="start" name="keypad-outline"></ion-icon>
+              <ion-label>{{'IVR.TITLE' | translate}}</ion-label>
+            </ion-item>
+          }
+
+          <!-- Conferences -->
+          @if (canGo('conferences')) {
+            <ion-item button (click)="openConference()">
+              <ion-icon slot="start" name="people-outline"></ion-icon>
+              <ion-label>{{'CONFERENCE.TITLE' | translate}}</ion-label>
+            </ion-item>
+          }
+
+          <!-- Language -->
+          <ion-item button (click)="toggleLanguage()">
+            <ion-icon slot="start" name="language-outline"></ion-icon>
+            <ion-label>{{getCurrentLanguage() === 'he' ? 'English' : 'עברית'}}</ion-label>
+          </ion-item>
+
+          <!-- Take a tour -->
+          <ion-item button (click)="openTour()">
+            <ion-icon slot="start" name="sparkles-outline"></ion-icon>
+            <ion-label>{{'ONBOARDING.TOUR' | translate}}</ion-label>
+          </ion-item>
+
+          <!-- Help & Support -->
+          <ion-item button (click)="openSupport()">
+            <ion-icon slot="start" name="help-buoy-outline"></ion-icon>
+            <ion-label>{{'ONBOARDING.SUPPORT' | translate}}</ion-label>
+          </ion-item>
+
+          <!-- Reports -->
+          @if (canGo('reports')) {
+            <ion-item button (click)="openReports()">
+              <ion-icon slot="start" name="bar-chart-outline"></ion-icon>
+              <ion-label>{{'REPORTS.TITLE' | translate}}</ion-label>
+            </ion-item>
+          }
+
+          <!-- System logs -->
+          @if (canGo('syslog')) {
+            <ion-item button (click)="openSyslog()">
+              <ion-icon slot="start" name="document-text-outline"></ion-icon>
+              <ion-label>{{'SYSLOG.TITLE' | translate}}</ion-label>
+            </ion-item>
+          }
+
+          <!-- Logout -->
+          <ion-item button (click)="logout()">
+            <ion-icon slot="start" name="log-out-outline" color="danger"></ion-icon>
+            <ion-label color="danger">{{'AUTH.LOGOUT.TITLE' | translate}}</ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-content>
+    </ng-template>
+  </ion-popover>
+</ion-header>

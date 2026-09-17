@@ -1,0 +1,260 @@
+// Embedded mode wrapper (no ion-content)
+.ivr-embedded-content {
+    // No extra padding - parent handles it
+}
+
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+}
+
+// Card styling
+ion-card {
+    margin: 16px 0;
+
+    ion-card-title {
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    ion-card-content {
+        padding-top: 0;
+    }
+
+    ion-list {
+        padding: 0;
+    }
+}
+
+.count-badge {
+    font-size: 12px;
+    padding: 2px 8px;
+}
+
+// Keypad Grid (read-only)
+.keypad-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 0;
+
+    &.readonly {
+        .keypad-key {
+            cursor: default;
+
+            &:active {
+                transform: none;
+            }
+        }
+    }
+}
+
+.keypad-row {
+    display: flex;
+    gap: 8px;
+}
+
+.keypad-key {
+    width: 70px;
+    height: 55px;
+    border-radius: 8px;
+    border: 1px solid var(--ion-color-medium-tint);
+    background: var(--ion-background-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+
+    &.configured {
+        border-color: var(--ion-color-primary);
+        background: var(--ion-color-primary);
+
+        .key-digit {
+            color: var(--ion-color-primary-contrast, #ffffff);
+        }
+
+        .key-label {
+            color: var(--ion-color-primary-contrast, #ffffff);
+            opacity: 0.9;
+        }
+    }
+
+    .key-digit {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--ion-color-medium);
+        line-height: 1;
+    }
+
+    .key-label {
+        font-size: 8px;
+        color: var(--ion-color-primary);
+        margin-top: 2px;
+        max-width: 60px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: center;
+    }
+}
+
+// Entries list
+.entries-list {
+    margin-top: 16px;
+    border-top: 1px solid var(--ion-color-light);
+    padding-top: 8px;
+
+    ion-item {
+        --padding-start: 0;
+
+        h3 {
+            font-weight: 500;
+        }
+
+        p {
+            font-size: 12px;
+            color: var(--ion-color-medium);
+        }
+    }
+}
+
+.key-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+// Notes
+.notes-text {
+    color: var(--ion-color-medium-shade);
+    font-style: italic;
+    white-space: pre-wrap;
+}
+
+// Announcement label
+.announcement-label {
+    font-size: 13px;
+    color: var(--ion-color-medium);
+    margin: 0 0 12px 0;
+}
+
+// WhatsApp-style Audio Player
+.audio-player {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--ion-color-light);
+    border-radius: 20px;
+    direction: ltr;
+}
+
+.play-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 50%;
+    border: none;
+    background: var(--ion-color-primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:active {
+        transform: scale(0.95);
+    }
+
+    ion-icon {
+        font-size: 20px;
+        margin-left: 2px; // Optical alignment for play icon
+    }
+}
+
+.audio-track {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.waveform {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 24px;
+    cursor: pointer;
+
+    .bar {
+        flex: 1;
+        height: 4px;
+        max-height: 20px;
+        background: var(--ion-color-medium-tint);
+        border-radius: 2px;
+        transition: all 0.1s ease;
+
+        &.active {
+            background: var(--ion-color-primary);
+        }
+
+        // Random heights for waveform effect
+        &:nth-child(3n) { height: 12px; }
+        &:nth-child(3n+1) { height: 18px; }
+        &:nth-child(3n+2) { height: 8px; }
+        &:nth-child(5n) { height: 20px; }
+        &:nth-child(7n) { height: 6px; }
+    }
+}
+
+.audio-time {
+    font-size: 11px;
+    color: var(--ion-color-medium);
+    font-variant-numeric: tabular-nums;
+}
+
+// Delete button
+.delete-button {
+    margin: 24px 0;
+}
+
+// Responsive
+@media (min-width: 768px) {
+    .keypad-key {
+        width: 80px;
+        height: 60px;
+
+        .key-digit {
+            font-size: 20px;
+        }
+
+        .key-label {
+            font-size: 9px;
+        }
+    }
+}
+
+// RTL/LTR flow arrow
+.flow-arrow {
+    &::before {
+        content: '→';
+    }
+}
+
+:host-context([dir="rtl"]) .flow-arrow {
+    &::before {
+        content: '←';
+    }
+}

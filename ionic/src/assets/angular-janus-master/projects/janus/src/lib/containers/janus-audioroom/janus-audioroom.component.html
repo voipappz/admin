@@ -1,0 +1,11 @@
+
+<janus-video-room-wrapper
+  [roomInfo]='roomInfo$ | async'
+  [remoteFeeds]='remoteFeeds$ | async'
+  [role]='role'
+  [devices]='devices'
+  [component]='component'
+  (publishOwnFeed)='onPublishOwnFeed($event)'
+  (requestSubstream)='onRequestSubstream($event)'
+  (attachRemoteFeed)='onAttachRemoteFeed($event)'
+></janus-video-room-wrapper>

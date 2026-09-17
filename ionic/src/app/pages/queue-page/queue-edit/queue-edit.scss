@@ -1,0 +1,103 @@
+// Reuse IVR edit styles for consistency
+
+.step-progress {
+    ion-segment {
+        --background: transparent;
+    }
+
+    ion-segment-button {
+        --indicator-color: var(--ion-color-primary);
+        --color: var(--ion-color-medium);
+        --color-checked: var(--ion-color-primary-contrast, #ffffff);
+        min-width: 40px;
+        max-width: 60px;
+
+        &[disabled] {
+            opacity: 0.4;
+        }
+    }
+}
+
+.step-content {
+    .step-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 16px;
+        color: var(--ion-color-dark);
+    }
+}
+
+// Agent selection styles
+.agent-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    flex-wrap: wrap;
+
+    ion-button {
+        --padding-start: 12px;
+        --padding-end: 12px;
+    }
+
+    ion-badge {
+        margin-inline-start: auto;
+    }
+}
+
+.agent-list {
+    max-height: calc(100vh - 350px);
+    overflow-y: auto;
+
+    ion-item {
+        --padding-start: 8px;
+        cursor: pointer;
+
+        ion-checkbox {
+            margin-inline-end: 12px;
+        }
+
+        ion-label {
+            h2 {
+                font-size: 1rem;
+                font-weight: 500;
+            }
+
+            p {
+                font-size: 0.85rem;
+                color: var(--ion-color-medium);
+            }
+        }
+    }
+}
+
+// Footer button spinner
+.button-spinner {
+    width: 20px;
+    height: 20px;
+}
+
+// Items with forward chevron (selection buttons)
+ion-item[button] {
+    --detail-icon-opacity: 1;
+
+    ion-label {
+        p {
+            font-size: 0.85rem;
+            color: var(--ion-color-medium);
+            margin-bottom: 4px;
+        }
+
+        h3 {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+    }
+}
+
+// Searchbar styling
+ion-searchbar {
+    --background: var(--ion-color-light);
+    --border-radius: 8px;
+    padding: 8px 0;
+}

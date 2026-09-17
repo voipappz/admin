@@ -1,0 +1,30 @@
+.toast-danger {
+    .toast-wrapper {
+      background-color: red;
+      font-weight: bold;
+      text-transform: capitalize;
+    }
+  }
+  .header-logo{
+    max-width: 10%;
+    img{
+      height: 46px;
+    }
+    div{
+      // padding: 5px 2px;
+    }
+  }
+  ion-toolbar{
+    ion-grid{
+      padding: 0px;
+      margin-top: 0px;
+      ion-title{
+        padding: 0px 10px !important;
+      }
+      @media screen and (max-width: 575px) and (min-width: 473px) {
+        ion-col{
+          left: 0 !important;
+        }
+      }
+    }
+  }

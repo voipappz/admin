@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output — www/ is built by `make build` and bundled into the portal's
+# priv/app by `make bundle`; neither belongs in git. A committed bundle is a
+# thing nobody reviews and everybody forgets to rebuild, which is how the
+# Chrome extension once shipped stale for a whole release.
+www/
+.angular/
+
+# Capacitor build output
+android/app/build/
+android/.gradle/
+ios/App/Pods/
+
+# Test artifacts
+test-results/
+playwright-report/
+
+# Secrets — never commit credentials
+.env
+.env.test

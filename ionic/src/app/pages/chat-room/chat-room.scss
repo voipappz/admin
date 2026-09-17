@@ -1,0 +1,132 @@
+/*
+ * Contact Background
+ */
+ janus-videoroom {
+  position: absolute;
+  top: 0px;//64px;
+  bottom: 0;
+  width: 100%;
+  left: 0px;
+}
+.audio-call{
+  margin-right: auto;
+  margin-left: auto;
+  width: fit-content;
+  margin-top: 20px;
+  i{
+    font-size: 20em;
+  }
+}
+ion-toolbar{
+  ion-grid{
+      ion-title{
+        padding: 0px;
+      }
+      margin-top: 0px;
+      .call-data{
+        text-align: center;
+        margin: 0px;
+        // margin-top: -20px;
+        white-space: nowrap;
+        margin-top: 3px;
+      }
+      @media screen and (max-width: 575px) and (min-width: 482px) {
+        ion-col{
+          left: 0 !important;
+        }
+      }
+  }
+}
+div.container {
+  overflow: hidden;
+  height: 100%;
+  position: relative;
+}
+
+app-dock {
+  position: absolute;
+  width: 100%;
+  height: 120px;
+}
+
+@media (max-width: 599px) {
+  janus-videoroom {
+      top: 55px;
+  }
+}
+
+// ion-toolbar {
+//   position: absolute;
+
+//   top: 0;
+//   left: 0;
+//   right: 0;
+
+//   --background: transparent;
+//   --color: white;
+// }
+
+// ion-toolbar ion-button,
+// ion-toolbar ion-back-button,
+// ion-toolbar ion-menu-button {
+//   --color: white;
+// }
+.call-data{
+  text-align: center;
+  margin: 0px;
+  margin-top: -20px;
+}
+.contact-background {
+  position: relative;
+
+  display: flex;
+
+  padding-top: var(--ion-safe-area-top);
+
+  align-items: center;
+  justify-content: center;
+
+  flex-direction: column;
+
+  height: calc(250px + var(--ion-safe-area-top));
+
+  background: center / cover url(/assets/img/contact-background.png) no-repeat;
+}
+
+.contact-background img {
+  width: 70px;
+  border-radius: 50%;
+  margin-top: calc(-1 * var(--ion-safe-area-top));
+}
+
+.contact-background h2 {
+  position: absolute;
+
+  bottom: 10px;
+
+  color: white;
+}
+
+.md .contact-background {
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 3px 1px -2px, rgba(0, 0, 0, 0.14) 0px 2px 2px 0px, rgba(0, 0, 0, 0.12) 0px 1px 5px 0px;
+}
+
+.ios .contact-background {
+  box-shadow: rgba(0, 0, 0, 0.12) 0px 4px 16px;
+}
+
+/*
+ * Contact Details
+ */
+
+.contact-detail p {
+  margin-left: 6px;
+  margin-right: 6px;
+}
+
+.contact-detail hr {
+  margin-top: 20px;
+  margin-bottom: 20px;
+
+  background: var(--ion-color-step-150, #d7d8da);
+}

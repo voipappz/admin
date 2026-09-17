@@ -1,0 +1,93 @@
+@if (isModal) {
+<ion-header>
+    <ion-toolbar>
+        <ion-buttons slot="start">
+            <ion-button (click)="dismiss()">
+                <ion-icon name="close-outline"></ion-icon>
+            </ion-button>
+        </ion-buttons>
+        <ion-title>
+            {{(isNew ? 'EXTENSION.EDIT.CREATE_TITLE' : 'EXTENSION.EDIT.EDIT_TITLE') | translate}}
+        </ion-title>
+        <ion-buttons slot="end">
+            <ion-button (click)="save()" [disabled]="!formValid || saving">
+                @if (saving) {
+                    <ion-spinner name="crescent" slot="icon-only"></ion-spinner>
+                } @else {
+                    <ion-icon slot="icon-only" name="checkmark-outline"></ion-icon>
+                }
+            </ion-button>
+        </ion-buttons>
+    </ion-toolbar>
+</ion-header>
+} @else {
+<ion-header>
+    <ion-toolbar>
+        <ion-buttons slot="start">
+            <ion-back-button defaultHref="/app/actions"></ion-back-button>
+        </ion-buttons>
+        <ion-title>
+            {{(isNew ? 'EXTENSION.EDIT.CREATE_TITLE' : 'EXTENSION.EDIT.EDIT_TITLE') | translate}}
+        </ion-title>
+        <ion-buttons slot="end">
+            <ion-button (click)="save()" [disabled]="!formValid || saving">
+                @if (saving) {
+                    <ion-spinner name="crescent" slot="icon-only"></ion-spinner>
+                } @else {
+                    <ion-icon slot="icon-only" name="checkmark-outline"></ion-icon>
+                }
+            </ion-button>
+        </ion-buttons>
+    </ion-toolbar>
+</ion-header>
+}
+
+<ion-content class="ion-padding">
+    <ion-list>
+        <!-- Name -->
+        <ion-item>
+            <ion-input
+                [(ngModel)]="formData.name"
+                [label]="'EXTENSION.FIELDS.NAME' | translate"
+                labelPlacement="stacked"
+                [placeholder]="'EXTENSION.PLACEHOLDERS.NAME' | translate"
+                (ionInput)="onNameChange()"
+                required>
+            </ion-input>
+        </ion-item>
+
+        <!-- Enabled Toggle -->
+        <ion-item>
+            <ion-toggle [(ngModel)]="formData.enabled" justify="space-between">
+                {{'EXTENSION.FIELDS.ENABLED' | translate}}
+            </ion-toggle>
+        </ion-item>
+
+        <!-- Notes -->
+        <ion-item>
+            <ion-textarea
+                [(ngModel)]="formData.notes"
+                [label]="'EXTENSION.FIELDS.NOTES' | translate"
+                labelPlacement="stacked"
+                [placeholder]="'EXTENSION.PLACEHOLDERS.NOTES' | translate"
+                [autoGrow]="true"
+                [rows]="3">
+            </ion-textarea>
+        </ion-item>
+    </ion-list>
+
+    <!-- Save Button (for non-modal mode) -->
+    @if (!isModal) {
+        <ion-button
+            expand="block"
+            class="save-button"
+            [disabled]="!formValid || saving"
+            (click)="save()">
+            @if (saving) {
+                <ion-spinner name="crescent"></ion-spinner>
+            } @else {
+                {{'BUTTONS.SAVE' | translate}}
+            }
+        </ion-button>
+    }
+</ion-content>

@@ -1,0 +1,190 @@
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+}
+
+.did-info-card {
+    ion-card-header {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 0;
+
+        ion-card-title {
+            flex: 1;
+            font-size: 14px;
+            color: var(--ion-color-medium);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        ion-button {
+            margin: 0;
+            flex-shrink: 0;
+        }
+    }
+
+    ion-item {
+        --padding-start: 0;
+        --inner-padding-end: 0;
+
+        h2 {
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        p {
+            font-size: 14px;
+            color: var(--ion-color-medium);
+        }
+
+        .phone-number {
+            direction: ltr;
+            unicode-bidi: embed;
+
+            // In RTL mode, align phone number to the right
+            :host-context([dir="rtl"]) &,
+            [dir="rtl"] & {
+                text-align: right;
+            }
+        }
+    }
+
+}
+
+// Tappable bridge type badge
+.bridge-badge {
+    font-size: 12px;
+    padding: 6px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: opacity 0.15s ease;
+
+    &--tappable {
+        cursor: pointer;
+
+        &:active {
+            opacity: 0.7;
+        }
+    }
+
+    .badge-chevron {
+        font-size: 10px;
+    }
+
+    .badge-spinner {
+        width: 14px;
+        height: 14px;
+    }
+}
+
+ion-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    ion-icon {
+        font-size: 20px;
+    }
+}
+
+// Empty state for unconfigured routing
+.routing-empty-card {
+    text-align: center;
+
+    ion-card-content {
+        padding: 32px 16px;
+    }
+
+    .empty-icon {
+        font-size: 48px;
+        margin-bottom: 12px;
+    }
+
+    h2 {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--ion-color-dark);
+        margin-bottom: 8px;
+    }
+
+    p {
+        font-size: 14px;
+        color: var(--ion-color-medium);
+        margin-bottom: 20px;
+    }
+
+    ion-button {
+        --border-radius: 8px;
+    }
+}
+
+// Bridge Section Wrapper
+.bridge-section {
+    margin: 16px 10px 10px 10px;
+    border-radius: 12px;
+    background: var(--ion-card-background, var(--ion-background-color));
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+
+.bridge-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--ion-color-light);
+    border-bottom: 1px solid var(--ion-color-light-shade);
+
+    .bridge-type {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--ion-color-dark);
+
+        ion-icon {
+            font-size: 20px;
+        }
+    }
+
+    ion-button {
+        --padding-start: 8px;
+        --padding-end: 8px;
+        margin: 0;
+    }
+}
+
+.bridge-content {
+    // Content area - embedded components handle their own styling
+
+    // Remove margin from first card in embedded content
+    > page-ivr-detail,
+    > ion-card:first-child {
+        ion-card:first-of-type {
+            margin-top: 0;
+        }
+    }
+
+    > ion-card {
+        margin: 0;
+        box-shadow: none;
+    }
+}
+
+// Plain-language caption above the routing destination button
+.routing-caption {
+    margin: 16px 4px 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #8a8a8e;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}

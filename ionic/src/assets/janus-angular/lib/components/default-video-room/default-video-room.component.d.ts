@@ -1,0 +1,51 @@
+import { AfterViewInit, ChangeDetectorRef, ElementRef, EventEmitter, OnDestroy, OnInit } from '@angular/core';
+import { Observable } from 'rxjs';
+import { PublishOwnFeedPayload } from '../../store/actions/janus.actions';
+import { Devices, JanusRole, RemoteFeed, RoomInfo } from '../../models/janus.models';
+/** @internal */
+import * as ɵngcc0 from '@angular/core';
+export declare class DefaultVideoRoomComponent implements OnInit, OnDestroy, AfterViewInit {
+    private changeDetector;
+    roomInfo: RoomInfo;
+    remoteFeeds$: Observable<RemoteFeed[]>;
+    role: JanusRole;
+    devices?: Devices;
+    requestSubstream: EventEmitter<{
+        feed: RemoteFeed;
+        substreamId: number;
+    }>;
+    publishOwnFeed: EventEmitter<PublishOwnFeedPayload>;
+    viewport: ElementRef;
+    private resizeObservable$;
+    private subs;
+    videoWidth: number;
+    videoHeight: number;
+    speakerWidth: number;
+    speakerHeight: number;
+    selfVideoRight: number;
+    selfVideoBottom: number;
+    mode: 'grid' | 'speaker';
+    speaker: RemoteFeed;
+    constructor(changeDetector: ChangeDetectorRef);
+    ngOnInit(): void;
+    ngAfterViewInit(): void;
+    ngOnDestroy(): void;
+    get publishing(): boolean;
+    onMaximize(remoteFeed: RemoteFeed): void;
+    onRequestSubstream(event: {
+        feed: RemoteFeed;
+        substreamId: number;
+    }): void;
+    onPublishOwnFeed(event: PublishOwnFeedPayload): void;
+    trackByFeedId(index: number, remoteFeed: RemoteFeed): string;
+    get selfVideoHeight(): number;
+    get selfVideoWidth(): number;
+    setupSubscriptions(): void;
+    computeVideoWidth(numRemoteVideos: any): void;
+    computeSpeakerModeDimensions(aspectRatio?: number): void;
+    findIdealWidth(viewportWidth: number, viewportHeight: number, numVideos: number, aspectRatio?: number): number;
+    static ɵfac: ɵngcc0.ɵɵFactoryDeclaration<DefaultVideoRoomComponent, never>;
+    static ɵcmp: ɵngcc0.ɵɵComponentDeclaration<DefaultVideoRoomComponent, "janus-default-video-room", never, { "roomInfo": "roomInfo"; "remoteFeeds$": "remoteFeeds$"; "role": "role"; "devices": "devices"; }, { "requestSubstream": "requestSubstream"; "publishOwnFeed": "publishOwnFeed"; }, never, never>;
+}
+
+//# sourceMappingURL=default-video-room.component.d.ts.map

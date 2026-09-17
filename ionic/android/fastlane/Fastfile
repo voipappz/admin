@@ -1,0 +1,44 @@
+# Connectix.io — Android fastlane.
+#
+# Signing: provide a keystore and these env vars (in CI, never committed):
+#   ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD,
+#   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+# Play upload auth:
+#   SUPPLY_JSON_KEY_DATA — service-account JSON contents
+#
+# Lanes:
+#   fastlane android beta   build a signed AAB and upload to the Play internal track
+#   fastlane android build_only   assemble a release AAB artifact only
+
+default_platform(:android)
+
+platform :android do
+  desc "Build a signed release AAB"
+  lane :build_only do
+    gradle(task: "clean", project_dir: "android/")
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+      project_dir: "android/",
+      properties: {
+        "android.injected.signing.store.file" => ENV["ANDROID_KEYSTORE_PATH"],
+        "android.injected.signing.store.password" => ENV["ANDROID_KEYSTORE_PASSWORD"],
+        "android.injected.signing.key.alias" => ENV["ANDROID_KEY_ALIAS"],
+        "android.injected.signing.key.password" => ENV["ANDROID_KEY_PASSWORD"]
+      }.compact
+    )
+  end
+
+  desc "Build and upload to the Play internal testing track"
+  lane :beta do
+    build_only
+    upload_to_play_store(
+      track: "internal",
+      aab: "android/app/build/outputs/bundle/release/app-release.aab",
+      json_key_data: ENV["SUPPLY_JSON_KEY_DATA"],
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end

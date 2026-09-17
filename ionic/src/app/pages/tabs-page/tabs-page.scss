@@ -1,0 +1,30 @@
+// Light mobile tab bar: large touch-friendly icons, quiet labels.
+ion-tab-bar {
+  --background: #ffffff;
+  --color: #8a8a8e;
+  --color-selected: var(--ion-color-primary, #3498db);
+  border-top: 0.55px solid rgba(0, 0, 0, 0.08);
+  height: calc(60px + var(--ion-safe-area-bottom, 0px));
+  padding-bottom: var(--ion-safe-area-bottom, 0);
+}
+
+ion-tab-button {
+  ion-icon {
+    font-size: 26px;
+  }
+
+  ion-label {
+    font-size: 12px;
+    font-weight: 500;
+    margin-top: 3px;
+  }
+}
+
+:host-context(body.dark-theme) {
+  ion-tab-bar {
+    --background: #1c1c1e;
+    --color: #8a8a8e;
+    --color-selected: var(--ion-color-primary, #3498db);
+    border-top-color: rgba(255, 255, 255, 0.1);
+  }
+}

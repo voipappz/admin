@@ -1,0 +1,94 @@
+<ion-header translucent="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="arrow-back-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+
+    <ion-title>
+      {{'TIME_CONDITION.TYPES.OPTIONS.'+key|translate}}
+    </ion-title>
+
+    <ion-buttons slot="end">
+      <ion-button fill="solid" color="primary" (click)="applyFilters()">
+        <ion-label>{{'BUTTONS.SAVE'|translate}}</ion-label>
+      </ion-button>
+      <!-- <ion-button (click)="applyFilters()" strong>{{'BUTTONS.DONE'|translate}}</ion-button> -->
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <!-- <ion-list> -->
+  @if (dataAvailable) {
+    @for (timeRange of time_array; track timeRange; let i = $index) {
+      <ion-card >
+        <!-- <ion-card-header>
+        ----{{timeRange|json}}----
+      </ion-card-header> -->
+      <ion-card-content>
+        <ion-list>
+          <ion-item>
+            <ion-title style="    padding: 0px;">{{'TIME_CONDITION.SET_HOURS.TITLES.FROM'|translate}}</ion-title>
+            <!-- <ion-datetime hourCycle="h23" presentation="time" (ionChange)="timeChanged($event,'from', i)"   [value]="timeRange.from" ></ion-datetime> -->
+            <ion-input  (click)="openTimePicker(timeRange, 'from')"
+              [value]="timeRange.from| date: 'HH:mm' "
+              id="triggercheckInStartDate"
+              class="ion-text-end">
+            </ion-input>
+          </ion-item>
+          <ion-item>
+            <ion-title>{{'TIME_CONDITION.SET_HOURS.TITLES.TO'|translate}}</ion-title>
+            <!-- <ion-datetime  hourCycle="h23" presentation="time" [min]="timeRange.from" (ionChange)="timeChanged($event,'to',i)"  [value]="timeRange.to"></ion-datetime> -->
+            <ion-input  (click)="openTimePicker(timeRange, 'to',timeRange.from)"
+              [value]="timeRange.to| date: 'HH:mm' "
+              id="triggercheckInStartDate"
+              class="ion-text-end">
+            </ion-input>
+          </ion-item>
+        </ion-list>
+      </ion-card-content>
+      <!-- <ion-button fill="clear" style="display:block">Remove</ion-button> -->
+      <!-- <ion-item> -->
+      <!-- <ion-select interface="alert" okText="{{'BUTTONS.OK'|translate}}" cancelText="{{'BUTTONS.CANCEL'|translate}}" [value]="bridge" (ionChange)="bridgeChanged($event)" placeholder="{{'TIME_CONDITION.BRIDGE.TYPES.SELECT_PLACEHOLDER'|translate}} ">
+      <ion-select-option value="home">{{'TIME_CONDITION.BRIDGE.TYPES.home.TITLE'|translate}}</ion-select-option>
+      <ion-select-option value="work">{{'TIME_CONDITION.BRIDGE.TYPES.work.TITLE'|translate}}</ion-select-option>
+    </ion-select> -->
+    <!-- <ion-card> -->
+    <ion-grid size="4"  >
+      <!-- style="display: flex; align-items: flex-end;justify-content: space-between;" -->
+      <ion-row >
+        <ion-col size="auto" style="line-height: 36px;">
+          {{'TIME_CONDITION.BRIDGE.FALLBACK_TITLE'|translate}}:
+        </ion-col>
+        @if (bridge?.meta?.icon) {
+          <ion-col size="auto" style="line-height: 36px;">
+            <ion-icon style="margin-inline-end: 10px;" size="large" color="success" [name]="bridge.meta.icon"></ion-icon>
+          </ion-col>
+        }
+        <ion-col >
+          <ion-select readonly interface="popover" [value]="bridge" (ionChange)="bridgeChanged($event)" [placeholder]="'TIME_CONDITION.PLACEHOLDERS.SELECT_TYPE' | translate">
+            @for (location of locations; track location) {
+              <ion-select-option [value]="location">{{location.name}}({{'TIME_CONDITION.BRIDGE.BRIDGE_TYPES.'+location.type|translate}})</ion-select-option>
+            }
+          </ion-select>
+        </ion-col>
+        <ion-col size="auto">
+          <ion-button fill="clear" color="success" (click)="openLocations()">
+            <ion-icon slot="icon-only" name="add-circle-outline"></ion-icon>
+          </ion-button>
+        </ion-col>
+      </ion-row>
+    </ion-grid>
+  <!-- </ion-card> -->
+<!-- </ion-item> -->
+</ion-card>
+}
+}
+
+<!-- </ion-list> -->
+
+</ion-content>
+
+

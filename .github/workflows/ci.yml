@@ -175,6 +175,71 @@ jobs:
           path: extension-build.zip
           if-no-files-found: error
 
+  # The Ionic app, built by the SAME stage the release image uses — so a green
+  # run here means `kamal deploy` can build it too. Its own job rather than a
+  # step inside prod-image for the same reason as the extension: it needs no
+  # BASE_IMAGE and no BEAM, so it fails on its own terms instead of after the
+  # Elixir build.
+  ionic:
+    name: Ionic app (build + base-href + assets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # --target: build ONLY the node stage. Nothing else in this workflow
+      # needs node, and nothing in the shipped image contains it.
+      - name: Build the ionic stage
+        run: docker build -f Dockerfile.production --target ionic -t connectix-ionic:ci .
+
+      - name: Take the bundle out of the stage
+        run: |
+          id=$(docker create connectix-ionic:ci)
+          docker cp "$id:/ionic/www" ./ionic-www
+          docker rm "$id" > /dev/null
+          du -sh ionic-www
+
+      # A BUNDLE THAT BUILDS IS NOT A BUNDLE THAT RENDERS, and the difference
+      # only shows in front of a user: a wrong base href compiles perfectly and
+      # 404s every asset. The stage asserts this too; asserting it again on the
+      # extracted tree is what catches a COPY that took the wrong directory.
+      - name: It is servable at /app, and its assets are really there
+        run: |
+          test -f ionic-www/index.html || { echo "::error::no index.html in the bundle"; exit 1; }
+
+          grep -q '<base href="/app/"' ionic-www/index.html \
+            || { echo "::error::index.html has no <base href=\"/app/\">"; exit 1; }
+
+          # Every local script and stylesheet index.html names must exist. An
+          # index naming a chunk the build no longer emits loads and then shows
+          # a blank page with a console 404 nobody sees.
+          miss=0
+          for f in $(grep -oE '(src|href)="[^"]*\.(js|css)"' ionic-www/index.html \
+                       | sed -E 's/.*="//;s/"//' | grep -v '^https\?://'); do
+            test -f "ionic-www/$f" || { echo "::error::index.html names $f, absent from the bundle"; miss=1; }
+          done
+          test "$miss" = 0 || exit 1
+
+          # The runtime knob the app reads for its API address. Absent, every
+          # request goes to `undefined` and the login fails with no error that
+          # names the cause.
+          test -f ionic-www/assets/config/main.js \
+            || { echo "::error::assets/config/main.js missing — the app has no API address"; exit 1; }
+
+          # Plug.Static serves foo.js.gz only if it exists, and phx.digest
+          # never sees this bundle — so the gzip step in the stage is the only
+          # thing that makes `gzip: true` mean anything.
+          test "$(find ionic-www -name '*.js.gz' | wc -l)" -gt 0 \
+            || { echo "::error::no .gz files — the compress step did not run"; exit 1; }
+
+          echo "ok: $(find ionic-www -type f | wc -l) files, base-href /app/"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && !env.ACT }}
+        with:
+          name: ionic-bundle
+          path: ionic-www
+          if-no-files-found: error
+
   # The exact artifact Kamal deploys: the Phoenix release alone — pure BEAM,
   # no Vite build, no Node anywhere in this image.
   prod-image:

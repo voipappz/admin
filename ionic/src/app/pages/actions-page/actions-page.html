@@ -1,0 +1,191 @@
+<app-header [title]="'ACTIONS.TITLE'" [showSearch]="identities.length > 1" (search)="onSearch($event)">
+</app-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+    <ion-refresher slot="fixed" (ionRefresh)="refresh($event)">
+        <ion-refresher-content></ion-refresher-content>
+    </ion-refresher>
+    <!-- Loading state -->
+    @if (loading) {
+        <div class="loading-container">
+            <ion-spinner name="crescent"></ion-spinner>
+        </div>
+    }
+
+    <!-- Error state -->
+    @if (error && !loading) {
+        <ion-card color="warning">
+            <ion-card-content>
+                <ion-item lines="none" color="warning">
+                    <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
+                    <ion-label>{{error}}</ion-label>
+                </ion-item>
+            </ion-card-content>
+        </ion-card>
+    }
+
+    <!-- Content when loaded -->
+    @if (!loading && !error && defaultIdentity) {
+        @if (identities.length > 1) {
+            <!-- Searchable list of all the user's numbers; tap to make one active -->
+            <ion-list>
+                @for (id of filteredIdentities; track id.uuid) {
+                    <ion-item button detail="false" (click)="selectIdentity(id.uuid)"
+                        [color]="isActiveIdentity(id) ? 'light' : ''">
+                        <ion-icon slot="start" name="call-outline"
+                            [color]="isActiveIdentity(id) ? 'success' : 'medium'"></ion-icon>
+                        <ion-label>
+                            <h2 dir="ltr">{{id.number || id.did_number}}</h2>
+                            @if (id.name && id.name !== (id.number || id.did_number)) { <p>{{id.name}}</p> }
+                        </ion-label>
+                        <ion-chip slot="end" [color]="bridgeColorFor(id.bridge_type)" [outline]="true">
+                            {{bridgeLabelFor(id)}}
+                        </ion-chip>
+                        @if (isActiveIdentity(id)) {
+                            <ion-icon slot="end" name="checkmark-circle" color="success"></ion-icon>
+                        }
+                    </ion-item>
+                }
+            </ion-list>
+        } @else {
+            <!-- Single number -->
+            <ion-card class="did-info-card">
+                <ion-card-header>
+                    <ion-card-title>{{'ACTIONS.DEFAULT_IDENTITY' | translate}}</ion-card-title>
+                </ion-card-header>
+                <ion-card-content>
+                    <ion-item lines="none">
+                        <ion-icon name="call-outline" slot="start" color="primary"></ion-icon>
+                        <ion-label>
+                            <h2 dir="ltr">{{getPhoneNumber()}}</h2>
+                            @if (getIdentityName() && getIdentityName() !== getPhoneNumber()) {
+                                <p>{{getIdentityName()}}</p>
+                            }
+                        </ion-label>
+                    </ion-item>
+                </ion-card-content>
+            </ion-card>
+        }
+
+        <!-- Active number's destination: full-width, mobile-friendly action -->
+        @if (bridgeType && bridgeUuid) {
+            <p class="routing-caption">{{'ACTIONS.ROUTING_LABEL' | translate}}</p>
+        }
+        <ion-button expand="block"
+            [color]="isIvrMode ? 'tertiary' : isQueueMode ? 'success' : isExtensionMode ? 'primary' : isNumberMode ? 'warning' : 'secondary'"
+            [disabled]="savingRouting"
+            (click)="changeRouting()">
+            @if (savingRouting) {
+                <ion-spinner name="dots"></ion-spinner>
+            } @else {
+                <ion-icon slot="start" name="git-branch-outline"></ion-icon>
+                @if (isIvrMode) { {{'ACTIONS.MODE.IVR' | translate}} }
+                @else if (isQueueMode) { {{'ACTIONS.MODE.QUEUE' | translate}} }
+                @else if (isExtensionMode) { {{'ACTIONS.MODE.EXTENSION' | translate}} }
+                @else if (isNumberMode) { {{'ACTIONS.MODE.NUMBER' | translate}} }
+                @else if (isTimeConditionMode) { {{'ACTIONS.MODE.TIME_CONDITION' | translate}} }
+                @else if (bridgeType) { {{bridgeType}} }
+                @else { {{'ACTIONS.SET_ROUTING' | translate}} }
+                <ion-icon slot="end" name="chevron-forward-outline"></ion-icon>
+            }
+        </ion-button>
+
+        <!-- Empty state: no bridge configured -->
+        @if (!bridgeType || !bridgeUuid) {
+            <ion-card class="routing-empty-card" (click)="changeRouting()" button>
+                <ion-card-content>
+                    <ion-icon name="git-branch-outline" color="medium" class="empty-icon"></ion-icon>
+                    <h2>{{'ACTIONS.ROUTING_EMPTY_TITLE' | translate}}</h2>
+                    <p>{{'ACTIONS.ROUTING_EMPTY_DESCRIPTION' | translate}}</p>
+                    <ion-button fill="outline" color="primary" [disabled]="savingRouting">
+                        @if (savingRouting) {
+                            <ion-spinner name="dots" slot="start"></ion-spinner>
+                        } @else {
+                            <ion-icon name="add-outline" slot="start"></ion-icon>
+                        }
+                        {{'ACTIONS.SET_ROUTING' | translate}}
+                    </ion-button>
+                </ion-card-content>
+            </ion-card>
+        }
+
+        <!-- Bridge Content Section -->
+        @if (bridgeType && bridgeUuid) {
+            <div class="bridge-section">
+                <!-- Section Header -->
+                <div class="bridge-header">
+                    <div class="bridge-type">
+                        @if (isIvrMode) {
+                            <ion-icon name="keypad-outline" color="tertiary"></ion-icon>
+                            <span>{{'IVR.TITLE' | translate}}</span>
+                        } @else if (isQueueMode) {
+                            <ion-icon name="people-outline" color="success"></ion-icon>
+                            <span>{{'QUEUE.TITLE' | translate}}</span>
+                        } @else if (isExtensionMode) {
+                            <ion-icon name="call-outline" color="primary"></ion-icon>
+                            <span>{{'EXTENSION.TITLE' | translate}}</span>
+                        } @else if (isNumberMode) {
+                            <ion-icon name="phone-portrait-outline" color="warning"></ion-icon>
+                            <span>{{'NUMBER.TITLE' | translate}}</span>
+                        } @else if (isTimeConditionMode) {
+                            <ion-icon name="time-outline" color="secondary"></ion-icon>
+                            <span>{{'TIME_CONDITION.TITLE' | translate}}</span>
+                        } @else {
+                            <ion-icon name="git-branch-outline" color="medium"></ion-icon>
+                            <span>{{bridgeType}}</span>
+                        }
+                    </div>
+                    <ion-button fill="outline" (click)="editBridge()">
+                        <ion-icon slot="start" name="create-outline"></ion-icon>
+                        {{'COMMON.EDIT' | translate}}
+                    </ion-button>
+                </div>
+
+                <!-- Simple visual routing tree -->
+                <app-routing-tree [bridgeType]="bridgeType" [bridgeUuid]="bridgeUuid" [rootLabel]="getPhoneNumber()"></app-routing-tree>
+
+                <!-- Bridge Content -->
+                <div class="bridge-content">
+                    @if (isIvrMode) {
+                        <page-ivr-detail
+                            [ivrUuid]="bridgeUuid"
+                            [embedded]="true">
+                        </page-ivr-detail>
+                    } @else if (isQueueMode) {
+                        <page-queue-detail
+                            [queueUuid]="bridgeUuid"
+                            [embedded]="true">
+                        </page-queue-detail>
+                    } @else if (isExtensionMode) {
+                        <page-extension-detail
+                            [extensionUuid]="bridgeUuid"
+                            [embedded]="true">
+                        </page-extension-detail>
+                    } @else if (isNumberMode) {
+                        <page-number-detail
+                            [numberUuid]="bridgeUuid"
+                            [embedded]="true">
+                        </page-number-detail>
+                    } @else if (isTimeConditionMode) {
+                        <page-time-condition-detail
+                            [timeConditionUuid]="bridgeUuid"
+                            [embedded]="true">
+                        </page-time-condition-detail>
+                    } @else {
+                        <!-- Unknown bridge type fallback -->
+                        <ion-card>
+                            <ion-card-content>
+                                <ion-item lines="none">
+                                    <ion-icon name="help-circle-outline" slot="start" color="medium"></ion-icon>
+                                    <ion-label>
+                                        {{'ACTIONS.UNKNOWN_BRIDGE_TYPE' | translate}}: {{bridgeType}}
+                                    </ion-label>
+                                </ion-item>
+                            </ion-card-content>
+                        </ion-card>
+                    }
+                </div>
+            </div>
+        }
+    }
+</ion-content>

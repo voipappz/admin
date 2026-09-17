@@ -1,0 +1,895 @@
+{
+    "lang": "he",
+    "dir": "rtl",
+    "data": {
+        "HTTP": {
+            "RESPONSE": {
+                "SUCCESS": {
+                    "POST": "הבקשה בוצעה בהצלחה",
+                    "PATCH": "הבקשה בוצעה בהצלחה"
+                }
+            }
+        },
+        "DATE": {
+            "PLACEHOLDER": "בחר תאריך",
+            "TODAY": "היום",
+            "YESTERDAY": "אתמול",
+            "PERIOD": {
+                "NOW": "עכשיו",
+                "TODAY": "היום",
+                "MIN": "{{x}} דקות",
+                "HOUR": "שעה",
+                "HOURS": "{{x}} שעות",
+                "WEEK": "השבוע",
+                "MONTH": "חודש",
+                "QUARTER": "רבעון",
+                "YEAR": "שנה",
+                "YEARS": "{{x}} שנים"
+            },
+            "MINUTES_SHORT": "ד'",
+            "SECONDS_SHORT": "שניות"
+        },
+        "SELECT": {
+            "SELECT_ALL": "בחר הכל",
+            "DESELECT_ALL": "בטל בחירה",
+            "CREATE": "צור חדש"
+        },
+        "BUTTONS": {
+            "SAVE": "שמור",
+            "CANCEL": "ביטול",
+            "RESET": "אפס נתונים",
+            "DONE": "שמור",
+            "OK": "אישור",
+            "ADD": "הוסף",
+            "BACK": "חזור",
+            "NEXT": "הבא",
+            "DELETE": "מחק",
+            "CLEAR": "נקה",
+            "NOT_SET": "לא הוגדר",
+            "RETRY": "נסה שוב"
+        },
+        "ERROR": {
+            "NO_DATA_TO_DISPLAY": "אין מידע להציג"
+        },
+        "COMMON": {
+            "SEARCH_PLACEHOLDER": "חיפוש...",
+            "DIALPAD_PLACEHOLDER": "הזן מספר...",
+            "USER": "משתמש",
+            "USER_LABEL": "משתמש:",
+            "CREDIT_LABEL": "יתרה:",
+            "VIDEO_CALL": "שיחת וידאו",
+            "VOICE_CALL": "שיחה קולית",
+            "CALL": "התקשר",
+            "ADD_NEW": "הוסף חדש",
+            "NO_RESULTS": "לא נמצאו תוצאות",
+            "EDIT": "עריכה",
+            "RETRY": "נסה שוב",
+            "DARK_MODE": "מצב כהה",
+            "LIGHT_MODE": "מצב בהיר"
+        },
+        "ENTITY_SELECTOR": {
+            "PLACEHOLDER": "בחר..."
+        },
+        "ANNOUNCEMENT": {
+            "CREATE": {
+                "TITLE": "יצירת הודעה",
+                "STEP_INFO": "פרטים בסיסיים",
+                "STEP_CONTENT": "תוכן",
+                "NAME": "שם",
+                "NAME_PLACEHOLDER": "הזן שם להודעה",
+                "ENABLED": "פעיל",
+                "TYPE": "סוג",
+                "TYPE_FILE": "העלאת קובץ שמע",
+                "TYPE_TTS": "טקסט לדיבור",
+                "UPLOAD_TITLE": "העלאת קובץ",
+                "UPLOAD_HINT": "MP3, WAV (עד 50MB)",
+                "DRAG_DROP": "גרור ושחרר קובץ שמע או לחץ לבחירה",
+                "OR_CLICK": "או לחץ לבחירה",
+                "FILE_SELECTED": "קובץ נבחר",
+                "CHANGE_FILE": "שנה קובץ",
+                "TTS_LANGUAGE": "שפה",
+                "TTS_TEXT": "טקסט",
+                "TTS_TEXT_PLACEHOLDER": "הזן טקסט להמרה לדיבור",
+                "TTS_GENERATE": "צור תצוגה מקדימה",
+                "TTS_GENERATING": "מייצר...",
+                "TTS_PREVIEW": "תצוגה מקדימה",
+                "TTS_REGENERATE": "צור מחדש",
+                "SAVING": "שומר...",
+                "LANGUAGES": {
+                    "en": "אנגלית",
+                    "he": "עברית"
+                },
+                "VALIDATION": {
+                    "NAME_REQUIRED": "שם הוא שדה חובה",
+                    "FILE_REQUIRED": "יש לבחור קובץ",
+                    "TEXT_REQUIRED": "יש להזין טקסט",
+                    "GENERATE_FIRST": "יש ליצור תצוגה מקדימה קודם"
+                }
+            }
+        },
+        "NOTIFICATIONS": {
+            "TITLE": "התראות",
+            "NO_NEW": "אין התראות חדשות",
+            "UNREAD_COUNT": "יש לך {{count}} התראות שלא נקראו",
+            "MARK_ALL_READ": "סמן הכל כנקרא"
+        },
+        "CONTACTS": {
+            "TITLE": "אנשי קשר",
+            "SHARE_HEADER": "שתף את {{name}}",
+            "CONTACT_HEADER": "צור קשר עם {{name}}",
+            "COPY_LINK": "העתק קישור",
+            "SHARE_VIA": "שתף באמצעות...",
+            "EMAIL_ACTION": "אימייל ({{email}})",
+            "CALL_ACTION": "התקשר ({{phone}})",
+            "SAY_HELLO": "אמור שלום ברשתות החברתיות!"
+        },
+        "TOGGLE_MENU": {
+            "SHOW": "הצג תפריט",
+            "HIDE": "הסתר תפריט",
+            "TITLES": {
+                "campaigns": "קמפיינים",
+                "reports": "דוחות",
+                "calls": "שיחות",
+                "dashboards": "דשבורדים"
+            }
+        },
+        "HEADER": {
+            "SEARCH": {
+                "DRIVERS": "מה ברצונך לחפש? ...",
+                "ALERTS": "מה ברצונך לחפש? ...",
+                "RESULTS": "תוצאות"
+            },
+            "TITLE": "ניהול צי"
+        },
+        "AUTH": {
+            "GENERAL": {
+                "OR": "או",
+                "SUBMIT_BUTTON": "התחבר",
+                "SIGNUP_BUTTON": "הירשם",
+                "FORGOT_BUTTON": "שכחתי סיסמה",
+                "BACK_BUTTON": "חזור",
+                "PRIVACY": "פרטיות",
+                "LEGAL": "משפטי",
+                "CONTACT": "איש קשר"
+            },
+            "LOGOUT": {
+                "TITLE": "התנתק"
+            },
+            "LOGIN": {
+                "TITLE": "התחבר",
+                "BUTTON": "הירשם"
+            },
+            "FORGOT": {
+                "TITLE": "שכחת סיסמה?",
+                "DESC": "הזינו את כתובת האימייל לקבלת קוד איפוס",
+                "SUCCESS": "הסיסמה התאפסה בהצלחה."
+            },
+            "INPUT": {
+                "EMAIL": "אימייל/שם משתמש",
+                "FULLNAME": "שם מלא",
+                "PASSWORD": "סיסמה",
+                "CONFIRM_PASSWORD": "אימות סיסמה",
+                "USERNAME": "שם משתמש"
+            },
+            "VALIDATION": {
+                "INVALID": "{{name}} אינו תקין",
+                "REQUIRED": "{{name}} שדה חובה",
+                "MIN_LENGTH": "אורך מינימלי של {{name}} הוא {{min}}",
+                "AGREEMENT_REQUIRED": "יש לאשר את התנאים וההגבלות",
+                "NOT_FOUND": "ה{{name}} המבוקש לא נמצא",
+                "INVALID_LOGIN": "פרטי ההתחברות שגויים",
+                "REQUIRED_FIELD": "שדה חובה",
+                "MIN_LENGTH_FIELD": "אורך שדה מינימלי:",
+                "MAX_LENGTH_FIELD": "אורך שדה מקסימלי:",
+                "INVALID_FIELD": "השדה אינו תקין"
+            },
+            "OTP": {
+                "TITLE": "אימות זהות",
+                "DESC": "קוד בן 6 ספרות נשלח אל {{email}}. הזינו אותו כדי להמשיך.",
+                "CODE": "קוד בן 6 ספרות",
+                "VERIFY": "אימות",
+                "RESEND": "שליחת קוד מחדש",
+                "RESEND_IN": "שליחת קוד מחדש בעוד {{sec}} שניות"
+            },
+            "RESET": {
+                "TITLE": "הגדרת סיסמה חדשה",
+                "DESC": "בחרו סיסמה חדשה (לפחות 8 תווים).",
+                "BUTTON": "איפוס סיסמה",
+                "MIN_HINT": "לפחות 8 תווים",
+                "MISMATCH": "הסיסמאות אינן תואמות"
+            }
+        },
+        "LOGS": {
+            "MENU": "לוגים",
+            "CALLS": {
+                "MENU": "שיחות",
+                "TITLE": "שיחות",
+                "FILTER": {
+                    "TITLE": "חיפוש",
+                    "INLINE_PLACEHOLDER": "חיפוש",
+                    "TYPES": {
+                        "all": "הכל",
+                        "outgoing": "שיחות יוצאות",
+                        "incoming": "שיחות נכנסות",
+                        "missed": "שיחות שלא נענו",
+                        "rejected": "שיחות דחויות"
+                    }
+                },
+                "TOTAL_CALLS": "ס\"הכ רשומות",
+                "SELECT_COLUMNS": "בחירת עמודות",
+                "INFO": {
+                    "MOBILE": "נייד",
+                    "UNKNOWN": "מס' לא מזוהה",
+                    "DIRECTION": {
+                        "outgoing": "שיחה יוצאת",
+                        "incoming": "שיחה נכנסת",
+                        "missed": "שיחה שלא נענתה"
+                    }
+                },
+                "ACTIONS": {
+                    "BLOCK": "חסום",
+                    "UNBLOCK": "בטל חסימה",
+                    "MORE": "פרטים",
+                    "RECORDING": "הקלטה",
+                    "TRANSCRIPT": "תמליל"
+                }
+            },
+            "MESSAGES": {
+                "MENU": "הודעות",
+                "TITLE": "הודעות",
+                "FILTER": "סינון",
+                "TOTAL_CALLS": "ס\"הכ רשומות",
+                "SELECT_COLUMNS": "בחירת עמודות"
+            },
+            "VOICEMAIL_MESSAGES": {
+                "MENU": "הודעות קוליות",
+                "TITLE": "הודעות קוליות",
+                "FILTER": "סינון",
+                "TOTAL_CALLS": "ס\"הכ רשומות",
+                "SELECT_COLUMNS": "בחירת עמודות"
+            }
+        },
+        "CONVERSATION": {
+            "TITLE": "שיחה",
+            "LOADING": "טוען תמליל...",
+            "ERROR_TITLE": "שגיאה בטעינת התמליל",
+            "PROCESSING_TITLE": "מעבד תמליל",
+            "PROCESSING_MESSAGE": "התמליל נוצר כעת. אנא בדוק שוב מאוחר יותר.",
+            "UNAVAILABLE_TITLE": "תמליל לא זמין",
+            "UNAVAILABLE_MESSAGE": "אין תמליל זמין לשיחה זו.",
+            "LOW_CONFIDENCE": "תמלול בדיוק נמוך",
+            "STATUS": {
+                "PENDING": "ממתין",
+                "PROCESSING": "מעבד",
+                "COMPLETED": "מוכן",
+                "FAILED": "נכשל",
+                "UNAVAILABLE": "לא זמין"
+            }
+        },
+        "DASHBOARD": {
+            "MENU": "דשבורד",
+            "WIDGET": {
+                "INCOMING": "שיחות נכנסות",
+                "OUTGOING": "שיחות יוצאות",
+                "AVG_CALL_TIME": "ממוצע משך שיחה",
+                "MISSED": "שיחות שלא נענו"
+            },
+            "MISSED": "שיחות שלא נענו",
+            "ERROR": "טעינת לוח המחוונים נכשלה",
+            "LAST_7_DAYS": "שיחות · 7 ימים אחרונים",
+            "RECENT_SUMMARY": "מבוסס על {{count}} השיחות האחרונות",
+            "NO_WIDGETS": "לא הוגדרו רכיבי לוח",
+            "NO_DATA": "אין נתונים"
+        },
+        "SETTINGS": {
+            "MENU": "הגדרות",
+            "TITLE": "הגדרות",
+            "FIELDS": {
+                "LANGUAGE": "שפה",
+                "TIME_CONDITION": "תנאי זמן"
+            }
+        },
+        "IDENTITIES": {
+            "TITLE": "זהויות",
+            "EMPTY_TITLE": "אין זהויות",
+            "EMPTY_DESCRIPTION": "אין מספרי מתקשר משויכים לחשבון שלך."
+        },
+        "LOCATIONS": {
+            "TITLE": "מיקומים",
+            "DEFAULT_NAME": "מיקום",
+            "ADD": {
+                "TITLE": "הוסף מיקום",
+                "FORM": {
+                    "NAME": "שם"
+                }
+            },
+            "EMPTY_STATE": {
+                "TITLE": "אין מיקומים עדיין",
+                "DESCRIPTION": "מיקומים מאפשרים לנתב שיחות למספרים שונים לפי שעות היום או תנאים.",
+                "ADD_BUTTON": "הוסף מיקום ראשון"
+            }
+        },
+        "TIME_CONDITION": {
+            "MENU": "תנאי זמן",
+            "TITLE": "תנאי זמן",
+            "SUB_TITLE": "תיזמון",
+            "DETAIL": {
+                "STATUS": "סטטוס",
+                "SCHEDULE": "לוח זמנים"
+            },
+            "EMPTY_STATE": {
+                "TITLE": "אין מיקומים מוגדרים",
+                "DESCRIPTION": "כדי להגדיר כללי ניתוב שיחות, עליך להוסיף לפחות מיקום אחד (בית, עבודה, נייד וכו')",
+                "ADD_BUTTON": "הוסף מיקום"
+            },
+            "ERRORS": {
+                "NO_CALL_CONDITIONS": "אין תנאי שיחה זמינים",
+                "LOADING_CALL_CONDITIONS": "שגיאה בטעינת תנאי שיחות",
+                "LOADING_CALL_CONDITION": "שגיאה בטעינת תנאי שיחה",
+                "SAVE_FAILED": "שמירת השינויים נכשלה"
+            },
+            "PLACEHOLDERS": {
+                "SELECT_TYPE": "בחר סוג",
+                "PHONE_NUMBER": "050-000-0000"
+            },
+            "TYPES": {
+                "ALWAYS": {
+                    "TITLE": "תמיד",
+                    "OPTIONS": {}
+                },
+                "SELECTED_HOURS": {
+                    "TITLE": "פתוח לשעות נבחרות",
+                    "OPTIONS": {}
+                },
+                "OPTIONS": {
+                    "sunday": "ראשון",
+                    "monday": "שני",
+                    "tuesday": "שלישי",
+                    "wednesday": "רביעי",
+                    "thursday": "חמישי",
+                    "friday": "שישי",
+                    "saturday": "שבת"
+                },
+                "OPTIONS_STATUS": {
+                    "CLOSE": "סגור",
+                    "OPEN": "פתוח 24 שעות"
+                }
+            },
+            "SET_HOURS": {
+                "TITLES": {
+                    "FROM": "משעה",
+                    "TO": "עד"
+                }
+            },
+            "BRIDGE": {
+                "TITLE": "מיקומים",
+                "FALLBACK_TITLE": "ניתוב ברירת מחדל",
+                "DEFAULT": "מוגדר כברירת מחדל",
+                "TYPES": {
+                    "SELECT_PLACEHOLDER": "בחר ניתוב דיפולטיבי",
+                    "home": {
+                        "TITLE": "בית"
+                    },
+                    "work": {
+                        "TITLE": "עבודה"
+                    }
+                },
+                "BRIDGE_TYPES": {
+                    "ivr": "נתב שיחות",
+                    "extension": "שלוחה",
+                    "number": "מספר"
+                }
+            }
+        },
+        "ACTIONS": {
+            "MENU": "פעולות",
+            "TITLE": "פעולות",
+            "DEFAULT_IDENTITY": "המספר שלך",
+            "MODE": {
+                "IVR": "תפריט קולי",
+                "QUEUE": "תור מענה",
+                "EXTENSION": "שלוחה",
+                "NUMBER": "העברה למספר",
+                "TIME_CONDITION": "שעות פעילות"
+            },
+            "ERRORS": {
+                "NO_USER": "המשתמש לא מחובר",
+                "NO_DEFAULT_IDENTITY": "לא הוגדרה זהות ברירת מחדל",
+                "LOAD_FAILED": "טעינת פרטי הזהות נכשלה"
+            },
+            "IVR_CONTENT_PLACEHOLDER": "הגדרות התפריט הקולי יופיעו כאן",
+            "TIME_CONDITION_CONTENT_PLACEHOLDER": "הגדרות תנאי הזמן יופיעו כאן",
+            "UNKNOWN_BRIDGE_TYPE": "סוג ניתוב לא מוכר",
+            "CHANGE_ROUTING": "שינוי יעד",
+            "SET_ROUTING": "לבחור לאן יגיעו השיחות",
+            "ROUTING_EMPTY_TITLE": "לאן יגיעו השיחות?",
+            "ROUTING_EMPTY_DESCRIPTION": "בחרו מה קורה כשמתקשרים למספר הזה — תפריט קולי, צוות או שלוחה.",
+            "SELECT_ROUTING_TYPE": "לאן ינותבו השיחות?",
+            "CONFIRM_CHANGE_TITLE": "לשנות ניתוב שיחות?",
+            "CONFIRM_CHANGE_MESSAGE": "לנתב שיחות נכנסות אל {{newType}}: {{newName}} במקום {{currentType}}: {{currentName}}?",
+            "ROUTING_SAVE_FAILED": "עדכון הניתוב נכשל",
+            "YOUR_NUMBERS": "המספרים שלי",
+            "NO_ROUTING": "לא מוגדר",
+            "TREE": {
+                "PRESS": "לחיצה {{key}}",
+                "TIMEOUT": "פסק זמן",
+                "INVALID": "לא תקין",
+                "OTHERWISE": "אחרת",
+                "FALLBACK": "ברירת מחדל"
+            },
+            "CREATE_NEW": "יצירת {{type}} חדש",
+            "ROUTING_LABEL": "שיחות נכנסות מגיעות אל"
+        },
+        "RULES": {
+            "TITLE": "חוקים",
+            "SAVE": "שמור",
+            "CANCEL": "בטל",
+            "SELECT_MODAL_TITLE": "בחר חוק",
+            "CONDITIONS": {
+                "TITLE": "תנאים",
+                "AND": "וגם",
+                "OR": "או",
+                "ADD": "+",
+                "REMOVE": "x"
+            },
+            "ACTIONS": {
+                "TITLE": "פעולות",
+                "ADD": "+",
+                "REMOVE": "x"
+            }
+        },
+        "NOTIFICATION": {
+            "MENU": "התראות",
+            "ALERTS": {
+                "TAB": "התראות",
+                "TABLE": {
+                    "ALERT": "התראה",
+                    "LEVEL": "רמה",
+                    "TYPE": "סוג",
+                    "APP": "אפליקציה",
+                    "SUBJECT": "נושא",
+                    "MESSAGE": "הודעה",
+                    "DATE": "תאריך",
+                    "STATUS": "סטטוס",
+                    "ACTIONS": "פעולות",
+                    "TOTAL_ACTIVE_ALERTS": "סך התראות פעילות"
+                }
+            }
+        },
+        "IDENTITY": {
+            "FIELDS": {
+                "call": {
+                    "direction": "",
+                    "uuid": "",
+                    "contact_number": "",
+                    "caller_id_number": "",
+                    "duration": "",
+                    "start_at": "",
+                    "answer_at": "",
+                    "environment_name": "",
+                    "user_first_name": "",
+                    "extension_username": "",
+                    "contact_company": "",
+                    "extension_name": "",
+                    "duration_time": "",
+                    "agent_fullname": "",
+                    "count": "",
+                    "sum_billsec_duration": "",
+                    "avg_billsec_duration": "",
+                    "count_answer": "",
+                    "did": {
+                        "number": "",
+                        "name": ""
+                    },
+                    "ivr": {
+                        "name": ""
+                    },
+                    "hangup:": {
+                        "url": ""
+                    },
+                    "user": {
+                        "state": "",
+                        "status": "",
+                        "spy": "",
+                        "active_queue": "",
+                        "call_incoming_count": ""
+                    },
+                    "disposition": {
+                        "ivr_no_answer": "ivr no answer",
+                        "queue_abandoned": "queue abandoned",
+                        "queue_answer": "queue answer",
+                        "queue_timeout": "queue timeout"
+                    }
+                },
+                "user": {
+                    "user_waiting_count": "",
+                    "user_on_call_count": "",
+                    "user_on_break_count": "",
+                    "user_ready_count": "",
+                    "user_count": "",
+                    "call_count": "",
+                    "call_failed_counter": "",
+                    "call_answered_counter": "",
+                    "drop_rate": "",
+                    "answer_rate": "",
+                    "current_pending_count": "",
+                    "current_ringing_count": "",
+                    "current_answer_count": "",
+                    "skill_names": "user skill names",
+                    "last_call": "last call"
+                },
+                "queue": {
+                    "name": "",
+                    "skill_names": "",
+                    "talking_to_contact_fullname": "",
+                    "last_call": "",
+                    "last_login": "",
+                    "call_duration": "",
+                    "time_in_status": "",
+                    "fullname": "",
+                    "call_count": "call count",
+                    "callback_count": "callback count",
+                    "call_failed_counter": "call failed counter",
+                    "call_incoming_count": "",
+                    "call_outgoing_count": "",
+                    "call_caller_id_number": "",
+                    "call_number": "",
+                    "active_queue": "",
+                    "active_queue_name": "",
+                    "status": "",
+                    "state": "",
+                    "spy": "",
+                    "call": {
+                        "number_timezone": "",
+                        "feedback_status": ""
+                    },
+                    "campaign": {
+                        "name": "",
+                        "number_group": ""
+                    },
+                    "campaign_number": {
+                        "weight": ""
+                    },
+                    "bridge": {
+                        "consumer": {
+                            "fullname": ""
+                        }
+                    }
+                },
+                "campaign": {
+                    "sla": "sla",
+                    "total_calls": "total_calls",
+                    "name": "name",
+                    "answer_rate": "answer_rate",
+                    "originate_rate_min": "originate_rate_min",
+                    "originate_rate_max": "originate_rate_max",
+                    "originate_rate": "originate_rate",
+                    "current_answer_count": "current_answer_count",
+                    "drop_rate": "drop_rate",
+                    "numbers": {
+                        "schedule": "campaign numbers schedule",
+                        "count": "numbers_count",
+                        "created": "numbers_created",
+                        "fetched": "numbers.fetched",
+                        "dialing": "numbers.dialing",
+                        "dialed": "numbers.dialed",
+                        "blacklist": "numbers.blacklist",
+                        "freezed": "numbers.freezed",
+                        "dial_error": "campaign.numbers.dial_error"
+                    }
+                }
+            },
+            "PARAMS": {
+                "queue": {
+                    "uuid": ""
+                },
+                "call": {
+                    "time_range": "",
+                    "duration_time": ""
+                },
+                "agent": {
+                    "uuid": ""
+                }
+            }
+        },
+        "IVR": {
+            "TITLE": "תפריט קולי",
+            "STATUS": {
+                "ENABLED": "פעיל",
+                "DISABLED": "לא פעיל"
+            },
+            "LIST": {
+                "EMPTY_TITLE": "אין תפריטים קוליים",
+                "EMPTY_DESCRIPTION": "צור את התפריט הקולי הראשון שלך כדי להנחות מתקשרים.",
+                "ADD_BUTTON": "הוסף תפריט קולי",
+                "OPTIONS": "אפשרויות"
+            },
+            "DETAIL": {
+                "STATUS": "סטטוס"
+            },
+            "EDIT": {
+                "CREATE_TITLE": "תפריט קולי חדש",
+                "EDIT_TITLE": "עריכת תפריט קולי",
+                "NAME": "שם",
+                "NAME_PLACEHOLDER": "הזן שם לתפריט",
+                "ENABLED": "פעיל",
+                "NOTES": "הערות",
+                "NOTES_PLACEHOLDER": "הערות אופציונליות..."
+            },
+            "STEPS": {
+                "BASIC_INFO": "פרטים בסיסיים"
+            },
+            "GREETING": {
+                "TITLE": "הודעת פתיחה",
+                "SELECT_ANNOUNCEMENT": "בחר הקלטה",
+                "PREVIEW": "השמע",
+                "STOP": "עצור",
+                "PREVIEW_UNAVAILABLE": "תצוגה מקדימה לא זמינה להקלטה זו"
+            },
+            "MENU": {
+                "TITLE": "אפשרויות תפריט",
+                "DIRECT_DIAL": "אפשר חיוג ישיר",
+                "DIRECT_DIAL_HINT": "מאפשר למתקשרים לחייג ישירות לשלוחה",
+                "TAP_TO_CONFIGURE": "לחץ להגדרה"
+            },
+            "FALLBACK": {
+                "TITLE": "ניתוב חלופי",
+                "TIMEOUT": "פסק זמן",
+                "TIMEOUT_SECONDS": "פסק זמן (שניות)",
+                "TIMEOUT_DESTINATION": "יעד לאחר פסק זמן",
+                "DESTINATION_TYPE": "סוג יעד",
+                "SECONDS": "שניות",
+                "INVALID": "ניסיונות כושלים",
+                "MAX_ATTEMPTS": "מקסימום ניסיונות",
+                "INVALID_DESTINATION": "יעד לניסיונות כושלים",
+                "ATTEMPTS": "ניסיונות"
+            },
+            "BRIDGE_TYPES": {
+                "extension": "שלוחה",
+                "queue": "תור",
+                "ivr": "תפריט קולי",
+                "call_condition": "תנאי זמן",
+                "ring_group": "קבוצת צלצול",
+                "voicemail": "תא קולי",
+                "announcement": "הקלטה",
+                "number": "מספר חיצוני"
+            },
+            "ACTIONS": {
+                "CONFIGURE_KEY": "הגדר מקש {{key}}",
+                "SELECT_DESTINATION_TYPE": "בחר סוג יעד",
+                "SELECT": "בחר {{type}}",
+                "CURRENT": "נוכחי",
+                "DELETE_CONFIRM_TITLE": "מחיקת תפריט קולי",
+                "DELETE_CONFIRM_MESSAGE": "האם אתה בטוח שברצונך למחוק את \"{{name}}\"?",
+                "TIMEOUT_DESTINATION": "סוג יעד פסק זמן",
+                "INVALID_DESTINATION": "סוג יעד ניסיונות כושלים",
+                "DESTINATION_TYPE": "סוג יעד",
+                "DESTINATION": "יעד"
+            }
+        },
+        "QUEUE": {
+            "TITLE": "תור",
+            "EDIT": {
+                "CREATE_TITLE": "יצירת תור",
+                "EDIT_TITLE": "עריכת תור"
+            },
+            "STEPS": {
+                "BASIC_INFO": "מידע בסיסי",
+                "ANNOUNCEMENTS": "הודעות",
+                "FALLBACK": "גיבוי",
+                "AGENTS": "נציגים"
+            },
+            "FIELDS": {
+                "NAME": "שם התור",
+                "NAME_PLACEHOLDER": "הזן שם תור",
+                "ENABLED": "פעיל",
+                "STRATEGY": "אסטרטגיה",
+                "INTRO_ANNOUNCEMENT": "הודעת פתיחה",
+                "HOLD_ANNOUNCEMENT": "מוזיקת המתנה",
+                "MAX_WAIT_TIME": "זמן המתנה מקסימלי (שניות)",
+                "FALLBACK_DESTINATION": "יעד גיבוי"
+            },
+            "DETAIL": {
+                "STATUS": "סטטוס",
+                "STRATEGY": "אסטרטגיה",
+                "SECONDS": "שניות",
+                "NO_AGENTS": "לא הוקצו נציגים"
+            },
+            "STATUS": {
+                "ENABLED": "פעיל",
+                "DISABLED": "מושבת"
+            },
+            "AGENTS": {
+                "TITLE": "בחירת נציגים",
+                "SEARCH": "חיפוש נציגים...",
+                "SELECT_ALL": "בחר הכל",
+                "DESELECT_ALL": "בטל בחירה",
+                "SELECTED": "נבחרו"
+            },
+            "STRATEGIES": {
+                "ring-all": "צלצול לכולם",
+                "longest-idle-agent": "נציג בהמתנה הארוכה",
+                "round-robin": "סבב עגול",
+                "top-down": "מלמעלה למטה",
+                "agent-with-least-talk-time": "הכי פחות זמן שיחה",
+                "agent-with-fewest-calls": "הכי פחות שיחות",
+                "sequentially-by-agent-order": "לפי סדר נציגים",
+                "random": "אקראי",
+                "ring-progressively": "צלצול מתקדם"
+            },
+            "ACTIONS": {
+                "DELETE_CONFIRM_TITLE": "מחיקת תור",
+                "DELETE_CONFIRM_MESSAGE": "האם אתה בטוח שברצונך למחוק את \"{{name}}\"?"
+            }
+        },
+        "EXTENSION": {
+            "TITLE": "שלוחה",
+            "EDIT": {
+                "CREATE_TITLE": "יצירת שלוחה",
+                "EDIT_TITLE": "עריכת שלוחה"
+            },
+            "FIELDS": {
+                "NAME": "שם",
+                "ENABLED": "פעיל",
+                "NOTES": "הערות"
+            },
+            "PLACEHOLDERS": {
+                "NAME": "הזן שם שלוחה",
+                "NOTES": "הזן הערות (אופציונלי)"
+            },
+            "DETAIL": {
+                "STATUS": "סטטוס",
+                "USERNAME": "שם משתמש",
+                "USER": "משתמש",
+                "ENVIRONMENT": "סביבה"
+            },
+            "STATUS": {
+                "ENABLED": "פעיל",
+                "DISABLED": "מושבת"
+            },
+            "ACTIONS": {
+                "DELETE_CONFIRM_TITLE": "מחיקת שלוחה",
+                "DELETE_CONFIRM_MESSAGE": "האם אתה בטוח שברצונך למחוק את \"{{name}}\"?"
+            }
+        },
+        "NUMBER": {
+            "TITLE": "מספר חיצוני",
+            "EDIT": {
+                "CREATE_TITLE": "יצירת מספר",
+                "EDIT_TITLE": "עריכת מספר"
+            },
+            "FIELDS": {
+                "NUMBER": "מספר טלפון"
+            },
+            "PLACEHOLDERS": {
+                "NUMBER": "הזן מספר טלפון"
+            },
+            "DETAIL": {
+                "INFO": "פרטי מספר",
+                "ENVIRONMENT": "סביבה"
+            },
+            "ACTIONS": {
+                "DELETE_CONFIRM_TITLE": "מחיקת מספר",
+                "DELETE_CONFIRM_MESSAGE": "האם אתה בטוח שברצונך למחוק את \"{{number}}\"?"
+            }
+        },
+        "BRIDGE_SELECTOR": {
+            "SELECT_TYPE": "בחר סוג"
+        },
+        "PHONE": {
+            "MENU": "טלפון",
+            "INCOMING": "שיחה נכנסת",
+            "ONLINE": "מחובר",
+            "OFFLINE": "לא מחובר",
+            "STATUS": {
+                "logged_out": "מנותק",
+                "available": "זמין",
+                "Available": "זמין",
+                "available_on_demand": "זמין לפי דרישה",
+                "on_break": "בהפסקה",
+                "offline": "לא מחובר",
+                "Offline": "לא מחובר",
+                "busy": "עסוק",
+                "away": "מרוחק"
+            },
+            "TABS": {
+                "CALLS": "שיחות",
+                "DIALPAD": "חייגן"
+            },
+            "ACTIONS": {
+                "MUTE": "השתק",
+                "UNMUTE": "בטל השתקה",
+                "HOLD": "המתנה",
+                "RESUME": "המשך",
+                "KEYPAD": "מקלדת",
+                "TRANSFER": "העברה",
+                "END_CALL": "סיים שיחה",
+                "CANCEL": "ביטול",
+                "LISTEN": "האזנה",
+                "WHISPER": "לחישה",
+                "BARGE": "התפרצות"
+            },
+            "CALLS": {
+                "RECENT": "שיחות אחרונות",
+                "EMPTY": "אין שיחות אחרונות"
+            },
+            "STATE": {
+                "CALLING": "מתקשר...",
+                "INCOMING": "שיחה נכנסת",
+                "ON_HOLD": "בהמתנה",
+                "MUTED": "מושתק",
+                "CONFERENCE_MEMBERS": "משתתפי שיחת ועידה",
+                "NOT_CONNECTED": "לא מחובר",
+                "NOT_CONFIGURED": "לא מוגדר",
+                "UNKNOWN": "לא ידוע"
+            },
+            "SETTINGS": {
+                "AGENT_STATUS": "סטטוס נציג",
+                "PHONE_STATUS": "סטטוס טלפון",
+                "REGISTRATION_STATUS": "סטטוס רישום",
+                "PHONE_MODE": "מצב טלפון",
+                "WEBRTC_MODE": "מצב WebRTC",
+                "EXTENSION": "שלוחה",
+                "AUDIO_DEVICES": "התקני שמע",
+                "MICROPHONE": "מיקרופון",
+                "MICROPHONE_PLACEHOLDER": "בחר מיקרופון",
+                "MICROPHONE_FALLBACK": "מיקרופון ברירת מחדל",
+                "SPEAKER": "רמקול",
+                "SPEAKER_PLACEHOLDER": "בחר רמקול",
+                "SPEAKER_FALLBACK": "רמקול ברירת מחדל"
+            },
+            "TRANSFER": {
+                "ATTENDED": "העברה מבוקרת",
+                "BLIND": "העברה עיוורת",
+                "ENTER_TARGET": "הזן מספר להעברה"
+            },
+            "TOOLTIP": {
+                "CLICK_CONNECT": "לחץ להתחברות",
+                "CLICK_DISCONNECT": "לחץ לניתוק"
+            }
+        },
+        "ONBOARDING": {
+            "TOUR": "סיור מודרך",
+            "SUPPORT": "עזרה ותמיכה"
+        },
+        "SYSLOG": {
+            "TITLE": "יומני מערכת",
+            "SEARCH": "חיפוש ביומנים",
+            "EMPTY": "אין רשומות",
+            "ERROR": "טעינת היומנים נכשלה",
+            "LEVEL": {
+                "ALL": "הכל",
+                "ERROR": "שגיאות",
+                "WARNING": "אזהרות",
+                "INFO": "מידע",
+                "DEBUG": "ניפוי"
+            }
+        },
+        "CONFERENCE": {
+            "TITLE": "שיחות ועידה",
+            "EMPTY": "אין שיחות ועידה",
+            "ERROR": "טעינת שיחות הוועידה נכשלה",
+            "UNNAMED": "ועידה ללא שם",
+            "STATUS_UNKNOWN": "לא ידוע",
+            "MEMBERS": "משתתפים",
+            "SCHEDULED": "מתוזמן",
+            "PIN": "קוד",
+            "NUMBER": "מספר",
+            "JOIN": "הצטרפות",
+            "JOINING": "מצטרף ל-{{name}}…",
+            "NO_NUMBER": "אין מספר חיוג לוועידה זו"
+        },
+        "REPORTS": {
+            "TITLE": "דוחות",
+            "EMPTY": "אין דוחות",
+            "ERROR": "טעינת הדוחות נכשלה",
+            "UNNAMED": "דוח ללא שם",
+            "DISABLED": "כבוי",
+            "RESULT": "דוח",
+            "RUNNING": "מריץ דוח…",
+            "RUN_ERROR": "הרצת הדוח נכשלה",
+            "NO_DATA": "אין נתונים בדוח זה",
+            "ROW_COUNT": "{{count}} שורות"
+        }
+    }
+}

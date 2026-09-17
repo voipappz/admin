@@ -1,0 +1,110 @@
+<ion-header translucent="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="arrow-back-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+
+    <ion-title>
+      {{'LOCATIONS.TITLE'|translate}}
+    </ion-title>
+
+    <ion-buttons slot="end">
+      @if (locations && locations.length<5) {
+        <ion-button fill="solid" color="primary" (click)="add()">
+          <ion-label><ion-icon name="add-outline"></ion-icon></ion-label>
+        </ion-button>
+      }
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <!-- Empty state when no locations -->
+  @if (dataAvailable && locations.length === 0) {
+    <ion-card class="empty-state-card">
+      <ion-card-content class="ion-text-center">
+        <ion-icon name="location-outline" class="empty-state-icon"></ion-icon>
+        <h2>{{'LOCATIONS.EMPTY_STATE.TITLE' | translate}}</h2>
+        <p>{{'LOCATIONS.EMPTY_STATE.DESCRIPTION' | translate}}</p>
+        <ion-button (click)="add()" fill="solid" color="primary">
+          <ion-icon slot="start" name="add-outline"></ion-icon>
+          {{'LOCATIONS.EMPTY_STATE.ADD_BUTTON' | translate}}
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+  }
+  <!-- Locations list -->
+  @if (dataAvailable && locations.length > 0) {
+    <ion-radio-group [value]="user.active_id" (ionChange)="updateActiveId($event.detail.value)">
+      @for (location of locations; track location; let i = $index) {
+        <ion-card >
+          <!--  -->
+          <ion-card-header style="display: flex;
+            align-items: flex-end;justify-content: space-between;">
+            <span>
+              <ion-icon style="margin-inline-end: 10px;" size="large" [color]="(user.active_id==location.name)?'success':'primary'" [name]="location.meta.icon"></ion-icon>
+              {{location.name}}
+              @if (user.active_id==location.name) {
+                <span>
+                  ({{'TIME_CONDITION.BRIDGE.DEFAULT'|translate}})
+                </span>
+              }
+            </span>
+              <span style="display: flex;
+              align-items: center;justify-content: flex-end;">
+              @if (locations.length>1) {
+                <ion-button (click)="remove(i,location)" fill="clear"><ion-icon name="trash-outline"></ion-icon></ion-button>
+              }
+              <ion-radio [value]="location.name" mode="md" ></ion-radio>
+            </span>
+          </ion-card-header>
+          <ion-card-content>
+            <!-- <ion-item> -->
+            <ion-grid size="2">
+              <ion-row>
+                <ion-col>
+                  <ion-item>
+                    <ion-select interface="popover" [value]="location.bridge_type" (ionChange)="handleSelectChange($event.detail.value,location, 'bridge_type')" [placeholder]="'TIME_CONDITION.PLACEHOLDERS.SELECT_TYPE' | translate">
+                      @for (option of bridge_types_array; track option) {
+                        <ion-select-option [value]="option">{{'TIME_CONDITION.BRIDGE.BRIDGE_TYPES.'+option|translate}}</ion-select-option>
+                      }
+                      <!-- <ion-select-option value="number">Number</ion-select-option>
+                      <ion-select-option value="extension">Extension</ion-select-option>
+                      <ion-select-option value="ivr">Ivr</ion-select-option> -->
+                    </ion-select>
+                  </ion-item>
+                </ion-col>
+                <ion-col>
+                  <ion-item>
+                    @if (location.bridge_type=='number') {
+                      <ion-input [name]="location.name+'_input'" [value]="location.bridge_number" (ionChange)="handleSelectChange($event.detail.value,location, 'bridge_uuid')" style="margin-inline-start: 5px;;" type="tel" [placeholder]="'TIME_CONDITION.PLACEHOLDERS.PHONE_NUMBER' | translate"></ion-input>
+                    }
+                    @if (location.bridge_type!='number') {
+                      <ion-select interface="popover" [compareWith]="compareFn"  [value]="location.bridge_uuid" (ionChange)="handleSelectChange($event.detail.value,location, 'bridge_uuid')" [placeholder]="'TIME_CONDITION.PLACEHOLDERS.SELECT_TYPE' | translate">
+                        @for (option of _data[location.bridge_type]; track option) {
+                          <ion-select-option [value]="option.uuid">{{option.name}}</ion-select-option>
+                        }
+                      </ion-select>
+                    }
+                  </ion-item>
+                </ion-col>
+              </ion-row>
+            </ion-grid>
+          <!-- </ion-item> -->
+          <!-- <ion-item>
+          <ion-input type="tel" placeholder="888-888-8888"></ion-input>
+        </ion-item> -->
+      </ion-card-content>
+      <!--  -->
+    </ion-card>
+  }
+</ion-radio-group>
+}
+
+<!-- </ion-list> -->
+
+</ion-content>
+
+

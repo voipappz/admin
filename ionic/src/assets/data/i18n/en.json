@@ -1,0 +1,887 @@
+{
+    "lang": "en",
+    "dir": "ltr",
+    "data": {
+        "HTTP": {
+            "RESPONSE": {
+                "SUCCESS": {
+                    "POST": "The request has been successfully submitted.",
+                    "PATCH": "The request has been successfully submitted."
+                }
+            }
+        },
+        "DATE": {
+            "PLACEHOLDER": "Choose a date",
+            "TODAY": "Today",
+            "YESTERDAY": "Yesterday",
+            "PERIOD": {
+                "NOW": "Now",
+                "TODAY": "Today",
+                "MIN": "{{x}} Min",
+                "HOUR": "1 Hour",
+                "HOURS": "{{x}} Hours",
+                "WEEK": "Week",
+                "MONTH": "Month",
+                "QUARTER": "1 Quarter",
+                "YEAR": "Year",
+                "YEARS": "{{x}} Years"
+            },
+            "MINUTES_SHORT": "m",
+            "SECONDS_SHORT": "s"
+        },
+        "SELECT": {
+            "SELECT_ALL": "Select all",
+            "DESELECT_ALL": "Deselect all",
+            "CREATE": "Create new"
+        },
+        "BUTTONS": {
+            "SAVE": "Save",
+            "CANCEL": "Cancel",
+            "RESET": "Reset",
+            "DONE": "Done",
+            "OK": "Ok",
+            "ADD": "Add",
+            "BACK": "Back",
+            "NEXT": "Next",
+            "DELETE": "Delete",
+            "CLEAR": "Clear",
+            "NOT_SET": "Not set",
+            "RETRY": "Retry"
+        },
+        "ERROR": {
+            "NO_DATA_TO_DISPLAY": "No data to display"
+        },
+        "COMMON": {
+            "SEARCH_PLACEHOLDER": "Search...",
+            "DIALPAD_PLACEHOLDER": "Enter number...",
+            "USER": "User",
+            "USER_LABEL": "User:",
+            "CREDIT_LABEL": "Credit:",
+            "VIDEO_CALL": "Video call",
+            "VOICE_CALL": "Voice call",
+            "CALL": "Call",
+            "ADD_NEW": "Add new",
+            "NO_RESULTS": "No results found",
+            "EDIT": "Edit",
+            "RETRY": "Retry",
+            "DARK_MODE": "Dark mode",
+            "LIGHT_MODE": "Light mode"
+        },
+        "ENTITY_SELECTOR": {
+            "PLACEHOLDER": "Select..."
+        },
+        "ANNOUNCEMENT": {
+            "CREATE": {
+                "TITLE": "Create Announcement",
+                "STEP_INFO": "Basic Info",
+                "STEP_CONTENT": "Content",
+                "NAME": "Name",
+                "NAME_PLACEHOLDER": "Enter announcement name",
+                "ENABLED": "Enabled",
+                "TYPE": "Type",
+                "TYPE_FILE": "Upload audio file",
+                "TYPE_TTS": "Text-to-Speech",
+                "UPLOAD_TITLE": "Upload File",
+                "UPLOAD_HINT": "MP3, WAV (max 50MB)",
+                "TTS_LANGUAGE": "Language",
+                "TTS_TEXT": "Text",
+                "TTS_TEXT_PLACEHOLDER": "Enter text to convert to speech",
+                "TTS_GENERATE": "Generate Preview",
+                "TTS_GENERATING": "Generating...",
+                "SAVING": "Saving...",
+                "VALIDATION": {
+                    "NAME_REQUIRED": "Name is required",
+                    "FILE_REQUIRED": "Please select a file",
+                    "TEXT_REQUIRED": "Please enter text",
+                    "GENERATE_FIRST": "Please generate preview first"
+                }
+            }
+        },
+        "NOTIFICATIONS": {
+            "TITLE": "Notifications",
+            "NO_NEW": "No new notifications",
+            "UNREAD_COUNT": "You have {{count}} unread notification(s)",
+            "MARK_ALL_READ": "Mark all read"
+        },
+        "CONTACTS": {
+            "TITLE": "Contacts",
+            "SHARE_HEADER": "Share {{name}}",
+            "CONTACT_HEADER": "Contact {{name}}",
+            "COPY_LINK": "Copy Link",
+            "SHARE_VIA": "Share via...",
+            "EMAIL_ACTION": "Email ({{email}})",
+            "CALL_ACTION": "Call ({{phone}})",
+            "SAY_HELLO": "Say hello on social media!"
+        },
+        "TOGGLE_MENU": {
+            "SHOW": "Show menu",
+            "HIDE": "Hide menu",
+            "TITLES": {
+                "campaigns": "Campaigns",
+                "reports": "Reports",
+                "calls": "Calls",
+                "dashboards": "Dashboards",
+                "workflow": "Workflow"
+            }
+        },
+        "HEADER": {
+            "SEARCH": {
+                "DRIVERS": "Search for Driver by vehicle # , corporate … ",
+                "ALERTS": "Search for Alerts by driver , vehicle # … ",
+                "RESULTS": "results"
+            },
+            "TITLE": "Dealership Management"
+        },
+        "AUTH": {
+            "GENERAL": {
+                "OR": "Or",
+                "SUBMIT_BUTTON": "Submit",
+                "SIGNUP_BUTTON": "Sign Up",
+                "FORGOT_BUTTON": "Forgot Password",
+                "BACK_BUTTON": "Back",
+                "PRIVACY": "Privacy",
+                "LEGAL": "Legal",
+                "CONTACT": "Contact"
+            },
+            "LOGOUT": {
+                "TITLE": "Logout"
+            },
+            "LOGIN": {
+                "TITLE": "Login Account",
+                "BUTTON": "Sign In"
+            },
+            "FORGOT": {
+                "TITLE": "Forgotten Password?",
+                "DESC": "Enter your email to receive a reset code",
+                "SUCCESS": "Your account has been successfully reset."
+            },
+            "INPUT": {
+                "EMAIL": "Email/Username",
+                "FULLNAME": "Fullname",
+                "PASSWORD": "Password",
+                "CONFIRM_PASSWORD": "Confirm Password",
+                "USERNAME": "Username"
+            },
+            "VALIDATION": {
+                "INVALID": "{{name}} is not valid",
+                "REQUIRED": "{{name}} is required",
+                "MIN_LENGTH": "{{name}} minimum length is {{min}}",
+                "AGREEMENT_REQUIRED": "Accepting terms & conditions are required",
+                "NOT_FOUND": "The requested {{name}} is not found",
+                "INVALID_LOGIN": "The login detail is incorrect",
+                "REQUIRED_FIELD": "Required field",
+                "MIN_LENGTH_FIELD": "Minimum field length:",
+                "MAX_LENGTH_FIELD": "Maximum field length:",
+                "INVALID_FIELD": "Field is not valid"
+            },
+            "OTP": {
+                "TITLE": "Verify Your Identity",
+                "DESC": "A 6-digit code was sent to {{email}}. Enter it below to continue.",
+                "CODE": "6-digit code",
+                "VERIFY": "Verify",
+                "RESEND": "Resend code",
+                "RESEND_IN": "Resend code in {{sec}}s"
+            },
+            "RESET": {
+                "TITLE": "Set New Password",
+                "DESC": "Choose a new password (minimum 8 characters).",
+                "BUTTON": "Reset Password",
+                "MIN_HINT": "At least 8 characters",
+                "MISMATCH": "Passwords don't match"
+            }
+        },
+        "LOGS": {
+            "MENU": "Logs",
+            "CALLS": {
+                "MENU": "Calls",
+                "TITLE": "Calls",
+                "FILTER": {
+                    "TITLE": "Search",
+                    "INLINE_PLACEHOLDER": "Search",
+                    "TYPES": {
+                        "all": "All",
+                        "outgoing": "Outgoing calls",
+                        "incoming": "Incoming calls",
+                        "missed": "Missed calls",
+                        "rejected": "Rejected calls"
+                    }
+                },
+                "TOTAL_CALLS": "Total records",
+                "SELECT_COLUMNS": "Select Columns",
+                "INFO": {
+                    "MOBILE": "Mobile",
+                    "UNKNOWN": "Unknown",
+                    "DIRECTION": {
+                        "outgoing": "Outgoing call",
+                        "incoming": "Incoming call",
+                        "missed": "Missed call"
+                    }
+                },
+                "ACTIONS": {
+                    "BLOCK": "Block",
+                    "UNBLOCK": "Unblock",
+                    "MORE": "More",
+                    "RECORDING": "Recording",
+                    "TRANSCRIPT": "Transcript"
+                }
+            },
+            "MESSAGES": {
+                "MENU": "Messages",
+                "TITLE": "Messages",
+                "FILTER": "Filter",
+                "TOTAL_CALLS": "Total records",
+                "SELECT_COLUMNS": "Select Columns"
+            },
+            "VOICEMAIL_MESSAGES": {
+                "MENU": "Voicemail Messages",
+                "TITLE": "Voicemail Messages",
+                "FILTER": "Filter",
+                "TOTAL_CALLS": "Total records",
+                "SELECT_COLUMNS": "Select Columns"
+            }
+        },
+        "CONVERSATION": {
+            "TITLE": "Conversation",
+            "LOADING": "Loading transcript...",
+            "ERROR_TITLE": "Error Loading Transcript",
+            "PROCESSING_TITLE": "Processing Transcript",
+            "PROCESSING_MESSAGE": "The transcript is being generated. Please check back later.",
+            "UNAVAILABLE_TITLE": "Transcript Unavailable",
+            "UNAVAILABLE_MESSAGE": "No transcript is available for this call.",
+            "LOW_CONFIDENCE": "Low confidence transcription",
+            "STATUS": {
+                "PENDING": "Pending",
+                "PROCESSING": "Processing",
+                "COMPLETED": "Ready",
+                "FAILED": "Failed",
+                "UNAVAILABLE": "Unavailable"
+            }
+        },
+        "DASHBOARD": {
+            "MENU": "Dashboard",
+            "WIDGET": {
+                "INCOMING": "Incoming calls",
+                "OUTGOING": "Outgoing calls",
+                "AVG_CALL_TIME": "Avg call time",
+                "MISSED": "Missed calls"
+            },
+            "MISSED": "Missed calls",
+            "ERROR": "Couldn't load dashboard",
+            "LAST_7_DAYS": "Calls · last 7 days",
+            "RECENT_SUMMARY": "Based on the last {{count}} calls",
+            "NO_WIDGETS": "No dashboard widgets configured",
+            "NO_DATA": "No data"
+        },
+        "SETTINGS": {
+            "MENU": "Settings",
+            "TITLE": "Settings",
+            "FIELDS": {
+                "LANGUAGE": "Language",
+                "TIME_CONDITION": "Time condition"
+            }
+        },
+        "IDENTITIES": {
+            "TITLE": "Identities",
+            "EMPTY_TITLE": "No Identities",
+            "EMPTY_DESCRIPTION": "You don't have any caller IDs assigned to your account."
+        },
+        "LOCATIONS": {
+            "TITLE": "Locations",
+            "DEFAULT_NAME": "Location",
+            "ADD": {
+                "TITLE": "Add location",
+                "FORM": {
+                    "NAME": "Name"
+                }
+            },
+            "EMPTY_STATE": {
+                "TITLE": "No Locations Yet",
+                "DESCRIPTION": "Locations help route your calls to different numbers based on time of day or conditions.",
+                "ADD_BUTTON": "Add Your First Location"
+            }
+        },
+        "TIME_CONDITION": {
+            "MENU": "Time Condition",
+            "TITLE": "Time Condition",
+            "SUB_TITLE": "Schedule",
+            "DETAIL": {
+                "STATUS": "Status",
+                "SCHEDULE": "Schedule"
+            },
+            "EMPTY_STATE": {
+                "TITLE": "No Locations Configured",
+                "DESCRIPTION": "To set up call routing rules, you need at least one location (home, work, mobile, etc.)",
+                "ADD_BUTTON": "Add Location"
+            },
+            "ERRORS": {
+                "NO_CALL_CONDITIONS": "No call conditions available",
+                "LOADING_CALL_CONDITIONS": "Error loading call conditions",
+                "LOADING_CALL_CONDITION": "Error loading call condition",
+                "SAVE_FAILED": "Failed to save changes"
+            },
+            "PLACEHOLDERS": {
+                "SELECT_TYPE": "Select type",
+                "PHONE_NUMBER": "888-888-8888"
+            },
+            "TYPES": {
+                "ALWAYS": {
+                    "TITLE": "Always",
+                    "OPTIONS": {}
+                },
+                "SELECTED_HOURS": {
+                    "TITLE": "Open for selected hours",
+                    "OPTIONS": {}
+                },
+                "OPTIONS": {
+                    "sunday": "Sunday",
+                    "monday": "Monday",
+                    "tuesday": "Tuesday",
+                    "wednesday": "Wednesday",
+                    "thursday": "Thursday",
+                    "friday": "Friday",
+                    "saturday": "Saturday"
+                },
+                "OPTIONS_STATUS": {
+                    "CLOSE": "Closed",
+                    "OPEN": "Open 24 hours"
+                }
+            },
+            "SET_HOURS": {
+                "TITLES": {
+                    "FROM": "From",
+                    "TO": "To"
+                }
+            },
+            "BRIDGE": {
+                "TITLE": "Locations",
+                "FALLBACK_TITLE": "Default call forwarding",
+                "DEFAULT": "Default",
+                "TYPES": {
+                    "SELECT_PLACEHOLDER": "Select location",
+                    "home": {
+                        "TITLE": "Home"
+                    },
+                    "work": {
+                        "TITLE": "Work"
+                    }
+                },
+                "BRIDGE_TYPES": {
+                    "ivr": "Ivr",
+                    "extension": "Extension",
+                    "number": "Number"
+                }
+            }
+        },
+        "ACTIONS": {
+            "MENU": "Actions",
+            "TITLE": "Actions",
+            "DEFAULT_IDENTITY": "Your Number",
+            "MODE": {
+                "IVR": "Voice Menu",
+                "QUEUE": "Team Queue",
+                "EXTENSION": "Extension",
+                "NUMBER": "Forward to a Number",
+                "TIME_CONDITION": "Opening Hours"
+            },
+            "ERRORS": {
+                "NO_USER": "User not logged in",
+                "NO_DEFAULT_IDENTITY": "No default identity configured",
+                "LOAD_FAILED": "Failed to load identity details"
+            },
+            "IVR_CONTENT_PLACEHOLDER": "IVR configuration will appear here",
+            "TIME_CONDITION_CONTENT_PLACEHOLDER": "Time condition settings will appear here",
+            "UNKNOWN_BRIDGE_TYPE": "Unknown routing type",
+            "CHANGE_ROUTING": "Change Destination",
+            "SET_ROUTING": "Choose Where Calls Go",
+            "ROUTING_EMPTY_TITLE": "Where should calls go?",
+            "ROUTING_EMPTY_DESCRIPTION": "Choose what happens when someone calls this number — a voice menu, a team, or one person.",
+            "SELECT_ROUTING_TYPE": "Where should calls go?",
+            "CONFIRM_CHANGE_TITLE": "Change Call Routing?",
+            "CONFIRM_CHANGE_MESSAGE": "Route incoming calls to {{newType}}: {{newName}} instead of {{currentType}}: {{currentName}}?",
+            "ROUTING_SAVE_FAILED": "Failed to update routing",
+            "YOUR_NUMBERS": "Your Numbers",
+            "NO_ROUTING": "Not set",
+            "TREE": {
+                "PRESS": "Press {{key}}",
+                "TIMEOUT": "Timeout",
+                "INVALID": "Invalid",
+                "OTHERWISE": "Otherwise",
+                "FALLBACK": "Fallback"
+            },
+            "CREATE_NEW": "Create new {{type}}",
+            "ROUTING_LABEL": "Incoming calls go to"
+        },
+        "RULES": {
+            "TITLE": "Rules",
+            "SAVE": "Save",
+            "CANCEL": "Cancel",
+            "SELECT_MODAL_TITLE": "Select Rule",
+            "CONDITIONS": {
+                "TITLE": "Conditions",
+                "AND": "AND",
+                "OR": "OR",
+                "ADD": "+",
+                "REMOVE": "x"
+            },
+            "ACTIONS": {
+                "TITLE": "Actions",
+                "ADD": "+",
+                "REMOVE": "x"
+            }
+        },
+        "NOTIFICATION": {
+            "MENU": "Fleet",
+            "ALERTS": {
+                "TAB": "Alerts",
+                "TABLE": {
+                    "ALERT": "ALERT",
+                    "LEVEL": "Level",
+                    "TYPE": "Type",
+                    "APP": "App",
+                    "SUBJECT": "Subject",
+                    "MESSAGE": "Message",
+                    "DATE": "TIME/DATE",
+                    "STATUS": "STATUS",
+                    "ACTIONS": "ACTIONS",
+                    "TOTAL_ACTIVE_ALERTS": "TOTAL ACTIVE ALERTS"
+                }
+            }
+        },
+        "IDENTITY": {
+            "FIELDS": {
+                "call": {
+                    "direction": "",
+                    "uuid": "",
+                    "contact_number": "",
+                    "caller_id_number": "",
+                    "duration": "",
+                    "start_at": "",
+                    "answer_at": "",
+                    "environment_name": "",
+                    "user_first_name": "",
+                    "extension_username": "",
+                    "contact_company": "",
+                    "extension_name": "",
+                    "duration_time": "",
+                    "agent_fullname": "",
+                    "count": "",
+                    "sum_billsec_duration": "",
+                    "avg_billsec_duration": "",
+                    "count_answer": "",
+                    "did": {
+                        "number": "",
+                        "name": ""
+                    },
+                    "ivr": {
+                        "name": ""
+                    },
+                    "hangup:": {
+                        "url": ""
+                    },
+                    "user": {
+                        "state": "",
+                        "status": "",
+                        "spy": "",
+                        "active_queue": "",
+                        "call_incoming_count": ""
+                    },
+                    "disposition": {
+                        "ivr_no_answer": "ivr no answer",
+                        "queue_abandoned": "queue abandoned",
+                        "queue_answer": "queue answer",
+                        "queue_timeout": "queue timeout"
+                    }
+                },
+                "user": {
+                    "user_waiting_count": "",
+                    "user_on_call_count": "",
+                    "user_on_break_count": "",
+                    "user_ready_count": "",
+                    "user_count": "",
+                    "call_count": "",
+                    "call_failed_counter": "",
+                    "call_answered_counter": "",
+                    "drop_rate": "",
+                    "answer_rate": "",
+                    "current_pending_count": "",
+                    "current_ringing_count": "",
+                    "current_answer_count": "",
+                    "skill_names": "user skill names",
+                    "last_call": "last call"
+                },
+                "queue": {
+                    "user_waiting_count": "user waiting count",
+                    "name": "",
+                    "skill_names": "",
+                    "talking_to_contact_fullname": "",
+                    "last_call": "",
+                    "last_login": "",
+                    "call_duration": "",
+                    "time_in_status": "",
+                    "fullname": "",
+                    "call_count": "call count",
+                    "callback_count": "callback count",
+                    "call_failed_counter": "call failed counter",
+                    "call_incoming_count": "",
+                    "call_outgoing_count": "",
+                    "call_caller_id_number": "",
+                    "call_number": "",
+                    "active_queue": "",
+                    "active_queue_name": "",
+                    "status": "",
+                    "state": "",
+                    "spy": "",
+                    "call": {
+                        "number_timezone": "",
+                        "feedback_status": ""
+                    },
+                    "campaign": {
+                        "name": "",
+                        "number_group": ""
+                    },
+                    "campaign_number": {
+                        "weight": ""
+                    },
+                    "bridge": {
+                        "consumer": {
+                            "fullname": ""
+                        }
+                    }
+                },
+                "campaign": {
+                    "sla": "sla",
+                    "total_calls": "total_calls",
+                    "name": "name",
+                    "answer_rate": "answer_rate",
+                    "originate_rate_min": "originate_rate_min",
+                    "originate_rate_max": "originate_rate_max",
+                    "originate_rate": "originate_rate",
+                    "current_answer_count": "current_answer_count",
+                    "drop_rate": "drop_rate",
+                    "numbers": {
+                        "schedule": "campaign numbers schedule",
+                        "count": "numbers_count",
+                        "created": "numbers_created",
+                        "fetched": "numbers.fetched",
+                        "dialing": "numbers.dialing",
+                        "dialed": "numbers.dialed",
+                        "blacklist": "numbers.blacklist",
+                        "freezed": "numbers.freezed",
+                        "dial_error": "campaign.numbers.dial_error"
+                    }
+                }
+            },
+            "PARAMS": {
+                "queue": {
+                    "uuid": ""
+                },
+                "call": {
+                    "time_range": "",
+                    "duration_time": ""
+                },
+                "agent": {
+                    "uuid": ""
+                }
+            }
+        },
+        "IVR": {
+            "TITLE": "IVR",
+            "STATUS": {
+                "ENABLED": "Enabled",
+                "DISABLED": "Disabled"
+            },
+            "LIST": {
+                "EMPTY_TITLE": "No IVR Menus Yet",
+                "EMPTY_DESCRIPTION": "Create your first IVR menu to guide callers through options.",
+                "ADD_BUTTON": "Add IVR Menu",
+                "OPTIONS": "options"
+            },
+            "DETAIL": {
+                "STATUS": "Status"
+            },
+            "EDIT": {
+                "CREATE_TITLE": "New IVR",
+                "EDIT_TITLE": "Edit IVR",
+                "NAME": "Name",
+                "NAME_PLACEHOLDER": "Enter IVR name",
+                "ENABLED": "Enabled",
+                "NOTES": "Notes",
+                "NOTES_PLACEHOLDER": "Optional notes..."
+            },
+            "STEPS": {
+                "BASIC_INFO": "Basic Info"
+            },
+            "GREETING": {
+                "TITLE": "Greeting",
+                "SELECT_ANNOUNCEMENT": "Select announcement",
+                "PREVIEW": "Preview",
+                "STOP": "Stop",
+                "PREVIEW_UNAVAILABLE": "Preview not available for this announcement"
+            },
+            "MENU": {
+                "TITLE": "Menu Options",
+                "DIRECT_DIAL": "Enable direct dial",
+                "DIRECT_DIAL_HINT": "Allow callers to dial extension directly",
+                "TAP_TO_CONFIGURE": "Tap to set"
+            },
+            "FALLBACK": {
+                "TITLE": "Fallback Routing",
+                "TIMEOUT": "Timeout",
+                "TIMEOUT_SECONDS": "Timeout (seconds)",
+                "TIMEOUT_DESTINATION": "Timeout destination",
+                "DESTINATION_TYPE": "Destination Type",
+                "SECONDS": "seconds",
+                "INVALID": "Invalid Input",
+                "MAX_ATTEMPTS": "Max attempts",
+                "INVALID_DESTINATION": "Invalid destination",
+                "ATTEMPTS": "attempts"
+            },
+            "BRIDGE_TYPES": {
+                "extension": "Extension",
+                "queue": "Queue",
+                "ivr": "IVR",
+                "call_condition": "Call Condition",
+                "ring_group": "Ring Group",
+                "voicemail": "Voicemail",
+                "announcement": "Announcement",
+                "number": "External Number"
+            },
+            "ACTIONS": {
+                "CONFIGURE_KEY": "Configure Key {{key}}",
+                "SELECT_DESTINATION_TYPE": "Select destination type",
+                "SELECT": "Select {{type}}",
+                "CURRENT": "Current",
+                "DELETE_CONFIRM_TITLE": "Delete IVR",
+                "DELETE_CONFIRM_MESSAGE": "Are you sure you want to delete \"{{name}}\"?",
+                "TIMEOUT_DESTINATION": "Timeout Destination Type",
+                "INVALID_DESTINATION": "Invalid Input Destination Type",
+                "DESTINATION_TYPE": "Destination Type",
+                "DESTINATION": "Destination"
+            }
+        },
+        "QUEUE": {
+            "TITLE": "Queue",
+            "EDIT": {
+                "CREATE_TITLE": "Create Queue",
+                "EDIT_TITLE": "Edit Queue"
+            },
+            "STEPS": {
+                "BASIC_INFO": "Basic Info",
+                "ANNOUNCEMENTS": "Announcements",
+                "FALLBACK": "Fallback",
+                "AGENTS": "Agents"
+            },
+            "FIELDS": {
+                "NAME": "Queue Name",
+                "NAME_PLACEHOLDER": "Enter queue name",
+                "ENABLED": "Enabled",
+                "STRATEGY": "Strategy",
+                "INTRO_ANNOUNCEMENT": "Intro Announcement",
+                "HOLD_ANNOUNCEMENT": "Hold Music",
+                "MAX_WAIT_TIME": "Max Wait Time (seconds)",
+                "FALLBACK_DESTINATION": "Fallback Destination"
+            },
+            "DETAIL": {
+                "STATUS": "Status",
+                "STRATEGY": "Strategy",
+                "SECONDS": "seconds",
+                "NO_AGENTS": "No agents assigned"
+            },
+            "STATUS": {
+                "ENABLED": "Enabled",
+                "DISABLED": "Disabled"
+            },
+            "AGENTS": {
+                "TITLE": "Select Agents",
+                "SEARCH": "Search agents...",
+                "SELECT_ALL": "Select All",
+                "DESELECT_ALL": "Deselect All",
+                "SELECTED": "selected"
+            },
+            "STRATEGIES": {
+                "ring-all": "Ring All",
+                "longest-idle-agent": "Longest Idle Agent",
+                "round-robin": "Round Robin",
+                "top-down": "Top Down",
+                "agent-with-least-talk-time": "Least Talk Time",
+                "agent-with-fewest-calls": "Fewest Calls",
+                "sequentially-by-agent-order": "Sequential",
+                "random": "Random",
+                "ring-progressively": "Ring Progressively"
+            },
+            "ACTIONS": {
+                "DELETE_CONFIRM_TITLE": "Delete Queue",
+                "DELETE_CONFIRM_MESSAGE": "Are you sure you want to delete \"{{name}}\"?"
+            }
+        },
+        "EXTENSION": {
+            "TITLE": "Extension",
+            "EDIT": {
+                "CREATE_TITLE": "Create Extension",
+                "EDIT_TITLE": "Edit Extension"
+            },
+            "FIELDS": {
+                "NAME": "Name",
+                "ENABLED": "Enabled",
+                "NOTES": "Notes"
+            },
+            "PLACEHOLDERS": {
+                "NAME": "Enter extension name",
+                "NOTES": "Enter notes (optional)"
+            },
+            "DETAIL": {
+                "STATUS": "Status",
+                "USERNAME": "Username",
+                "USER": "User",
+                "ENVIRONMENT": "Environment"
+            },
+            "STATUS": {
+                "ENABLED": "Enabled",
+                "DISABLED": "Disabled"
+            },
+            "ACTIONS": {
+                "DELETE_CONFIRM_TITLE": "Delete Extension",
+                "DELETE_CONFIRM_MESSAGE": "Are you sure you want to delete \"{{name}}\"?"
+            }
+        },
+        "NUMBER": {
+            "TITLE": "External Number",
+            "EDIT": {
+                "CREATE_TITLE": "Create Number",
+                "EDIT_TITLE": "Edit Number"
+            },
+            "FIELDS": {
+                "NUMBER": "Phone Number"
+            },
+            "PLACEHOLDERS": {
+                "NUMBER": "Enter phone number"
+            },
+            "DETAIL": {
+                "INFO": "Number Info",
+                "ENVIRONMENT": "Environment"
+            },
+            "ACTIONS": {
+                "DELETE_CONFIRM_TITLE": "Delete Number",
+                "DELETE_CONFIRM_MESSAGE": "Are you sure you want to delete \"{{number}}\"?"
+            }
+        },
+        "BRIDGE_SELECTOR": {
+            "SELECT_TYPE": "Select type"
+        },
+        "PHONE": {
+            "MENU": "Phone",
+            "INCOMING": "Incoming call",
+            "ONLINE": "Online",
+            "OFFLINE": "Offline",
+            "STATUS": {
+                "logged_out": "Logged out",
+                "available": "Available",
+                "Available": "Available",
+                "available_on_demand": "Available on demand",
+                "on_break": "On break",
+                "offline": "Offline",
+                "Offline": "Offline",
+                "busy": "Busy",
+                "away": "Away"
+            },
+            "TABS": {
+                "CALLS": "Calls",
+                "DIALPAD": "Dialpad"
+            },
+            "ACTIONS": {
+                "MUTE": "Mute",
+                "UNMUTE": "Unmute",
+                "HOLD": "Hold",
+                "RESUME": "Resume",
+                "KEYPAD": "Keypad",
+                "TRANSFER": "Transfer",
+                "END_CALL": "End call",
+                "CANCEL": "Cancel",
+                "LISTEN": "Listen",
+                "WHISPER": "Whisper",
+                "BARGE": "Barge"
+            },
+            "CALLS": {
+                "RECENT": "Recent calls",
+                "EMPTY": "No recent calls"
+            },
+            "STATE": {
+                "CALLING": "Calling...",
+                "INCOMING": "Incoming call",
+                "ON_HOLD": "On hold",
+                "MUTED": "Muted",
+                "CONFERENCE_MEMBERS": "Conference members",
+                "NOT_CONNECTED": "Not connected",
+                "NOT_CONFIGURED": "Not configured",
+                "UNKNOWN": "Unknown"
+            },
+            "SETTINGS": {
+                "AGENT_STATUS": "Agent status",
+                "PHONE_STATUS": "Phone status",
+                "REGISTRATION_STATUS": "Registration status",
+                "PHONE_MODE": "Phone mode",
+                "WEBRTC_MODE": "WebRTC mode",
+                "EXTENSION": "Extension",
+                "AUDIO_DEVICES": "Audio devices",
+                "MICROPHONE": "Microphone",
+                "MICROPHONE_PLACEHOLDER": "Select microphone",
+                "MICROPHONE_FALLBACK": "Default microphone",
+                "SPEAKER": "Speaker",
+                "SPEAKER_PLACEHOLDER": "Select speaker",
+                "SPEAKER_FALLBACK": "Default speaker"
+            },
+            "TRANSFER": {
+                "ATTENDED": "Attended transfer",
+                "BLIND": "Blind transfer",
+                "ENTER_TARGET": "Enter number to transfer to"
+            },
+            "TOOLTIP": {
+                "CLICK_CONNECT": "Click to connect",
+                "CLICK_DISCONNECT": "Click to disconnect"
+            }
+        },
+        "ONBOARDING": {
+            "TOUR": "Take a tour",
+            "SUPPORT": "Help & Support"
+        },
+        "SYSLOG": {
+            "TITLE": "System Logs",
+            "SEARCH": "Search logs",
+            "EMPTY": "No log entries",
+            "ERROR": "Couldn't load logs",
+            "LEVEL": {
+                "ALL": "All",
+                "ERROR": "Errors",
+                "WARNING": "Warnings",
+                "INFO": "Info",
+                "DEBUG": "Debug"
+            }
+        },
+        "CONFERENCE": {
+            "TITLE": "Conferences",
+            "EMPTY": "No conferences",
+            "ERROR": "Couldn't load conferences",
+            "UNNAMED": "Untitled conference",
+            "STATUS_UNKNOWN": "unknown",
+            "MEMBERS": "Participants",
+            "SCHEDULED": "Scheduled",
+            "PIN": "PIN",
+            "NUMBER": "Number",
+            "JOIN": "Join",
+            "JOINING": "Joining {{name}}…",
+            "NO_NUMBER": "No dial-in number for this conference"
+        },
+        "REPORTS": {
+            "TITLE": "Reports",
+            "EMPTY": "No reports",
+            "ERROR": "Couldn't load reports",
+            "UNNAMED": "Untitled report",
+            "DISABLED": "Off",
+            "RESULT": "Report",
+            "RUNNING": "Running report…",
+            "RUN_ERROR": "Report failed to run",
+            "NO_DATA": "No data for this report",
+            "ROW_COUNT": "{{count}} rows"
+        }
+    }
+}

@@ -1,0 +1,65 @@
+# Connectix.io — iOS fastlane.
+#
+# Auth uses an App Store Connect API key (recommended for CI). Provide these
+# env vars (in CircleCI project settings, never committed):
+#   ASC_KEY_ID        — the key id (e.g. 2X9R4HXF34)
+#   ASC_ISSUER_ID     — the issuer id (UUID)
+#   ASC_KEY_CONTENT   — the .p8 private key contents (base64 or raw PEM)
+# Signing (one of):
+#   match (recommended) via MATCH_GIT_URL + MATCH_PASSWORD, or a manually
+#   installed distribution cert + provisioning profile.
+#
+# Lanes:
+#   fastlane ios beta      build a signed release IPA and upload to TestFlight
+#   fastlane ios build_only  build a signed IPA without uploading (artifact)
+
+default_platform(:ios)
+
+WORKSPACE = "App.xcworkspace"
+SCHEME = "App"
+
+def asc_api_key
+  app_store_connect_api_key(
+    key_id: ENV["ASC_KEY_ID"],
+    issuer_id: ENV["ASC_ISSUER_ID"],
+    key_content: ENV["ASC_KEY_CONTENT"],
+    is_key_content_base64: ENV["ASC_KEY_CONTENT"].to_s.start_with?("LS0t") == false,
+    in_house: false
+  )
+end
+
+platform :ios do
+  desc "Install CocoaPods dependencies"
+  lane :pods do
+    cocoapods(podfile: "Podfile")
+  end
+
+  desc "Build a signed release IPA"
+  lane :build_only do
+    pods
+    # Auto-increment build number from TestFlight's latest so uploads never clash.
+    increment_build_number(
+      build_number: latest_testflight_build_number(api_key: asc_api_key).to_i + 1,
+      xcodeproj: "App.xcodeproj"
+    )
+    build_app(
+      workspace: WORKSPACE,
+      scheme: SCHEME,
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "output",
+      output_name: "Connectix.ipa",
+      clean: true
+    )
+  end
+
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    build_only
+    upload_to_testflight(
+      api_key: asc_api_key,
+      skip_waiting_for_build_processing: true,
+      changelog: ENV["TESTFLIGHT_CHANGELOG"] || "Internal build from CI."
+    )
+  end
+end

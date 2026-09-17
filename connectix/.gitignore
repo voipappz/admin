@@ -51,3 +51,9 @@ docker-compose.override.yml
 
 # See the root .gitignore — RAM-only Mnesia still names a directory here.
 Mnesia.*
+
+# The Ionic app's bundle, copied here by `make app` (and by the `ionic` stage
+# of Dockerfile.production in a release). Built output, never committed — a
+# committed bundle is a thing nobody reviews and everybody forgets to rebuild,
+# which is how the Chrome extension once shipped stale for a whole release.
+/priv/app/

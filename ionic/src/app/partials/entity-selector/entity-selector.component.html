@@ -1,0 +1,23 @@
+<ion-item lines="none" class="entity-selector">
+    <ion-select
+        [label]="label"
+        labelPlacement="stacked"
+        [placeholder]="placeholder || ('ENTITY_SELECTOR.PLACEHOLDER' | translate)"
+        [(ngModel)]="internalSelectedUuid"
+        (ionChange)="onSelectionChange()"
+        interface="action-sheet"
+        [interfaceOptions]="{ header: label }"
+        [disabled]="disabled"
+        [cancelText]="'BUTTONS.CANCEL' | translate">
+        @for (item of items; track trackByValue($index, item)) {
+            <ion-select-option [value]="getValue(item)">
+                {{ getDisplayValue(item) }}
+            </ion-select-option>
+        }
+        @if (showAddButton && createModalComponent) {
+            <ion-select-option [value]="CREATE_NEW_VALUE" class="create-option">
+                ＋ {{ addButtonLabel }}
+            </ion-select-option>
+        }
+    </ion-select>
+</ion-item>

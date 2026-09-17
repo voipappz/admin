@@ -1,0 +1,272 @@
+<!-- Old approach - always use app-header:
+<app-header [title]="'TIME_CONDITION.TITLE'">
+  ...
+</app-header>
+-->
+
+<!-- New approach - different header for modal vs routed page -->
+@if (isModal) {
+  <ion-header>
+    <ion-toolbar>
+      <ion-buttons slot="start">
+        <ion-button (click)="close()">
+          <ion-icon name="close-outline"></ion-icon>
+        </ion-button>
+      </ion-buttons>
+      <ion-title>{{'TIME_CONDITION.TITLE' | translate}}</ion-title>
+      <ion-buttons slot="end">
+        @if (dataAvailable && locations.length > 0) {
+          <ion-button
+            [disabled]="saving || success"
+            fill="solid"
+            [color]="(!success) ? 'primary' : 'success'"
+            (click)="save()">
+            @if (!saving && !success) {
+              <ion-label>{{'BUTTONS.SAVE' | translate}}</ion-label>
+            }
+            @if (saving && !success) {
+              <ion-spinner name="crescent" style="width: 20px; height: 20px;"></ion-spinner>
+            }
+            @if (!saving && success) {
+              <ion-icon name="checkmark-outline"></ion-icon>
+            }
+          </ion-button>
+        }
+      </ion-buttons>
+    </ion-toolbar>
+  </ion-header>
+} @else {
+  <app-header [title]="'TIME_CONDITION.TITLE'">
+    <ng-container header-actions>
+      @if (dataAvailable && locations.length > 0) {
+        <ion-button
+          [disabled]="saving || success"
+          style="min-width: 57px;"
+          fill="solid"
+          [color]="(!success) ? 'primary' : 'success'"
+          (click)="save()">
+          @if (!saving && !success) {
+            <ion-label>{{'BUTTONS.SAVE' | translate}}</ion-label>
+          }
+          @if (saving && !success) {
+            <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"></i>
+          }
+          @if (!saving && success) {
+            <i class="fa fa-check" aria-hidden="true"></i>
+          }
+        </ion-button>
+      }
+    </ng-container>
+  </app-header>
+}
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <!-- <ion-list *ngIf="!dataAvailable">
+  <ion-item >
+    <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+  </ion-item>
+</ion-list> -->
+@if (msg && !dataAvailable) {
+  <ion-list>
+    <ion-item color="warning">
+      <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
+      {{msg}}
+    </ion-item>
+  </ion-list>
+}
+@if (saveError) {
+  <ion-list>
+    <ion-item color="danger">
+      <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+      {{saveError}}
+    </ion-item>
+  </ion-list>
+}
+<!-- Empty state when no locations -->
+@if (dataAvailable && locations.length === 0) {
+  <ion-card class="empty-state-card">
+    <ion-card-content class="ion-text-center">
+      <ion-icon name="location-outline" class="empty-state-icon"></ion-icon>
+      <h2>{{'TIME_CONDITION.EMPTY_STATE.TITLE' | translate}}</h2>
+      <p>{{'TIME_CONDITION.EMPTY_STATE.DESCRIPTION' | translate}}</p>
+      <ion-button (click)="openLocations()" fill="solid" color="primary">
+        <ion-icon slot="start" name="add-outline"></ion-icon>
+        {{'TIME_CONDITION.EMPTY_STATE.ADD_BUTTON' | translate}}
+      </ion-button>
+    </ion-card-content>
+  </ion-card>
+}
+<!-- Time condition form - only show when locations exist -->
+@if (dataAvailable && locations.length > 0) {
+  <ion-list>
+    <ion-item-divider>
+      <ion-label> {{'TIME_CONDITION.SUB_TITLE'|translate}}</ion-label>
+    </ion-item-divider>
+    <ion-card>
+      <ion-radio-group [value]="time_condition.type" (ionChange)="typeChanged($event.detail.value)">
+        <ion-item>
+          <ion-radio mode="ios" value="always" justify="space-between">
+            {{'TIME_CONDITION.TYPES.ALWAYS.TITLE'|translate}}
+          </ion-radio>
+        </ion-item>
+        <ion-item>
+          <ion-radio mode="ios" value="selected_hours" justify="space-between">
+            {{'TIME_CONDITION.TYPES.SELECTED_HOURS.TITLE'|translate}}
+          </ion-radio>
+        </ion-item>
+      </ion-radio-group>
+    </ion-card>
+    @if (time_condition.type=='always') {
+      <ion-card>
+        <ion-list>
+          @for (option of type_options; track option) {
+            <ion-item>
+              <ion-label>{{'TIME_CONDITION.TYPES.OPTIONS.'+option.key|translate}}</ion-label>
+              <ion-label style="text-align: end;">{{'TIME_CONDITION.TYPES.OPTIONS_STATUS.'+((time_condition.options[option.key])?'OPEN':'CLOSE')|translate}}</ion-label>
+              <ion-toggle [checked]="time_condition.options[option.key].time" (ionChange)="changeOptionValue('always',option.key)" slot="end"></ion-toggle>
+            </ion-item>
+          }
+        </ion-list>
+      </ion-card>
+    }
+    @if (time_condition.type=='selected_hours') {
+      <ion-card>
+        <ion-list>
+          @for (option of type_options; track option) {
+            <ion-item button detail="true" >
+              <ion-label (click)="setHours('selected_hours',option.key)">
+                <h3>{{'TIME_CONDITION.TYPES.OPTIONS.'+option.key|translate}}</h3>
+                @if (time_condition.options[option.key].time && time_condition.options[option.key].time[0].from) {
+                  <p>
+                    <!-- {{dateToString(time_condition.options[option.key])}} -->
+                    <!-- {{(time_condition.options[option.key]|json)}}-- -->
+                    {{(time_condition.options[option.key].time[0].from|date:'HH:mm')}}-{{time_condition.options[option.key].time[0].to|date:'HH:mm'}}
+                    <!-- 9:00-18:00 -->
+                  </p>
+                }
+              </ion-label>
+              @if (locations.length > 0) {
+                <ion-fab style="margin-inline-end: 30px;" horizontal="end" vertical="center">
+                  <ion-fab-button
+                    size="small"
+                    [color]="time_condition.options[option.key].bridge?.meta?.icon ? 'primary' : 'medium'">
+                    <ion-icon [name]="time_condition.options[option.key].bridge?.meta?.icon || 'add-outline'"></ion-icon>
+                  </ion-fab-button>
+                  <ion-fab-list side="start">
+                    @for (location of locations; track location) {
+                      <ion-fab-button (click)="time_condition.options[option.key].bridge = location">
+                        <ion-icon [name]="location.meta.icon"></ion-icon>
+                      </ion-fab-button>
+                    }
+                    <ion-fab-button color="success" (click)="openLocations()">
+                      <ion-icon name="add-outline"></ion-icon>
+                    </ion-fab-button>
+                  </ion-fab-list>
+                </ion-fab>
+              }
+          </ion-item>
+        }
+      </ion-list>
+    </ion-card>
+  }
+  <!-- <ion-item-divider>
+  <ion-label> {{'TIME_CONDITION.BRIDGE.FALLBACK_TITLE'|translate}}</ion-label>
+  <ion-card>
+              <ion-card-header style="display: flex;
+              align-items: flex-end;">
+      <ion-icon style="margin-inline-end: 10px;" size="large" color="primary" name="home"></ion-icon>
+      {{'TIME_CONDITION.BRIDGE.TYPES.HOME.TITLE'|translate}}
+    </ion-card-header>
+  </ion-card>
+</ion-item-divider> -->
+<ion-item-divider>
+  <ion-label> {{'TIME_CONDITION.BRIDGE.TITLE'|translate}}</ion-label>
+  <ion-buttons slot="end" >
+    <ion-button fill="clear" color="primary" (click)="openLocations()">
+      <ion-icon slot="end" name="cog"></ion-icon>
+    </ion-button>
+  </ion-buttons>
+</ion-item-divider>
+<ion-card>
+  <ion-grid size="4"  >
+    <!-- style="display: flex; align-items: flex-end;justify-content: space-between;" -->
+    <ion-row >
+      <ion-col size="auto" style="line-height: 36px;">
+        {{'TIME_CONDITION.BRIDGE.FALLBACK_TITLE'|translate}}:
+      </ion-col>
+      @if (time_condition.fallback_bridge?.meta?.icon) {
+        <ion-col size="auto" style="line-height: 36px;">
+          <ion-icon style="margin-inline-end: 10px;" size="large" color="success" [name]="time_condition.fallback_bridge.meta.icon"></ion-icon>
+        </ion-col>
+      }
+      <ion-col >
+        <ion-select readonly interface="popover" [value]="time_condition.fallback_bridge" (ionChange)="updateFallbackbridge($event.detail.value)" [placeholder]="'TIME_CONDITION.PLACEHOLDERS.SELECT_TYPE' | translate">
+          @for (location of locations; track location) {
+            <ion-select-option [value]="location">{{location.name}}({{'TIME_CONDITION.BRIDGE.BRIDGE_TYPES.'+location.type|translate}})</ion-select-option>
+          }
+        </ion-select>
+      </ion-col>
+    </ion-row>
+  </ion-grid>
+</ion-card>
+<!-- <ion-radio-group [value]="time_condition.fallback_bridge" (ionChange)="updateFallbackbridge($event.detail.value)">
+<ion-card  *ngFor="let location of user_locations_map|keyvalue; let i = index;">
+            <ion-card-header style="display: flex;
+            align-items: flex-end;justify-content: space-between;">
+    <span>
+      <ion-icon style="margin-inline-end: 10px;" size="large" [color]="(time_condition.fallback_bridge==location.key)?'success':'primary'" [name]="location.value.icon"></ion-icon>
+      {{'TIME_CONDITION.BRIDGE.TYPES.'+location.key+'.TITLE'|translate}}
+      <span *ngIf="time_condition.fallback_bridge==location.key">
+        ({{'TIME_CONDITION.BRIDGE.DEFAULT'|translate}})
+      </span>
+    </span>
+    <ion-radio [value]="location.key" mode="md" ></ion-radio>
+  </ion-card-header>
+  <ion-card-content>
+    <ion-item>
+      <ion-grid size="2">
+        <ion-row>
+          <ion-col >
+            <ion-select readonly interface="popover" [value]="location.value.bridge_type" (ionChange)="handleSelectChange($event.detail.value,location.key, 'bridge_type')" placeholder="Select type">
+              <ion-select-option *ngFor="let option of bridge_types_array" [value]="option">{{'TIME_CONDITION.BRIDGE.BRIDGE_TYPES.'+option|translate}}</ion-select-option>
+            </ion-select>
+          </ion-col>
+          <ion-col >
+            <span>
+              <ng-container *ngIf="location.value.bridge_type=='number'">
+                <ion-input readonly [name]="location.key+'_input'" [value]="location.value.bridge_number" (ionChange)="handleSelectChange($event.detail.value,location.key, 'bridge_uuid')" style="margin-inline-start: 5px;;" type="tel" placeholder="888-888-8888"></ion-input>
+              </ng-container>
+              <ng-container *ngIf="location.value.bridge_type!='number'">
+                <ion-select readonly interface="popover" [compareWith]="compareFn"  [value]="location.value.bridge_uuid" (ionChange)="handleSelectChange($event.detail.value,location.key, 'bridge_uuid')" placeholder="Select type">
+                  <ion-select-option *ngFor="let option of _data[location.value.bridge_type]" [value]="option.uuid">{{option.name}}</ion-select-option>
+                </ion-select>
+              </ng-container>
+            </span>
+          </ion-col>
+        </ion-row>
+      </ion-grid>
+    </ion-item>
+  </ion-card-content>
+</ion-card>
+</ion-radio-group> -->
+</ion-list>
+}
+</ion-content>
+<!-- <ion-footer mode="ios" collapse="fade" [translucent]="true">
+<ion-toolbar>
+  <ion-grid>
+    <ion-row>
+      <ion-col>
+        <ion-button fill="clear" (click)="reset()">
+          <ion-label>{{'BUTTONS.RESET'|translate}}</ion-label>
+        </ion-button>
+      </ion-col>
+      <ion-col>
+        <ion-button fill="clear" (click)="save()">
+          <ion-label>{{'BUTTONS.SAVE'|translate}}</ion-label>
+        </ion-button>
+      </ion-col>
+    </ion-row>
+  </ion-grid>
+</ion-toolbar>
+</ion-footer> -->

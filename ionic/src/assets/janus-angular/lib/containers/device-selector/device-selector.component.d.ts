@@ -1,0 +1,43 @@
+import { ChangeDetectorRef, EventEmitter, OnDestroy, OnInit } from '@angular/core';
+import { FormBuilder } from '@angular/forms';
+import { WebrtcService } from '../../services/janus.service';
+import { Devices } from '../../models/janus.models';
+/**
+ * Device selector form. Implements a form that will show the user options for picking their camera,
+ * microphone, and speaker device. The speaker option is only shown if the device supports dynamically
+ * changing the speaker. This class can be subclassed if style changes are desired.
+ * @example
+ * <janus-device-selector
+ *              [devices]=devices
+ *              (deviceUpdate)='onDeviceUpdate($event)'>
+ * </janus-device-selector>
+ */
+import * as ɵngcc0 from '@angular/core';
+export declare class DeviceSelectorComponent implements OnInit, OnDestroy {
+    private changeDetector;
+    private builder;
+    private webrtc;
+    /**
+     * Currently selected devices
+     */
+    devices: Devices;
+    /**
+     * Event emitted whenever the user changes the devices in the form
+     */
+    deviceUpdate: EventEmitter<Devices>;
+    devicesForm: any;
+    availableAudioDevices: any;
+    availableVideoDevices: any;
+    availableSpeakerDevices: any;
+    supportsSpeakerSelection: boolean;
+    private destroy$;
+    constructor(changeDetector: ChangeDetectorRef, builder: FormBuilder, webrtc: WebrtcService);
+    ngOnInit(): void;
+    ngOnDestroy(): void;
+    /** @internal */
+    getDevices(): Promise<void>;
+    static ɵfac: ɵngcc0.ɵɵFactoryDeclaration<DeviceSelectorComponent, never>;
+    static ɵcmp: ɵngcc0.ɵɵComponentDeclaration<DeviceSelectorComponent, "janus-device-selector", never, { "devices": "devices"; }, { "deviceUpdate": "deviceUpdate"; }, never, never>;
+}
+
+//# sourceMappingURL=device-selector.component.d.ts.map

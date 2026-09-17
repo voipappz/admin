@@ -1,0 +1,56 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="back()">
+        <ion-icon slot="icon-only" name="arrow-back-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>{{ selectedType ? typeLabel(selectedType) : ('ACTIONS.SELECT_ROUTING_TYPE' | translate) }}</ion-title>
+  </ion-toolbar>
+  @if (selectedType && !loading) {
+    <ion-toolbar>
+      <ion-searchbar debounce="150" (ionInput)="onSearch($event)"
+        [placeholder]="'COMMON.SEARCH_PLACEHOLDER' | translate"></ion-searchbar>
+    </ion-toolbar>
+  }
+</ion-header>
+
+<ion-content class="ion-padding">
+  @if (loading) {
+    <div class="loading-container"><ion-spinner name="crescent"></ion-spinner></div>
+  } @else if (!selectedType) {
+    <!-- Step 1: choose destination type -->
+    <ion-list>
+      @for (t of types; track t) {
+        <ion-item button detail="true" (click)="pickType(t)">
+          <ion-icon slot="start" [name]="iconForType(t)" color="primary"></ion-icon>
+          <ion-label>{{ typeLabel(t) }}</ion-label>
+        </ion-item>
+      }
+    </ion-list>
+  } @else {
+    <!-- Step 2: choose the destination -->
+    <ion-list>
+      @if (canCreate()) {
+        <ion-item button detail="false" (click)="goCreate()" class="create-row">
+          <ion-icon slot="start" name="add-circle-outline" color="primary"></ion-icon>
+          <ion-label color="primary">{{ 'ACTIONS.CREATE_NEW' | translate:{ type: typeLabel(selectedType) } }}</ion-label>
+        </ion-item>
+      }
+      @for (d of filteredDestinations; track d.uuid) {
+        <ion-item button detail="false" [disabled]="saving" (click)="pickDestination(d)">
+          <ion-icon slot="start" [name]="iconForType(selectedType)" color="medium"></ion-icon>
+          <ion-label>
+            <h2>{{ d.name }}</h2>
+            @if (d.number) { <p dir="ltr">{{ d.number }}</p> }
+          </ion-label>
+        </ion-item>
+      }
+      @if (filteredDestinations.length === 0) {
+        <ion-item lines="none">
+          <ion-label color="medium" class="ion-text-center">{{ 'COMMON.NO_RESULTS' | translate }}</ion-label>
+        </ion-item>
+      }
+    </ion-list>
+  }
+</ion-content>

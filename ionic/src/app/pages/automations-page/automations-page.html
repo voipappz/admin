@@ -1,0 +1,87 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/app/dashboard"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{'AUTOMATIONS.TITLE' | translate}}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="load()">
+        <ion-icon slot="icon-only" name="refresh"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-refresher slot="fixed" (ionRefresh)="load($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <!-- Loading -->
+  <ion-list *ngIf="loading">
+    <ion-item *ngFor="let i of [1,2,3,4,5]">
+      <ion-icon slot="start" name="git-network-outline" color="medium"></ion-icon>
+      <ion-label>
+        <h3><ion-skeleton-text [animated]="true" style="width: 60%"></ion-skeleton-text></h3>
+        <p><ion-skeleton-text [animated]="true" style="width: 30%"></ion-skeleton-text></p>
+      </ion-label>
+    </ion-item>
+  </ion-list>
+
+  <!-- Error -->
+  <div *ngIf="!loading && errored" class="ion-text-center ion-padding">
+    <ion-icon name="cloud-offline-outline" color="medium" class="empty-icon"></ion-icon>
+    <p>{{'AUTOMATIONS.ERROR' | translate}}</p>
+    <ion-button fill="outline" size="small" (click)="load()">{{'COMMON.RETRY' | translate}}</ion-button>
+  </div>
+
+  <!-- Empty -->
+  <div *ngIf="!loading && !errored && workflows.length === 0" class="ion-text-center ion-padding">
+    <ion-icon name="git-network-outline" color="medium" class="empty-icon"></ion-icon>
+    <p>{{'AUTOMATIONS.EMPTY' | translate}}</p>
+  </div>
+
+  <!-- Workflows -->
+  <ion-list *ngIf="!loading && workflows.length > 0" lines="full">
+    <ng-container *ngFor="let wf of workflows">
+      <ion-item button detail="false" (click)="toggle(wf)">
+        <ion-icon slot="start" name="git-network-outline" [color]="typeColor(wf)"></ion-icon>
+        <ion-label class="ion-text-wrap">
+          <h3>{{ wf.name || ('AUTOMATIONS.UNNAMED' | translate) }}</h3>
+          <p>
+            <ion-text [color]="typeColor(wf)">{{ wf.type || 'flow' }}</ion-text>
+            <span *ngIf="wf.notes"> · {{ wf.notes }}</span>
+          </p>
+        </ion-label>
+        <ion-badge slot="end" [color]="wf.enabled ? 'success' : 'medium'">
+          {{ (wf.enabled ? 'AUTOMATIONS.ENABLED' : 'AUTOMATIONS.DISABLED') | translate }}
+        </ion-badge>
+        <ion-icon slot="end" [name]="isExpanded(wf) ? 'chevron-up' : 'chevron-down'" color="medium"></ion-icon>
+      </ion-item>
+
+      <!-- Expanded flow view (lazy-loaded) -->
+      <div *ngIf="isExpanded(wf)" class="flow-panel">
+        <div *ngIf="flowState(wf)?.loading" class="ion-padding-start">
+          <ion-spinner name="dots"></ion-spinner>
+        </div>
+        <div *ngIf="flowState(wf) && !flowState(wf).loading && flowState(wf).error" class="ion-padding-start">
+          <ion-note color="danger">{{'AUTOMATIONS.FLOW_ERROR' | translate}}</ion-note>
+        </div>
+        <div *ngIf="flowState(wf) && !flowState(wf).loading && !flowState(wf).error">
+          <ion-note *ngIf="flowState(wf).nodes.length === 0" class="ion-padding-start">
+            {{'AUTOMATIONS.NO_STEPS' | translate}}
+          </ion-note>
+          <!-- Simple vertical step list (mobile-friendly read-only flow) -->
+          <div class="flow-step" *ngFor="let node of flowState(wf).nodes; let last = last">
+            <div class="flow-node">
+              <ion-icon [name]="nodeIcon(node)" color="primary"></ion-icon>
+              <span class="flow-node-label">{{ node.label }}</span>
+              <ion-note class="flow-node-type">{{ node.type }}</ion-note>
+            </div>
+            <div class="flow-connector" *ngIf="!last"></div>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </ion-list>
+</ion-content>

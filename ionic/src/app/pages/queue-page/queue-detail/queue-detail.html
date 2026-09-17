@@ -1,0 +1,234 @@
+@if (!embedded) {
+<ion-header>
+    <ion-toolbar>
+        <ion-buttons slot="start">
+            <ion-button (click)="goBack()">
+                <ion-icon name="arrow-back-outline"></ion-icon>
+            </ion-button>
+        </ion-buttons>
+        <ion-title>{{queue?.name || 'Queue Details'}}</ion-title>
+        <ion-buttons slot="end">
+            @if (queue) {
+                <ion-button (click)="editQueue()">
+                    <ion-icon slot="icon-only" name="create-outline"></ion-icon>
+                </ion-button>
+            }
+        </ion-buttons>
+    </ion-toolbar>
+</ion-header>
+}
+
+<!-- Use ion-content when standalone, div when embedded -->
+@if (!embedded) {
+<ion-content [fullscreen]="true" class="ion-padding">
+    <ng-container *ngTemplateOutlet="queueContent"></ng-container>
+</ion-content>
+} @else {
+<div class="queue-embedded-content">
+    <ng-container *ngTemplateOutlet="queueContent"></ng-container>
+</div>
+}
+
+<!-- Shared template for Queue content -->
+<ng-template #queueContent>
+    <!-- Loading state -->
+    @if (loading) {
+        <div class="loading-container">
+            <ion-spinner name="crescent"></ion-spinner>
+        </div>
+    }
+
+    <!-- Error state -->
+    @if (error && !loading) {
+        <ion-list>
+            <ion-item color="danger">
+                <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
+                {{error}}
+            </ion-item>
+        </ion-list>
+    }
+
+    <!-- Queue Details -->
+    @if (queue && !loading) {
+        <!-- Status Section -->
+        <ion-card>
+            <ion-card-header>
+                <ion-card-title>{{'QUEUE.DETAIL.STATUS' | translate}}</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+                <ion-item lines="none">
+                    <ion-icon slot="start"
+                        [name]="queue.enabled ? 'checkmark-circle' : 'close-circle'"
+                        [color]="queue.enabled ? 'success' : 'medium'"></ion-icon>
+                    <ion-label>
+                        <h3>{{queue.name}}</h3>
+                        <p>{{(queue.enabled ? 'QUEUE.STATUS.ENABLED' : 'QUEUE.STATUS.DISABLED') | translate}}</p>
+                    </ion-label>
+                </ion-item>
+            </ion-card-content>
+        </ion-card>
+
+        <!-- Strategy Section -->
+        <ion-card>
+            <ion-card-header>
+                <ion-card-title>{{'QUEUE.DETAIL.STRATEGY' | translate}}</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+                <ion-item lines="none">
+                    <ion-icon name="shuffle-outline" slot="start" color="primary"></ion-icon>
+                    <ion-label>
+                        <h3>{{getStrategyLabel(queue.strategy || '')}}</h3>
+                    </ion-label>
+                </ion-item>
+            </ion-card-content>
+        </ion-card>
+
+        <!-- Announcements Section -->
+        <ion-card>
+            <ion-card-header>
+                <ion-card-title>{{'QUEUE.STEPS.ANNOUNCEMENTS' | translate}}</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+                <!-- Intro Announcement -->
+                <div class="announcement-item">
+                    <div class="announcement-header">
+                        <ion-icon name="megaphone-outline" color="tertiary"></ion-icon>
+                        <div class="announcement-info">
+                            <p>{{'QUEUE.FIELDS.INTRO_ANNOUNCEMENT' | translate}}</p>
+                            <h3>{{getIntroAnnouncementName()}}</h3>
+                        </div>
+                    </div>
+                    @if (getIntroAnnouncementUrl()) {
+                        <div class="audio-player">
+                            <button class="play-btn" type="button" (click)="playIntroAnnouncement()">
+                                <ion-icon [name]="isPlayingIntro ? 'pause' : 'play'"></ion-icon>
+                            </button>
+                            <div class="audio-track">
+                                <div class="waveform">
+                                    @for (bar of waveformBars; track $index) {
+                                        <div class="bar" [class.active]="$index <= (introAudioProgress / 100) * waveformBars.length"></div>
+                                    }
+                                </div>
+                                <div class="audio-time">{{formatTime(introCurrentTime)}} / {{formatTime(introAudioDuration)}}</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Hold Announcement -->
+                <div class="announcement-item">
+                    <div class="announcement-header">
+                        <ion-icon name="musical-notes-outline" color="secondary"></ion-icon>
+                        <div class="announcement-info">
+                            <p>{{'QUEUE.FIELDS.HOLD_ANNOUNCEMENT' | translate}}</p>
+                            <h3>{{getHoldAnnouncementName()}}</h3>
+                        </div>
+                    </div>
+                    @if (getHoldAnnouncementUrl()) {
+                        <div class="audio-player">
+                            <button class="play-btn" type="button" (click)="playHoldAnnouncement()">
+                                <ion-icon [name]="isPlayingHold ? 'pause' : 'play'"></ion-icon>
+                            </button>
+                            <div class="audio-track">
+                                <div class="waveform">
+                                    @for (bar of waveformBars; track $index) {
+                                        <div class="bar" [class.active]="$index <= (holdAudioProgress / 100) * waveformBars.length"></div>
+                                    }
+                                </div>
+                                <div class="audio-time">{{formatTime(holdCurrentTime)}} / {{formatTime(holdAudioDuration)}}</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </ion-card-content>
+        </ion-card>
+
+        <!-- Fallback Section -->
+        <ion-card>
+            <ion-card-header>
+                <ion-card-title>{{'QUEUE.STEPS.FALLBACK' | translate}}</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+                <ion-list>
+                    <ion-item>
+                        <ion-icon name="time-outline" slot="start" color="warning"></ion-icon>
+                        <ion-label>
+                            <p>{{'QUEUE.FIELDS.MAX_WAIT_TIME' | translate}}</p>
+                            <h3>{{queue.max_wait_time || 0}} {{'QUEUE.DETAIL.SECONDS' | translate}}</h3>
+                        </ion-label>
+                    </ion-item>
+                    <ion-item lines="none">
+                        <ion-icon name="arrow-forward-outline" slot="start" color="primary"></ion-icon>
+                        <ion-label>
+                            <p>{{'QUEUE.FIELDS.FALLBACK_DESTINATION' | translate}}</p>
+                            <h3>{{getFallbackDestinationLabel()}}</h3>
+                        </ion-label>
+                    </ion-item>
+                </ion-list>
+            </ion-card-content>
+        </ion-card>
+
+        <!-- Agents Section -->
+        <ion-card>
+            <ion-card-header>
+                <ion-card-title>
+                    {{'QUEUE.STEPS.AGENTS' | translate}}
+                    <ion-badge class="count-badge">{{getAgentsCount()}}</ion-badge>
+                </ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+                @if (getAgentsCount() > 0) {
+                    <ion-list>
+                        @for (agent of getQueueAgents(); track agent.uuid) {
+                            <ion-item>
+                                <ion-icon name="person-outline" slot="start" color="medium"></ion-icon>
+                                <ion-label>
+                                    <h3>{{agent.fullname || agent.username || agent.email}}</h3>
+                                    @if (agent.email && agent.email !== agent.fullname) {
+                                        <p>{{agent.email}}</p>
+                                    }
+                                </ion-label>
+                                @if (getAgentTier(agent.uuid); as tier) {
+                                    <ion-badge slot="end" [color]="tier.state === 'Ready' ? 'success' : 'medium'">
+                                        {{tier.state}}
+                                    </ion-badge>
+                                }
+                            </ion-item>
+                        }
+                    </ion-list>
+                } @else {
+                    <ion-item lines="none">
+                        <ion-label class="ion-text-center">
+                            <p>{{'QUEUE.DETAIL.NO_AGENTS' | translate}}</p>
+                        </ion-label>
+                    </ion-item>
+                }
+            </ion-card-content>
+        </ion-card>
+
+        <!-- Notes Section -->
+        @if (queue.notes) {
+            <ion-card>
+                <ion-card-header>
+                    <ion-card-title>{{'IVR.EDIT.NOTES' | translate}}</ion-card-title>
+                </ion-card-header>
+                <ion-card-content>
+                    <p class="notes-text">{{queue.notes}}</p>
+                </ion-card-content>
+            </ion-card>
+        }
+
+        <!-- Delete Button (only show when NOT embedded) -->
+        @if (!embedded) {
+            <ion-button
+                expand="block"
+                fill="outline"
+                color="danger"
+                class="delete-button"
+                (click)="deleteQueue()">
+                <ion-icon slot="start" name="trash-outline"></ion-icon>
+                {{'BUTTONS.DELETE' | translate}}
+            </ion-button>
+        }
+    }
+</ng-template>

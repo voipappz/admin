@@ -1,0 +1,6 @@
+# Connectix.io — iOS app identity for fastlane.
+# Team id / Apple id are optional when using an App Store Connect API key.
+app_identifier(ENV["IOS_APP_IDENTIFIER"] || "connectix.io")
+apple_id(ENV["APPLE_ID"]) if ENV["APPLE_ID"]
+itc_team_id(ENV["ITC_TEAM_ID"]) if ENV["ITC_TEAM_ID"]
+team_id(ENV["APPLE_TEAM_ID"]) if ENV["APPLE_TEAM_ID"]

@@ -102,6 +102,31 @@ defmodule ConnectixWeb.Endpoint do
     gzip: not code_reloading?,
     only: ConnectixWeb.static_paths()
 
+  # THE IONIC APP, bundled into this release and served from this origin.
+  #
+  # `from: {:connectix, "priv/app"}` and NOT `priv/static/app`: `mix
+  # phx.digest` walks all of `priv/static` whatever `static_paths/0` says, so a
+  # bundle there gets a second content-hashed copy of every Angular chunk and a
+  # `cache_manifest.json` entry — for nothing, since Angular hashes its own
+  # filenames already. Outside `priv/static` the question does not arise. Same
+  # reasoning as the extension zip in `priv/extension`.
+  #
+  # `gzip: true` serves `foo.js.gz` IF IT EXISTS, and it is `phx.digest` that
+  # normally writes those. Bypassing digest means the `.gz` files are made by
+  # the build instead — `make -C ionic compress`, and the `ionic` stage of
+  # Dockerfile.production. Without that step this option silently does nothing
+  # and every phone downloads the uncompressed bundle.
+  #
+  # UNGATED, like the extension's routes and for the same reason: this app
+  # authenticates with a token from `POST /auth/user_login`, and
+  # `Plugs.BasicAuth` in front of it would prompt for a second, unrelated
+  # credential that no mobile build can supply. `/app` itself and any path
+  # under it that is not a file fall through to `ConnectixWeb.AppController`.
+  plug Plug.Static,
+    at: "/app",
+    from: {:connectix, "priv/app"},
+    gzip: not code_reloading?
+
   if Code.ensure_loaded?(Tidewave) do
     plug Tidewave
   end
