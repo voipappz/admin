@@ -7,7 +7,6 @@ import LoyaltyIcon from '@mui/icons-material/Loyalty';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 import HubIcon from '@mui/icons-material/Hub';
 import MiscellaneousServicesIcon from '@mui/icons-material/MiscellaneousServices';
-import SecurityIcon from '@mui/icons-material/Security';
 import ArticleIcon from '@mui/icons-material/Article';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import DnsIcon from '@mui/icons-material/Dns';
@@ -64,10 +63,6 @@ export const NAV_ITEMS = [
 export const TOPBAR_NAV_ITEMS = [
   { text: 'Templates',     path: '/templates',      iconComponent: ArticleIcon,               aclKey: 'templates',                      group: 'ADMIN'    },
   { text: 'API Docs',      path: '/devzone',        iconComponent: CodeIcon,                                                          group: 'ADMIN'    },
-  // Moved out of the main NAV_ITEMS list — ACL management isn't a screen an
-  // admin browses day-to-day, it belongs in the same pinned/lower-profile
-  // section as Templates and API Docs.
-  { text: 'ACLs',          path: '/acls',           iconComponent: SecurityIcon,              aclKey: 'acls',                           group: 'ADMIN'    },
 ];
 
 export function getPermittedNavItems(acl) {

@@ -70,18 +70,30 @@ export const accountsApi = {
   },
 
   /**
-   * Get available environments for account creation/editing
-   * NOTE: For dropdown use - if you have > 100 environments, implement search/autocomplete
+   * Search environments for the account create/edit pickers.
+   *
+   * One page per keystroke, searched SERVER-side. The picker used to load the
+   * whole tenant (per_page=9999) so it could filter in the browser, which is
+   * a multi-megabyte response on a tenant like MTN — and needless, because the
+   * dialog pre-selects from CustomerEnvironmentContext, which is already in
+   * memory. Options are only needed for the ones a user goes looking for.
+   *
    * @param {Object} params - Query parameters
-   * @param {number} params.per_page - Max results (default: 100)
-   * @param {string} params.search - Search term for filtering
+   * @param {number} params.per_page - Page size (default: 100)
+   * @param {string} params.search - Name to search for
+   * @param {string} params.customer_uuid - Scope to one customer
    * @returns {Promise<Array>} - Array of environment objects
    */
   getEnvironments: async (params = {}) => {
-    const limit = params.per_page || 100; // Reasonable default
-    const searchQuery = params.search ? `&search[name]=${encodeURIComponent(params.search)}` : '';
-    const url = `/api/applications?per_page=${limit}${searchQuery}`;
-    return apiService.get(url, {}, 'fetching environments for accounts', false);
+    const query = new URLSearchParams({ per_page: String(params.per_page || 100) });
+    if (params.customer_uuid) query.set('customer_uuid', params.customer_uuid);
+    // Built by hand: URLSearchParams would percent-encode the brackets the API
+    // expects literally in `search[name]`.
+    const searchQuery = params.search
+      ? `&search[name]=${encodeURIComponent(params.search)}`
+      : '';
+    const url = `/api/applications?${query.toString()}${searchQuery}`;
+    return apiService.get(url, {}, 'searching environments for accounts', false);
   },
 
   /**

@@ -28,6 +28,7 @@ import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext
 import { getPermittedNavItems, getPermittedTopbarItems } from '../../config/navConfig';
 import useNavBadges from '../../hooks/useNavBadges';
 import './Sidebar.css';
+import CopyableEmail from '../common/CopyableEmail/CopyableEmail.jsx';
 
 // First letter of the customer name for the switcher avatar (mirrors the
 // account avatar at the bottom). Falls back to a neutral glyph.
@@ -291,7 +292,7 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
             </Avatar>
             <Box className="sidebar-profile-meta">
               <Typography className="sidebar-profile-name" noWrap>{accountName}</Typography>
-              {user?.email && <Typography className="sidebar-profile-email" noWrap>{user.email}</Typography>}
+              {user?.email && <Typography className="sidebar-profile-email" noWrap><CopyableEmail email={user.email} /></Typography>}
             </Box>
             <KeyboardArrowUpIcon className="sidebar-profile-chev" />
           </Box>

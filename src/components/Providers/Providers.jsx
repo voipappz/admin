@@ -254,6 +254,7 @@ const ProviderDialog = ({ open, onClose, onSave, provider, loading, allTariffs, 
                   required
                   placeholder="sk-..."
                   helperText="Your API key for the selected service"
+                  autoComplete="new-password"
                   InputProps={{ sx: { fontFamily: 'monospace', fontSize: '0.85rem' } }}
                 />
                 <TextField

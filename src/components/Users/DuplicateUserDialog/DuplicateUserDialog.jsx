@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { ContentCopy as DuplicateIcon, CheckCircle as ValidIcon, Error as ErrorIcon } from '@mui/icons-material';
 import { usersApi } from '../../../services/api/usersApi';
+import CopyableEmail from '../../common/CopyableEmail/CopyableEmail.jsx';
 
 /**
  * DuplicateUserDialog Component
@@ -193,7 +194,7 @@ const DuplicateUserDialog = ({
               Creating a copy of:
             </Typography>
             <Typography variant="body1" fontWeight={600}>
-              {user.name} ({user.email})
+              {user.name} (<CopyableEmail email={user.email} />)
             </Typography>
           </Box>
         )}

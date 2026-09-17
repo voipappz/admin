@@ -20,58 +20,17 @@ import {
   Checkbox,
   Chip,
   Box,
-  Typography,
-  Popper,
-  createFilterOptions
+  Typography
 } from '@mui/material';
 import { Close as CloseIcon, Visibility, VisibilityOff, CloudQueue as CloudIcon, CheckBoxOutlineBlank, CheckBox as CheckBoxIcon } from '@mui/icons-material';
-import { useState, useEffect, forwardRef } from 'react';
-import { FixedSizeList } from 'react-window';
+import { useState, useEffect } from 'react';
 import { useCustomerEnvironment } from '../../../context/CustomerEnvironmentContext';
 
 const icon = <CheckBoxOutlineBlank fontSize="small" />;
 const checkedIcon = <CheckBoxIcon fontSize="small" />;
 
-// Create filter options for better search/filter functionality
-const filterOptions = createFilterOptions({
-  matchFrom: 'any',
-  stringify: (option) => option.name || ''
-});
-
-// Virtualized Listbox for large lists (2000+ environments)
-const LISTBOX_PADDING = 8;
-const ITEM_HEIGHT = 48;
-const MAX_VISIBLE_ITEMS = 8;
-
-const VirtualizedListbox = forwardRef(function VirtualizedListbox(props, ref) {
-  const { children, ...other } = props;
-  const itemData = children;
-  const itemCount = itemData.length;
-  const listHeight = Math.min(itemCount, MAX_VISIBLE_ITEMS) * ITEM_HEIGHT + 2 * LISTBOX_PADDING;
-
-  return (
-    <div ref={ref} {...other}>
-      <FixedSizeList
-        height={listHeight}
-        width="100%"
-        itemSize={ITEM_HEIGHT}
-        itemCount={itemCount}
-        overscanCount={5}
-      >
-        {({ index, style }) => (
-          <div style={{ ...style, top: style.top + LISTBOX_PADDING }}>
-            {itemData[index]}
-          </div>
-        )}
-      </FixedSizeList>
-    </div>
-  );
-});
-
-// Custom Popper to handle large lists
-const VirtualizedPopper = (props) => {
-  return <Popper {...props} placement="bottom-start" style={{ width: props.anchorEl?.clientWidth || 300 }} />;
-};
+// No virtualized listbox here any more: the picker holds one searched page
+// (100 rows), never the whole tenant, so there is nothing to virtualize.
 
 /**
  * AccountCreateDialog Component
@@ -86,7 +45,8 @@ const AccountCreateDialog = ({
   environments,
   environmentsLoading,
   acls,
-  aclsLoading
+  aclsLoading,
+  onSearchEnvironments
 }) => {
   // Get currently selected environments from context to pre-select them
   const { selectedEnvironments } = useCustomerEnvironment();
@@ -105,6 +65,13 @@ const AccountCreateDialog = ({
   const [successMessage, setSuccessMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [environmentSearchValue, setEnvironmentSearchValue] = useState('');
+
+  // One request per pause in typing, not per keystroke.
+  useEffect(() => {
+    if (!open || !onSearchEnvironments) return undefined;
+    const id = setTimeout(() => onSearchEnvironments(environmentSearchValue), 300);
+    return () => clearTimeout(id);
+  }, [open, environmentSearchValue, onSearchEnvironments]);
 
   // Reset form when dialog opens and pre-select currently selected environments
   useEffect(() => {
@@ -351,21 +318,20 @@ const AccountCreateDialog = ({
               onInputChange={(_event, newInputValue) => {
                 setEnvironmentSearchValue(newInputValue);
               }}
-              filterOptions={filterOptions}
+              filterOptions={(x) => x}
               getOptionLabel={(option) => option.name || ''}
               isOptionEqualToValue={(option, value) => option.uuid === value.uuid}
-              // Use virtualization for large lists (100+ environments)
-              ListboxComponent={environments?.length > 100 ? VirtualizedListbox : undefined}
-              PopperComponent={environments?.length > 100 ? VirtualizedPopper : undefined}
+              loading={environmentsLoading}
+              noOptionsText={environmentSearchValue ? 'No match' : 'Type to search applications'}
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label={`Applications${environments?.length > 100 ? ` (${environments.length})` : ''}`}
+                  label="Applications"
                   placeholder="Type to search applications..."
                   variant="outlined"
                   required
                   error={!!errors.selectedEnvironments}
-                  helperText={errors.selectedEnvironments}
+                  helperText={errors.selectedEnvironments || 'Type to search every application'}
                   InputProps={{
                     ...params.InputProps,
                     startAdornment: (
@@ -380,7 +346,7 @@ const AccountCreateDialog = ({
               renderOption={(props, option, { selected }) => {
                 const { key, ...optionProps } = props;
                 return (
-                  <li key={key || option.uuid} {...optionProps} style={{ ...optionProps.style, height: ITEM_HEIGHT, display: 'flex', alignItems: 'center' }}>
+                  <li key={key || option.uuid} {...optionProps} style={{ ...optionProps.style, display: 'flex', alignItems: 'center' }}>
                     <Checkbox
                       icon={icon}
                       checkedIcon={checkedIcon}

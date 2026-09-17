@@ -13,7 +13,11 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.js'],
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
-    exclude: ['node_modules', 'dist', 'test-results', 'playwright-report']
+    exclude: ['node_modules', 'dist', 'test-results', 'playwright-report'],
+    // @mui/x-data-grid's entry imports its own .css, which Node cannot load
+    // when the package is externalized. Inlining it lets Vite handle the
+    // import the way it does in the app build.
+    server: { deps: { inline: [/@mui\/x-data-grid/] } }
   },
   resolve: {
     alias: {

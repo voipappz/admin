@@ -20,6 +20,7 @@ import {
 } from '@mui/icons-material';
 import { usersApi } from '../../../services/api/usersApi';
 import { Z } from '../../../utils/zIndex.js';
+import CopyableEmail from '../../common/CopyableEmail/CopyableEmail.jsx';
 
 /**
  * UserViewDialog Component
@@ -115,7 +116,7 @@ export const UserViewDialog = ({ open, onClose, userUuid }) => {
                 </Typography>
               </Box>
               <Typography variant="body1" sx={{ pl: 3.5 }}>
-                {user.email || 'N/A'}
+                <CopyableEmail email={user.email} fallback="N/A" />
               </Typography>
             </Box>
 

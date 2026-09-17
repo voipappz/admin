@@ -218,7 +218,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     detailedAccountData,
     detailedCustomerData,
     fetchAccountDetails,
-    fetchEnvironments: fetchAccountEnvironments,
+    searchEnvironments: searchAccountEnvironments,
     fetchAcls: fetchAccountAcls,
     updateCustomerData,
     createDialogOpen: accountCreateDialogOpen,
@@ -328,13 +328,13 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
   useEffect(() => {
     const handler = () => {
       fetchAccountDetails();
-      fetchAccountEnvironments();
+      searchAccountEnvironments();
       fetchAccountAcls();
       setAccountDialogOpen(true);
     };
     window.addEventListener('openAccountDialog', handler);
     return () => window.removeEventListener('openAccountDialog', handler);
-  }, [fetchAccountDetails, fetchAccountEnvironments, fetchAccountAcls]);
+  }, [fetchAccountDetails, searchAccountEnvironments, fetchAccountAcls]);
 
   // Notifications drawer — the bell moved to the sidebar bottom and dispatches this.
   useEffect(() => {
@@ -1915,6 +1915,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         loading={accountSaving}
         environments={accountEnvironments}
         environmentsLoading={accountEnvironmentsLoading}
+        onSearchEnvironments={searchAccountEnvironments}
         acls={accountAcls}
         aclsLoading={accountAclsLoading}
       />

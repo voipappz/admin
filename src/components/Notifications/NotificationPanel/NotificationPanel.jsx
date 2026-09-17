@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material';
 import { formatDate } from '../../../utils/dateUtils';
 import './NotificationPanel.css';
+import CopyableEmail from '../../common/CopyableEmail/CopyableEmail.jsx';
 
 const NotificationPanel = ({ notification, onClose, onMarkAsRead, onDelete, fetchNotificationDetails }) => {
   const [copySuccess, setCopySuccess] = useState(false);
@@ -305,7 +306,7 @@ const NotificationPanel = ({ notification, onClose, onMarkAsRead, onDelete, fetc
                   </Typography>
                 )}
                 <Typography variant="body2" color="textSecondary">
-                  {displayNotification.recipient.email}
+                  <CopyableEmail email={displayNotification.recipient.email} />
                 </Typography>
                 <Typography variant="caption" color="textSecondary">
                   ID: {displayNotification.recipient.uuid}
