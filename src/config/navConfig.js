@@ -1,6 +1,5 @@
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import DevicesIcon from '@mui/icons-material/Devices';
-import HomeIcon from '@mui/icons-material/Home';
 import PeopleIcon from '@mui/icons-material/People';
 import BadgeIcon from '@mui/icons-material/Badge';
 import LoyaltyIcon from '@mui/icons-material/Loyalty';
@@ -31,14 +30,12 @@ export const NAV_ITEMS = [
   // bill against, and were previously only reachable through the picker
   // embedded in other dialogs.
   { text: 'Tariffs',       path: '/tariffs',        iconComponent: RequestQuoteIcon,          aclKey: 'tariffs',                        group: 'MANAGE'   },
-  // The end-user portal's widget dashboard, mounted in the console too. Gated
-  // on `reports` — the console's ACLs carry no dashboard key.
-  { text: 'Dashboard',     path: '/admin/dashboard', iconComponent: HomeIcon,                 aclKey: 'reports',                        group: 'MONITOR'  },
   // Live and Phone are not in this rail: they are user-portal screens only
   // (UserRail.jsx), and App.jsx sends an admin session away from both.
   { text: 'Calls',         path: '/calls',          iconComponent: CallIcon,                  aclKey: 'calls',                          group: 'MONITOR'  },
   { text: 'Messages',      path: '/messages',       iconComponent: ChatIcon,                  aclKey: 'calls',                          group: 'MONITOR'  },
-  // Logs: the app log stream (/api/logs, the telemetry Redis). It is also
+  // Logs: the app log stream from the InfluxDB `syslog` measurement,
+  // served by /api/logs. It is also
   // opened as a modal from a record's "View Logs" action (useNavigateToLogs),
   // but that left the screen itself unreachable except by typing /logs.
   // Events is the durable half of the pair: the Postgres event store (a log

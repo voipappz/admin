@@ -88,7 +88,6 @@ import { useNodeHealth } from '../../hooks/useNodeHealth';
 import CommandPalette from '../CommandPalette/CommandPalette';
 import EnvironmentResourcesPanel from './EnvironmentResourcesPanel';
 import NotificationPanel from '../Notifications/NotificationPanel/NotificationPanel';
-import TicketDialog from '../Tickets/TicketDialog/TicketDialog';
 import TicketDetailView from '../Tickets/TicketDetailView/TicketDetailView';
 import { useTickets } from '../Tickets/Tickets';
 import { openZendeskWidget } from '../../services/zendeskWidget';
@@ -259,8 +258,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     loading: ticketsLoading,
     selectedTicket,
     ticketComments,
-    dialogOpen: ticketCreateOpen,
-    handleOpenDialog,
     detailViewOpen: ticketDetailOpen,
     ticketStats,
     page: ticketPage,
@@ -268,8 +265,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     totalCount: ticketTotalCount,
     sortBy: ticketSortBy,
     sortOrder: ticketSortOrder,
-    handleCloseDialog: handleCloseTicketCreate,
-    handleCreateTicket,
     handleUpdateTicket,
     handleAddComment: handleAddTicketComment,
     fetchTicketDetails: fetchTicketDetailsForRefresh,
@@ -1702,15 +1697,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           >
             Get help
           </Button>
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => { handleOpenDialog(); }}
-            sx={{ textTransform: 'none', fontSize: '0.8rem', mr: 1 }}
-          >
-            Create Ticket
-          </Button>
           <Tooltip title="Refresh">
             <IconButton size="small" onClick={handleTicketRefresh} disabled={ticketsLoading}>
               <RefreshIcon fontSize="small" />
@@ -1887,13 +1873,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         </DialogContent>
       </Dialog>
 
-      {/* Create Ticket Dialog */}
-      <TicketDialog
-        open={ticketCreateOpen}
-        onClose={handleCloseTicketCreate}
-        onSubmit={handleCreateTicket}
-        loading={ticketsLoading}
-      />
 
       {/* Account Dialogs */}
       <AccountDialog

@@ -24,7 +24,6 @@ import {
 import { useState } from 'react';
 import { useTickets } from './Tickets';
 import TicketsList from './TicketsList/TicketsList';
-import TicketDialog from './TicketDialog/TicketDialog';
 import TicketDetailView from './TicketDetailView/TicketDetailView';
 import { stripedTableRowSx } from '../shared/tableTheme.jsx';
 import './Tickets.css';
@@ -100,7 +99,6 @@ const Tickets = () => {
     loading,
     selectedTicket,
     ticketComments,
-    dialogOpen,
     detailViewOpen,
     ticketStats,
     page,
@@ -109,9 +107,6 @@ const Tickets = () => {
     sortBy,
     sortOrder,
     filters,
-    handleOpenDialog,
-    handleCloseDialog,
-    handleCreateTicket,
     handleUpdateTicket,
     handleAddComment,
     fetchTicketDetails,
@@ -156,7 +151,6 @@ const Tickets = () => {
             loading={loading}
             filters={filters}
             onFiltersChange={handleFiltersChange}
-            onAdd={handleOpenDialog}
             onResetFilters={handleResetFilters}
           />
         </Paper>
@@ -430,13 +424,6 @@ const Tickets = () => {
         )}
       </Box>
 
-      {/* Create Ticket Dialog */}
-      <TicketDialog
-        open={dialogOpen}
-        onClose={handleCloseDialog}
-        onSubmit={handleCreateTicket}
-        loading={loading}
-      />
     </Box>
   );
 };
