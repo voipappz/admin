@@ -56,6 +56,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CircleIcon from '@mui/icons-material/Circle';
 import CodeIcon from '@mui/icons-material/Code';
+import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
@@ -840,6 +841,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     { key: 'settings', label: 'Settings', icon: <SettingsIcon fontSize="small" />, onClick: () => navigate('/settings') },
     { key: 'help', label: 'Help Center', icon: <HelpOutlineIcon fontSize="small" />, onClick: () => window.open('https://voipappz.zendesk.com/hc/en-us', '_blank', 'noopener') },
     { key: 'devzone', label: 'API DevZone', icon: <CodeIcon fontSize="small" />, onClick: () => navigate('/devzone') },
+    { key: 'mcp', label: 'MCP', icon: <HubOutlinedIcon fontSize="small" />, onClick: () => navigate('/mcp') },
     { key: 'theme', label: isDarkMode ? 'Light Mode' : 'Dark Mode', icon: isDarkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />, onClick: toggleTheme },
   ];
 
