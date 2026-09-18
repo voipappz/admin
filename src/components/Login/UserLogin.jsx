@@ -8,16 +8,18 @@ import {
   FormControl,
   FormHelperText,
   CircularProgress,
-  Alert
+  Alert,
+  IconButton,
+  InputAdornment
 } from '@mui/material';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import { useUserLogin } from './UserLogin';
 import { loadCustomerPortalData } from '../../services/customerPortalService';
 import './Login.css';
 
-// The `/` entry point — end-user (customer) login. Deliberately NOT the admin
-// Login's template: no hero panel, no VoipAppz name or logo, just one centred
-// card that reads well on a phone. The tenant's brand colour, tab title and
-// favicon still apply.
+// The `/` entry point — a compact, tenant-branded customer login that remains
+// easy to use on a phone and keeps admin credentials visually distinct.
 const UserLogin = () => {
   const {
     email,
@@ -51,6 +53,7 @@ const UserLogin = () => {
     handleForgotOtpSubmit,
     handleForgotResetSubmit
   } = useUserLogin();
+  const [showPassword, setShowPassword] = useState(false);
 
   // Per-tenant branding (logo, brand colour) for this unauthenticated screen —
   // resolved server-side from the request's origin host. Always fetched
@@ -64,6 +67,8 @@ const UserLogin = () => {
   }, []);
 
   const brandColor = portalData?.logo_color;
+  const brandLogo = portalData?.logo_url || '/images/VA_logo_blue.png';
+  const brandName = portalData?.logo_title || 'VoipAppz';
 
   // Favicon/title only while THIS screen is mounted — the admin console (and
   // its own login at /admin) must keep its own tab identity, not inherit a
@@ -95,10 +100,10 @@ const UserLogin = () => {
   const renderLoginForm = () => (
     <>
       <Typography component="h1" className="form-title">
-        Sign in
+        Welcome back
       </Typography>
       <Typography variant="body2" className="forgot-description">
-        Use your email address or extension number.
+        Sign in to view your calls, use your phone, and ask the assistant.
       </Typography>
 
       {expectsOtp && (
@@ -144,7 +149,7 @@ const UserLogin = () => {
             // #find_user!). type="email" made the browser reject "2300"
             // before the form could ever be submitted.
             type="text"
-            inputMode="email"
+            inputMode="text"
             autoComplete="section-portal username"
           />
           {touched.email && email === '' && (
@@ -159,7 +164,7 @@ const UserLogin = () => {
             name="portal_password"
             label="Password"
             placeholder="Your password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={handlePasswordChange}
             onBlur={() => handleBlur('password')}
@@ -169,6 +174,19 @@ const UserLogin = () => {
             required
             error={touched.password && password === ''}
             autoComplete="section-portal current-password"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    edge="end"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                  >
+                    {showPassword ? <VisibilityOffOutlinedIcon /> : <VisibilityOutlinedIcon />}
+                  </IconButton>
+                </InputAdornment>
+              )
+            }}
           />
           {touched.password && password === '' && (
             <FormHelperText error className="help-block">Password is required.</FormHelperText>
@@ -184,18 +202,18 @@ const UserLogin = () => {
             disabled={loading || !email || !password}
             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Signing in...' : 'Sign in'}
           </Button>
 
           <Typography
             variant="body2"
-            component="a"
-            href="javascript:;"
+            component="button"
+            type="button"
             className="forgot-password"
             onClick={handleForgotPasswordClick}
             data-testid="user-forgot-password-link"
           >
-            Forgot Password?
+            Forgot password?
           </Typography>
 
         </Box>
@@ -500,12 +518,18 @@ const UserLogin = () => {
   return (
     <Box className="login-page login-page--portal" style={brandColor ? { '--accent-color': brandColor } : undefined}>
       <Paper elevation={0} className="login-paper">
+        <Box className="portal-login-brand">
+          <img src={brandLogo} alt={brandName} className="portal-login-logo" />
+        </Box>
         {showForgetForm
           ? renderForgotForm()
           : otpStep
             ? renderOtpForm()
             : renderLoginForm()
         }
+        <Typography variant="caption" className="portal-login-footer">
+          Your workspace is protected with secure sign-in.
+        </Typography>
       </Paper>
     </Box>
   );

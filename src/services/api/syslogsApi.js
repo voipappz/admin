@@ -1,8 +1,7 @@
 import { apiService } from '../apiService';
 
-// App logs API — /api/logs: the API's own log lines, short term, from Redis
-// (it was /api/syslogs; the API renamed it with no alias). Container logs are
-// not here — they stay in InfluxDB for monitoring.
+// Syslog API — /api/logs reads the application's InfluxDB `syslog`
+// measurement (the former /api/syslogs path has no alias).
 const BASE = '/api/logs';
 
 /**

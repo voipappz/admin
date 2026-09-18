@@ -51,7 +51,7 @@ export default function PhoneFab({ open, onToggle }) {
         sx={{
           position: 'fixed',
           right: 20,
-          bottom: 20,
+          bottom: { xs: 'calc(80px + env(safe-area-inset-bottom))', md: 20 },
           zIndex: (theme) => theme.zIndex.drawer + 2,
         }}
       >

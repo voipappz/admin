@@ -59,8 +59,8 @@ const TOTAL_PILL = { color: 'var(--mui-palette-text-primary)', bg: 'var(--mui-pa
 const METRICS_PILLS = [
   { key: 'total', label: 'TOTAL' },
   { key: 'crit',  label: 'CRIT' },
-  { key: 'error', label: 'ERROR' },
-  { key: 'warn',  label: 'WARN' },
+  { key: 'error', filterKey: 'err', label: 'ERROR' },
+  { key: 'warn',  filterKey: 'warning', label: 'WARN' },
   { key: 'info',  label: 'INFO' },
   { key: 'debug', label: 'DEBUG' },
   { key: 'trace', label: 'TRACE' },
@@ -106,6 +106,7 @@ const SystemLogs = ({ initialParams }) => {
     handlePeriodSelect,
 
     chartAggregation,
+    severityAggregation,
     chartInterval,
 
     autoRefreshInterval,
@@ -121,7 +122,6 @@ const SystemLogs = ({ initialParams }) => {
     enableConsole,
     disableConsole,
     getConsoleStatus,
-    alerts,
   } = useSystemLogs({ customerUuid: selectedCustomer?.uuid, initialParams });
 
   const [traceEnabled, setTraceEnabled] = useState(false);
@@ -226,11 +226,15 @@ const SystemLogs = ({ initialParams }) => {
     () => convertAggregateToHistogramFormat(chartAggregation),
     [chartAggregation]
   );
+  const severityHistogramBuckets = useMemo(
+    () => convertAggregateToHistogramFormat(severityAggregation),
+    [severityAggregation]
+  );
 
   // Metrics derived from the full time-range aggregation (not just visible page)
   const metrics = useMemo(() => {
     const tally = { total: 0, crit: 0, error: 0, warn: 0, info: 0, debug: 0, trace: 0 };
-    histogramBuckets.forEach((b) => {
+    severityHistogramBuckets.forEach((b) => {
       tally.total += b.total;
       Object.entries(b.severities).forEach(([sev, n]) => {
         const k = normalizeSeverityKey(sev);
@@ -238,15 +242,15 @@ const SystemLogs = ({ initialParams }) => {
       });
     });
     return tally;
-  }, [histogramBuckets]);
+  }, [severityHistogramBuckets]);
 
   const handleMetricClick = useCallback(
-    (key) => {
+    (key, filterKey = key) => {
       if (key === 'total') {
         setSelectedSeverity('');
         return;
       }
-      setSelectedSeverity((prev) => (prev === key ? '' : key));
+      setSelectedSeverity((prev) => (prev === filterKey ? '' : filterKey));
     },
     [setSelectedSeverity]
   );
@@ -408,22 +412,6 @@ const SystemLogs = ({ initialParams }) => {
         bgcolor: 'var(--mui-palette-surface-muted)',
       }}
     >
-      {/* App error-rate alerts (/api/logs/alerts). Click to see that app's errors. */}
-      {alerts.length > 0 && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          {alerts.map((a) => (
-            <Alert
-              key={a.app}
-              severity={a.level === 'critical' ? 'error' : 'warning'}
-              sx={{ py: 0, cursor: 'pointer' }}
-              onClick={() => { setSelectedApp(a.app); setSelectedSeverity('err'); }}
-            >
-              {`${a.app}: ${a.count} error lines in the last ${a.window}m (threshold ${a.threshold})`}
-            </Alert>
-          ))}
-        </Box>
-      )}
-
       {/* Row 1: Time Range, Search, Actions */}
       <Paper
         elevation={0}
@@ -645,7 +633,9 @@ const SystemLogs = ({ initialParams }) => {
             >
               <MenuItem value=""><em>All levels</em></MenuItem>
               {SEVERITY_ORDER.map((s) => (
-                <MenuItem key={s} value={s}>{s}</MenuItem>
+                <MenuItem key={s} value={s === 'error' ? 'err' : s === 'warn' ? 'warning' : s}>
+                  {LEVEL_CONFIG[s]?.label || s}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
@@ -735,12 +725,13 @@ const SystemLogs = ({ initialParams }) => {
         {METRICS_PILLS.map((pill) => {
           const cfg = pill.key === 'total' ? TOTAL_PILL : LEVEL_CONFIG[pill.key];
           const value = metrics[pill.key] || 0;
-          const isActive = pill.key !== 'total' && selectedSeverity === pill.key;
+          const filterKey = pill.filterKey || pill.key;
+          const isActive = pill.key !== 'total' && selectedSeverity === filterKey;
           return (
             <Paper
               key={pill.key}
               elevation={0}
-              onClick={() => handleMetricClick(pill.key)}
+              onClick={() => handleMetricClick(pill.key, filterKey)}
               sx={{
                 px: 1.25,
                 py: 0.5,

@@ -10,9 +10,15 @@ import PortalCalls from './PortalCalls';
  */
 
 const mockGetCalls = vi.fn();
+const mockGetAggregate = vi.fn();
+const mockGetSegments = vi.fn();
 
 vi.mock('../../services/api/callsApi', () => ({
-  callsApi: { getCalls: (...a) => mockGetCalls(...a) },
+  callsApi: {
+    getCalls: (...a) => mockGetCalls(...a),
+    getAggregate: (...a) => mockGetAggregate(...a),
+    getSegments: (...a) => mockGetSegments(...a),
+  },
 }));
 
 const mockDial = vi.fn(() => Promise.resolve());
@@ -52,6 +58,10 @@ const row = (i) => ({
 describe('PortalCalls', () => {
   beforeEach(() => {
     mockGetCalls.mockReset();
+    mockGetAggregate.mockReset();
+    mockGetSegments.mockReset();
+    mockGetAggregate.mockResolvedValue([]);
+    mockGetSegments.mockResolvedValue([]);
     mockDial.mockClear();
     mockConnected = false;
   });
