@@ -21,16 +21,17 @@ import WebRTCPanel from '../Users/UserDialog/WebRTCPanel';
 import { useZendeskWidget } from '../../services/zendeskWidget';
 import './Layout.css';
 
-const AIChat = lazy(() => import('../AIChat/AIChat.jsx'));
+const PortalMcpAssistant = lazy(() => import('../AIChat/PortalMcpAssistant.jsx'));
 
 // Build version shown in the footer. Prefer the CI build stamp
 // (VITE_APP_VERSION = YYYY.MM.DD-<short-sha>, set by the build step in .github/workflows/ci.yml),
 // fall back to the package.json version, then "dev" for local `npm run dev`.
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || __APP_VERSION__ || 'dev';
 
-/** AI Chat Modal — centered dialog overlay */
+/** Direct user-authenticated MCP tools modal. */
 const AIChatModal = () => {
   const { aiDrawerOpen, closeAIDrawer, toggleAIDrawer } = useAIChatSidebar();
+  const isMobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
 
   // Cmd/Ctrl+Shift+A to toggle AI chat
   useEffect(() => {
@@ -50,14 +51,15 @@ const AIChatModal = () => {
       onClose={closeAIDrawer}
       maxWidth="md"
       fullWidth
+      fullScreen={isMobile}
       keepMounted
       PaperProps={{
         sx: {
-          height: '70vh',
+          height: { xs: '100dvh', md: '70vh' },
           maxHeight: '700px',
           backgroundColor: 'var(--theme-bg-primary)',
           border: '1px solid var(--theme-border)',
-          borderRadius: '12px',
+          borderRadius: { xs: 0, md: '12px' },
           display: 'flex',
           flexDirection: 'column',
         }
@@ -70,7 +72,7 @@ const AIChatModal = () => {
       </Box>
       <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
         <Suspense fallback={<Box sx={{ p: 3, textAlign: 'center', color: 'var(--theme-text-secondary)' }}>Loading...</Box>}>
-          <AIChat />
+          <PortalMcpAssistant />
         </Suspense>
       </Box>
     </Dialog>
@@ -197,7 +199,7 @@ const Layout = ({ children }) => {
               // The FAB floats over the bottom-right corner, and every screen
               // on this surface ends in a table — without this the last row
               // sits underneath it and cannot be clicked.
-              pb: `${PHONE_FAB_CLEARANCE}px`,
+              pb: { xs: `${PHONE_FAB_CLEARANCE + 64}px`, md: `${PHONE_FAB_CLEARANCE}px` },
               transition: 'margin-right 0.2s ease'
             }}
           >
@@ -222,7 +224,6 @@ const Layout = ({ children }) => {
       ) : (
         // Authenticated layout: Sidebar + TopBar + Content
         <GlobalSearchProvider>
-          <AIChatSidebarProvider>
           <RecentPagesProvider>
           <Box data-testid="authenticated-layout" data-tour="welcome">
             {/* Fixed sidebar — hidden on mobile, shown via the drawer */}
@@ -271,10 +272,8 @@ const Layout = ({ children }) => {
               />
             </Box>
           </Box>
-          <AIChatModal />
           <WebRTCPanel />
           </RecentPagesProvider>
-          </AIChatSidebarProvider>
         </GlobalSearchProvider>
       )}
 

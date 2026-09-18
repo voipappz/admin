@@ -19,8 +19,6 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import MenuIcon from '@mui/icons-material/Menu';
 import CircleIcon from '@mui/icons-material/Circle';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import { useAIChatSidebar } from '../../context/AIChatSidebarContext';
 import useApiHealth from '../../hooks/useApiHealth';
 import useGatusHealth from '../../hooks/useGatusHealth';
 import { useAuth } from '../../context/AuthContext';
@@ -39,8 +37,6 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
   const location = useLocation();
   const { acl, user } = useAuth();
   const { selectedCustomer } = useCustomerEnvironment();
-  // The assistant opened only on Cmd/Ctrl+Shift+A, so nobody found it.
-  const { openAIDrawer } = useAIChatSidebar() || {};
   const isMobile = useMediaQuery((t) => t.breakpoints.down('md'));
   // ── Health, as one colour ────────────────────────────────────────────────
   // Two sources, because neither alone tells the truth:
@@ -233,18 +229,6 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
         {/* Dark-mode toggle now lives only in the account menu (next to Sign
             Out) — removed the duplicate sidebar button. */}
         <Box className="sidebar-tool-divider" />
-        {openAIDrawer && (
-          <Tooltip title="Assistant (Ctrl+Shift+A)" placement="right" arrow>
-            <IconButton
-              className="sidebar-tool-button"
-              onClick={() => { openAIDrawer(); onNavigate?.(); }}
-              aria-label="Assistant"
-              data-testid="sidebar-assistant"
-            >
-              <AutoAwesomeIcon />
-            </IconButton>
-          </Tooltip>
-        )}
         <Tooltip title="Help Center" placement="right" arrow>
           <IconButton
             className="sidebar-tool-button"

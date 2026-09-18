@@ -74,6 +74,12 @@ export const callsApi = {
     return apiService.get(url, {}, 'fetching calls', false);
   },
 
+  /** Counts over the full filtered call set, used by Calls summary cards. */
+  getAggregate: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiService.get(`/api/calls/aggregate${queryString ? `?${queryString}` : ''}`, {}, 'fetching call summary', false);
+  },
+
   /**
    * Get a single call by ID
    * @param {string} callId - The call ID/UUID

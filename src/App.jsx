@@ -28,7 +28,7 @@ import UserLogin from './components/Login/UserLogin.jsx';
 // Lazy-load all other route components for code splitting
 const Reports = lazy(() => import('./components/Reports/Reports.jsx'));
 const LiveDashboard = lazy(() => import('./components/LiveDashboard/LiveDashboard.jsx'));
-const Dashboard = lazy(() => import('./components/Dashboard/Dashboard.jsx'));
+const Dashboard = lazy(() => import('./components/Dashboard/PortalDashboard.jsx'));
 const Phone = lazy(() => import('./components/Phone/PhoneScreen.jsx'));
 // The PORTAL's call history — deliberately not the admin Calls screen
 // (/calls), which is built around dynamic field configs and saved segments.
@@ -67,7 +67,6 @@ const Bots = lazy(() => import('./components/Bots/Bots.jsx'));
 const CallsLog = lazy(() => import('./components/CallsLog/CallsLog.jsx'));
 const HealthMonitor = lazy(() => import('./components/HealthMonitor/HealthMonitor.jsx'));
 const Extensions = lazy(() => import('./components/Extensions/Extensions.jsx'));
-const AIChat = lazy(() => import('./components/AIChat/AIChat.jsx'));
 const Messages = lazy(() => import('./components/Messages/Messages.jsx'));
 const Monitoring = lazy(() => import('./components/Monitoring/Monitoring.jsx'));
 // The nodes list with its create/edit/delete/import (nodes API) — also a
@@ -190,17 +189,6 @@ function AppContent() {
     return <Navigate to="/" replace />;
   };
 
-  // The assistant serves either door. It carries no ACL of its own: the API
-  // scopes its tools to whichever session asks (Mediators::Mcp::Toolbox), so
-  // being signed in is the whole gate.
-  const AssistantRoute = ({ children }) => {
-    const admin = useAuth();
-    const user = useUserAuth();
-    if (admin.initializing || user.initializing) return null;
-    if (admin.isAuthenticated || user.isAuthenticated) return children;
-    return <Navigate to="/" replace />;
-  };
-
   return (
     <Router>
       <Suspense fallback={<Layout><PageLoader /></Layout>}>
@@ -220,20 +208,6 @@ function AppContent() {
           }
         />
         <Route path="/login" element={<Navigate to="/admin" replace />} />
-        {/* The portal's widget dashboard, in the account console. Same screen
-            as `/`; Dashboard.jsx scopes it to the console's customer/
-            environment selection for an admin session. Gated on `reports`
-            like Live, since the console's ACLs carry no dashboard key. */}
-        <Route
-          path="/admin/dashboard"
-          element={
-            <ProtectedRoute requiredAcl="reports">
-              <Layout>
-                <Dashboard />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
         {/* Live is the END USER's screen, not an admin one: it answers "what
             is my team doing right now" for the person working the queue.
             PortalRoute enforces that — an admin session is sent to Calls.
@@ -598,16 +572,6 @@ function AppContent() {
                 <Workflows />
               </Layout>
             </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/ai"
-          element={
-            <AssistantRoute>
-              <Layout>
-                <AIChat />
-              </Layout>
-            </AssistantRoute>
           }
         />
         {/* Catch-all 404 — auth-gated like every other route so a hard load of

@@ -20,8 +20,6 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
   // Dropdown data
   const [apps, setApps] = useState([]);
   const [nodes, setNodes] = useState([]);
-  // App error-rate breaches from /api/logs/alerts (API config/logs.yaml).
-  const [alerts, setAlerts] = useState([]);
 
   // Pagination
   const [pagination, setPagination] = useState({
@@ -45,7 +43,7 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
       search: q.get('search') || q.get('inline') || '',
       app: q.get('app') || '',
       host: q.get('host') || '',
-      severity: q.get('severity') || '',
+      severity: ({ error: 'err', warn: 'warning' })[q.get('severity')] || q.get('severity') || '',
       action: q.get('action') || '',
       period: q.get('period') || '1h',
     };
@@ -79,6 +77,7 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
 
   // Chart aggregation data (from server)
   const [chartAggregation, setChartAggregation] = useState([]);
+  const [severityAggregation, setSeverityAggregation] = useState([]);
   const [chartLoading, setChartLoading] = useState(false);
 
   // Auto-refresh: 0 = off, 10/30/60 seconds
@@ -112,17 +111,7 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     }
   }, []);
 
-  const loadAlerts = useCallback(async () => {
-    try {
-      const response = await syslogsApi.fetchAlerts();
-      setAlerts(Array.isArray(response) ? response : response?.data || []);
-    } catch (error) {
-      console.error('Failed to load log alerts:', error);
-      setAlerts([]);
-    }
-  }, []);
-
-  // Load logs — /api/logs (the API's Redis-backed app log store)
+  // Load syslogs from the InfluxDB-backed /api/logs endpoint.
   const loadLogs = useCallback(async () => {
     try {
       setLoading(true);
@@ -173,13 +162,21 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
 
       // group_by accepts 'action' too — `action` is a tag on the series, and
       // "logs by action" is the chart that makes the actioned lines legible.
-      if (groupBy)          params.group_by = groupBy;
+      if (groupBy) params.group_by = groupBy;
 
-      const response = await syslogsApi.fetchAggregate(params);
+      const [response, severityResponse] = await Promise.all([
+        syslogsApi.fetchAggregate(params),
+        groupBy === 'severity'
+          ? Promise.resolve(null)
+          : syslogsApi.fetchAggregate({ ...params, group_by: 'severity' }),
+      ]);
       setChartAggregation(Array.isArray(response) ? response : response?.data || []);
+      const severityData = severityResponse ?? response;
+      setSeverityAggregation(Array.isArray(severityData) ? severityData : severityData?.data || []);
     } catch (error) {
       console.error('Failed to load chart data:', error);
       setChartAggregation([]);
+      setSeverityAggregation([]);
     } finally {
       setChartLoading(false);
     }
@@ -202,8 +199,7 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
       loadLogs();
       loadChartData();
     }
-    loadAlerts();
-  }, [dateRange?.period, loadLogs, loadChartData, loadAlerts]);
+  }, [dateRange?.period, loadLogs, loadChartData]);
 
   // Derived filter state
   const hasActiveFilters = useMemo(
@@ -292,7 +288,6 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
   useEffect(() => {
     loadApps();
     loadNodes();
-    loadAlerts();
   }, [loadApps, loadNodes]);
 
   // Load logs when filters change
@@ -335,7 +330,6 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     // Dropdown data
     apps,
     nodes,
-    alerts,
 
     // Filters
     searchQuery,
@@ -358,6 +352,7 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
 
     // Chart state
     chartAggregation,
+    severityAggregation,
     chartLoading,
     chartInterval,
 
