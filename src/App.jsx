@@ -80,6 +80,7 @@ const Schema = lazy(() => import('./components/Appz/Schema.jsx'));
 const Transactions = lazy(() => import('./components/Transactions/Transactions.jsx'));
 const Settings = lazy(() => import('./components/Settings/Settings.jsx'));
 const ApiDocs = lazy(() => import('./components/ApiDocs/ApiDocs.jsx'));
+const McpWorkspace = lazy(() => import('./components/ApiDocs/McpWorkspace.jsx'));
 
 const PageLoader = () => (
   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
@@ -559,6 +560,16 @@ function AppContent() {
             <ProtectedRoute>
               <Layout>
                 <ApiDocs />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/mcp"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <McpWorkspace />
               </Layout>
             </ProtectedRoute>
           }

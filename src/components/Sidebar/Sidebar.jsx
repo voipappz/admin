@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import CodeIcon from '@mui/icons-material/Code';
+import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
 import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -194,7 +195,7 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
       )}
 
       {/* Bottom tools — a trimmed utility cluster: Monitoring, then theme/help/
-          devzone/tickets, then the account row. Wizard moved into the customer
+          devzone/MCP/tickets, then the account row. Wizard moved into the customer
           box; Notifications moved to the Monitoring right rail. Events/Syslog
           live under Logs. */}
       <Box className="sidebar-bottom-tools" sx={{ mt: 'auto' }}>
@@ -248,6 +249,15 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
             aria-label="API DevZone"
           >
             <CodeIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="MCP" placement="right" arrow>
+          <IconButton
+            className="sidebar-tool-button"
+            onClick={() => handleNavigate('/mcp')}
+            aria-label="MCP"
+          >
+            <HubOutlinedIcon />
           </IconButton>
         </Tooltip>
         <Tooltip title="Tickets" placement="right" arrow>
