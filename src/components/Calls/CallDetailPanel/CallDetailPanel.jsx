@@ -38,6 +38,7 @@ const CallDetailPanel = ({ call, onClose, onOpenRecording, onViewLogs, onViewEve
   const [transcript, setTranscript] = useState([]);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [transcriptError, setTranscriptError] = useState(null);
+  const [transcriptAttempt, setTranscriptAttempt] = useState(0);
 
   const callUuid = call?.uuid;
 
@@ -60,8 +61,8 @@ const CallDetailPanel = ({ call, onClose, onOpenRecording, onViewLogs, onViewEve
           : msgData?.messages ? msgData.messages
           : [];
         if (!cancelled) setTranscript(msgArray.filter(m => m.type !== 'note'));
-      } catch (err) {
-        if (!cancelled) setTranscriptError(err.message);
+      } catch {
+        if (!cancelled) setTranscriptError('The transcript is temporarily unavailable. Please try again.');
       } finally {
         if (!cancelled) setTranscriptLoading(false);
       }
@@ -69,7 +70,7 @@ const CallDetailPanel = ({ call, onClose, onOpenRecording, onViewLogs, onViewEve
 
     load();
     return () => { cancelled = true; };
-  }, [callUuid, access]);
+  }, [callUuid, access, transcriptAttempt]);
 
   if (!call) return null;
 
@@ -248,6 +249,7 @@ const CallDetailPanel = ({ call, onClose, onOpenRecording, onViewLogs, onViewEve
           messages={transcript}
           loading={transcriptLoading}
           error={transcriptError}
+          onRetry={() => setTranscriptAttempt((attempt) => attempt + 1)}
           emptyMessage="No transcription for this call"
         />
       </Box>

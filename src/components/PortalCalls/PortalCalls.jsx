@@ -10,13 +10,17 @@
 // answers with its :portal_list serializer, where the call's facts (caller,
 // callee, direction, cause, durations) are nested under `profile` exactly as
 // in the admin :list shape — so the rows go to the shared renderers as-is.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import {
-  Box, Button, Chip, CircularProgress, IconButton, InputAdornment, MenuItem,
+  Box, Button, Chip, CircularProgress, IconButton, MenuItem,
   Paper, Stack, TextField, Tooltip, Typography, useMediaQuery, useTheme
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
-import SearchIcon from '@mui/icons-material/Search';
+import { usePortalPreferences } from '../../context/PortalPreferencesContext';
+import TimeHistogram from '../../views/syslogs/TimeHistogram';
+import { convertAggregateToHistogramFormat } from '../../utils/logFormatting';
+import PortalColumnsSelector from './PortalColumnsSelector';
 import CallIcon from '@mui/icons-material/Call';
 import PageHeader from '../common/PageHeader.jsx';
 import { callsApi } from '../../services/api/callsApi';
@@ -30,8 +34,6 @@ import RecordingDialog from '../Calls/RecordingDialog/RecordingDialog.jsx';
 import CallStatCard from '../Calls/CallStatCard.jsx';
 import '../Calls/Calls.css';
 import '../Calls/CellWithHover/CellWithHover.css';
-
-const PER_PAGE = 25;
 
 const RANGES = [
   { value: 1, label: 'Today' },
@@ -53,6 +55,7 @@ const PORTAL_COLUMNS = [
   { name: 'Cause', type: 'sub_object', field: 'call.cause', prop: 'profile', sub_prop: 'cause', selected: true },
   { name: '', type: 'special', field: 'actions', prop: 'actions', selected: true },
 ];
+const PORTAL_COLUMN_KEYS = PORTAL_COLUMNS.map((column) => column.sub_prop ? `${column.prop}.${column.sub_prop}` : column.prop).concat('recording');
 
 // Same range format the admin Calls screen sends: unix seconds, local day
 // boundaries, "start - end". "All time" sends no range at all.
@@ -88,15 +91,39 @@ export default function PortalCalls() {
   const [calls, setCalls] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [search, setSearch] = useState('');
-  const [direction, setDirection] = useState('');
-  const [cause, setCause] = useState('');
-  const [days, setDays] = useState(7);
-  const [sortModel, setSortModel] = useState([{ field: 'created_at', sort: 'desc' }]);
+  const { preferences, ready, save } = usePortalPreferences();
+  const [url, setUrl] = useSearchParams();
+  const search = url.get('q') || '';
+  const direction = url.get('direction') || '';
+  const cause = url.get('cause') || '';
+  const days = [0, 1, 7, 30].includes(Number(url.get('days') ?? preferences.calls_days)) ? Number(url.get('days') ?? preferences.calls_days) : 7;
+  const perPage = Number(preferences.calls_page_size);
+  const sort = url.get('sort') === 'asc' ? 'asc' : url.get('sort') === 'desc' ? 'desc' : preferences.calls_sort;
+  const sortModel = useMemo(() => [{ field: 'created_at', sort }], [sort]);
+  const requestedPage = Number(url.get('page'));
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const setFilters = (patch) => {
+    const next = new URLSearchParams(url);
+    next.delete('page');
+    Object.entries(patch).forEach(([key, value]) => value === '' ? next.delete(key) : next.set(key, String(value)));
+    setUrl(next);
+    setSelectedCall(null);
+  };
   const [summary, setSummary] = useState(null);
+  const [buckets, setBuckets] = useState([]);
+  const [summaryError, setSummaryError] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [segments, setSegments] = useState([]);
-  const [page, setPage] = useState(1);
   const [selectedCall, setSelectedCall] = useState(null);
+  const requestId = useRef(0);
+  const filters = useMemo(() => {
+    const params = {};
+    if (days > 0) params['search[created_at]'] = createdAtRange(days);
+    if (search) params['search[inline]'] = search;
+    if (direction) params['search[call.direction][IS]'] = direction;
+    if (cause) params[cause === 'abandoned' ? 'search[call.disposition][IS]' : 'search[call.cause][IS]'] = cause;
+    return params;
+  }, [days, search, direction, cause]);
 
   const {
     recordingDialogOpen,
@@ -106,27 +133,28 @@ export default function PortalCalls() {
   } = useRecordingHandlers();
 
   const load = useCallback(async () => {
+    if (!ready) return;
+    const current = ++requestId.current;
     setLoading(true);
     setError(null);
     try {
-      const params = { page, per_page: PER_PAGE, order_by: 'created_at', order_type: sortModel[0]?.sort || 'desc' };
-      if (days > 0) params['search[created_at]'] = createdAtRange(days);
-      if (direction) params['search[call.direction][IS]'] = direction;
-      if (cause === 'abandoned') params['search[call.disposition][IS]'] = cause;
-      else if (cause) params['search[call.cause][IS]'] = cause;
+      const params = { ...filters, page, per_page: perPage, order_by: 'created_at', order_type: sort };
       const res = await callsApi.getCalls(params);
+      if (current !== requestId.current) return;
       const rows = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
       setCalls(rows.map((r, i) => ({ ...r, id: r.uuid || r.id || `${page}-${i}` })));
     } catch {
+      if (current !== requestId.current) return;
       // Never "no calls in this period" here — that reads as "you had none".
       setError('Could not load your calls. Please try again in a moment.');
       setCalls([]);
     } finally {
-      setLoading(false);
+      if (current === requestId.current) setLoading(false);
     }
-  }, [days, page, direction, cause, sortModel]);
+  }, [ready, filters, page, perPage, sort]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); return () => { requestId.current += 1; }; }, [load]);
+  useEffect(() => { setSelectedCall(null); }, [filters, page]);
 
   useEffect(() => {
     callsApi.getSegments()
@@ -149,43 +177,35 @@ export default function PortalCalls() {
   }, [segments]);
 
   useEffect(() => {
-    const params = { group_by: 'cause' };
-    if (days > 0) {
-      const [from, to] = createdAtRange(days).split(' - ');
-      params.from = from;
-      params.to = to;
-    }
-    if (direction) params['search[call.direction][IS]'] = direction;
-    if (cause === 'abandoned') params['search[call.disposition][IS]'] = cause;
-    else if (cause) params['search[call.cause][IS]'] = cause;
+    if (!ready) return undefined;
+    let active = true;
+    setSummary(null);
+    setBuckets([]);
+    setSummaryError(false);
+    setSummaryLoading(true);
+    const params = { ...filters, group_by: 'cause', interval: days === 1 ? 'hour' : 'day' };
     callsApi.getAggregate(params)
       .then((data) => {
+        if (!active) return;
         const buckets = Array.isArray(data) ? data : data?.cause || [];
+        setBuckets(buckets);
         const counts = buckets.reduce((total, bucket) => Object.entries(bucket).reduce(
           (sum, [key, value]) => key === 'time' ? sum : { ...sum, [key]: (sum[key] || 0) + (Number(value) || 0) }, total
         ), {});
         const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
         setSummary({ total, answered: counts.answer || 0, noAnswer: Math.max(total - (counts.answer || 0), 0) });
       })
-      .catch(() => setSummary(null));
-  }, [days, direction, cause]);
+      .catch(() => { if (active) setSummaryError(true); })
+      .finally(() => { if (active) setSummaryLoading(false); });
+    return () => { active = false; };
+  }, [ready, filters, days]);
 
-  // No reliable total from this client, so a full page is the signal that
-  // another one may exist.
-  const hasNext = calls.length === PER_PAGE;
+  // Aggregate totals cover the full result; fall back if statistics failed.
+  const hasNext = summary ? page * perPage < summary.total : calls.length === perPage;
 
-  // Filtering client-side keeps the box responsive on a list this size, and
-  // avoids guessing which of the API's many search params maps to "number".
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return calls;
-    return calls.filter(({ profile: p = {} }) =>
-      (!direction || p.direction === direction) &&
-      (!cause || (cause === 'abandoned' ? p.disposition === cause : p.cause === cause)) &&
-      [p.caller, p.callee, p.cause, p.disposition, p.direction]
-        .some((v) => String(v || '').toLowerCase().includes(q))
-    );
-  }, [calls, search, direction, cause]);
+  // The server filters before pagination; the chart receives the same filters.
+  const visible = calls;
+  const histogram = useMemo(() => convertAggregateToHistogramFormat(buckets), [buckets]);
 
   const callBack = useCallback((number) => {
     if (number) dial(number).catch(() => { /* surfaced in the phone */ });
@@ -215,12 +235,17 @@ export default function PortalCalls() {
     return Action;
   }, [connected, callBack]);
 
-  const { visibleColumns, createGridColumns } = useColumnHandlers(handleOpenRecording, undefined, {}, PORTAL_COLUMNS, []);
+  const { createGridColumns } = useColumnHandlers(handleOpenRecording, undefined, {}, PORTAL_COLUMNS, []);
+  const selectedColumns = useMemo(() => preferences.calls_columns.split(',').filter(Boolean), [preferences.calls_columns]);
+  const orderedKeys = useMemo(() => [...selectedColumns, ...PORTAL_COLUMN_KEYS.filter((key) => !selectedColumns.includes(key))], [selectedColumns]);
 
   const gridColumns = useMemo(
-    () => createGridColumns(visibleColumns, DirectionIcon, CauseIcon, RecordingControls, CallBackAction, undefined),
-    [visibleColumns, createGridColumns, CallBackAction]
+    () => createGridColumns(orderedKeys, DirectionIcon, CauseIcon, RecordingControls, CallBackAction, undefined)
+      .map((column) => ({ ...column, sortable: column.field === 'created_at' })),
+    [orderedKeys, createGridColumns, CallBackAction]
   );
+  const columnVisibilityModel = Object.fromEntries(gridColumns.map((column) => [column.field,
+    ['recording', 'actions'].includes(column.field) || selectedColumns.includes(column.field)]));
 
   const selectedNumber = counterparty(selectedCall);
   const closeDetail = () => setSelectedCall(null);
@@ -241,7 +266,7 @@ export default function PortalCalls() {
       return <Box sx={{ py: 8, textAlign: 'center' }}><CircularProgress size={28} /></Box>;
     }
     if (error) {
-      return <Typography variant="body2" sx={{ p: 2, color: 'error.main' }}>{error}</Typography>;
+      return <Box role="alert" sx={{ p: 2 }}><Typography color="error">{error}</Typography><Button onClick={load}>Retry</Button></Box>;
     }
     if (visible.length === 0) {
       return (
@@ -266,6 +291,8 @@ export default function PortalCalls() {
           <DataGrid
             rows={visible}
             columns={gridColumns}
+            columnVisibilityModel={columnVisibilityModel}
+            onColumnVisibilityModelChange={(model) => save({ calls_columns: gridColumns.filter((column) => !['recording', 'actions'].includes(column.field) && model[column.field] !== false).map((column) => column.field).join(',') })}
             loading={loading}
             onRowClick={(params) => setSelectedCall(params.row)}
             hideFooter
@@ -276,8 +303,8 @@ export default function PortalCalls() {
             disableRowSelectionOnClick
             sortingMode="server"
             sortModel={sortModel}
-            onSortModelChange={(next) => { setSortModel(next.length ? next : [{ field: 'created_at', sort: 'desc' }]); setPage(1); }}
-            rowHeight={44}
+            onSortModelChange={(next) => { const value = next[0]?.sort || 'desc'; setFilters({ sort: value }); save({ calls_sort: value }); }}
+            rowHeight={preferences.calls_density === 'compact' ? 44 : 56}
             sx={{
               border: 0,
               backgroundColor: 'var(--widget-content-bg)',
@@ -299,7 +326,7 @@ export default function PortalCalls() {
             }}
           />
         </Box>
-        {detailPanel}
+        {detailPanel && <Box sx={{ flex: '0 0 360px', width: 360, '& .call-detail-panel': { width: '100%' } }}>{detailPanel}</Box>}
       </Box>
     );
   };
@@ -312,14 +339,7 @@ export default function PortalCalls() {
         actions={
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             <TextField
-              size="small" placeholder="Search number or cause"
-              value={search} onChange={(e) => setSearch(e.target.value)}
-              data-testid="portal-calls-search"
-              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
-              sx={{ minWidth: { sm: 240 } }}
-            />
-            <TextField
-              select size="small" value={days} onChange={(e) => { setDays(Number(e.target.value)); setPage(1); }}
+              select size="small" value={days} disabled={!ready} onChange={(e) => { setFilters({ days: e.target.value }); save({ calls_days: String(e.target.value) }); }}
               data-testid="portal-calls-range" sx={{ minWidth: { sm: 150 } }}
             >
               {RANGES.map((r) => <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>)}
@@ -329,21 +349,31 @@ export default function PortalCalls() {
       />
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 1.25, flexWrap: { sm: 'wrap' } }}>
-        <TextField select size="small" label="Direction" value={direction} onChange={(e) => { setDirection(e.target.value); setPage(1); }} sx={{ minWidth: 130, width: { xs: '100%', sm: 'auto' } }}>
+        <TextField select size="small" label="Direction" value={direction} onChange={(e) => setFilters({ direction: e.target.value })} sx={{ minWidth: 130, width: { xs: '100%', sm: 'auto' } }}>
           <MenuItem value="">All</MenuItem>
           {directionOptions.map((option) => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
         </TextField>
-        <TextField select size="small" label="Cause" value={cause} onChange={(e) => { setCause(e.target.value); setPage(1); }} sx={{ minWidth: 150, width: { xs: '100%', sm: 'auto' } }}>
+        <TextField select size="small" label="Outcome" value={cause} onChange={(e) => setFilters({ cause: e.target.value })} sx={{ minWidth: 150, width: { xs: '100%', sm: 'auto' } }}>
           <MenuItem value="">All</MenuItem>
           {causeOptions.map((option) => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
         </TextField>
-        {(direction || cause) && <Chip label="Clear filters" onDelete={() => { setDirection(''); setCause(''); setPage(1); }} />}
+        <PortalColumnsSelector columns={gridColumns.filter((column) => !['recording', 'actions'].includes(column.field))} selected={selectedColumns} disabled={!ready} onChange={(keys) => save({ calls_columns: keys.join(',') })} />
+        <TextField select size="small" label="Density" disabled={!ready} value={preferences.calls_density} onChange={(event) => save({ calls_density: event.target.value })} sx={{ minWidth: 145 }}><MenuItem value="comfortable">Comfortable</MenuItem><MenuItem value="compact">Compact</MenuItem></TextField>
+        <Button disabled={!ready} onClick={() => save({ calls_chart: preferences.calls_chart === 'true' ? 'false' : 'true' })}>{preferences.calls_chart === 'true' ? 'Hide chart' : 'Show chart'}</Button>
+        {(direction || cause) && <Chip label="Clear filters" onDelete={() => setFilters({ direction: '', cause: '' })} />}
+        {search && <Chip label={`Search: ${search}`} onDelete={() => setFilters({ q: '' })} />}
       </Stack>
+
+      {summaryError && <Typography role="alert" color="error" sx={{ mb: 2 }}>Call statistics are unavailable. Your call list is shown below.</Typography>}
+      {preferences.calls_chart === 'true' && <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 3 }}>
+        <Typography fontWeight={700}>Calls over time</Typography>
+        {summaryLoading ? <Box sx={{ p: 3, textAlign: 'center' }}><CircularProgress size={22} /></Box> : summaryError ? <Typography color="text.secondary">Chart could not be loaded.</Typography> : <TimeHistogram logs={[]} aggregateData={histogram} height={130} timeInterval={days === 1 ? 'hour' : 'day'} />}
+      </Paper>}
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 1.25, flexWrap: { sm: 'wrap' } }}>
         <CallStatCard label="Total" value={summary?.total} color="var(--counter-total)" tooltip="Calls matching the current filters" />
         <CallStatCard label="Answered" value={summary?.answered} color="var(--counter-answered)" tooltip="Answered calls matching the current filters" />
-        <CallStatCard label="No Answer" value={summary?.noAnswer} color="var(--counter-no-answer)" tooltip="Unanswered calls matching the current filters" />
+        <CallStatCard label="Unanswered" value={summary?.noAnswer} color="var(--counter-no-answer)" tooltip="All calls that were not answered, including failed and busy calls" />
       </Stack>
 
       {/* On a phone the detail panel takes the whole screen, as on admin Calls. */}
@@ -351,21 +381,22 @@ export default function PortalCalls() {
         <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
           {renderList()}
 
-          {(page > 1 || hasNext) && !error && (
+          {!error && (
             <Stack
               direction="row" spacing={1} alignItems="center" justifyContent="flex-end"
               sx={{ px: 2, py: 1, borderTop: '1px solid', borderColor: 'divider' }}
             >
               <Typography variant="body2" color="text.secondary">Page {page}</Typography>
+              <TextField select size="small" label="Rows" value={perPage} disabled={!ready} onChange={(event) => { save({ calls_page_size: String(event.target.value) }); setFilters({}); }} sx={{ minWidth: 80 }}>{[25, 50, 100].map((size) => <MenuItem key={size} value={size}>{size}</MenuItem>)}</TextField>
               <Button
                 size="small" disabled={page <= 1 || loading}
-                onClick={() => setPage((p) => Math.max(1, p - 1))} data-testid="portal-calls-prev"
+                onClick={() => setFilters({ page: Math.max(1, page - 1) })} data-testid="portal-calls-prev"
               >
                 Previous
               </Button>
               <Button
                 size="small" disabled={!hasNext || loading}
-                onClick={() => setPage((p) => p + 1)} data-testid="portal-calls-next"
+                onClick={() => setFilters({ page: page + 1 })} data-testid="portal-calls-next"
               >
                 Next
               </Button>

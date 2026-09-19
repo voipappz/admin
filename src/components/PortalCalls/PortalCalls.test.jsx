@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render as renderReact, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import PortalCalls from './PortalCalls';
+import { PORTAL_DEFAULTS } from '../../context/PortalPreferencesContext';
+
+const mockSavePreferences = vi.fn();
+vi.mock('../../context/PortalPreferencesContext', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, usePortalPreferences: () => ({ preferences: actual.PORTAL_DEFAULTS, ready: true, save: mockSavePreferences }) };
+});
+vi.mock('../../views/syslogs/TimeHistogram', () => ({ default: () => <div data-testid="calls-chart" /> }));
+const render = (element, url = '/my-calls') => renderReact(<MemoryRouter initialEntries={[url]}>{element}</MemoryRouter>);
 
 /**
  * My Calls reads /api/calls — the same endpoint the admin Calls screen pages
@@ -64,6 +74,7 @@ describe('PortalCalls', () => {
     mockGetSegments.mockResolvedValue([]);
     mockDial.mockClear();
     mockConnected = false;
+    mockSavePreferences.mockClear();
   });
 
   it('fetches from /api/calls with page, per_page and a created_at range', async () => {
@@ -86,14 +97,15 @@ describe('PortalCalls', () => {
     expect(await screen.findByText('0500000002')).toBeInTheDocument();
   });
 
-  it('offers the next page only when the current one is full', async () => {
+  it('uses the full filtered count to offer the next page', async () => {
+    mockGetAggregate.mockResolvedValue([{ time: '2026-09-18T10:00:00', answer: 26 }]);
     mockGetCalls.mockResolvedValueOnce(Array.from({ length: 25 }, (_, i) => row(i)));
     mockGetCalls.mockResolvedValueOnce([row(99)]);
 
     render(<PortalCalls />);
 
     const next = await screen.findByTestId('portal-calls-next');
-    expect(next).not.toBeDisabled();
+    await waitFor(() => expect(next).not.toBeDisabled());
     fireEvent.click(next);
 
     expect(await screen.findByText('0500000099')).toBeInTheDocument();
@@ -150,5 +162,26 @@ describe('PortalCalls', () => {
 
     fireEvent.click(await screen.findByTestId('portal-calls-dial'));
     expect(mockDial).toHaveBeenCalledWith('0500000005');
+  });
+
+  it('sends the same wildcard search to the list and the chart', async () => {
+    mockGetCalls.mockResolvedValue([row(1)]);
+    render(<PortalCalls />, '/my-calls?q=050%2501&direction=incoming');
+    await screen.findByText('0500000001');
+    expect(mockGetCalls.mock.calls[0][0]).toEqual(expect.objectContaining({
+      'search[inline]': '050%01', 'search[call.direction][IS]': 'incoming',
+    }));
+    expect(mockGetAggregate.mock.calls[0][0]).toEqual(expect.objectContaining({
+      'search[inline]': '050%01', 'search[call.direction][IS]': 'incoming',
+    }));
+    expect(screen.queryByPlaceholderText('Search number or cause')).not.toBeInTheDocument();
+  });
+
+  it('saves chart visibility on the user', async () => {
+    mockGetCalls.mockResolvedValue([]);
+    render(<PortalCalls />);
+    fireEvent.click(screen.getByRole('button', { name: 'Hide chart' }));
+    expect(mockSavePreferences).toHaveBeenCalledWith({ calls_chart: 'false' });
+    expect(PORTAL_DEFAULTS.calls_page_size).toBe('25');
   });
 });
