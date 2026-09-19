@@ -4,6 +4,7 @@ import { Suspense, lazy } from 'react';
 // Sentry is initialized in main.jsx
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { UserAuthProvider, useUserAuth } from './context/UserAuthContext';
+import { PortalPreferencesProvider } from './context/PortalPreferencesContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { CustomerEnvironmentProvider } from './context/CustomerEnvironmentContext';
 import { TourProvider } from './context/TourContext';
@@ -618,6 +619,7 @@ function App() {
           <QueryProvider>
             <AuthProvider>
               <UserAuthProvider>
+              <PortalPreferencesProvider>
                 {/* Mounted above the Router (and above both auth providers, so
                     it can see either session) so SIP registration and any
                     active call survive page navigation — see SoftphoneContext.jsx. */}
@@ -633,6 +635,7 @@ function App() {
                     </CustomerEnvironmentProvider>
                   </NotificationProvider>
                 </SoftphoneProvider>
+              </PortalPreferencesProvider>
               </UserAuthProvider>
             </AuthProvider>
           </QueryProvider>

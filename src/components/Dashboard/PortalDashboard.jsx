@@ -3,8 +3,10 @@
 // reserved for monitoring and logs and is intentionally absent here.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Box, Chip, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography,
+  Box, Button, Chip, CircularProgress, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography,
 } from '@mui/material';
+import { useNavigate } from 'react-router';
+import { canAccessScreen } from '../../utils/jwt';
 import CallReceivedIcon from '@mui/icons-material/CallReceived';
 import CallMadeIcon from '@mui/icons-material/CallMade';
 import PhoneInTalkIcon from '@mui/icons-material/PhoneInTalk';
@@ -30,14 +32,19 @@ const displayTime = (value) => {
 };
 
 export default function PortalDashboard() {
-  const { user } = useUserAuth();
+  const { user, acl } = useUserAuth();
+  const navigate = useNavigate();
+  const callsAllowed = canAccessScreen(acl, 'calls');
   const environmentUuid = user?.environment?.uuid || user?.environment_uuid || null;
   const live = useLiveEntities(environmentUuid);
   const [recentCalls, setRecentCalls] = useState([]);
   const [callsError, setCallsError] = useState(false);
+  const [callsLoading, setCallsLoading] = useState(true);
 
   const loadRecentCalls = useCallback(async () => {
+    if (!callsAllowed) { setCallsLoading(false); return; }
     try {
+      setCallsLoading(true);
       setCallsError(false);
       const response = await callsApi.getCalls({
         page: 1, per_page: 10, order_by: 'created_at', order_type: 'desc',
@@ -46,8 +53,10 @@ export default function PortalDashboard() {
     } catch {
       setCallsError(true);
       setRecentCalls([]);
+    } finally {
+      setCallsLoading(false);
     }
-  }, []);
+  }, [callsAllowed]);
 
   useEffect(() => { loadRecentCalls(); }, [loadRecentCalls]);
 
@@ -67,13 +76,13 @@ export default function PortalDashboard() {
 
   return (
     <Box data-testid="dashboard-page" sx={{ p: { xs: 2, md: 3 }, width: '100%', maxWidth: 1440, mx: 'auto' }}>
-      <PageHeader title="Dashboard" subtitle="Live activity and recent calls" />
+      <PageHeader title={user?.name ? `Hello, ${user.name}` : 'Dashboard'} subtitle="Your live activity and recent conversations" actions={callsAllowed ? <Button variant="outlined" onClick={() => navigate('/my-calls')}>View call history</Button> : null} />
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <Chip
           size="small"
           color={live.connected ? 'success' : 'default'}
-          label={live.connected ? 'Live via Cable' : 'Cable reconnecting'}
+          label={live.connected ? 'Live updates connected' : 'Reconnecting to live updates'}
         />
         {live.error && (
           <Typography variant="caption" color="text.secondary">
@@ -83,15 +92,15 @@ export default function PortalDashboard() {
       </Box>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1, mb: 2 }}>
-        <Box><StatCard label="Calls in progress" value={aggregate.active} icon={PhoneInTalkIcon} color="success.main" /></Box>
-        <Box><StatCard label="Incoming" value={aggregate.incoming} icon={CallReceivedIcon} color="info.main" /></Box>
-        <Box><StatCard label="Outgoing" value={aggregate.outgoing} icon={CallMadeIcon} color="primary.main" /></Box>
+        <Box><StatCard label="Calls in progress" value={live.connected ? aggregate.active : '—'} icon={PhoneInTalkIcon} color="success.main" /></Box>
+        <Box><StatCard label="Incoming" value={live.connected ? aggregate.incoming : '—'} icon={CallReceivedIcon} color="info.main" /></Box>
+        <Box><StatCard label="Outgoing" value={live.connected ? aggregate.outgoing : '—'} icon={CallMadeIcon} color="primary.main" /></Box>
       </Box>
 
-      <Paper elevation={0} sx={{ p: { xs: 1.5, md: 2 }, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+      {callsAllowed && <Paper elevation={0} sx={{ p: { xs: 1.5, md: 2 }, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
         <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>Recent calls</Typography>
-        {callsError ? (
-          <Typography color="error" variant="body2">Could not load call history.</Typography>
+        {callsLoading ? <CircularProgress size={24} aria-label="Loading recent calls" /> : callsError ? (
+          <Box role="alert"><Typography color="error" variant="body2">Could not load call history.</Typography><Button onClick={loadRecentCalls}>Retry</Button></Box>
         ) : recentCalls.length === 0 ? (
           <Typography color="text.secondary" variant="body2">No calls yet.</Typography>
         ) : (
@@ -110,7 +119,7 @@ export default function PortalDashboard() {
             ))}
           </Box>
         )}
-        {!callsError && recentCalls.length > 0 && (
+        {!callsLoading && !callsError && recentCalls.length > 0 && (
           <Box sx={{ display: { xs: 'none', md: 'block' }, overflowX: 'auto' }}>
             <Table size="small">
               <TableHead><TableRow><TableCell>Time</TableCell><TableCell>Direction</TableCell><TableCell>Caller</TableCell><TableCell>Callee</TableCell><TableCell>Cause</TableCell></TableRow></TableHead>
@@ -128,7 +137,7 @@ export default function PortalDashboard() {
             </Table>
           </Box>
         )}
-      </Paper>
+      </Paper>}
     </Box>
   );
 }

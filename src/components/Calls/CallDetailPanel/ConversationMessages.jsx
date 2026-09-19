@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Box, Typography, CircularProgress } from '@mui/material';
+import { Box, Typography, CircularProgress, Button } from '@mui/material';
 import MessageIcon from '@mui/icons-material/Message';
 import PhoneIcon from '@mui/icons-material/Phone';
 import PhoneCallbackIcon from '@mui/icons-material/PhoneCallback';
@@ -33,7 +33,7 @@ const getInteractionIcon = (type) => {
   }
 };
 
-const ConversationMessages = ({ messages, loading, error, emptyMessage }) => {
+const ConversationMessages = ({ messages, loading, error, emptyMessage, onRetry }) => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -57,8 +57,9 @@ const ConversationMessages = ({ messages, loading, error, emptyMessage }) => {
     return (
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, p: 5 }}>
         <Typography variant="body2" sx={{ fontFamily: 'Rubik, sans-serif', color: '#ef4444' }}>
-          Failed to load conversation: {error}
+          {error}
         </Typography>
+        {onRetry && <Button onClick={onRetry}>Retry</Button>}
       </Box>
     );
   }

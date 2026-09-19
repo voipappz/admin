@@ -7,7 +7,8 @@ import Sidebar from '../Sidebar/Sidebar.jsx';
 import TopBar from '../TopBar/TopBar.jsx';
 import { useAuth } from '../../context/AuthContext';
 import { useUserAuth } from '../../context/UserAuthContext';
-import UserRail from './UserRail.jsx';
+import PortalHeader from './PortalHeader.jsx';
+import { usePortalPreferences } from '../../context/PortalPreferencesContext';
 import PhoneDock, { PHONE_DOCK_WIDTH, loadPhonePinned } from '../Phone/PhoneDock.jsx';
 import PhoneFab, { PHONE_FAB_CLEARANCE } from '../Phone/PhoneFab.jsx';
 import { GlobalSearchProvider } from '../../context/GlobalSearchContext';
@@ -90,6 +91,7 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const { isAuthenticated, logout, user, customerUuid } = useAuth();
   const userAuth = useUserAuth();
+  const portalPreferences = usePortalPreferences();
   const { isDarkMode } = useThemeMode();
   // `/login` still matches for a moment while it redirects to `/admin`.
   // `/` is BOTH the portal's login and, once signed in, the portal itself
@@ -143,7 +145,12 @@ const Layout = ({ children }) => {
   // survives reloads (the legacy portal's behaviour).
   const [phoneOpen, setPhoneOpen] = useState(false);
   const [phonePinned, setPhonePinned] = useState(loadPhonePinned);
+  const effectivePhonePinned = isUserOnlySession ? portalPreferences.preferences.phone_pinned === 'true' : phonePinned;
   const handleTogglePhonePin = () => {
+    if (isUserOnlySession) {
+      portalPreferences.save({ phone_pinned: String(!effectivePhonePinned) });
+      return;
+    }
     setPhonePinned((prev) => {
       const next = !prev;
       try { localStorage.setItem('sip-phone-pinned', next ? '1' : '0'); } catch { /* storage disabled */ }
@@ -186,8 +193,9 @@ const Layout = ({ children }) => {
         // The assistant is here too: it used to exist only in the admin shell
         // below, so a portal user had neither the modal nor its shortcut.
         <AIChatSidebarProvider>
-        <Box data-testid="user-layout" sx={{ minHeight: '100vh', display: 'flex' }}>
-          <UserRail />
+        <Box data-testid="user-layout" sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+          <PortalHeader />
+          {portalPreferences.error && <Box role="alert" sx={{ p: 1, color: 'error.main' }}>{portalPreferences.error}</Box>}
           <Box
             component="main"
             sx={{
@@ -195,11 +203,11 @@ const Layout = ({ children }) => {
               minWidth: 0,
               // A pinned dock is persistent (no backdrop), so the content has
               // to actually make room for it instead of sliding underneath.
-              mr: { xs: 0, sm: phoneOpen && phonePinned ? `${PHONE_DOCK_WIDTH}px` : 0 },
+              mr: { xs: 0, sm: phoneOpen && effectivePhonePinned ? `${PHONE_DOCK_WIDTH}px` : 0 },
               // The FAB floats over the bottom-right corner, and every screen
               // on this surface ends in a table — without this the last row
               // sits underneath it and cannot be clicked.
-              pb: { xs: `${PHONE_FAB_CLEARANCE + 64}px`, md: `${PHONE_FAB_CLEARANCE}px` },
+              pb: `${PHONE_FAB_CLEARANCE}px`,
               transition: 'margin-right 0.2s ease'
             }}
           >
@@ -214,7 +222,7 @@ const Layout = ({ children }) => {
           <PhoneDock
             open={phoneOpen}
             onClose={() => setPhoneOpen(false)}
-            pinned={phonePinned}
+            pinned={effectivePhonePinned}
             onTogglePin={handleTogglePhonePin}
           />
           <PhoneFab open={phoneOpen} onToggle={() => setPhoneOpen((open) => !open)} />
