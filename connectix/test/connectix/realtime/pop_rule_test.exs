@@ -76,21 +76,162 @@ defmodule Connectix.Realtime.PopRuleTest do
   test "the url template takes the caller number and nothing else" do
     url = PopRule.record_url()
 
-    assert url =~ "CallerNumber={phone}"
+    assert url =~ "{phone}"
     refute url =~ "{call_id}"
     refute url =~ "callId"
   end
 
-  test "a missing rule file falls back rather than going silent" do
-    System.put_env("SCREEN_POP_RULE", "/nonexistent/screen_pop.yaml")
+  describe "the deadman threshold" do
+    test "the shipped file sets one, because silence is the failure nobody sees" do
+      # A dead feed passes every other check this app has: the socket is open,
+      # the producer says subscribed, /health is green. Shipping without a
+      # threshold means shipping without the only check that would catch it.
+      assert PopRule.nats_deadman_ms() == 900_000
+    end
+
+    test "reads minutes, seconds, hours and milliseconds" do
+      assert deadman("15m") == 900_000
+      assert deadman("90s") == 90_000
+      assert deadman("2h") == 7_200_000
+      assert deadman("1500ms") == 1_500
+    end
+
+    test "a bare number is SECONDS, because nobody writes milliseconds by hand" do
+      assert deadman("600") == 600_000
+      assert deadman(600) == 600_000
+    end
+
+    test "`off` disables it, and does not fall back to the default" do
+      # The distinction that matters: 0 is a decision, and treating it as
+      # "unset" would quietly re-enable an alarm somebody turned off on
+      # purpose — on a deployment whose switch is legitimately quiet at night,
+      # that is a page every night.
+      assert deadman("off") == 0
+      assert deadman("never") == 0
+      assert deadman("none") == 0
+    end
+
+    test "an unreadable value falls back rather than disabling the check" do
+      # `15 minutes` is the plausible typo, and the dangerous reading of it is
+      # 0 — which turns the alarm off silently. Falling back keeps it armed.
+      assert deadman("15 minutes") == 900_000
+      assert deadman("") == 900_000
+      assert deadman(nil) == 900_000
+    end
+
+    test "the environment supplies it when the file does not" do
+      System.put_env("NATS_DEADMAN", "3m")
+      assert deadman(nil) == 180_000
+    after
+      System.delete_env("NATS_DEADMAN")
+    end
+  end
+
+  defp deadman(value) do
+    nats = %{"url" => "nats://127.0.0.1:4222", "subjects" => ["node:test1"]}
+    nats = if is_nil(value), do: nats, else: Map.put(nats, "deadman", value)
+
+    write_rule(%{"nats" => nats, "triggers" => ["bridge-agent-start"]})
+    PopRule.nats_deadman_ms()
+  end
+
+  defp write_rule(rule) do
+    path = Path.join(System.tmp_dir!(), "deadman_#{System.unique_integer([:positive])}.yaml")
+    File.write!(path, yaml(rule))
+    Application.put_env(:connectix, :shared_rule, path)
     PopRule.reload()
 
-    # Still pops for the real frame's action — a lost file must not quietly
-    # switch screen pops off.
-    assert PopRule.triggers() == ["bridge-agent-start"]
-    assert PopRule.record_url() =~ "{phone}"
-  after
-    System.delete_env("SCREEN_POP_RULE")
+    on_exit(fn ->
+      File.rm(path)
+      Application.delete_env(:connectix, :shared_rule)
+      PopRule.reload()
+    end)
+  end
+
+  # Enough YAML for these examples, written out rather than pulled in: the
+  # values under test are scalars and lists of scalars.
+  defp yaml(rule) do
+    Enum.map_join(rule, "\n", fn
+      {key, value} when is_list(value) ->
+        "#{key}:\n" <> Enum.map_join(value, "\n", &"  - #{&1}")
+
+      {key, %{} = nested} ->
+        "#{key}:\n" <>
+          Enum.map_join(nested, "\n", fn
+            {k, v} when is_list(v) -> "  #{k}:\n" <> Enum.map_join(v, "\n", &"    - #{&1}")
+            {k, v} -> "  #{k}: \"#{v}\""
+          end)
+    end)
+  end
+
+  test "a missing shared rule still pops, rather than going silent" do
+    Application.put_env(:connectix, :shared_rule, "/nonexistent/screen_pop.yaml")
     PopRule.reload()
+
+    # The trigger survives: a lost file must not quietly switch screen pops off.
+    assert PopRule.triggers() == ["bridge-agent-start"]
+  after
+    Application.delete_env(:connectix, :shared_rule)
+    PopRule.reload()
+  end
+
+  describe "the customer rule" do
+    test "is a mounted file, not a name in the environment" do
+      # An env selector named a customer while the image carried the files, and
+      # nothing checked that the name matched one — so a typo, or a customer
+      # added to a deploy config before its file merged, started cleanly,
+      # signed nobody in and consumed nothing. The file that is MOUNTED is the
+      # customer; there are not two things to keep in step.
+      assert Path.type(PopRule.customer_path()) == :absolute
+      assert PopRule.customer_path() =~ "customers/example.yaml"
+    end
+
+    test "supplies the values the shared policy deliberately does not" do
+      # The suite runs against priv/pocketflow/customers/example.yaml, named in
+      # config/test.exs exactly as a deployment names its mount.
+      assert PopRule.record_url() =~ "{phone}"
+      assert PopRule.subjects() != []
+      assert map_size(PopRule.agents()) > 0
+    end
+
+    test "the shared policy carries no customer's agents or CRM" do
+      # It shipped as one customer's rule doubling as everyone's default, so an
+      # unconfigured deployment signed in that customer's agents and popped at
+      # their CRM. A wrong answer delivered confidently is worse than none.
+      shared = Path.join(:code.priv_dir(:connectix), "pocketflow/screen_pop.yaml")
+      {:ok, rule} = YamlElixir.read_from_file(shared)
+
+      refute Map.has_key?(rule, "agents")
+      refute get_in(rule, ["profile", "record_url"])
+      refute get_in(rule, ["nats", "subjects"])
+    end
+
+    test "with nothing mounted there are no agents, so nobody can sign in" do
+      # The loud failure this design is for: a login that refuses beats a
+      # login that succeeds against the wrong site's roster.
+      #
+      # RESTORED, NOT DELETED, in `after`. config/test.exs sets this key, so
+      # `delete_env` would not put things back — it would remove the suite's
+      # customer file for every test that runs after this one, in every file.
+      # That is exactly what it did: nine pop tests failed in other modules
+      # with "no profile.record_url" and passed when run alone.
+      previous = Application.get_env(:connectix, :customer_rule)
+
+      on_exit(fn ->
+        Application.put_env(:connectix, :customer_rule, previous)
+        PopRule.reload()
+      end)
+
+      Application.put_env(:connectix, :customer_rule, "/nonexistent/screen_pop.yaml")
+      PopRule.reload()
+
+      assert PopRule.agents() == %{}
+      assert PopRule.record_url() == nil
+      refute PopRule.source().customer_loaded?
+
+      # And the shared policy is still there, so the failure is "no customer",
+      # not "no rules at all".
+      assert PopRule.triggers() == ["bridge-agent-start"]
+    end
   end
 end

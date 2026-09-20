@@ -1,0 +1,76 @@
+# Pardeshk — the `connectix` kamal destination (nimbus-connectix.voipappz.io).
+#
+# ONLY WHAT DIFFERS FROM priv/pocketflow/screen_pop.yaml. That file holds the
+# shared policy — which events pop, which agent states count, where in a frame
+# the agent id lives — and the reasoning behind every one of those choices.
+# Read it before changing anything here; this file is values, that one is why.
+#
+# Mounted at /rules/screen_pop.yaml by config/deploy.connectix.yml — see its
+# host checklist, step 3a. git is the source; the host holds the copy.
+
+# The site's name, as /health reports it. Stated rather than taken from the
+# file name, because a mounted file is always called screen_pop.yaml.
+customer: connectix
+
+nats:
+  # `node:test1` is this switch's firehose. NATS splits a subject on dots
+  # ALONE, so the colon form is a SINGLE token — there is no `node:*` that
+  # would match it and nothing else.
+  #
+  # Verified live on 2026-09-17 against nats://185.28.152.124:4222: a real
+  # queue call produced member-queue-start, agent-offering to all seven
+  # agents, bridge-agent-start naming 88309e98… and bridge-agent-fail for the
+  # other six, all on this subject.
+  subjects:
+    - node:test1
+    - state.>
+
+# THE MAPPING THE WHOLE SCREEN POP HINGES ON, and an entry with a password is
+# also a login: the portal performs `/auth/user_login` against these, so
+# signing in depends on this file and on nothing else being reachable.
+#
+# The token it mints carries the powerlink uuid AS the identity, which is what
+# the switch names the agent by (`meta.CC-Agent`), so no mapping step is left
+# to get wrong.
+#
+# THE PASSWORD IS NAMED HERE AND STORED IN THE ENVIRONMENT. `${AGENT_PASSWORD}`
+# is expanded at read time, so this file records THAT a credential is required
+# and never what it is. It was briefly written literally, and that has no clean
+# undo: a password committed once stays in the history after the file stops
+# carrying it, so the fix is always to rotate it as well as remove it.
+#
+# QUOTE THE VALUE. `password: ${AGENT_PASSWORD}` in a flow mapping closes the
+# map on the brace, and the result is not a parse error — it is a rule that
+# loads with a broken entry and a login that returns 401 with nothing in the
+# log. Block style, as below, has no brace to mismatch.
+agents:
+  "661@phk.com":
+    powerlink: 2b79698e-c221-4f5b-8017-7fa472b2240c
+    password: "${AGENT_PASSWORD}"
+  "662@phk.com":
+    powerlink: cb1b0a46-77d5-4b3a-92d8-31768fea74e4
+    password: "${AGENT_PASSWORD}"
+  "663@phk.com":
+    powerlink: eb7aca9f-b797-463a-b457-16618c3514b3
+    password: "${AGENT_PASSWORD}"
+  "664@phk.com":
+    powerlink: f1122ab7-98c7-4eac-896c-0e281c1d4693
+    password: "${AGENT_PASSWORD}"
+  "665@phk.com":
+    powerlink: 6603f692-5f47-4318-baf6-3ac2836c6cee
+    password: "${AGENT_PASSWORD}"
+  "667@phk.com":
+    powerlink: fdc47399-1a8b-4ecb-8751-891edf6b9e32
+    password: "${AGENT_PASSWORD}"
+  "668@phk.com":
+    powerlink: 88309e98-f698-4b57-898d-a6056c37dd55
+    password: "${AGENT_PASSWORD}"
+
+profile:
+  # The customer's endpoint, verbatim. Only `{phone}` is substituted and
+  # nothing is appended — `callId` was added here once and was wrong twice
+  # over: it is not part of this contract, and its value came from `call_id/1`
+  # falling back to the event's own id, which the switch builds as
+  # "<action>_<session>_<member>_<agent>" and therefore changed meaning
+  # whenever the trigger changed.
+  record_url: "https://pardeshk.moked-binaa.co.il/api/insert_number.php?CallerNumber={phone}"

@@ -47,12 +47,14 @@ defmodule Connectix.Realtime.EventPipelineTest do
     setup do
       previous = %{
         "NATS_URL" => System.get_env("NATS_URL"),
-        "NATS_SUBJECTS" => System.get_env("NATS_SUBJECTS"),
-        "SCREEN_POP_RULE" => System.get_env("SCREEN_POP_RULE")
+        "NATS_SUBJECTS" => System.get_env("NATS_SUBJECTS")
       }
+
+      customer = Application.get_env(:connectix, :customer_rule)
 
       on_exit(fn ->
         Enum.each(previous, fn {k, v} -> restore(k, v) end)
+        Application.put_env(:connectix, :customer_rule, customer)
         Connectix.Realtime.PopRule.reload()
       end)
 
@@ -64,7 +66,9 @@ defmodule Connectix.Realtime.EventPipelineTest do
         Path.join(System.tmp_dir!(), "rule_#{System.unique_integer([:positive])}.yaml")
 
       File.write!(path, yaml)
-      System.put_env("SCREEN_POP_RULE", path)
+      # The broker and its subjects are the CUSTOMER's layer: this stands in
+      # for the mounted file, over the shipped shared policy.
+      Application.put_env(:connectix, :customer_rule, path)
       Connectix.Realtime.PopRule.reload()
 
       try do
@@ -144,9 +148,13 @@ defmodule Connectix.Realtime.EventPipelineTest do
       end)
     end
 
-    test "the shipped rule file names the broker and the streams" do
-      # The file this deployment actually runs, not a fixture.
+    test "the live customer's file names its streams" do
+      # The file the connectix destination actually mounts, not a fixture:
+      # verified on 2026-09-17 that a real queue call arrives on this subject.
+      path = Path.join(:code.priv_dir(:connectix), "pocketflow/customers/connectix.yaml")
+      Application.put_env(:connectix, :customer_rule, path)
       Connectix.Realtime.PopRule.reload()
+
       assert "node:test1" in Connectix.Realtime.PopRule.subjects()
     end
   end

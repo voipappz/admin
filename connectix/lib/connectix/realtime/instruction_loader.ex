@@ -18,7 +18,7 @@ defmodule Connectix.Realtime.InstructionLoader do
       production.
 
   No network, no per-environment variation: the rule is the deployment's, and
-  `SCREEN_POP_RULE` / `SCREEN_POP_URL` are how a deployment changes it.
+  The customer rule mounted at `/rules/screen_pop.yaml` supplies it.
   """
 
   alias Connectix.Realtime.PopRule

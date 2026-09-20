@@ -403,7 +403,13 @@ defmodule Connectix.Realtime.ScreenPop do
          true <- state_allowed?(event),
          agent when is_binary(agent) <- agent_uuid(event),
          true <- agent in accepted,
-         true <- online?.(user_uuid) do
+         true <- online?.(user_uuid),
+         # NO URL, NO POP. `record_url` used to default to one customer's CRM
+         # endpoint, so an unconfigured deployment opened tabs at somebody
+         # else's system; with the default gone it can be nil, and a
+         # `tab:new` carrying a nil url is a browser error the agent sees and
+         # nobody else does.
+         url when is_binary(url) <- pop_url(event) do
       dedupe_id = Enum.join(["state-screen-pop", name, agent, call_id(event) || ""], ":")
 
       if seen?(state, dedupe_id) do
@@ -413,15 +419,12 @@ defmodule Connectix.Realtime.ScreenPop do
         Phoenix.PubSub.broadcast(
           Connectix.PubSub,
           "realtime:user:#{user_uuid}",
-          {:realtime,
-           %{type: "notification", message: %{"action" => "tab:new", "url" => pop_url(event)}}}
+          {:realtime, %{type: "notification", message: %{"action" => "tab:new", "url" => url}}}
         )
 
         Telemetry.screen_pop_event(:dispatched)
 
-        Logger.info(
-          "screen pop: state pop for #{user_uuid} on #{name} -> tab:new #{pop_url(event)}"
-        )
+        Logger.info("screen pop: state pop for #{user_uuid} on #{name} -> tab:new #{url}")
 
         remember(state, dedupe_id)
       end
@@ -450,6 +453,10 @@ defmodule Connectix.Realtime.ScreenPop do
 
               agent_uuid(event) not in accepted ->
                 "event names agent #{agent_uuid(event)}, not one of #{inspect(accepted)}"
+
+              is_nil(PopRule.record_url()) ->
+                "this deployment has no profile.record_url — set one in the " <>
+                  "customer rule mounted at #{PopRule.customer_path()}"
 
               true ->
                 "agent has no live /ws/events socket (#{inspect(reason)})"

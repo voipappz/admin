@@ -1,0 +1,51 @@
+# THE TEMPLATE FOR A NEW CUSTOMER — copy this, do not edit it.
+#
+# It is also what the test suite runs against, which is the point: the shape
+# the tests exercise is the shape a real customer file has, so a change that
+# breaks one breaks the other rather than passing here and failing on a switch.
+#
+# Everything a site needs is below and nothing else is. The shared policy —
+# which events pop, which agent states count, where in a frame the agent id
+# lives, and the reasoning behind each — lives once in
+# priv/pocketflow/screen_pop.yaml. Read that before changing behaviour; change
+# this only to describe a site.
+#
+# The test suite mounts it through config/test.exs; a deployment would mount
+# its own copy at /rules/screen_pop.yaml.
+
+# The site's name, as /health reports it. Stated rather than taken from the
+# file name, because a mounted file is always called screen_pop.yaml.
+customer: example
+
+nats:
+  # This site's streams. A stream identifier IS its NATS subject, verbatim.
+  # NATS splits on dots ALONE, so `node:<uuid>` is a SINGLE token and there is
+  # no `node:*` that matches it and nothing else.
+  subjects:
+    - node:example
+    - state.>
+
+# This site's people, keyed by email or by portal uuid. `powerlink` is the
+# uuid the SWITCH names them by (`meta.CC-Agent`), which is never the portal
+# user uuid.
+#
+# An entry WITH a password is also a login — the portal performs
+# /auth/user_login against these. One without is a mapping only and refuses to
+# sign in rather than accepting anything.
+#
+# `${AGENT_PASSWORD}` is expanded from the environment at read time, so a file
+# records THAT a credential is required and never what it is. Quote it: in a
+# flow mapping the bare form closes the map on the brace, and the result is not
+# a parse error but a rule that loads with a broken entry and a login that
+# 401s with nothing in the log.
+agents:
+  "agent@example.com":
+    powerlink: 00000000-0000-4000-8000-000000000001
+    password: "${AGENT_PASSWORD}"
+
+profile:
+  # This site's CRM endpoint. Only `{phone}` and `{call_id}` are substituted
+  # and nothing is appended. There is no default anywhere in the app: popping
+  # an agent at another customer's system is a wrong answer delivered
+  # confidently, so with none configured the portal refuses to pop and says so.
+  record_url: "https://crm.example.com/lookup?phone={phone}"

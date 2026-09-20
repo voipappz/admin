@@ -66,3 +66,16 @@ config :connectix, :whatsapp_adapter, Connectix.Channels.WhatsApp.TestAdapter
 # verdict then depends on the developer's machine. A test that wants the cable
 # path sets this to a stub of its own.
 config :connectix, :api_relay, nil
+
+# THE RULE THE SUITE RUNS AGAINST is a customer file like any other. The app
+# ships no agents and no CRM URL of its own — deliberately, so an unconfigured
+# deployment refuses loudly rather than signing in some other customer's
+# people — which means the tests have to supply one just as a deployment does.
+#
+# `{:priv, …}` rather than a path: the release puts priv under
+# `/app/lib/connectix-<version>/priv`, so a literal path written into config
+# is correct until the version moves. Resolved at call time.
+#
+# `example.yaml` is the same file a new site is told to copy, so the shape
+# under test is the shape in production.
+config :connectix, :customer_rule, {:priv, "pocketflow/customers/example.yaml"}

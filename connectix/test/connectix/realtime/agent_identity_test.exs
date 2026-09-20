@@ -33,23 +33,22 @@ defmodule Connectix.Realtime.AgentIdentityTest do
   end
   describe "the mapping written in the rule file" do
     setup do
-      previous = System.get_env("SCREEN_POP_RULE")
+      previous = Application.get_env(:connectix, :customer_rule)
 
       on_exit(fn ->
-        if previous,
-          do: System.put_env("SCREEN_POP_RULE", previous),
-          else: System.delete_env("SCREEN_POP_RULE")
-
+        Application.put_env(:connectix, :customer_rule, previous)
         Connectix.Realtime.PopRule.reload()
       end)
 
       :ok
     end
 
+    # An agents block is the CUSTOMER's layer, so the fixture stands in for the
+    # mounted customer file. The shared policy underneath stays the shipped one.
     defp with_agents(yaml, fun) do
       path = Path.join(System.tmp_dir!(), "agents_#{System.unique_integer([:positive])}.yaml")
-      File.write!(path, "service_type: screen_pop\ntriggers:\n  - bridge-agent-start\n" <> yaml)
-      System.put_env("SCREEN_POP_RULE", path)
+      File.write!(path, yaml)
+      Application.put_env(:connectix, :customer_rule, path)
       Connectix.Realtime.PopRule.reload()
 
       try do
