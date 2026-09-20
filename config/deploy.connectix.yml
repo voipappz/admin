@@ -48,6 +48,14 @@
 # somebody prunes it.
 image: nirlevi/connectix
 
+# BOTH entries, because kamal's destination merge REPLACES an array rather
+# than appending to it: naming only the rule file here would drop the event
+# store that deploy.yml mounts for every destination.
+volumes:
+  - "voipappz-events:/data"
+  # This site's screen-pop rule — see step 3a in the host checklist below.
+  - "/etc/connectix/screen_pop.yaml:/rules/screen_pop.yaml:ro"
+
 builder:
   arch: amd64
   # Build with the DAEMON, not a bridged buildkit container.
@@ -288,6 +296,34 @@ accessories:
       # that changes every deploy, so a bare hostname needs an alias.
       network-alias: connectix-nats
 
+  # SIPP — a SIP peer to test the portal's own phone against, in the same shape
+  # as the broker above: an image whose entrypoint IS the program, with the
+  # flags as the command.
+  #
+  # IT ANSWERS, IT DOES NOT CALL. A long-running SIPp is a UAS: it waits on
+  # 5060 and answers whatever dials it, which is what `WebRtc.SipBridge` needs
+  # to call. Placing calls is a one-shot and therefore not a service:
+  #
+  #   kamal accessory exec sipp -d connectix --reuse \
+  #     "-sn uac connectix-sipp:5060 -m 1 -r 1 -p 5061 -nostdin"
+  #
+  # NO `port:` ON PURPOSE. Publishing 5060 would put a SIP endpoint that
+  # answers every call on the public internet, which is what scanners look for
+  # and what turns a test peer into somebody else's free phone line. The portal
+  # reaches it on the internal network by the alias below and nothing else can.
+  #
+  # The image is built from sipp/Dockerfile in this repo and pushed by hand —
+  # kamal builds the app image, never an accessory's:
+  #
+  #   docker build -t nirlevi/connectix-sipp:3.7.7 sipp
+  #   docker push  nirlevi/connectix-sipp:3.7.7
+  sipp:
+    image: nirlevi/connectix-sipp:3.7.7
+    host: 185.47.173.106
+    cmd: "-sn uas -p 5060 -nostdin"
+    options:
+      network-alias: connectix-sipp
+
 # ---------------------------------------------------------------------------
 # BEFORE THE FIRST DEPLOY, on the host (it is bare as of 2026-09-07: Ubuntu
 # 26.04, 4 CPU, 2.5 GiB RAM, no Docker, no /etc/connectix, ufw inactive):
@@ -296,6 +332,24 @@ accessories:
 #   2. Secrets.       mkdir -p /etc/connectix && chmod 700 /etc/connectix
 #                     write secrets.env (chmod 600) with the keys listed above.
 #   3. Volume.        mkdir -p /var/lib/connectix
+#   3a. Rule file.    THIS SITE'S SCREEN-POP RULE, mounted read-only at
+#                     /rules/screen_pop.yaml (see `volumes:` below). It is a
+#                     COPY of connectix/priv/pocketflow/customers/connectix.yaml
+#                     from this repo — git is the source, the host holds the
+#                     copy that is mounted:
+#                       scp connectix/priv/pocketflow/customers/connectix.yaml \
+#                           root@185.47.173.106:/etc/connectix/screen_pop.yaml
+#                     Not an env var naming a customer, on purpose: the file
+#                     that is mounted IS the customer, so there is nothing to
+#                     keep in step with anything. Without it the portal has no
+#                     agents and no subjects — login refuses everyone and
+#                     /health says `screen_pop: down`, loudly, rather than
+#                     inheriting another site's roster.
+#   3c. SIP peer.     ONLY if you want to test the portal's phone from here:
+#                     build and push the image (see `accessories: sipp`), then
+#                     kamal accessory boot sipp -d connectix
+#                     It answers calls on the internal network only; nothing
+#                     is published, and the portal dials connectix-sipp:5060.
 #   3b. Broker.       ONLY if this deployment is meant to consume the LOCAL
 #                     one: kamal accessory boot nats -d connectix
 #                     Nothing publishes to it yet, so a portal pointed there
@@ -324,8 +378,6 @@ accessories:
 #   TURN_USERNAME/TURN_PASSWORD (+ clear TURN_URLS, STUN_URLS)
 #                       WebRTC through symmetric NAT. STUN alone is enough on
 #                       many networks; TURN is the fallback that always works.
-#   SCREEN_POP_URL      the customer's CRM record URL, overriding
-#                       priv/pocketflow/screen_pop.yaml without a rebuild.
 #   WHATSAPP_*          the WhatsApp channel (six variables; a wrong
 #                       APP_SECRET fails signature checks SILENTLY).
 #

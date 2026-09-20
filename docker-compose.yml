@@ -161,6 +161,35 @@ services:
       # never leak into the container.
       - elixir_build:/app/_build
       - elixir_deps:/app/deps
+      # THE CUSTOMER'S SCREEN-POP RULE, mounted where the portal looks for it
+      # in production too. The shared policy (which events pop) is in
+      # priv/pocketflow/screen_pop.yaml inside the image; this file is one
+      # site's subjects, agents and CRM URL. Change the left-hand side to run
+      # the local stack as a different customer. Not an env var: the file that
+      # is mounted IS the customer.
+      - ./connectix/priv/pocketflow/customers/connectix.yaml:/rules/screen_pop.yaml:ro
+
+  # SIPp — the SIP test peer, in its own container. Opt-in: --profile sipp,
+  # or `make sipp`.
+  #
+  # The same thing the kamal accessory runs (config/deploy.connectix.yml), so
+  # what you test against locally is what is deployed.
+  #
+  # IT ANSWERS, IT DOES NOT CALL. A long-running SIPp is a UAS: it waits on
+  # 5060 and answers whatever dials it, which is what the portal's phone needs
+  # to call. Placing calls is a one-shot instead — see `make sipp-uac`.
+  #
+  # NOT IN THE PORTAL IMAGE, deliberately: this can place and answer SIP calls,
+  # and the portal is a web app.
+  #
+  # Host networking like everything else here, so the portal's SIP socket and
+  # its RTP reach it on 127.0.0.1 without a published port.
+  sipp:
+    profiles: ["sipp"]
+    build: ./sipp
+    network_mode: host
+    command: ["-sn", "uas", "-p", "${SIPP_PORT:-5060}", "-nostdin"]
+    restart: unless-stopped
 
   # Production image (build + run). Opt-in: --profile prod
   # Behind a profile so a build failure can never break the core dev stack —
