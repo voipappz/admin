@@ -58,6 +58,24 @@ defmodule Connectix.Realtime.NatsProducer do
   # cockpit casting at a name that never existed. The pid goes in a term
   # instead, beside the status, and both are read the same way.
   @pid_key {__MODULE__, :pid}
+  # THE DEADMAN'S CLOCK, and it is `:atomics` rather than a term or a counter
+  # for one reason: it is written on EVERY message off the broker. A
+  # `:persistent_term.put` there would be a global GC per frame, and a
+  # GenServer call would serialise the firehose behind a mailbox. An atomics
+  # slot is a lock-free word write with no GC involvement, so recording the
+  # time costs about as much as not recording it.
+  #
+  #   slot 1  when the last message arrived
+  #   slot 2  when the current subscription was taken
+  #
+  # Both are `System.system_time(:millisecond)` — wall clock, not monotonic,
+  # because the numbers are reported to a human and to Uptime Kuma, and an
+  # epoch is the only one of the two that means anything there. A clock step
+  # can therefore skew a reading; the alternative is a duration nobody can
+  # place in time.
+  @clock_key {__MODULE__, :clock}
+  @last_slot 1
+  @subscribed_slot 2
   @default_max_buffer 10_000
   @retry_base 1_000
   @retry_max 30_000
@@ -67,6 +85,69 @@ defmodule Connectix.Realtime.NatsProducer do
   """
   @spec status() :: :not_started | :connecting | :disconnected | {:subscribed, [String.t()]}
   def status, do: :persistent_term.get(@status_key, :not_started)
+
+  @doc """
+  When the last message arrived off the broker, as epoch milliseconds.
+
+  `nil` before the first one, and `nil` once the producer has stopped. Every
+  message counts — this is deliberately BEFORE the pipeline's routing and
+  before the rule file's trigger gate, because the question it answers is
+  whether the feed is alive at all, not whether anything interesting was on it.
+  """
+  @spec last_message_at() :: integer() | nil
+  def last_message_at, do: read(@last_slot)
+
+  @doc """
+  When the current subscription was taken, as epoch milliseconds.
+
+  The deadman's second reference point: a portal that has been subscribed for
+  ten seconds has not been silent for ten minutes, however long ago the last
+  message was.
+  """
+  @spec subscribed_at() :: integer() | nil
+  def subscribed_at, do: read(@subscribed_slot)
+
+  @doc """
+  How long the broker has been silent, in milliseconds.
+
+  Measured from the LATER of the last message and the current subscription, so
+  a fresh subscription starts the clock again rather than inheriting the gap
+  that a reconnect just spanned.
+
+  `nil` when the question does not apply: no subscription, so there is nothing
+  to be silent. That case is not silence and must not be reported as it — it
+  is `status/0`'s to report, and counting it twice turns one fault into two
+  alarms.
+  """
+  @spec silent_ms() :: non_neg_integer() | nil
+  def silent_ms do
+    with {:subscribed, _subjects} <- status(),
+         since when is_integer(since) <- latest(last_message_at(), subscribed_at()) do
+      max(System.system_time(:millisecond) - since, 0)
+    else
+      _no_subscription -> nil
+    end
+  end
+
+  defp latest(nil, nil), do: nil
+  defp latest(nil, b), do: b
+  defp latest(a, nil), do: a
+  defp latest(a, b), do: max(a, b)
+
+  # 0 is "never written", because the array starts zeroed and no real
+  # timestamp is 0.
+  defp read(slot) do
+    case :persistent_term.get(@clock_key, nil) do
+      nil ->
+        nil
+
+      clock ->
+        case :atomics.get(clock, slot) do
+          0 -> nil
+          at -> at
+        end
+    end
+  end
 
   @doc """
   Drop the current subscription and take it again.
@@ -95,6 +176,7 @@ defmodule Connectix.Realtime.NatsProducer do
   @impl GenStage
   def init(opts) do
     subjects = Keyword.fetch!(opts, :subjects)
+    clock = :atomics.new(2, signed: false)
 
     state = %{
       subjects: subjects,
@@ -112,9 +194,19 @@ defmodule Connectix.Realtime.NatsProducer do
       # Set while the buffer is full so the overflow is one warning per
       # episode, not one per dropped message — at firehose rates the log
       # would otherwise be the thing that cannot keep up.
-      overflowing?: false
+      overflowing?: false,
+      clock: clock
     }
 
+    # TRAPPING EXITS IS WHAT MAKES `terminate/2` RUN. Without it a GenStage is
+    # killed outright on a supervisor shutdown, the callback below is never
+    # invoked, and the status term keeps whatever the last subscribe wrote — so
+    # a pipeline that has STOPPED goes on reporting `{:subscribed, …}` and
+    # `/health` calls the broker fine for a consumer that no longer exists.
+    # Measured: three seconds after `stop_supervised!`, still subscribed.
+    Process.flag(:trap_exit, true)
+
+    :persistent_term.put(@clock_key, clock)
     :persistent_term.put(@pid_key, self())
     put_status(:connecting)
     send(self(), :subscribe)
@@ -161,6 +253,7 @@ defmodule Connectix.Realtime.NatsProducer do
 
   def handle_info({:msg, %{topic: subject, body: body} = msg}, state) do
     Telemetry.nats_message(:received)
+    :atomics.put(state.clock, @last_slot, System.system_time(:millisecond))
 
     message = %Message{
       data: body,
@@ -191,12 +284,16 @@ defmodule Connectix.Realtime.NatsProducer do
     unsubscribe(state)
     :persistent_term.put(@status_key, :not_started)
     :persistent_term.erase(@pid_key)
+    :persistent_term.erase(@clock_key)
     :ok
   end
 
   @impl Broadway.Producer
   def prepare_for_draining(state) do
     unsubscribe(state)
+    # Same reason as `terminate/2`: once the subscription is dropped the status
+    # must stop claiming it, whichever of the two paths dropped it.
+    put_status(:disconnected)
     {:noreply, [], %{state | sids: []}}
   end
 
@@ -209,6 +306,10 @@ defmodule Connectix.Realtime.NatsProducer do
       nil ->
         sids = Enum.map(results, fn {_subject, {:ok, sid}} -> sid end)
         Logger.info("nats: consuming #{Enum.join(state.subjects, ", ")}")
+        # Restarts the deadman's clock. A reconnect is not silence, and without
+        # this the gap the reconnect just spanned would be charged to the fresh
+        # subscription and alarm the moment it came back.
+        :atomics.put(state.clock, @subscribed_slot, System.system_time(:millisecond))
         put_status({:subscribed, state.subjects})
 
         {:noreply, [],

@@ -75,6 +75,11 @@ defmodule Connectix.Heartbeat do
           match?({:subscribed, _}, Connectix.Realtime.NatsProducer.status()),
         "broker subscription down — no events"
       )
+      # SUBSCRIBED AND SILENT, which the check above cannot see: it asks
+      # whether the subscription exists, and a dead feed has one. This is the
+      # failure that reports itself as healthy, so it is the one most worth
+      # pushing somewhere that rings.
+      |> alarm(Connectix.Realtime.Deadman.check())
       |> check(Connectix.Events.open?(), "event store not open — events are not recorded")
       |> check(Connectix.Disk.ok?(), disk_detail())
       |> Enum.reverse()
@@ -87,6 +92,11 @@ defmodule Connectix.Heartbeat do
 
   defp check(failures, true, _detail), do: failures
   defp check(failures, false, detail), do: [detail | failures]
+
+  # Same shape as `check/3`, for a check that carries its own message rather
+  # than being a boolean with one written beside it.
+  defp alarm(failures, :ok), do: failures
+  defp alarm(failures, {:alarm, detail}), do: [detail | failures]
 
   defp disk_detail do
     case Connectix.Disk.usage() do

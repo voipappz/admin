@@ -25,9 +25,10 @@ defmodule Connectix.Realtime.NatsProducerTest do
     start_supervised_pipeline(
       producer:
         {NatsProducer,
-         subjects: Keyword.get(opts, :subjects, ["call_events", "state.user.*"]),
+         subjects: Keyword.get(opts, :subjects, ["node:test1", "state.>"]),
          connection: conn,
          subscribe: subscribe,
+         unsubscribe: Keyword.get(opts, :unsubscribe, &Gnat.unsub/2),
          max_buffer: Keyword.get(opts, :max_buffer, 10_000)},
       concurrency: 2,
       screen_pop: test,
@@ -70,27 +71,95 @@ defmodule Connectix.Realtime.NatsProducerTest do
     conn = start_connection()
     start_pipeline(conn)
 
-    assert_receive {:subscribed, producer, "call_events"}
-    assert_receive {:subscribed, ^producer, "state.user.*"}
-    assert_status({:subscribed, ["call_events", "state.user.*"]})
+    assert_receive {:subscribed, producer, "node:test1"}
+    assert_receive {:subscribed, ^producer, "state.>"}
+    assert_status({:subscribed, ["node:test1", "state.>"]})
   end
 
   test "a call event reaches ScreenPop decoded, a state frame is recorded" do
     conn = start_connection()
     start_pipeline(conn)
-    assert_receive {:subscribed, producer, "call_events"}
+    assert_receive {:subscribed, producer, "node:test1"}
 
-    send(producer, nats_msg("call_events", ~s({"action":"bridge-agent-start","id":"e1"})))
+    send(producer, nats_msg("node:test1", ~s({"action":"bridge-agent-start","id":"e1"})))
     assert_receive {:"$gen_cast", {:event, %{"action" => "bridge-agent-start", "id" => "e1"}}}
 
     send(producer, nats_msg("state.user.abc", ~s({"event":"answered"})))
     assert_receive {:"$gen_cast", {:state, "user", "abc", %{"event" => "answered"}}}
   end
 
+  describe "the deadman's clock" do
+    test "subscribing starts it, so a fresh subscription is not already silent" do
+      # Without this a reconnect would inherit the gap it just spanned and
+      # alarm the instant it came back.
+      conn = start_connection()
+      start_pipeline(conn)
+      assert_receive {:subscribed, _producer, "node:test1"}
+      assert_status({:subscribed, ["node:test1", "state.>"]})
+
+      assert is_integer(NatsProducer.subscribed_at())
+      assert NatsProducer.last_message_at() == nil
+      assert NatsProducer.silent_ms() < 1_000
+    end
+
+    test "every message moves it, whatever the subject and whatever is on it" do
+      # DELIBERATELY BEFORE the routing and before the rule file's trigger
+      # gate: the question is whether the feed is alive, not whether anything
+      # interesting was on it. A switch sending nothing but state frames is a
+      # live switch.
+      conn = start_connection()
+      start_pipeline(conn)
+      assert_receive {:subscribed, producer, "node:test1"}
+      assert_status({:subscribed, ["node:test1", "state.>"]})
+
+      send(producer, nats_msg("state.user.abc", ~s({"event":"answered"})))
+      assert_receive {:"$gen_cast", {:state, "user", "abc", _frame}}
+
+      assert is_integer(NatsProducer.last_message_at())
+    end
+
+    test "an undecodable body still counts as the feed being alive" do
+      # It arrived. The pipeline drops it, and dropping it says nothing about
+      # whether the broker is delivering — which is all this measures.
+      conn = start_connection()
+      start_pipeline(conn)
+      assert_receive {:subscribed, producer, "node:test1"}
+      assert_status({:subscribed, ["node:test1", "state.>"]})
+
+      send(producer, nats_msg("node:test1", "not json"))
+      assert_status({:subscribed, ["node:test1", "state.>"]})
+
+      assert eventually(fn -> is_integer(NatsProducer.last_message_at()) end)
+    end
+
+    test "with no subscription there is no silence to report" do
+      # `nil`, not a large number: nothing is subscribed, so the subscription
+      # check owns this failure and the deadman stands down rather than
+      # raising a second alarm for one fault.
+      conn = start_connection()
+      name = start_pipeline(conn, unsubscribe: no_unsub())
+      assert_receive {:subscribed, _producer, "node:test1"}
+      assert_status({:subscribed, ["node:test1", "state.>"]})
+
+      stop_supervised!(name)
+      assert_status(:not_started)
+
+      assert NatsProducer.silent_ms() == nil
+    end
+  end
+
+  defp eventually(check, tries \\ 100) do
+    cond do
+      check.() -> true
+      tries == 0 -> false
+      true -> Process.sleep(10) && eventually(check, tries - 1)
+    end
+  end
+
   test "a body that is not a JSON object is dropped and counted" do
     conn = start_connection()
     start_pipeline(conn)
-    assert_receive {:subscribed, producer, "call_events"}
+    assert_receive {:subscribed, producer, "node:test1"}
 
     :telemetry.attach(
       "nats-undecodable-#{inspect(self())}",
@@ -101,8 +170,8 @@ defmodule Connectix.Realtime.NatsProducerTest do
 
     on_exit(fn -> :telemetry.detach("nats-undecodable-#{inspect(self())}") end)
 
-    send(producer, nats_msg("call_events", "not json"))
-    send(producer, nats_msg("call_events", "[1,2]"))
+    send(producer, nats_msg("node:test1", "not json"))
+    send(producer, nats_msg("node:test1", "[1,2]"))
 
     assert_receive {:nats_metric, :undecodable}
     assert_receive {:nats_metric, :undecodable}
@@ -126,7 +195,7 @@ defmodule Connectix.Realtime.NatsProducerTest do
     start_supervised_pipeline(
       producer:
         {NatsProducer,
-         subjects: ["call_events"],
+         subjects: ["node:test1"],
          connection: name,
          subscribe: subscribe,
          unsubscribe: no_unsub()},
@@ -136,7 +205,7 @@ defmodule Connectix.Realtime.NatsProducerTest do
       user_streams: test
     )
 
-    assert_receive {:subscribed, producer, "call_events", ^first}
+    assert_receive {:subscribed, producer, "node:test1", ^first}
 
     ref = Process.monitor(first)
     Process.exit(first, :kill)
@@ -144,8 +213,8 @@ defmodule Connectix.Realtime.NatsProducerTest do
     {:ok, second} = Agent.start(fn -> :ok end, name: name)
     on_exit(fn -> if Process.alive?(second), do: Agent.stop(second) end)
 
-    assert_receive {:subscribed, ^producer, "call_events", ^second}, 3_000
-    assert_status({:subscribed, ["call_events"]})
+    assert_receive {:subscribed, ^producer, "node:test1", ^second}, 3_000
+    assert_status({:subscribed, ["node:test1"]})
   end
 
   test "waits for a connection that is not registered yet" do
@@ -161,7 +230,7 @@ defmodule Connectix.Realtime.NatsProducerTest do
     start_supervised_pipeline(
       producer:
         {NatsProducer,
-         subjects: ["call_events"],
+         subjects: ["node:test1"],
          connection: name,
          subscribe: subscribe,
          unsubscribe: no_unsub()},
@@ -175,7 +244,7 @@ defmodule Connectix.Realtime.NatsProducerTest do
     assert_status(:connecting)
 
     Process.register(conn, name)
-    assert_receive {:subscribed, _, "call_events"}, 3_000
+    assert_receive {:subscribed, _, "node:test1"}, 3_000
   end
 
   test "the buffer is bounded: the oldest queued message is dropped" do
@@ -194,7 +263,7 @@ defmodule Connectix.Realtime.NatsProducerTest do
            [
              NatsProducer,
              [
-               subjects: ["call_events"],
+               subjects: ["node:test1"],
                connection: conn,
                subscribe: subscribe,
                unsubscribe: no_unsub(),
@@ -215,7 +284,7 @@ defmodule Connectix.Realtime.NatsProducerTest do
 
     on_exit(fn -> :telemetry.detach("nats-dropped-#{inspect(self())}") end)
 
-    for n <- 1..5, do: send(producer, nats_msg("call_events", "#{n}"))
+    for n <- 1..5, do: send(producer, nats_msg("node:test1", "#{n}"))
 
     assert_receive :dropped
     assert_receive :dropped
@@ -248,7 +317,7 @@ defmodule Connectix.Realtime.NatsProducerTest do
            [
              NatsProducer,
              [
-               subjects: ["call_events"],
+               subjects: ["node:test1"],
                connection: conn,
                subscribe: subscribe,
                unsubscribe: no_unsub(),
@@ -259,7 +328,7 @@ defmodule Connectix.Realtime.NatsProducerTest do
 
     log =
       capture_log(fn ->
-        for n <- 1..40, do: send(producer, nats_msg("call_events", "#{n}"))
+        for n <- 1..40, do: send(producer, nats_msg("node:test1", "#{n}"))
         # Nothing consumes, so every message past the bound drops.
         Process.sleep(100)
       end)

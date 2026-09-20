@@ -74,6 +74,7 @@ defmodule Connectix.Application do
         ] ++
         Connectix.Realtime.Nats.children() ++
         Connectix.Realtime.EventPipeline.children() ++
+        Connectix.Realtime.Deadman.children() ++
         Connectix.Heartbeat.children() ++
         [
           # Sagents infrastructure (registry + dynamic supervisors).
