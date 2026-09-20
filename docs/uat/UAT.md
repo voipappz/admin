@@ -1,4 +1,8 @@
-# Release acceptance test (UAT)
+# Release acceptance test (UAT) — version 2
+
+This version supports three run depths from the same test definition: CRITICAL
+for smoke testing, CRITICAL plus HIGH for a normal release, and all priorities
+for a full regression.
 
 Fill a fresh copy of this sheet for every release. Each row is a thing a
 customer does; the row passes when the **result is visible**, usually somewhere
@@ -25,8 +29,9 @@ or knowledge of the API.
   line can be found in Logs afterwards.
 - Work down the sheet in order. Later blocks reuse what earlier ones create — the
   device made in DEVICES is the one the DID rings in ROUTING.
-- **HIGH** rows are release blockers. Run all of them even if you are short of
-  time; **LOW** rows can wait for the next round.
+- **CRITICAL** rows are the smoke test and are release blockers. **HIGH** rows
+  complete the normal release gate. **MEDIUM** and **LOW** rows belong to the
+  full regression.
 - Rows marked `needs:` in *Before you start* require something the office does not
   always have (a softphone, a real number, a carrier). If you cannot get it, the
   result is `Not Run`, not `Fail`.
@@ -41,20 +46,34 @@ or knowledge of the API.
 - A second browser profile, for the rows that check one account cannot see
   another's data.
 
+Record the reusable test data before starting so later blocks use the same
+objects and cleanup is unambiguous:
+
+| Test data | Value |
+|---|---|
+| Primary customer | |
+| Second customer | |
+| Application | |
+| User / extension A | |
+| User / extension B | |
+| External number (DID) | |
+| Provider | |
+| Test webhook URL | |
+
 ---
 
 ## SIGN IN  (`/login`)
 
 | ID | What we are testing | Before you start | What to do | What you should see | Priority | Tester | Date | Result | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| T-01 | Sign in with email and password | You have an account and its password. | 1. Open the portal.<br>2. Enter your email and password.<br>3. Press Sign in. | The password step is accepted and the screen asks for a code. | HIGH | | | Not Run | |
-| T-02 | The code arrives and signs you in | You are on the code step from T-01. | 1. Read the code that was sent to you.<br>2. Enter it.<br>3. Press Verify. | You land on the dashboard, signed in, with your name shown. | HIGH | | | Not Run | |
+| T-01 | Sign in with email and password | You have an account and its password. | 1. Open the portal.<br>2. Enter your email and password.<br>3. Press Sign in. | The password step is accepted and the screen asks for a code. | CRITICAL | | | Not Run | |
+| T-02 | The code arrives and signs you in | You are on the code step from T-01. | 1. Read the code that was sent to you.<br>2. Enter it.<br>3. Press Verify. | You land on the dashboard, signed in, with your name shown. | CRITICAL | | | Not Run | |
 | T-03 | A wrong code is refused | You are on the code step. | 1. Enter a code that is not the one you were sent.<br>2. Press Verify. | You are told the code is wrong and you stay signed out. | HIGH | | | Not Run | |
 | T-04 | A code cannot be used twice | You have signed in once with a code (T-02). | 1. Sign out.<br>2. Sign in again with the same email and password.<br>3. Enter the PREVIOUS code. | The old code is refused; only the new one works. | HIGH | | | Not Run | |
 | T-05 | Wrong password | You know the account's real password. | 1. Enter the right email with a wrong password.<br>2. Press Sign in. | You are told the details are wrong. No code is sent. | HIGH | | | Not Run | |
 | T-06 | Forgotten password | You can read the mail for this account. | 1. Press Forgot password.<br>2. Enter your email.<br>3. Follow the mail and set a new password.<br>4. Sign in with the new password. | The new password works and the old one no longer does. | HIGH | | | Not Run | |
 | T-07 | Staying signed in | You are signed in. | 1. Reload the page.<br>2. Open another screen. | You stay signed in; you are not asked for the code again. | MEDIUM | | | Not Run | |
-| T-08 | Sign out | You are signed in. | 1. Press Sign out.<br>2. Press the browser Back button. | You are returned to the sign-in screen and Back does not get you in. | HIGH | | | Not Run | |
+| T-08 | Sign out | You are signed in. | 1. Press Sign out.<br>2. Press the browser Back button. | You are returned to the sign-in screen and Back does not get you in. | CRITICAL | | | Not Run | |
 
 ---
 
@@ -64,13 +83,13 @@ or knowledge of the API.
 |---|---|---|---|---|---|---|---|---|---|
 | T-09 | Account details | You have full access. | 1. Open the account details.<br>2. Change a contact detail and save.<br>3. Reload the page. | The change is saved and shown after reloading. | MEDIUM | | | Not Run | See known issues — this currently fails. |
 | T-10 | Create an account | You have full access. | 1. Press Create New.<br>2. Fill in a name, an email and permissions.<br>3. Save.<br>4. Sign in as that account in another browser profile. | The account appears in the list and can sign in. | HIGH | | | Not Run | |
-| T-11 | Permissions decide the menu | The account from T-10, with only Calls allowed. | 1. Edit its permissions to Calls only.<br>2. Sign in as that account. | Only the screens it is allowed appear; the rest are not reachable, including by typing the address. | HIGH | | | Not Run | |
+| T-11 | Permissions decide the menu | The account from T-10, with only Calls allowed. | 1. Edit its permissions to Calls only.<br>2. Sign in as that account. | Only the screens it is allowed appear; the rest are not reachable, including by typing the address. | CRITICAL | | | Not Run | |
 | T-12 | Read-only permission | An account with read-only rights on a screen. | 1. Sign in as it.<br>2. Open that screen and try to save a change. | The screen opens, the save is refused, nothing changes. | HIGH | | | Not Run | |
 | T-13 | Reset an account password | The account from T-10. | 1. Open it.<br>2. Press Reset Password.<br>3. Sign in with the new password. | The new password works; the old one does not. | MEDIUM | | | Not Run | |
 | T-14 | API token for an account | You have full access. | 1. Open an account.<br>2. Press Generate Basic Auth Token.<br>3. Note it. | A token is shown and can be copied. | LOW | | | Not Run | |
 | T-15 | Disable an account | The account from T-10. | 1. Switch it off.<br>2. Try to sign in as it. | It cannot sign in while disabled, and can again once re-enabled. | HIGH | | | Not Run | |
 | T-16 | Delete an account | The account from T-10. | 1. Delete it.<br>2. Reload the list.<br>3. Try to sign in as it. | It is gone from the list and cannot sign in. | MEDIUM | | | Not Run | |
-| T-17 | One customer cannot see another | needs: a second customer on the same system. | 1. Sign in as an account of customer A.<br>2. Open the accounts list. | Only customer A's accounts are listed. Nothing of customer B appears anywhere. | HIGH | | | Not Run | |
+| T-17 | One customer cannot see another | needs: a second customer on the same system. | 1. Sign in as an account of customer A.<br>2. Open the accounts list. | Only customer A's accounts are listed. Nothing of customer B appears anywhere. | CRITICAL | | | Not Run | |
 | T-18 | Finding an account | More than a page of accounts. | 1. Search for one by name or email.<br>2. Page through the list. | The search finds it and paging does not lose or repeat rows. | LOW | | | Not Run | |
 
 ---
@@ -90,7 +109,7 @@ or knowledge of the API.
 
 | ID | What we are testing | Before you start | What to do | What you should see | Priority | Tester | Date | Result | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| T-23 | Create an application | You have full access. | 1. Create an application with a name and a domain.<br>2. Save. | It appears in the list and can be picked in the environment selector. | HIGH | | | Not Run | |
+| T-23 | Create an application | You have full access. | 1. Create an application with a name and a domain.<br>2. Save. | It appears in the list and can be picked in the environment selector. | CRITICAL | | | Not Run | |
 | T-24 | Edit an application | The application from T-23. | 1. Change its name and save.<br>2. Reload. | The new name shows everywhere it is listed. | MEDIUM | | | Not Run | |
 | T-25 | Give an account access to it | The application from T-23 and a second account. | 1. Add the application to that account.<br>2. Sign in as that account. | The account can now pick that application and see its data. | HIGH | | | Not Run | |
 | T-26 | Delete an application | An application with at least one device, one user and one number on it. | 1. Note what is on it.<br>2. Delete it.<br>3. Open Devices, Users and Routing. | The application is gone AND everything that belonged to it is gone too — no leftover devices, users or numbers. | HIGH | | | Not Run | The point of this row is the leftovers, not the application. |
@@ -102,9 +121,9 @@ or knowledge of the API.
 
 | ID | What we are testing | Before you start | What to do | What you should see | Priority | Tester | Date | Result | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| T-28 | Create a user | An application exists. | 1. Press Create User.<br>2. Fill in name, email and extension number.<br>3. Save.<br>4. Open Devices. | The user is listed AND a device for them appears on Devices. | HIGH | | | Not Run | |
-| T-29 | The new user's phone can register | The user from T-28. needs: a softphone. | 1. Configure the softphone with that extension and its password.<br>2. Register it.<br>3. Open Devices. | The phone registers and the device shows as online. | HIGH | | | Not Run | A device that exists but was never sent to its node looks fine here and refuses every registration — this row is what catches that. |
-| T-30 | The user can sign in to the portal | The user from T-28. | 1. Sign in at the user portal with their email and password. | They reach their own screens (My calls, Phone) and see only their own calls. | HIGH | | | Not Run | |
+| T-28 | Create a user | An application exists. | 1. Press Create User.<br>2. Fill in name, email and extension number.<br>3. Save.<br>4. Open Devices. | The user is listed AND a device for them appears on Devices. | CRITICAL | | | Not Run | |
+| T-29 | The new user's phone can register | The user from T-28. needs: a softphone. | 1. Configure the softphone with that extension and its password.<br>2. Register it.<br>3. Open Devices. | The phone registers and the device shows as online. | CRITICAL | | | Not Run | A device that exists but was never sent to its node looks fine here and refuses every registration — this row is what catches that. |
+| T-30 | The user can sign in to the portal | The user from T-28. | 1. Sign in at the user portal with their email and password. | They reach their own screens (My calls, Phone) and see only their own calls. | CRITICAL | | | Not Run | |
 | T-31 | Edit a user | The user from T-28. | 1. Change their name and save.<br>2. Reload. | The change is kept and shows on their device too. | MEDIUM | | | Not Run | |
 | T-32 | Import users from a file | A CSV of a few users. | 1. Press Import CSV.<br>2. Choose the file.<br>3. Import. | Every row in the file becomes a user, and the count matches. Bad rows are reported rather than silently skipped. | MEDIUM | | | Not Run | |
 | T-33 | Delete a user | The user from T-28. | 1. Delete them.<br>2. Open Devices.<br>3. Try to register their softphone. | The user and their device are gone and the phone can no longer register. | HIGH | | | Not Run | |
@@ -115,9 +134,9 @@ or knowledge of the API.
 
 | ID | What we are testing | Before you start | What to do | What you should see | Priority | Tester | Date | Result | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| T-34 | Create a device | An application exists. | 1. Press Add Device.<br>2. Fill in Name, Device Number and SIP Password.<br>3. Save. | It appears in the list straight away. | HIGH | | | Not Run | |
-| T-35 | The device registers | The device from T-34. needs: a softphone. | 1. Point the softphone at the platform with that number and password.<br>2. Register.<br>3. Reload the list. | The device shows as registered / online. | HIGH | | | Not Run | |
-| T-36 | Call between two devices | Two registered devices. needs: two softphones. | 1. From device A, dial device B's number. | B rings, the call connects, both sides have audio, and hanging up ends it on both. | HIGH | | | Not Run | |
+| T-34 | Create a device | An application exists. | 1. Press Add Device.<br>2. Fill in Name, Device Number and SIP Password.<br>3. Save. | It appears in the list straight away. | CRITICAL | | | Not Run | |
+| T-35 | The device registers | The device from T-34. needs: a softphone. | 1. Point the softphone at the platform with that number and password.<br>2. Register.<br>3. Reload the list. | The device shows as registered / online. | CRITICAL | | | Not Run | |
+| T-36 | Call between two devices | Two registered devices. needs: two softphones. | 1. From device A, dial device B's number. | B rings, the call connects, both sides have audio, and hanging up ends it on both. | CRITICAL | | | Not Run | |
 | T-37 | Wrong password is refused | The device from T-34. | 1. Set the wrong SIP password on the softphone.<br>2. Register. | Registration is refused and the device stays offline. | HIGH | | | Not Run | |
 | T-38 | Edit a device | The device from T-34. | 1. Change its name and save.<br>2. Reload. | The change is kept. | MEDIUM | | | Not Run | |
 | T-39 | Change the SIP password | A registered device. | 1. Change its SIP password.<br>2. Re-register the softphone with the new one. | The new password works; the old one is refused. | MEDIUM | | | Not Run | |
@@ -131,8 +150,8 @@ or knowledge of the API.
 
 | ID | What we are testing | Before you start | What to do | What you should see | Priority | Tester | Date | Result | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| T-43 | Add a number | An application exists. | 1. Press Add DID.<br>2. Enter the number and save. | It is listed against that application. | HIGH | | | Not Run | |
-| T-44 | A number rings a device | The number from T-43 and a registered device. needs: a way to dial the number. | 1. Point the number at that device.<br>2. Call the number from outside. | The device rings, the call connects with audio both ways. | HIGH | | | Not Run | |
+| T-43 | Add a number | An application exists. | 1. Press Add DID.<br>2. Enter the number and save. | It is listed against that application. | CRITICAL | | | Not Run | |
+| T-44 | A number rings a device | The number from T-43 and a registered device. needs: a way to dial the number. | 1. Point the number at that device.<br>2. Call the number from outside. | The device rings, the call connects with audio both ways. | CRITICAL | | | Not Run | |
 | T-45 | A number goes to an IVR | An IVR with at least one option. | 1. Point the number at the IVR.<br>2. Call it.<br>3. Press the option. | You hear the menu and the key press takes you where the option says. | HIGH | | | Not Run | |
 | T-46 | A number goes to a queue | A queue with an agent logged in. | 1. Point the number at the queue.<br>2. Call it. | You hear the queue treatment and the agent's phone rings. | HIGH | | | Not Run | |
 | T-47 | Out-of-hours routing | A call condition for out of hours. | 1. Put a condition on the number so out of hours goes elsewhere.<br>2. Call it inside hours, then outside. | Each call lands where the condition says. | MEDIUM | | | Not Run | |
@@ -163,8 +182,8 @@ or knowledge of the API.
 | ID | What we are testing | Before you start | What to do | What you should see | Priority | Tester | Date | Result | Notes |
 |---|---|---|---|---|---|---|---|---|---|
 | T-60 | Add a provider | needs: carrier details. | 1. Press Add Provider.<br>2. Fill in the details and save. | It is listed. | HIGH | | | Not Run | |
-| T-61 | Outbound call through the provider | The provider from T-60, a registered device. needs: a number you can call. | 1. Point outbound calls at the provider.<br>2. From the device, dial an outside number. | The far end rings, the call connects with audio, and it appears in Calls as outgoing. | HIGH | | | Not Run | |
-| T-62 | Inbound from the provider | A number delivered by that provider. | 1. Call that number from outside. | The call arrives and follows the routing set for the number. | HIGH | | | Not Run | |
+| T-61 | Outbound call through the provider | The provider from T-60, a registered device. needs: a number you can call. | 1. Point outbound calls at the provider.<br>2. From the device, dial an outside number. | The far end rings, the call connects with audio, and it appears in Calls as outgoing. | CRITICAL | | | Not Run | |
+| T-62 | Inbound from the provider | A number delivered by that provider. | 1. Call that number from outside. | The call arrives and follows the routing set for the number. | CRITICAL | | | Not Run | |
 | T-63 | Edit a provider | The provider from T-60. | 1. Change a setting and save.<br>2. Reload. | The change is kept and calls still work. | MEDIUM | | | Not Run | |
 | T-64 | Delete a provider | A provider not in use. | 1. Delete it. | It is gone from the list and from the routing choices. | MEDIUM | | | Not Run | |
 
@@ -174,7 +193,7 @@ or knowledge of the API.
 
 | ID | What we are testing | Before you start | What to do | What you should see | Priority | Tester | Date | Result | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| T-65 | Which nodes are connected | You are signed in as root. | 1. Open Nodes. | Every node is listed with an up-to-date connected state, and the ones that are actually running show as connected. | HIGH | | | Not Run | |
+| T-65 | Which nodes are connected | You are signed in as root. | 1. Open Nodes. | Every node is listed with an up-to-date connected state, and the ones that are actually running show as connected. | CRITICAL | | | Not Run | |
 | T-66 | A node that is off shows as off | needs: a node you can stop. | 1. Stop the node.<br>2. Reload Nodes. | It shows as not connected within a few seconds, with a reason. | HIGH | | | Not Run | |
 | T-67 | A node's own health | A connected node. | 1. Open its health. | Its checks are listed; a node can be connected and still report a failing check. | MEDIUM | | | Not Run | |
 | T-68 | A node's logs | A connected node. | 1. Press its Logs button. | You see that node's own log lines, not the platform's. | MEDIUM | | | Not Run | |
@@ -189,13 +208,13 @@ or knowledge of the API.
 |---|---|---|---|---|---|---|---|---|---|
 | T-71 | Start a call from the screen | A registered device. | 1. Start a call to that device from Calls.<br>2. Answer it. | The device rings, the call connects, and it appears in the live list while it runs. | HIGH | | | Not Run | |
 | T-72 | A call in progress is shown | A call running. | 1. Watch the Calls screen while the call is up. | The call is listed with both parties and a running duration, and disappears when it ends. | HIGH | | | Not Run | |
-| T-73 | The finished call is in the log | The call from T-71, hung up. | 1. Open the call log. | The call is there with the right numbers, direction, start time and duration. | HIGH | | | Not Run | |
+| T-73 | The finished call is in the log | The call from T-71, hung up. | 1. Open the call log. | The call is there with the right numbers, direction, start time and duration. | CRITICAL | | | Not Run | |
 | T-74 | End a call from the screen | A call running. | 1. Press hang up on that call. | Both phones drop within a second or two and the call leaves the live list. | HIGH | | | Not Run | |
 | T-75 | Listen to a recording | A finished call that was recorded. | 1. Open it in the call log.<br>2. Play the recording. | It plays, and it is the right call. | MEDIUM | | | Not Run | |
 | T-76 | Listen in on a call | A call running. needs: two devices plus your own. | 1. Use spy / listen on that call. | You hear both sides; the two parties do not hear you. | MEDIUM | | | Not Run | |
 | T-77 | Pick up a ringing call | A device ringing. | 1. Use pickup from another device. | The ringing call is answered on your device and stops ringing on the first. | MEDIUM | | | Not Run | |
 | T-78 | Filter and export the log | Several days of calls. | 1. Filter by date, direction and number.<br>2. Export. | The list matches the filter, and the export has the same rows. | MEDIUM | | | Not Run | |
-| T-79 | An agent sees only their own calls | A user with the portal. | 1. Sign in as the user.<br>2. Open My calls. | They see their own calls, and none of anyone else's. | HIGH | | | Not Run | |
+| T-79 | An agent sees only their own calls | A user with the portal. | 1. Sign in as the user.<br>2. Open My calls. | They see their own calls, and none of anyone else's. | CRITICAL | | | Not Run | |
 
 ---
 
@@ -223,7 +242,7 @@ or knowledge of the API.
 | ID | What we are testing | Before you start | What to do | What you should see | Priority | Tester | Date | Result | Notes |
 |---|---|---|---|---|---|---|---|---|---|
 | T-85 | Create a webhook | needs: a URL you can watch (any request-catching site). | 1. Press New Service.<br>2. Choose webhook, paste the URL, pick when it should fire and which applications it covers.<br>3. Save. | It is listed as enabled. | HIGH | | | Not Run | |
-| T-86 | The webhook is delivered | The service from T-85. **Wait one minute after saving.** | 1. Send it a test event with delivery turned on.<br>2. Look at your URL.<br>3. Open the service. | Your URL received the request, and the service's sent counter went up. | HIGH | | | Not Run | The screen reports that the event was *sent*, not that your endpoint accepted it — check your own endpoint and the counter. Changes take up to a minute to take effect; judging sooner makes a correct fix look broken. |
+| T-86 | The webhook is delivered | The service from T-85. **Wait one minute after saving.** | 1. Send it a test event with delivery turned on.<br>2. Look at your URL.<br>3. Open the service. | Your URL received the request, and the service's sent counter went up. | CRITICAL | | | Not Run | The screen reports that the event was *sent*, not that your endpoint accepted it — check your own endpoint and the counter. Changes take up to a minute to take effect; judging sooner makes a correct fix look broken. |
 | T-87 | A real call fires it | The service from T-85, set to fire at end of call. | 1. Make and end a call on a covered application.<br>2. Look at your URL. | The request arrives for the real call, with that call's details. | HIGH | | | Not Run | |
 | T-88 | A disabled service does not fire | The service from T-85. | 1. Disable it.<br>2. Wait a minute.<br>3. Make a call. | Nothing is sent. | MEDIUM | | | Not Run | |
 | T-89 | It only covers its own applications | Two applications. | 1. Leave the service covering only application A.<br>2. Make a call on B, then on A. | Only the call on A is sent. | MEDIUM | | | Not Run | |
@@ -239,7 +258,7 @@ or knowledge of the API.
 | T-92 | Add a subscription | An application. | 1. Press Add Subscription.<br>2. Pick the plan and dates.<br>3. Save. | It is listed against the application with its dates. | HIGH | | | Not Run | |
 | T-93 | Edit a subscription | The subscription from T-92. | 1. Change it and save.<br>2. Reload. | The change is kept. | MEDIUM | | | Not Run | |
 | T-94 | Add balance | The subscription from T-92. | 1. Press Add Balance and add an amount. | The balance goes up by that amount and a transaction is recorded. | HIGH | | | Not Run | |
-| T-95 | Calls use the balance | A subscription with a small balance. needs: a chargeable call. | 1. Note the balance.<br>2. Make a chargeable call.<br>3. Reload. | The balance has gone down and the call is in Transactions with a cost. | HIGH | | | Not Run | |
+| T-95 | Calls use the balance | A subscription with a small balance. needs: a chargeable call. | 1. Note the balance.<br>2. Make a chargeable call.<br>3. Reload. | The balance has gone down and the call is in Transactions with a cost. | CRITICAL | | | Not Run | |
 | T-96 | No balance, no call | A subscription with no balance. | 1. Try a chargeable call. | The call is refused, and the reason is visible in Logs. | HIGH | | | Not Run | |
 | T-97 | End a subscription | The subscription from T-92. | 1. Terminate it.<br>2. Try a chargeable call. | It shows as ended and chargeable calls stop working. | HIGH | | | Not Run | |
 | T-98 | Create a tariff | You have full access. | 1. Press Create Tariff.<br>2. Add rates for a few prefixes, including one long and one short. | The tariff is listed with its rates. | HIGH | | | Not Run | |
@@ -264,12 +283,12 @@ or knowledge of the API.
 
 ---
 
-## DASHBOARD AND LIVE  (`/admin/dashboard`, `/live`)
+## DASHBOARD AND LIVE  (`/`, `/live`)
 
 | ID | What we are testing | Before you start | What to do | What you should see | Priority | Tester | Date | Result | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| T-110 | Dashboard figures | Some calls today. | 1. Open the dashboard.<br>2. Compare with the call log for the same period. | The totals agree with the call log. | HIGH | | | Not Run | |
-| T-111 | Live updates while a call runs | A registered device. | 1. Open the live screen.<br>2. Make a call and hang up. | The call appears while it runs and the counts go back down after it ends, without reloading. | HIGH | | | Not Run | |
+| T-110 | Dashboard figures | Some calls today. | 1. Open the dashboard.<br>2. Compare with the call log for the same period. | The totals agree with the call log. | CRITICAL | | | Not Run | |
+| T-111 | Live updates while a call runs | A registered device. | 1. Open the live screen.<br>2. Make a call and hang up. | The call appears while it runs and the counts go back down after it ends, without reloading. | CRITICAL | | | Not Run | |
 | T-112 | Registered devices are counted | Two registered devices. | 1. Watch the live screen.<br>2. Unregister one. | The registered count falls by one. | MEDIUM | | | Not Run | |
 | T-113 | An empty period reads as empty | A quiet period. | 1. Open the charts for a period with no calls. | It says there is nothing, rather than showing an error or a blank box. | MEDIUM | | | Not Run | |
 
@@ -279,7 +298,7 @@ or knowledge of the API.
 
 | ID | What we are testing | Before you start | What to do | What you should see | Priority | Tester | Date | Result | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| T-114 | System health | You are signed in. | 1. Open the health screen. | Every check is listed and the essential ones are green. | HIGH | | | Not Run | |
+| T-114 | System health | You are signed in. | 1. Open the health screen. | Every check is listed and the essential ones are green. | CRITICAL | | | Not Run | |
 | T-115 | A stopped service shows red | needs: a service you can stop. | 1. Stop it.<br>2. Reload health. | It goes red and names what is wrong. | HIGH | | | Not Run | |
 | T-116 | Monitoring charts | Some traffic. | 1. Open Monitoring and pick a period. | Charts draw for that period and the periods agree with each other. | MEDIUM | | | Not Run | |
 | T-117 | Alert thresholds | You have full access. | 1. Set a threshold low enough to trip.<br>2. Cause the condition. | An alert is raised and shown. | MEDIUM | | | Not Run | |
@@ -289,7 +308,7 @@ or knowledge of the API.
 | T-121 | A record's own history | Any device or number. | 1. Open it and press View Logs. | You see that record's lines and nothing unrelated. | MEDIUM | | | Not Run | |
 | T-122 | A refused call is explained | needs: a number that is not configured. | 1. Call it.<br>2. Open Logs. | One line explains why the call was refused. | MEDIUM | | | Not Run | |
 | T-123 | Events for a call | A finished call. | 1. Open Events and find it. | Its events are listed in order — ringing, answer, hangup. | MEDIUM | | | Not Run | |
-| T-124 | One customer's logs only | needs: a second customer. | 1. Sign in as customer A.<br>2. Search Logs for something of customer B's. | Nothing of customer B's is returned. | HIGH | | | Not Run | |
+| T-124 | One customer's logs only | needs: a second customer. | 1. Sign in as customer A.<br>2. Search Logs for something of customer B's. | Nothing of customer B's is returned. | CRITICAL | | | Not Run | |
 
 ---
 
@@ -303,17 +322,19 @@ or knowledge of the API.
 
 ---
 
-## API DOCS  (`/devzone`)
-
-| ID | What we are testing | Before you start | What to do | What you should see | Priority | Tester | Date | Result | Notes |
-|---|---|---|---|---|---|---|---|---|---|
-| T-128 | The docs load | You are signed in. | 1. Open API Docs. | The documentation loads and lists the endpoints. | LOW | | | Not Run | |
-| T-129 | Try it out | The docs open. | 1. Use Try It Out on a read-only call. | It answers with your own data, not an error. | LOW | | | Not Run | |
-
----
-
 ## THE WHOLE WAY THROUGH — run this last
 
 | ID | What we are testing | Before you start | What to do | What you should see | Priority | Tester | Date | Result | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| T-130 | A new customer, end to end | You are signed in with full access. needs: two softphones and a number. | 1. Create an application.<br>2. Create two users on it.<br>3. Register both softphones.<br>4. Add a number and point it at one of them.<br>5. Call between the two devices.<br>6. Call the number from outside.<br>7. Open the call log, the dashboard and Transactions. | Every step works without a developer touching anything, and the calls you made are the calls the log, the dashboard and the charges show. | HIGH | | | Not Run | If this row passes, the release is usable. If it fails, the release is not, whatever else passed. |
+| T-130 | A new customer, end to end | You are signed in with full access. needs: two softphones and a number. | 1. Create an application.<br>2. Create two users on it.<br>3. Register both softphones.<br>4. Add a number and point it at one of them.<br>5. Call between the two devices.<br>6. Call the number from outside.<br>7. Open the call log, the dashboard and Transactions. | Every step works without a developer touching anything, and the calls you made are the calls the log, the dashboard and the charges show. | CRITICAL | | | Not Run | If this row passes, the release is usable. If it fails, the release is not, whatever else passed. |
+
+## CLEANUP — after results are recorded
+
+- Export or attach the completed sheet to the release before deleting anything.
+- Remove test webhooks, campaigns, providers, routing resources and numbers that
+  were created only for this run.
+- Delete the test application and confirm its users and devices are also gone.
+- Remove temporary accounts and restore any thresholds, permissions or customer
+  settings changed during the run.
+- Keep failed-run data until the failure has been investigated or its identifiers
+  have been recorded in the issue.
