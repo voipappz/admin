@@ -14,8 +14,9 @@ SHELL := bash
 # prints "Nothing to be done" and exits 0, so a deleted rule looks like a
 # working target. `make check-make` fails on any that is missing.
 PHONY_TARGETS := help check-make iex tui tmux tmux-kill mise env dev \
-                 up down logs health test ci probe status extension \
-                 kamal-config kamal-push deploy deployed
+                 up down logs health test ci probe status extension app \
+                 kamal-config kamal-push deploy deployed \
+                 nats-watch sipp sipp-stop sipp-logs sipp-uac
 
 .PHONY: $(PHONY_TARGETS)
 
@@ -31,12 +32,6 @@ ACT_PLATFORM ?= catthehacker/ubuntu:act-latest
 PORTAL_ENGINE_URL ?= $(shell sed -n 's/^PORTAL_ENGINE_URL=//p' .env 2>/dev/null | grep . | head -1 | tr -d '\r"')
 PORTAL_ENGINE_URL := $(if $(PORTAL_ENGINE_URL),$(PORTAL_ENGINE_URL),http://127.0.0.1:5000)
 
-# Cable's ApiProxy must belong to the same API as the portal. A separate value
-# remains available for the rare remote-node case, but the coherent default is
-# the portal engine rather than an unrelated production tenant.
-CABLE_API_URL ?= $(shell sed -n 's/^CABLE_API_URL=//p' .env 2>/dev/null | grep . | head -1 | tr -d '\r"')
-CABLE_API_URL := $(if $(CABLE_API_URL),$(CABLE_API_URL),$(PORTAL_ENGINE_URL))
-
 # Local stack endpoint. PORTAL is the origin: the LiveView UI, the Chrome
 # extension (which lives in ../chrome and builds with `make -C ../chrome build`)
 # all point at 4001, and it does not move.
@@ -45,47 +40,18 @@ CABLE_API_URL := $(if $(CABLE_API_URL),$(CABLE_API_URL),$(PORTAL_ENGINE_URL))
 # rule, and the reason `urls` guards its fallback rather than assuming.
 PORTAL_ADDR = $(shell docker compose port elixir 4001 2>/dev/null || true)
 PORTAL   ?= http://$(if $(PORTAL_ADDR),$(PORTAL_ADDR),localhost:4001)
-# The cable the portal SUBSCRIBES to. There is no cable in this stack any more:
-# va-crystal was removed from docker-compose.yml, because what the portal needs
-# is one WebSocket endpoint and running a node beside it meant a whole switch on
-# the box. The portal dials a real node instead, and the coherent choice is the
-# node belonging to PORTAL_ENGINE_URL — a cable on one server and an API on
-# another verify with different secrets and fail as "closed before welcome".
-PORTAL_CABLE_URL ?= $(shell sed -n 's/^PORTAL_CABLE_URL=//p' .env 2>/dev/null | grep . | head -1 | tr -d '\r"')
-PORTAL_CABLE_URL := $(if $(PORTAL_CABLE_URL),$(PORTAL_CABLE_URL),ws://127.0.0.1:4100/cable)
-# The cable's /health lives on the same host and port over plain HTTP.
-CABLE_HEALTH := $(shell printf '%s' '$(PORTAL_CABLE_URL)' | sed -E 's|^wss?://|http://|; s|/cable$$|/health|')
-API_CONTAINER ?= va-app
+# Starts the stack. NO CREDENTIAL GATE, and none is missing: this used to
+# refuse to start without SECRET_KEY (reading it from a `va-app` container as a
+# last resort) because the portal minted a CABLE credential with it. The cable
+# is gone. The portal signs and verifies its own tokens with a key derived from
+# the endpoint's secret_key_base, and reads events straight off NATS, so the
+# gate stopped a working stack from starting — silently, since its message was
+# the last thing make printed before the error.
+STACK_UP = PORTAL_ENGINE_URL="$(PORTAL_ENGINE_URL)" docker compose up -d
 
-# The portal mints its own cable credential, and SECRET_KEY is what it signs
-# with. IT MUST BE THE SIGNING SECRET OF THE SERVER THAT OWNS THE CABLE — the
-# node verifies with its own SECRET_KEY, so a token signed with anything else is
-# refused at connect time, and cable has no frame for "wrong secret": the socket
-# closes before `welcome`, which is indistinguishable from a dead network.
-#
-# .env WINS OVER THE LOCAL API CONTAINER, and that order is the whole point now
-# that the cable is remote. Reading it from a local `va-app` would hand the
-# portal the LOCAL API's secret while it dials someone else's node — every
-# connection refused, for a reason nothing prints. The container is a last
-# resort, for the all-local case where it is the right value.
-SECRET_KEY ?= $(shell sed -n 's/^SECRET_KEY=//p' .env 2>/dev/null | grep . | head -1 | tr -d '\r"')
-
-# NATS is deliberately absent: the portal holds no broker connection (it reads
-# events off the cable), and the only thing in this stack that ever needed
-# credentials was the cable container that no longer exists.
-STACK_UP = key="$${SECRET_KEY:-$(SECRET_KEY)}"; \
-	  if [ -z "$$key" ]; then key=$$(docker exec $(API_CONTAINER) printenv SECRET_KEY 2>/dev/null); fi; \
-	  if [ -z "$$key" ]; then \
-	    echo "no SECRET_KEY — the portal cannot mint a cable credential without it,"; \
-	    echo "and $(PORTAL_CABLE_URL) will close every connection before welcome."; \
-	    echo "set it in .env (the signing secret of $(PORTAL_ENGINE_URL)),"; \
-	    echo "or pass it yourself:  SECRET_KEY=... make <target>"; \
-	    exit 1; \
-	  fi; \
-	  SECRET_KEY="$$key" \
-	    PORTAL_ENGINE_URL="$(PORTAL_ENGINE_URL)" CABLE_API_URL="$(CABLE_API_URL)" \
-	    PORTAL_CABLE_URL="$(PORTAL_CABLE_URL)" \
-	    docker compose up -d
+# Where the SIPp peer answers. Its own port rather than 5060 by default would
+# be safer, but 5060 is what a SIP client dials without being told.
+SIPP_PORT ?= 5060
 
 # Production URL for `make status` — set PROD_URL in .env (or on the CLI).
 PROD_URL ?= $(shell sed -n 's/^PROD_URL=//p' .env 2>/dev/null | head -1 | tr -d '\r"')
@@ -214,7 +180,7 @@ dev: ## Run the local stack in Docker (portal :4001), attached logs
 	    *) echo "engine $(PORTAL_ENGINE_URL) unreachable ($$code) — set PORTAL_ENGINE_URL in .env"; exit 1;; \
 	  esac
 	@$(STACK_UP) elixir
-	@echo "portal → $(PORTAL) · cable → $(PORTAL_CABLE_URL) · engine → $(PORTAL_ENGINE_URL)"
+	@echo "portal → $(PORTAL) · engine → $(PORTAL_ENGINE_URL)"
 	@echo "extension → chrome/angular/dist (make extension, then Load unpacked)"
 	@echo "Ctrl-C detaches; stack keeps running"
 	docker compose logs -f elixir
@@ -236,6 +202,18 @@ logs: ## Follow logs for the portal
 # never sees it.
 extension: ## Build the Chrome extension into chrome/angular/dist
 	$(MAKE) -C chrome build
+
+# The Ionic app, BUNDLED INTO THE PORTAL. Same rule as the extension above: its
+# own package.json and node:22 container stay inside ionic/, and nothing about
+# this app becomes a Node app.
+#
+# Two steps, and the second is the point: `build` produces ionic/www, `bundle`
+# copies it to connectix/priv/app, which is where `Plug.Static` serves it from
+# at /app. A release image does the same two steps in the `ionic` stage of
+# Dockerfile.production, so what you see locally is what ships.
+app: ## Build the Ionic app and bundle it into the portal (served at /app)
+	$(MAKE) -C ionic build bundle
+	@echo "app → $(PORTAL)/app"
 
 ##@ Check
 
@@ -267,13 +245,37 @@ tunnel-stop: ## Take the public address down
 	@docker compose --profile tunnel rm -f bore >/dev/null 2>&1 || true
 	@echo "tunnel down"
 
+# SIPP — the SIP test peer, in its own container, driven with no broker and no
+# agent: `sipp` IS the image's entrypoint, so a run is just arguments.
+#
+# `make sipp` starts the long-running side: a UAS on 5060 that answers whatever
+# dials it, which is what the portal's own phone calls. Deployed the same way,
+# as a kamal accessory beside nats.
+#
+# `make sipp-uac` is the other direction, and it is a ONE-SHOT rather than a
+# service — it places calls and exits, so it is `run`, not `up`.
+sipp: ## Start the SIPp answering peer (UAS on 5060, opt-in profile)
+	@docker compose --profile sipp up -d sipp
+	@echo "sipp → answering on udp/$(SIPP_PORT). Dial sip:test@127.0.0.1:$(SIPP_PORT)"
+
+sipp-stop: ## Stop the SIPp answering peer
+	@docker compose --profile sipp stop sipp
+
+sipp-logs: ## Follow what SIPp is doing
+	@docker compose --profile sipp logs -f sipp
+
+# ARGS overrides everything after the target, so any SIPp scenario runs here:
+#   make sipp-uac ARGS='-sn uac 127.0.0.1:5060 -m 10 -r 2'
+sipp-uac: ## [ARGS=...] Place calls with SIPp, once, then exit
+	@docker compose --profile sipp run --rm --no-deps sipp \
+	  $(if $(ARGS),$(ARGS),-sn uac 127.0.0.1:$(SIPP_PORT) -m 1 -r 1 -p 5061 -nostdin -timeout 20)
+
 nats-watch: ## Print every subject the local broker carries, live
 	@docker compose exec -T nats nats sub '>' 2>/dev/null \
 	  || docker run --rm --network host natsio/nats-box:latest nats sub '>' --server nats://127.0.0.1:4222
 
 health: ## Where it is, whether it answers, and whether events are arriving
-	@PORTAL="$(PORTAL)" CABLE_HEALTH="$(CABLE_HEALTH)" \
-	  CABLE_URL="$(PORTAL_CABLE_URL)" PORTAL_ENGINE_URL="$(PORTAL_ENGINE_URL)" scripts/health.sh
+	@PORTAL="$(PORTAL)" PORTAL_ENGINE_URL="$(PORTAL_ENGINE_URL)" scripts/health.sh
 
 ##@ Test
 
@@ -324,6 +326,27 @@ ci: ## [JOB=portal|stress|browser|prod-image|all] Run CI locally with act
 
 KAMAL_IMAGE ?= ghcr.io/basecamp/kamal:v2.12.0
 
+# MAIL FOR THE POST-DEPLOY HOOK. Read from .env and EXPORTED, so the values
+# reach the kamal container through `-e NAME` (no `=value`) — docker forwards
+# them from this process's environment, which keeps the SES password out of the
+# command line and therefore out of `ps`.
+#
+# Empty when .env does not name them, and the hook is inert when they are
+# empty: a deployment with no mail server must not fail a deploy over it.
+dotenv = $(shell sed -n 's/^$(1)=//p' .env 2>/dev/null | grep . | head -1 | tr -d '\r"')
+export ORGANIZATION_SMTP_ADDRESS        := $(call dotenv,ORGANIZATION_SMTP_ADDRESS)
+export ORGANIZATION_SMTP_PORT           := $(call dotenv,ORGANIZATION_SMTP_PORT)
+export ORGANIZATION_SMTP_USERNAME       := $(call dotenv,ORGANIZATION_SMTP_USERNAME)
+export ORGANIZATION_SMTP_PASSWORD       := $(call dotenv,ORGANIZATION_SMTP_PASSWORD)
+export ORGANIZATION_SMTP_DOMAIN         := $(call dotenv,ORGANIZATION_SMTP_DOMAIN)
+export ORGANIZATION_SMTP_AUTHENTICATION := $(call dotenv,ORGANIZATION_SMTP_AUTHENTICATION)
+export ORGANIZATION_SMTP_FROM           := $(call dotenv,ORGANIZATION_SMTP_FROM)
+export ORGANIZATION_SMTP_TO             := $(call dotenv,ORGANIZATION_SMTP_TO)
+SMTP_ENV = -e ORGANIZATION_SMTP_ADDRESS -e ORGANIZATION_SMTP_PORT \
+	   -e ORGANIZATION_SMTP_USERNAME -e ORGANIZATION_SMTP_PASSWORD \
+	   -e ORGANIZATION_SMTP_DOMAIN -e ORGANIZATION_SMTP_AUTHENTICATION \
+	   -e ORGANIZATION_SMTP_FROM -e ORGANIZATION_SMTP_TO
+
 # `~/.docker` is mounted READ-WRITE on purpose: buildx writes builder activity
 # files there, and a read-only mount fails the build with
 # "read-only file system" long after the image has been built.
@@ -332,7 +355,7 @@ KAMAL = docker run --rm \
 	  -v "$(HOME)/.ssh:/root/.ssh:ro" \
 	  -v "$(HOME)/.docker:/root/.docker" \
 	  -v /var/run/docker.sock:/var/run/docker.sock \
-	  -e KAMAL_REGISTRY_PASSWORD -e KAMAL_HEALTHCHECK_URL \
+	  -e KAMAL_REGISTRY_PASSWORD -e KAMAL_HEALTHCHECK_URL $(SMTP_ENV) \
 	  -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
 	  $(KAMAL_IMAGE)
 

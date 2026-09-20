@@ -172,7 +172,37 @@ else
   probe "GET  /release/download        (package)" "/release/download" 200
 fi
 
+# WHO TO TELL, and it is the hook that tells them rather than a GitHub Action.
+# Nothing in GitHub knows a deploy happened: CI compiles and tests, deploys are
+# run by a person with `make deploy DEST=...`, and kamal never talks to
+# GitHub. "The new container passed its health checks on this host" is visible
+# here and nowhere else.
+#
+# Inert unless ORGANIZATION_SMTP_* is set, and it can never fail the deploy —
+# see the notes in lib/notify-email.rb.
+notify() {
+  _subject="$1"
+  [ -x "$KAMAL_HOOK_DIR/lib/notify-email.rb" ] || return 0
+  ruby "$KAMAL_HOOK_DIR/lib/notify-email.rb" "$_subject" || true
+}
+
+DEST_NAME="${KAMAL_DESTINATION:-default}"
+VERSION="${KAMAL_VERSION:-unknown}"
+
 if [ "$FAIL" = "1" ]; then
+  notify "[connectix] DEPLOY DEGRADED — $DEST_NAME @ $VERSION" <<NOTE
+The deploy to $DEST_NAME is LIVE but one or more smoke checks failed.
+
+  version   $VERSION
+  hosts     ${KAMAL_HOSTS:-unknown}
+  url       $BASE_URL
+  by        ${KAMAL_PERFORMER:-unknown}
+  at        ${KAMAL_RECORDED_AT:-unknown}
+
+An integration is mis-wired. To go back:
+  kamal rollback${KAMAL_DESTINATION:+ -d $KAMAL_DESTINATION}
+NOTE
+
   echo
   echo "❌  One or more smoke checks failed. The deploy is live but an integration"
   echo "    is mis-wired. Inspect the container log on the deployed host:"
@@ -182,6 +212,20 @@ if [ "$FAIL" = "1" ]; then
   echo "      kamal rollback${KAMAL_DESTINATION:+ -d $KAMAL_DESTINATION}"
   exit 1
 fi
+
+notify "[connectix] deployed — $DEST_NAME @ $VERSION" <<NOTE
+$DEST_NAME is live on $VERSION and every smoke check passed.
+
+  version   $VERSION
+  hosts     ${KAMAL_HOSTS:-unknown}
+  url       $BASE_URL
+  by        ${KAMAL_PERFORMER:-unknown}
+  at        ${KAMAL_RECORDED_AT:-unknown}
+
+Checked: TLS, /health/alive, /health/ready, /health body "ok",
+/metrics and /chat refusing anonymously, and the extension version
+matching the portal's.
+NOTE
 
 echo
 echo "=== Post-deploy: All smoke checks passed ==="
