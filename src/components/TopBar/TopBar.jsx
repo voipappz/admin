@@ -61,7 +61,6 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import SettingsIcon from '@mui/icons-material/Settings';
 import TerminalIcon from '@mui/icons-material/Terminal';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -838,7 +837,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     { key: 'wizard', label: 'Wizard', icon: <AutoFixHighIcon fontSize="small" />, onClick: () => window.dispatchEvent(new Event('openWizardModal')) },
     { key: 'events', label: 'Events', icon: <EventNoteIcon fontSize="small" />, onClick: () => window.dispatchEvent(new CustomEvent('openEventsModal', { detail: '' })) },
     { key: 'syslog', label: 'Syslog', icon: <ArticleIcon fontSize="small" />, onClick: () => window.dispatchEvent(new Event('openSyslogModal')) },
-    { key: 'settings', label: 'Settings', icon: <SettingsIcon fontSize="small" />, onClick: () => navigate('/settings') },
     { key: 'help', label: 'Help Center', icon: <HelpOutlineIcon fontSize="small" />, onClick: () => window.open('https://voipappz.zendesk.com/hc/en-us', '_blank', 'noopener') },
     { key: 'devzone', label: 'API DevZone', icon: <CodeIcon fontSize="small" />, onClick: () => navigate('/devzone') },
     { key: 'mcp', label: 'MCP', icon: <HubOutlinedIcon fontSize="small" />, onClick: () => navigate('/mcp') },
@@ -920,11 +918,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           <Tooltip title="Events">
             <IconButton size="small" onClick={() => window.dispatchEvent(new CustomEvent('openEventsModal', { detail: '' }))} sx={{ color: 'var(--theme-text-secondary)', '&:hover': { backgroundColor: 'var(--theme-hover)' } }}>
               <EventNoteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Settings">
-            <IconButton size="small" onClick={() => navigate('/settings')} sx={{ color: 'var(--theme-text-secondary)', '&:hover': { backgroundColor: 'var(--theme-hover)' } }}>
-              <SettingsIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           <Tooltip title="Syslog">

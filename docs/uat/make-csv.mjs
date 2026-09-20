@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Rewrites uat.csv from UAT.md, so the sheet has one source of truth.
+// Rewrites the CSV views from UAT.md, so the sheet has one source of truth.
 // The two files drifting is worse than having only one: a tester filling in the
 // spreadsheet would be running a different set of checks from the one under review.
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -24,6 +24,17 @@ for (const line of md.split('\n')) {
 }
 
 const quote = (v) => `"${String(v).replace(/"/g, '""')}"`;
-const csv = [HEADERS, ...rows].map((r) => r.map(quote).join(',')).join('\n') + '\n';
-writeFileSync(join(here, 'uat.csv'), csv);
-console.log(`uat.csv: ${rows.length} rows`);
+const writeCsv = (name, selectedRows) => {
+  const csv = [HEADERS, ...selectedRows]
+    .map((row) => row.map(quote).join(','))
+    .join('\n') + '\n';
+  writeFileSync(join(here, name), csv);
+  console.log(`${name}: ${selectedRows.length} rows`);
+};
+
+const priorityAt = HEADERS.indexOf('Priority');
+writeCsv('uat.csv', rows);
+writeCsv('uat-release.csv', rows.filter((row) =>
+  ['CRITICAL', 'HIGH'].includes(row[priorityAt])));
+writeCsv('uat-smoke.csv', rows.filter((row) =>
+  row[priorityAt] === 'CRITICAL'));

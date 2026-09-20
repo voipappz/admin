@@ -5,10 +5,71 @@ import FlagIcon from '@mui/icons-material/Flag';
 import DescriptionIcon from '@mui/icons-material/Description';
 import TuneIcon from '@mui/icons-material/Tune';
 import WidgetsIcon from '@mui/icons-material/Widgets';
+import FactCheckIcon from '@mui/icons-material/FactCheck';
+import DownloadIcon from '@mui/icons-material/Download';
 import RedisViewer from './RedisViewer.jsx';
 import FeatureFlags from './FeatureFlags.jsx';
 import SystemConfig from './SystemConfig.jsx';
 import AppConfig, { YamlView } from './AppConfig.jsx';
+import screenReviewUrl from '../../../docs/uat/UAT-screens.xlsx?url';
+import customerJourneyUrl from '../../../docs/uat/UAT-review.xlsx?url';
+import fullRegressionUrl from '../../../docs/uat/UAT-v2.xlsx?url';
+
+const UatDownloads = () => {
+  const files = [
+    {
+      label: 'Screen review',
+      detail: '37 simple usability checks, one per Admin or Portal screen.',
+      href: screenReviewUrl,
+      filename: 'Nimbus-UAT-screen-review.xlsx',
+    },
+    {
+      label: 'Customer journey',
+      detail: '10 checks from OTP sign-in through a registered phone and completed call.',
+      href: customerJourneyUrl,
+      filename: 'Nimbus-UAT-customer-journey.xlsx',
+    },
+    {
+      label: 'Full regression',
+      detail: 'The complete 128-check release regression workbook.',
+      href: fullRegressionUrl,
+      filename: 'Nimbus-UAT-full-regression.xlsx',
+    },
+  ];
+
+  return (
+    <Box>
+      <Typography variant="body2" sx={{ color: 'var(--theme-text-secondary)', mb: 2 }}>
+        Internal release acceptance sheets. Download a fresh copy before each review and fill in its results locally.
+      </Typography>
+      <Stack spacing={1.5}>
+        {files.map((file) => (
+          <Paper
+            key={file.filename}
+            variant="outlined"
+            sx={{ p: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}
+          >
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{file.label}</Typography>
+              <Typography variant="body2" sx={{ color: 'var(--theme-text-secondary)' }}>{file.detail}</Typography>
+            </Box>
+            <Button
+              component="a"
+              href={file.href}
+              download={file.filename}
+              size="small"
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              sx={{ flexShrink: 0, textTransform: 'none' }}
+            >
+              Download
+            </Button>
+          </Paper>
+        ))}
+      </Stack>
+    </Box>
+  );
+};
 
 const ProvisioningCatalog = () => (
   <Box>
@@ -61,6 +122,13 @@ const SECTIONS = [
     description: 'Browse and inspect Redis keys',
     icon: <StorageIcon fontSize="small" />,
     component: RedisViewer,
+  },
+  {
+    key: 'uat-downloads',
+    label: 'UAT Downloads',
+    description: 'Release review spreadsheets',
+    icon: <FactCheckIcon fontSize="small" />,
+    component: UatDownloads,
   },
 ];
 
