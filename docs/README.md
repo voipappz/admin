@@ -10,14 +10,19 @@ here.
 | [modules.md](modules.md) | Complete frontend and backend module inventory. |
 | [testing.md](testing.md) | Local tests, GitHub Actions coverage and live acceptance limits. |
 | [deployment.md](deployment.md) | Local production image and Kamal deployment workflow. |
+| [ionic-app.md](ionic-app.md) | The Ionic app: how it is bundled and served, what is decided, the phases left. |
 
 ## Core decisions
 
 - Calls, Reports, login and feature flags come from the voipappz-api
   mothership. This application does not duplicate that business logic.
-- The Elixir portal is the origin. It serves the SPA and `/ws/events`, and
-  forwards `/auth`, `/api/` and `/tasks/` to the mothership so the browser and
-  the Chrome extension only ever need one host.
+- The Elixir portal is the origin. It serves the Ionic app at `/app` and
+  `/ws/events`, and forwards `/auth`, `/api/` and `/tasks/` to the mothership
+  so the browser and the Chrome extension only ever need one host.
+- **The Ionic app is the only client the portal SERVES** — bundled into the
+  release, same origin as everything it calls. The Chrome extension is
+  compiled to a zip and downloaded from `/release`; Chrome runs it from an
+  unzipped folder. See [ionic-app.md](ionic-app.md).
 - The Chrome extension lives in `chrome/` and ships INSIDE the portal image.
   A node stage in `Dockerfile.production` builds it, stamps it with the
   portal's own `mix.exs` version, and the release serves it from `/release`.

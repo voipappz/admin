@@ -2,7 +2,11 @@ defmodule ConnectixWeb.ReleaseController do
   @moduledoc """
   The release page for THIS node, and the assets on it.
 
-  Today that is one asset: the Chrome extension.
+  Two assets today: the Chrome extension, and the Ionic app served at `/app`.
+
+  Both are built from the same commit this portal was, in their own node stages
+  (`Dockerfile.production`'s `extension` and `ionic`), so "which client goes
+  with this portal?" is answered by the page rather than by unpacking a zip.
 
   The extension posts to `/auth/user_login` here and opens its socket on
   `/ws/events` here, so the node it talks to is the only honest place to get it
@@ -55,7 +59,7 @@ defmodule ConnectixWeb.ReleaseController do
 
     conn
     |> put_resp_content_type("text/html")
-    |> send_resp(200, page(version, digest, size, name, origin(conn)))
+    |> send_resp(200, page(version, digest, size, name, origin(conn), app_section()))
   end
 
   @doc """
@@ -170,7 +174,7 @@ defmodule ConnectixWeb.ReleaseController do
   # no pipeline (see the router), so it has no root layout to render into — and
   # a download page that depends on the rest of the app rendering correctly is
   # exactly the page you cannot reach on the day you need it.
-  defp page(version, digest, size, name, origin) do
+  defp page(version, digest, size, name, origin, app_section) do
     {status, body} =
       if version do
         {"v#{version}",
@@ -240,7 +244,7 @@ defmodule ConnectixWeb.ReleaseController do
     <!DOCTYPE html>
     <html lang="en"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Chrome extension — #{status}</title>
+    <title>What this node ships</title>
     <style>
       :root { color-scheme: light dark; --fg:#111; --bg:#fff; --mut:#666; --line:#e3e3e3; --acc:#1a56db; --warnbg:#fff8e1; --warnln:#ffca28; }
       @media (prefers-color-scheme: dark) {
@@ -252,6 +256,7 @@ defmodule ConnectixWeb.ReleaseController do
       main { max-width: 46rem; margin: 0 auto; padding: 3rem 1.25rem 5rem; }
       h1 { font-size:1.7rem; margin:0 0 .25rem; letter-spacing:-.02em; }
       h2 { font-size:1.05rem; margin:2.25rem 0 .5rem; padding-top:1.25rem; border-top:1px solid var(--line); }
+      h3 { font-size:.98rem; margin:1.75rem 0 .5rem; }
       .sub { color:var(--mut); margin:0 0 2rem; }
       .dl { display:inline-block; background:var(--acc); color:#fff; text-decoration:none;
             padding:.7rem 1.15rem; border-radius:7px; font-weight:600; }
@@ -277,13 +282,70 @@ defmodule ConnectixWeb.ReleaseController do
       footer a { color:var(--acc); }
     </style></head>
     <body><main>
-      <h1>Chrome extension</h1>
-      <p class="sub">Screen pops, call state and agent availability — for this portal, #{status}.</p>
+      <h1>What this node ships</h1>
+      <p class="sub">Two clients, built from the same commit this portal was.
+      One is <b>served here</b>; the other is a <b>download</b> you install in Chrome.</p>
+      #{app_section}
+      <h2>Chrome extension <span class="note">— a download, not served</span></h2>
+      <p class="sub">Screen pops, call state and agent availability — #{status}.
+      Chrome runs it from a folder you unzip; nothing serves it at a URL.</p>
       #{download}
-      <h2>Install</h2>
+      <h3>Install</h3>
       #{body}
-      <footer>Built and served by this node. Machine-readable: <a href="/release/info">/extension/info</a></footer>
+      <footer>Built and served by this node. Machine-readable: <a href="/release/info">/release/info</a></footer>
     </main></body></html>
     """
   end
+
+  # THE IONIC APP — the second asset, and the reason this page is not titled
+  # after the extension any more. It needs no install instructions: it is
+  # served by this origin at /app, so the "download" is a link.
+  #
+  # Absence is reported rather than hidden. A release built without the `ionic`
+  # stage serves a 503 at /app, and this page is where someone looks to find
+  # out whether the bundle is in the image at all.
+  defp app_section do
+    case app_bundle() do
+      {files, bytes} ->
+        """
+        <h2>The app <span class="note">— served by this node</span></h2>
+        <p class="sub">The portal UI — calls, dashboard, the softphone. Inside this release, at
+        <code>/app</code>, same origin as the API and the socket. Nothing to install.</p>
+        <a class="dl" href="/app">Open the app</a>
+        <dl>
+          <dt>Build</dt><dd>#{build_sha() || "unknown"} <span class="note">— the commit this node was built from</span></dd>
+          <dt>Files</dt><dd>#{files} <span class="note">— including the pre-compressed copies</span></dd>
+          <dt>Size</dt><dd>#{bytes(bytes)}</dd>
+          <dt>Served at</dt><dd><code>/app</code></dd>
+        </dl>
+        """
+
+      :none ->
+        """
+        <h2>The app</h2>
+        <p class="warn">This image was built without the <code>ionic</code> stage, so <code>/app</code>
+        has nothing to serve and answers 503. Rebuild from <code>Dockerfile.production</code>, which
+        builds <code>ionic/</code> and copies the bundle into the release.</p>
+        """
+    end
+  end
+
+  # Counted rather than stored: a build manifest would be one more thing that
+  # can disagree with the directory beside it. This page is not on a hot path.
+  defp app_bundle do
+    dir = ConnectixWeb.AppController.bundle_dir()
+
+    if File.regular?(Path.join(dir, "index.html")) do
+      Path.wildcard(Path.join(dir, "**/*"))
+      |> Enum.reduce({0, 0}, fn path, {files, bytes} ->
+        case File.stat(path) do
+          {:ok, %{type: :regular, size: size}} -> {files + 1, bytes + size}
+          _directory_or_gone -> {files, bytes}
+        end
+      end)
+    else
+      :none
+    end
+  end
+
 end

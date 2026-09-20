@@ -9,20 +9,23 @@ runtime: one process, one port, serving the UI, the realtime socket and the
 API forwarder. The release image carries no node, no npm and no
 `node_modules`, and the React SPA this repo used to ship is gone.
 
-**Two clients are BUILT here, in node, and neither one runs here.** They are
-static artefacts the portal serves:
+**Two clients are BUILT here, in node, and they leave in different ways.**
 
-| | | |
-|---|---|---|
-| `chrome/` | Angular 11, node:20 | the Chrome extension — `make extension`, then Load unpacked from `chrome/angular/dist` |
-| `ionic/` | Angular 21 / Ionic 8 / Capacitor 6, node:22 | the app — `make app` bundles it into `connectix/priv/app`, served at **`/app`** |
+| | | | |
+|---|---|---|---|
+| `chrome/` | Angular 11, node:20 | `make extension` | **compiled to a zip.** Not served — `/release/download` hands over the archive, and Chrome runs it from a folder the user unzipped. |
+| `ionic/` | Angular 21 / Ionic 8 / Capacitor 6, node:22 | `make app` | **THE ONE THING THIS PORTAL SERVES.** Bundled into `connectix/priv/app` and served at **`/app`**, same-origin with `/auth`, `/api` and the socket. |
 
-Each has its own `package.json`, its own container and its own
-`node_modules` volume; node lives and dies in a build stage
-(`Dockerfile.production`'s `extension` and `ionic` stages) and the final image
-copies one zip and one directory out. "Pure BEAM" is a property of what
-**ships**, and it still holds — but "there is no node in this repo" stopped
-being true and was worth correcting rather than working around.
+The difference matters: the extension is a download, so a stale one can sit in
+somebody's folder for weeks; the app is inside the release, so deploying the
+portal deploys the UI and the two cannot drift.
+
+Each has its own `package.json`, its own container and its own `node_modules`
+volume; node lives and dies in a build stage (`Dockerfile.production`'s
+`extension` and `ionic` stages) and the final image copies one zip and one
+directory out. "Pure BEAM" is a property of what **ships**, and it still holds
+— but "there is no node in this repo" stopped being true and was worth
+correcting rather than working around.
 
 **VoipAppZ portal** — a VoIP/telecom portal for **users** — access is
 user-based (user → permissions → environments); no tenant model in the app.
