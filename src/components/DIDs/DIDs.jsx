@@ -49,7 +49,6 @@ import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext
 import { formatDate } from '../../utils/dateUtils';
 import { getEnabledChipProps, getTypeChipColor } from '../../utils/chipStyles';
 import useEnvironmentEdit from '../../hooks/useEnvironmentEdit';
-import { useEventCounts } from '../../hooks/useEventCounts';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import EnvironmentDialog from '../Environments/EnvironmentDialog/EnvironmentDialog';
 import './DIDs.css';

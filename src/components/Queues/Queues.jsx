@@ -46,7 +46,6 @@ import ImportCSVDialog from '../common/ImportCSVDialog/ImportCSVDialog';
 import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx';
 import { orEmpty, stripedTableRowSx } from '../shared/tableTheme.jsx';
 import useCentralizedSearch from '../../hooks/useCentralizedSearch';
-import { useEventCounts } from '../../hooks/useEventCounts';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import { formatDate } from '../../utils/dateUtils';
 import { getEnabledChipProps } from '../../utils/chipStyles';

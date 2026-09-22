@@ -59,7 +59,6 @@ import { getEnabledChipProps } from '../../utils/chipStyles';
 import { usePhoneContext } from '../../context/PhoneContext';
 import useEnvironmentEdit from '../../hooks/useEnvironmentEdit';
 import EnvironmentDialog from '../Environments/EnvironmentDialog/EnvironmentDialog';
-import { useEventCounts } from '../../hooks/useEventCounts';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';

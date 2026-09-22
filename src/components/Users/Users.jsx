@@ -33,7 +33,6 @@ import {
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useUsers } from './Users';
 import { usersApi } from '../../services/api/usersApi';
-import { useEventCounts } from '../../hooks/useEventCounts';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import { useNotification } from '../../context/NotificationContext';
 import { usePermissions } from '../../hooks/usePermissions';

@@ -38,7 +38,6 @@ import {
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSubscriptions } from './Subscriptions.js';
-import { useEventCounts } from '../../hooks/useEventCounts';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import SubscriptionDialog from './SubscriptionDialog/SubscriptionDialog';
