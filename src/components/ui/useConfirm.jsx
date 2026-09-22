@@ -42,10 +42,16 @@ export const ConfirmProvider = ({ children }) => {
   );
 };
 
-export const useConfirm = () => {
-  const confirm = useContext(ConfirmContext);
-  if (!confirm) throw new Error('useConfirm needs <ConfirmProvider> above it (App.jsx)');
-  return confirm;
+// Outside a provider (a component rendered on its own, as unit tests do) it
+// degrades to window.confirm with the same text, so behaviour — and any test
+// that stubs window.confirm — is unchanged there.
+const fallback = async (opts = {}) => {
+  const text = typeof opts.message === 'string' ? opts.message
+    : opts.entityName ? `${opts.title || 'Delete'} ${opts.entityName}?`
+    : opts.title || 'Are you sure?';
+  return window.confirm(text);
 };
+
+export const useConfirm = () => useContext(ConfirmContext) || fallback;
 
 export default useConfirm;

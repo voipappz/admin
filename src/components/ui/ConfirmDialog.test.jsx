@@ -58,9 +58,13 @@ describe('useConfirm', () => {
     await vi.waitFor(() => expect(results).toEqual([true, false]));
   });
 
-  it('throws without a provider', () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => render(<Probe onResult={() => {}} />)).toThrow(/ConfirmProvider/);
+  it('falls back to window.confirm without a provider', async () => {
+    const results = [];
+    const spy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<Probe onResult={(r) => results.push(r)} />);
+    fireEvent.click(screen.getByText('go'));
+    await vi.waitFor(() => expect(results).toEqual([true]));
+    expect(spy).toHaveBeenCalledWith('Remove it?');
     spy.mockRestore();
   });
 });

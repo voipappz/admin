@@ -53,6 +53,7 @@ import { TEMPLATE_TYPES } from '../../Templates/Templates.js';
 import { templatesApi } from '../../../services/api/templatesApi';
 import { snippetCategories, scriptTemplates } from './luaFreeSwitchCompletions.js';
 import { Z } from '../../../utils/zIndex.js';
+import { useConfirm } from '../../ui';
 
 /**
  * VMLBridge Component — FreeSWitch Lua IDE
@@ -75,6 +76,7 @@ export const VMLBridge = ({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onDrillDown
 }) => {
+  const confirm = useConfirm();
   const layer = zLayer || Z.L2;
   const { selectedEnvironments } = useCustomerEnvironment();
 
@@ -174,9 +176,10 @@ export const VMLBridge = ({
     }
   };
 
-  const handleApplyTemplate = (template) => {
+  const handleApplyTemplate = async (template) => {
     if (vmlContent && vmlContent.trim()) {
-      if (!window.confirm('Replace current editor content with this template?')) {
+      if (!(await confirm({ title: 'Replace editor content', confirmLabel: 'Replace',
+                             message: 'Replace current editor content with this template?' }))) {
         setTemplateAnchor(null);
         return;
       }
@@ -194,11 +197,12 @@ export const VMLBridge = ({
   const vmlChat = useVMLChat();
 
   // Insert last AI-generated code into the editor
-  const handleAiInsertCode = () => {
+  const handleAiInsertCode = async () => {
     const code = vmlChat.getLastAgentCode();
     if (!code) return;
     if (vmlContent && vmlContent.trim()) {
-      if (!window.confirm('Replace current editor content with generated code?')) return;
+      if (!(await confirm({ title: 'Replace editor content', confirmLabel: 'Replace',
+                             message: 'Replace current editor content with generated code?' }))) return;
     }
     setVMLContent(code);
     setAiDialogOpen(false);

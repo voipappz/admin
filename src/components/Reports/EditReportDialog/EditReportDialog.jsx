@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 import SqlQueryEditor from '../SqlQueryEditor/SqlQueryEditor';
 import { reportsApi } from '../../../services/api/reportsApi';
+import { useConfirm } from '../../ui';
 
 /**
  * EditReportDialog — edit a saved report: its identity, its SQL, and its
@@ -36,6 +37,7 @@ import { reportsApi } from '../../../services/api/reportsApi';
  * already enforces a single read-only SELECT server-side.
  */
 const EditReportDialog = ({ open, onClose, onSave, report, queries }) => {
+  const confirm = useConfirm();
   const [tabValue, setTabValue] = useState(0);
   const [name, setName] = useState('');
   const [type, setType] = useState('table');
@@ -207,12 +209,13 @@ const EditReportDialog = ({ open, onClose, onSave, report, queries }) => {
     }
   }, [name, type, enabled, notes, selectedQueryId, sqlQuery, rowLimit, timeoutMs, cacheTtl, report, onSave, onClose]);
 
-  const handleClose = useCallback(() => {
-    if (isDirty && !window.confirm('Discard your unsaved changes to this report?')) return;
+  const handleClose = useCallback(async () => {
+    if (isDirty && !(await confirm({ title: 'Discard changes', confirmLabel: 'Discard', description: null,
+                                     message: 'Discard your unsaved changes to this report?' }))) return;
     setError(null);
     setSnapshot(null);
     onClose?.();
-  }, [isDirty, onClose]);
+  }, [confirm, isDirty, onClose]);
 
   const resolvedRows = [
     { label: 'Columns', items: resolved.fields, hint: 'selected by the query' },

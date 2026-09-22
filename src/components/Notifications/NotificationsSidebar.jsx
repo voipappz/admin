@@ -18,6 +18,7 @@ import PlaylistRemoveIcon from '@mui/icons-material/PlaylistRemove';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useNotifications } from './useNotifications';
 import NotificationPanel from './NotificationPanel/NotificationPanel';
+import { useConfirm } from '../ui';
 
 const FILTERS = ['all', 'unread', 'critical', 'error', 'warning', 'info'];
 
@@ -27,6 +28,7 @@ const FILTERS = ['all', 'unread', 'critical', 'error', 'warning', 'info'];
  * useNotifications hook + NotificationPanel detail view as the full page.
  */
 const NotificationsSidebar = () => {
+  const confirm = useConfirm();
   const {
     notifications, loading, error,
     markAsRead, deleteNotification, clearAllNotifications, refreshNotifications,
@@ -120,8 +122,9 @@ const NotificationsSidebar = () => {
               size="small"
               color="error"
               disabled={loading || notifications.length === 0}
-              onClick={() => {
-                if (window.confirm(`Delete all ${totalCount} notifications? This cannot be undone.`)) {
+              onClick={async () => {
+                if (await confirm({ title: 'Delete all notifications', confirmLabel: 'Delete all',
+                                    message: `Delete all ${totalCount} notifications?` })) {
                   clearAllNotifications(false);
                 }
               }}
