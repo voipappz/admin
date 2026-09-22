@@ -30,6 +30,7 @@ import {
   ContentCopy as DuplicateIcon,
   EventNote as EventsIcon
 } from '@mui/icons-material';
+import { ConfirmDialog } from '../ui';
 import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router';
@@ -53,41 +54,6 @@ import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import EnvironmentDialog from '../Environments/EnvironmentDialog/EnvironmentDialog';
 import './DIDs.css';
 
-
-/**
- * DeleteConfirmDialog Component
- * Confirmation dialog for deleting DIDs
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, did, loading }) => {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Delete DID</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete DID{' '}
-          <strong>{did?.number}</strong>?
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          This action cannot be undone and will affect call routing.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          onClick={onConfirm}
-          variant="contained"
-          color="error"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
 
 /**
  * DIDs Component
@@ -691,12 +657,15 @@ const DIDs = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteDID}
-        did={didToDelete}
         loading={loading}
+        title="Delete DID"
+        message={<Typography>Are you sure you want to delete DID{' '}
+          <strong>{(didToDelete)?.number}</strong>?</Typography>}
+        description="This action cannot be undone and will affect call routing."
       />
 
       {/* Duplicate DID Dialog */}

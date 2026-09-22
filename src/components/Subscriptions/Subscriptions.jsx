@@ -37,6 +37,7 @@ import {
   AccountBalanceWallet as AccountBalanceWalletIcon,
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { ConfirmDialog } from '../ui';
 import { useSubscriptions } from './Subscriptions.js';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -57,41 +58,6 @@ import { getEnabledChipProps, getStatusChipProps } from '../../utils/chipStyles'
 import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';
 import './Subscriptions.css';
-
-/**
- * DeleteConfirmDialog Component
- * Confirmation dialog for deleting subscriptions
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, subscription, loading }) => {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Delete Subscription</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete subscription{' '}
-          <strong>{subscription?.name}</strong>?
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          This action cannot be undone and will affect billing.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          onClick={onConfirm}
-          variant="contained"
-          color="error"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
 
 /**
  * ActionConfirmDialog Component
@@ -875,12 +841,15 @@ const Subscriptions = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteSubscription}
-        subscription={subscriptionToDelete}
         loading={dialogLoading}
+        title="Delete Subscription"
+        message={<Typography>Are you sure you want to delete subscription{' '}
+          <strong>{(subscriptionToDelete)?.name}</strong>?</Typography>}
+        description="This action cannot be undone and will affect billing."
       />
 
       {/* Action Confirmation Dialog */}

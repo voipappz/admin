@@ -29,6 +29,7 @@ import {
   Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { ConfirmDialog } from '../ui';
 import { useAccounts } from './useAccounts';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
@@ -42,42 +43,6 @@ import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
 import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';
 import CopyableEmail from '../common/CopyableEmail/CopyableEmail.jsx';
-
-/**
- * DeleteConfirmDialog Component
- * Confirmation dialog for deleting accounts
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, account, loading }) => {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Delete Account</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete account{' '}
-          <strong>{account?.name}</strong>?
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          This action cannot be undone and will remove all account data.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          data-testid="confirm-delete-button"
-          onClick={onConfirm}
-          variant="contained"
-          color="error"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
 
 /**
  * Accounts Component
@@ -456,12 +421,15 @@ const Accounts = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteAccount}
-        account={accountToDelete}
         loading={dialogLoading}
+        title="Delete Account"
+        message={<Typography>Are you sure you want to delete account{' '}
+          <strong>{(accountToDelete)?.name}</strong>?</Typography>}
+        description="This action cannot be undone and will remove all account data."
       />
     </Box>
   );

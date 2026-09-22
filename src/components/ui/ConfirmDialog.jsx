@@ -45,6 +45,7 @@ const ConfirmDialog = ({
   destructive = true,
   loading = false,
   children,
+  'data-testid': testId,
 }) => {
   const id = useId();
   const titleId = `${id}-title`;
@@ -70,6 +71,7 @@ const ConfirmDialog = ({
       onKeyDown={onKeyDown}
       maxWidth="xs"
       fullWidth
+      data-testid={testId}
       aria-labelledby={titleId}
       aria-describedby={descId}
     >

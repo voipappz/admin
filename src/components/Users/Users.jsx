@@ -31,6 +31,7 @@ import {
   Add as AddIcon
 } from '@mui/icons-material';
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { ConfirmDialog } from '../ui';
 import { useUsers } from './Users';
 import { usersApi } from '../../services/api/usersApi';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
@@ -56,42 +57,6 @@ import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';
 import './Users.css';
 import CopyableEmail from '../common/CopyableEmail/CopyableEmail.jsx';
-
-/**
- * DeleteConfirmDialog Component
- * Confirmation dialog for deleting users
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, user, loading }) => {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Delete User</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete user{' '}
-          <strong>{user?.name}</strong>?
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          This action cannot be undone and will remove all user data.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          data-testid="confirm-delete-button"
-          onClick={onConfirm}
-          variant="contained"
-          color="error"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
 
 /**
  * Users Component
@@ -561,12 +526,15 @@ const Users = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteUser}
-        user={userToDelete}
         loading={dialogLoading}
+        title="Delete User"
+        message={<Typography>Are you sure you want to delete user{' '}
+          <strong>{(userToDelete)?.name}</strong>?</Typography>}
+        description="This action cannot be undone and will remove all user data."
       />
 
       {/* Duplicate User Dialog */}
