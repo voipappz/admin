@@ -1,84 +1,61 @@
 import { Injectable } from '@angular/core';
-import { Observable,of, Subject } from 'rxjs';
-import { tap } from 'rxjs/operators';
-import { WebsocketService } from './action-cable.service';
+import { Observable } from 'rxjs';
 import { HandleRequest } from './handleRequest.service';
+import { AdminService } from './admin.service';
 import { NumberEntity } from '../models/number.model';
 
+/**
+ * Numbers — the connectix box's own `/api/admin/numbers`.
+ *
+ * A number here is: the digits, a note, and the bot that answers it. The
+ * mothership's bridge/destination tree has no local equivalent, so it is not
+ * sent. Reads degrade to empty (AdminService); writes surface their error.
+ */
 @Injectable({
     providedIn: 'root'
 })
 export class NumberService {
-    constructor(private handleRequest:HandleRequest, private ws:WebsocketService,) {
+    constructor(private handleRequest: HandleRequest, private admin: AdminService) {}
 
-    }
-
-    public getAll(): Observable<any> {
-        return this.handleRequest.get("/api/numbers?page=1&per_page=100&order_by=created_at&order_type=desc");
-    }
-
-    public get(): Observable<any> {
-        return this.handleRequest.get("/api/numbers?page=1&per_page=20&order_by=created_at&order_type=desc")
-        //   .map(res => res.json())
-            // .toPromise();
+    /** All numbers, newest first. */
+    public getAll(): Observable<NumberEntity[]> {
+        return this.admin.list<NumberEntity>('numbers', { limit: 100 });
     }
 
-    public getOne(uuid: string): Observable<NumberEntity> {
-        return this.handleRequest.get("/api/numbers/" + uuid + "?action=load");
+    /** First page of numbers. */
+    public get(): Observable<NumberEntity[]> {
+        return this.admin.list<NumberEntity>('numbers', { limit: 20 });
     }
 
-    public update(uuid,data): Observable<any>{
-      return this.handleRequest.patch("/api/numbers/"+uuid, data)
+    public getOne(uuid: string): Observable<NumberEntity | null> {
+        return this.admin.get<NumberEntity>('numbers', uuid);
     }
 
-    public create(data): Observable<any>{
-      return this.handleRequest.post("/api/numbers", data)
+    public update(uuid: string, data: Partial<NumberEntity>): Observable<NumberEntity> {
+        return this.admin.update<NumberEntity>('numbers', uuid, data);
     }
 
-    public delete(uuid: string): Observable<any> {
-        return this.handleRequest.delete("/api/numbers/" + uuid, {});
-    }
-    public getUuids(type):Observable<any>{
-      return this.handleRequest.get("/api/"+type+'s')
-    }
-    public getNumber(uuid):Observable<any>{
-      return this.handleRequest.get("/api/numbers/"+uuid)
-    }
-    public getParams(): Promise<any> {
-      return this.handleRequest.get("/api/calls?action=params")
-      //   .map(res => res.json())
-          .toPromise();
-    }
-    public saveParams(params): Observable<any>{
-      return this.handleRequest.patch("/api/calls?action=save_params", params)
+    public create(data: Partial<NumberEntity>): Observable<NumberEntity> {
+        return this.admin.create<NumberEntity>('numbers', data);
     }
 
-    public getSegments(): Promise<any> {
-      return this.handleRequest.get("/api/calls?action=segments")
-      //   .map(res => res.json())
-          .toPromise();
+    public delete(uuid: string): Observable<boolean> {
+        return this.admin.delete('numbers', uuid);
     }
-    getPage(page,filter:any={}): Observable<any>{
-        return this.handleRequest.getPage("/api/calls?page="+page, filter,{})
-        // .toPromise();
-      }
-    public getColumns(): Observable<any> {
-        return this.handleRequest.get("/api/calls?action=columns")
+
+    public getByUuid(uuid: string): Observable<NumberEntity | null> {
+        return this.getOne(uuid);
     }
-    public getByUuid(uuid:string): Observable<any> {
-      return this.handleRequest.get("/api/numbers/"+uuid+'?action=load')
-      //   .map(res => res.json())
-          // .toPromise();
+
+    public getNumber(uuid: string): Observable<NumberEntity | null> {
+        return this.getOne(uuid);
     }
-    public run(uuid:string): Observable<any> {
-      return this.handleRequest.get("/api/calls/"+uuid+'?action=run')
-      //   .map(res => res.json())
-          // .toPromise();
+
+    /**
+     * Legacy mothership lookup (`/api/<type>s`) still used by the locations page
+     * for entity pickers the local box does not model.
+     */
+    public getUuids(type: string): Observable<any> {
+        return this.handleRequest.get('/api/' + type + 's');
     }
-    public export(filters={}): Observable<any> {
-      return this.handleRequest.getWithParams("/api/calls?action=export", filters)
-      //   .map(res => res.json())
-          // .toPromise();
-    }
-  
 }

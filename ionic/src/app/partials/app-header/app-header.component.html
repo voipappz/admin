@@ -6,9 +6,6 @@
         <ion-avatar>
           <div class="avatar-circle">{{getUserInitial()}}</div>
         </ion-avatar>
-        @if (unreadNotifications > 0) {
-          <span class="avatar-dot" aria-hidden="true"></span>
-        }
       </ion-button>
     </ion-buttons>
 
@@ -48,28 +45,11 @@
             </ion-label>
           </ion-item>
 
-          <!-- Notifications -->
-          <ion-item button (click)="showNotifications()">
-            <ion-icon slot="start" name="notifications-outline"></ion-icon>
-            <ion-label>{{'NOTIFICATIONS.TITLE' | translate}}</ion-label>
-            @if (unreadNotifications > 0) {
-              <ion-badge color="danger" slot="end">{{unreadNotifications}}</ion-badge>
-            }
-          </ion-item>
-
           <!-- Dark / light mode -->
           <ion-item button (click)="toggleDarkMode()">
             <ion-icon slot="start" [name]="darkMode ? 'sunny-outline' : 'moon-outline'"></ion-icon>
             <ion-label>{{(darkMode ? 'COMMON.LIGHT_MODE' : 'COMMON.DARK_MODE') | translate}}</ion-label>
           </ion-item>
-
-          <!-- Identities -->
-          @if (canGo('identities')) {
-            <ion-item button (click)="openIdentities()">
-              <ion-icon slot="start" name="id-card-outline"></ion-icon>
-              <ion-label>{{'IDENTITIES.TITLE' | translate}}</ion-label>
-            </ion-item>
-          }
 
           <!-- Locations -->
           @if (canGo('locations')) {
@@ -87,13 +67,11 @@
             </ion-item>
           }
 
-          <!-- Conferences -->
-          @if (canGo('conferences')) {
-            <ion-item button (click)="openConference()">
-              <ion-icon slot="start" name="people-outline"></ion-icon>
-              <ion-label>{{'CONFERENCE.TITLE' | translate}}</ion-label>
-            </ion-item>
-          }
+          <!-- Bots (connectix box's own resources — no mothership ACL gates it) -->
+          <ion-item button (click)="openBots()">
+            <ion-icon slot="start" name="sparkles-outline"></ion-icon>
+            <ion-label>{{'BOT.TITLE' | translate}}</ion-label>
+          </ion-item>
 
           <!-- Language -->
           <ion-item button (click)="toggleLanguage()">
@@ -101,33 +79,11 @@
             <ion-label>{{getCurrentLanguage() === 'he' ? 'English' : 'עברית'}}</ion-label>
           </ion-item>
 
-          <!-- Take a tour -->
-          <ion-item button (click)="openTour()">
-            <ion-icon slot="start" name="sparkles-outline"></ion-icon>
-            <ion-label>{{'ONBOARDING.TOUR' | translate}}</ion-label>
-          </ion-item>
-
           <!-- Help & Support -->
           <ion-item button (click)="openSupport()">
             <ion-icon slot="start" name="help-buoy-outline"></ion-icon>
             <ion-label>{{'ONBOARDING.SUPPORT' | translate}}</ion-label>
           </ion-item>
-
-          <!-- Reports -->
-          @if (canGo('reports')) {
-            <ion-item button (click)="openReports()">
-              <ion-icon slot="start" name="bar-chart-outline"></ion-icon>
-              <ion-label>{{'REPORTS.TITLE' | translate}}</ion-label>
-            </ion-item>
-          }
-
-          <!-- System logs -->
-          @if (canGo('syslog')) {
-            <ion-item button (click)="openSyslog()">
-              <ion-icon slot="start" name="document-text-outline"></ion-icon>
-              <ion-label>{{'SYSLOG.TITLE' | translate}}</ion-label>
-            </ion-item>
-          }
 
           <!-- Logout -->
           <ion-item button (click)="logout()">

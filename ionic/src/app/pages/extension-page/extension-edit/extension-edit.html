@@ -44,15 +44,38 @@
 
 <ion-content class="ion-padding">
     <ion-list>
-        <!-- Name -->
+        <!-- SIP username (the extension itself, e.g. 9001) -->
         <ion-item>
             <ion-input
-                [(ngModel)]="formData.name"
-                [label]="'EXTENSION.FIELDS.NAME' | translate"
+                [(ngModel)]="formData.username"
+                [label]="'EXTENSION.FIELDS.USERNAME' | translate"
                 labelPlacement="stacked"
-                [placeholder]="'EXTENSION.PLACEHOLDERS.NAME' | translate"
+                [placeholder]="'EXTENSION.PLACEHOLDERS.USERNAME' | translate"
                 (ionInput)="onNameChange()"
                 required>
+            </ion-input>
+        </ion-item>
+
+        <!-- Display name -->
+        <ion-item>
+            <ion-input
+                [(ngModel)]="formData.display_name"
+                [label]="'EXTENSION.FIELDS.DISPLAY_NAME' | translate"
+                labelPlacement="stacked"
+                [placeholder]="'EXTENSION.PLACEHOLDERS.DISPLAY_NAME' | translate">
+            </ion-input>
+        </ion-item>
+
+        <!-- Password (write-only: blank on edit means "keep the stored one") -->
+        <ion-item>
+            <ion-input
+                [(ngModel)]="formData.password"
+                [label]="'EXTENSION.FIELDS.PASSWORD' | translate"
+                labelPlacement="stacked"
+                [placeholder]="(isNew ? 'EXTENSION.PLACEHOLDERS.PASSWORD' : 'EXTENSION.PLACEHOLDERS.PASSWORD_KEEP') | translate"
+                (ionInput)="onNameChange()"
+                type="password"
+                autocomplete="new-password">
             </ion-input>
         </ion-item>
 
@@ -63,18 +86,20 @@
             </ion-toggle>
         </ion-item>
 
-        <!-- Notes -->
+        <!-- Does the box REGISTER this account itself? -->
         <ion-item>
-            <ion-textarea
-                [(ngModel)]="formData.notes"
-                [label]="'EXTENSION.FIELDS.NOTES' | translate"
-                labelPlacement="stacked"
-                [placeholder]="'EXTENSION.PLACEHOLDERS.NOTES' | translate"
-                [autoGrow]="true"
-                [rows]="3">
-            </ion-textarea>
+            <ion-toggle [(ngModel)]="formData['register?']" justify="space-between">
+                {{'EXTENSION.FIELDS.REGISTER' | translate}}
+            </ion-toggle>
         </ion-item>
     </ion-list>
+
+    @if (saveError) {
+        <ion-item color="danger">
+            <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
+            <ion-label class="ion-text-wrap">{{saveError}}</ion-label>
+        </ion-item>
+    }
 
     <!-- Save Button (for non-modal mode) -->
     @if (!isModal) {

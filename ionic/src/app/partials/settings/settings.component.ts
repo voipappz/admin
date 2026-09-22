@@ -6,7 +6,6 @@ import { Events } from '../../core/providers/events';
 
 
 import { IonModal, ModalController, PopoverController } from '@ionic/angular';
-import { IdentitiesPage } from '../../pages/identities-page/identities-page';
 import { LocationsPage } from '../../pages/locations-page/locations-page';
 
 @Component({
@@ -52,26 +51,10 @@ export class SettingsComponent {
       this.languageChanged({detail:{value:data.data}})
     }else if(data.role=='logout'){
       this.logout()
-    }else if(data.role=='identities'){
-      this.openIdentities()
     }else if(data.role=='locations'){
       this.openLocations()
     }
 
-  }
-  async openIdentities(){
-    const modal = await this.modalCtrl.create({
-      component: IdentitiesPage,
-      componentProps: {
-        
-      },
-    });
-    modal.present();
-    const { data, role } = await modal.onWillDismiss();
-    if (role === 'save') {
-      console.log("save",data, role)
-      
-    }
   }
   async openLocations(){
     const modal = await this.modalCtrl.create({

@@ -16,7 +16,6 @@ import { MyErrorHandler } from "./core/providers/handleError"
 import { HandleRequest } from './core/_base/layout/services/handleRequest.service';
 import { WebsocketProvider } from "./core/providers/websocket"
 import { AuthTokenStatus } from './core/providers/authentication/authTokenStatus';
-import { AudioCallService } from './core/providers/audio-call.service';
 import { CallService } from './core/_base/layout/services/call.service';
 import { PartialsModule } from './partials/partials.module';
 import { TranslateModule } from '@ngx-translate/core';
@@ -24,6 +23,7 @@ import { PipesModule } from './core/_base/layout/pipes/pipes-module';
 import { InterceptService } from './core/_base/crud/intercept.service';
 import { PhoneProvider } from './core/providers/phone/phone';
 import { WebRTCPhone } from './core/providers/phone/webrtc-phone';
+import { WebRTCChannelPhone } from './core/providers/phone/webrtc-channel-phone';
 import { ApiPhone } from './core/providers/phone/api-phone';
 
 declare var CONFIG:any;
@@ -48,10 +48,11 @@ export function AuthTokenStatusFactory(provider: AuthTokenStatus) {
         HandleRequest, AuthTokenStatus,
         AuthenticationService,
         { provide: ErrorHandler, useClass: MyErrorHandler },
-        WebsocketProvider, AudioCallService,
+        WebsocketProvider,
         CallService,
         PhoneProvider,
         WebRTCPhone,
+        WebRTCChannelPhone,
         ApiPhone,
         {
             provide: APP_INITIALIZER,

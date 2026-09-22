@@ -7,10 +7,21 @@ import { HandleRequest } from '../../_base/layout/services/handleRequest.service
 import { UserData } from '../user-data';
 import { ApiPhone } from './api-phone';
 import { WebRTCPhone } from './webrtc-phone';
+import { WebRTCChannelPhone } from './webrtc-channel-phone';
 
 @Injectable()
 export class PhoneProvider {
   private phone_mode: string = 'api';
+  /**
+   * Which WebRTC transport is behind `phone_mode === 'webrtc'`:
+   *   'channel' — connectix: WebRTC terminated in the BEAM, signalled over the
+   *               `/agent` Phoenix socket (`phone:<extension>`). The default.
+   *   'sip'     — legacy sip.js over SIP-WebSocket; needs a tenant that
+   *               actually supplies SIP creds + a `wss_server`.
+   * `phone_mode` itself stays 'webrtc'/'api' so the UI and the mode toggle are
+   * unchanged — this is a transport swap, not a new mode.
+   */
+  private transport: string = 'none';
   private phoneSvc: any;
   private last_call_event;
   private initialized: boolean = false;
@@ -21,15 +32,21 @@ export class PhoneProvider {
     public handleRequest: HandleRequest,
     private userData: UserData,
     private api_phone_svc: ApiPhone,
-    private webrtc_phone_svc: WebRTCPhone
+    private webrtc_phone_svc: WebRTCPhone,
+    private channel_phone_svc: WebRTCChannelPhone
   ) {
     this.phoneSvc = this.api_phone_svc;
   }
 
   /**
    * Initialize phone service. Safe to call multiple times.
-   * Checks if user has extension data and starts WebRTC if available.
-   * @returns true if WebRTC mode activated, false if using API mode
+   *
+   * Transport order: connectix channel first (it only needs the session token
+   * the app already holds — no SIP domain, no wss_server, because connectix
+   * supplies neither and needs neither), then the legacy sip.js phone for
+   * tenants that DO ship SIP credentials, then server-side API control.
+   *
+   * @returns true if a WebRTC transport activated, false if using API mode
    */
   init(): boolean {
     console.log('[Phone] init() called, initialized:', this.initialized);
@@ -38,41 +55,57 @@ export class PhoneProvider {
     const savedMode = localStorage.getItem('phone_mode');
     if (savedMode === 'api') {
       console.log('[Phone] Saved preference: API mode');
-      this.phone_mode = 'api';
-      this.phoneSvc = this.api_phone_svc;
-      this.events.publish('phone:mode-changed', { mode: 'api' });
-      return false;
+      return this.useApi();
     }
 
-    // Check if user has extension data
+    // 1. connectix WebRTC-over-Phoenix-channel (the box's own transport).
+    const channelStarted = this.channel_phone_svc.start(!this.initialized);
+    if (channelStarted) {
+      console.log('[Phone] WebRTC mode activated (connectix channel transport)');
+      this.initialized = true;
+      this.transport = 'channel';
+      this.phone_mode = 'webrtc';
+      this.phoneSvc = this.channel_phone_svc;
+      this.events.publish('phone:mode-changed', { mode: 'webrtc', transport: 'channel' });
+      return true;
+    }
+
+    // 2. Legacy sip.js softphone — only for tenants that ship SIP credentials.
     const user = this.userData.getUserData();
     const extension = user?.extension;
 
     if (!extension?.username || !extension?.password) {
-      console.log('[Phone] No extension data, using API mode');
-      this.phone_mode = 'api';
-      this.phoneSvc = this.api_phone_svc;
-      this.events.publish('phone:mode-changed', { mode: 'api' });
-      return false;
+      console.log('[Phone] No channel transport and no SIP extension data, using API mode');
+      return this.useApi();
     }
 
-    // Start WebRTC phone
     const webrtcStarted = this.webrtc_phone_svc.start(!this.initialized);
     this.initialized = true;
 
     if (webrtcStarted) {
-      console.log('[Phone] WebRTC mode activated');
+      console.log('[Phone] WebRTC mode activated (sip.js transport)');
+      this.transport = 'sip';
       this.phone_mode = 'webrtc';
       this.phoneSvc = this.webrtc_phone_svc;
-      this.events.publish('phone:mode-changed', { mode: 'webrtc' });
+      this.events.publish('phone:mode-changed', { mode: 'webrtc', transport: 'sip' });
       return true;
-    } else {
-      console.log('[Phone] WebRTC start failed, using API mode');
-      this.phone_mode = 'api';
-      this.phoneSvc = this.api_phone_svc;
-      this.events.publish('phone:mode-changed', { mode: 'api' });
-      return false;
     }
+
+    console.log('[Phone] WebRTC start failed, using API mode');
+    return this.useApi();
+  }
+
+  private useApi(): boolean {
+    this.phone_mode = 'api';
+    this.transport = 'none';
+    this.phoneSvc = this.api_phone_svc;
+    this.events.publish('phone:mode-changed', { mode: 'api' });
+    return false;
+  }
+
+  /** Which WebRTC transport is live: 'channel' | 'sip' | 'none'. */
+  getTransport(): string {
+    return this.transport;
   }
   outgoingCallSetUuid(uuid){
     if( this.phone_mode=='webrtc') this.phoneSvc.outgoingCallSetUuid(uuid);

@@ -138,6 +138,36 @@ export class HandleRequest {
         return throwError(error.message || 'server Error');
       }))
   }
+  /*********************
+  *
+  *   JSON CRUD (connectix local /api/admin)
+  *
+  * The mothership API takes form-urlencoded bodies (see post/patch above); the
+  * local connectix Ash/Mnesia admin API reads its own JSON body
+  * (ConnectixWeb.AdminApiPlug -> ApiJson.read_json/1) and ignores anything
+  * else, so it needs a JSON-bodied sibling of the CRUD verbs. Same base URL,
+  * same auth header — one HTTP layer, two content types.
+  *
+  * These deliberately do NOT run handleErrors: the local API is optional, and
+  * a missing/older box must degrade quietly (see AdminService) rather than
+  * toast on every page load.
+  *********************/
+  private jsonHeaders() {
+    return { ...this.getAuthHeader(), ...{ 'Content-Type': 'application/json' } };
+  }
+  getJson(url: string): Observable<any> {
+    return this.http.get(CONFIG.API_ENDPOINT + url, { headers: this.getAuthHeader() });
+  }
+  postJson(url: string, body: any): Observable<any> {
+    return this.http.post(CONFIG.API_ENDPOINT + url, body, { headers: this.jsonHeaders() });
+  }
+  patchJson(url: string, body: any): Observable<any> {
+    return this.http.patch(CONFIG.API_ENDPOINT + url, body, { headers: this.jsonHeaders() });
+  }
+  deleteJson(url: string): Observable<any> {
+    return this.http.delete(CONFIG.API_ENDPOINT + url, { headers: this.jsonHeaders() });
+  }
+
   getCustomerData(){
     return JSON.parse(localStorage.getItem(environment.customerDataKey));
   }

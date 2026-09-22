@@ -21,9 +21,14 @@ const target = process.env.PORTAL || 'http://localhost:4001';
 //   /api       forwarded to the engine, plus the portal's own /api/events etc
 //   /tasks     forwarded to the engine (customer_portal_data on every login)
 //   /ws        the realtime socket — needs ws: true or it 400s on the upgrade
+//   /agent     the Phoenix socket the app's websocket providers and the
+//              channel phone open (webrtc-channel-phone.ts). Carried over from
+//              ~/voipappz/mobile's proxy; this portal does not serve it YET, so
+//              in dev it fails exactly as it does at /app — but it fails at the
+//              portal, where the fix will land, not at the dev server.
 //   /release   what this node ships (version, the extension zip, this bundle)
 //   /health    so a dev page can show the same status the monitor sees
-const paths = ['/auth', '/api', '/tasks', '/ws', '/release', '/health'];
+const paths = ['/auth', '/api', '/tasks', '/ws', '/agent', '/release', '/health'];
 
 module.exports = paths.reduce((config, path) => {
   config[path] = {
@@ -33,7 +38,7 @@ module.exports = paths.reduce((config, path) => {
     // The socket is at /ws/events. Without this the handshake is proxied as a
     // plain GET and answered 400, which surfaces in the app as a socket that
     // retries forever with no error message worth reading.
-    ws: path === '/ws',
+    ws: path === '/ws' || path === '/agent',
     logLevel: 'warn',
   };
   return config;

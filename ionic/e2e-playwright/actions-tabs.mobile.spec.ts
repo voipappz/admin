@@ -62,27 +62,23 @@ test.describe('Actions — mobile', () => {
 });
 
 test.describe('Bottom tabs — mobile', () => {
-  test('all three tabs render and navigate', async ({ page }) => {
+  test('both tabs render and navigate', async ({ page }) => {
     await stubAuth(page);
     await stubApi(page, '**/api/dids**', singleDid);
     await stubApi(page, '**/api/queues/q1**', fakeQueue);
-    await stubApi(page, '**/api/dashboards**', []);
-    await gotoApp(page, '/app/dashboard', 500);
+    await gotoApp(page, '/app/calls', 500);
     await page.waitForSelector('ion-tab-bar ion-tab-button', { state: 'visible', timeout: 60000 });
 
     const tabs = page.locator('ion-tab-bar ion-tab-button');
-    await expect(tabs).toHaveCount(3);
+    await expect(tabs).toHaveCount(2);
 
-    await tabs.nth(1).click(); // Calls
+    await tabs.nth(0).click(); // Calls
     await expect(page).toHaveURL(/\/app\/calls/, { timeout: 20000 });
     await expect(page.locator('app-header ion-searchbar')).toBeVisible({ timeout: 20000 });
 
-    await tabs.nth(2).click(); // Actions
+    await tabs.nth(1).click(); // Actions
     await expect(page).toHaveURL(/\/app\/actions/, { timeout: 20000 });
     await expect(page.locator('page-actions h2', { hasText: '+233308013883' })).toBeVisible({ timeout: 20000 });
-
-    await tabs.nth(0).click(); // Dashboard
-    await expect(page).toHaveURL(/\/app\/dashboard/, { timeout: 20000 });
   });
 
   test('phone panel opens from the right and dialpad is usable', async ({ page }) => {

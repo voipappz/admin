@@ -1,88 +1,103 @@
 import { Injectable } from '@angular/core';
-import { Observable,of, Subject } from 'rxjs';
-import { tap } from 'rxjs/operators';
-import { WebsocketService } from './action-cable.service';
-import { HandleRequest } from './handleRequest.service';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+import { AdminService, AdminRow } from './admin.service';
 
+/** One row of the box's call log, plus the `meta` the list template renders. */
+export interface CallLogEntry extends AdminRow {
+    sid?: string;
+    from_number?: string;
+    to_number?: string;
+    /** "inbound" | "outbound" | "webrtc" as written by the projector. */
+    direction?: string;
+    /** "ringing" | "answered" | "ended". */
+    status?: string;
+    hangup_cause?: string;
+    started_at?: string;
+    answered_at?: string;
+    ended_at?: string;
+    meta?: {
+        _direction: 'incoming' | 'outgoing' | 'missed';
+        _contact_number: string;
+        _contact_fullname: string;
+        _duration: string;
+        _blacklisted: boolean;
+    };
+}
+
+const PAGE_SIZE = 20;
+
+/**
+ * The call log — the connectix box's own `/api/admin/calls`, which is READ-ONLY
+ * (the projector writes it; the API answers 405 to any mutation).
+ *
+ * Everything the mothership call API offered on top of a list — server-side
+ * search/segments/columns/export, blacklisting, per-call "run" — has no local
+ * equivalent, so those methods are gone rather than sending params the box
+ * ignores. Type filtering is done client-side in the page, off `meta._direction`.
+ */
 @Injectable()
 export class CallService {
-    constructor(private handleRequest:HandleRequest, private ws:WebsocketService,) {
+    constructor(private admin: AdminService) {}
 
+    /**
+     * One page of calls, newest first, in the `{ body: rows }` envelope the
+     * existing consumers already unwrap. Rows carry a `meta` block built from
+     * the local fields.
+     */
+    getPage(page: number = 1, _filter: any = {}): Observable<{ body: CallLogEntry[] }> {
+        const offset = Math.max(0, (page - 1)) * PAGE_SIZE;
+        return this.admin.list<CallLogEntry>('calls', { limit: PAGE_SIZE, offset }).pipe(
+            map((rows) => ({ body: rows.map((row) => CallService.decorate(row)) }))
+        );
     }
-    private _colFieldToSegmentName = {
-      "call.created_at": '',
-      "call.environment_name":"environment_uuid",
-      "call.direction": "direction",
-      "call.type": "",
-      "call.leg_a_type":"",
-      "call.leg_b_type":"",
-      "call.caller_id_number":"caller_id_number",
-      "call.duration":"duration",
-      "call.billsec_duration":"billing_duration",
-      "call.cause":"cause",
-      "call.sip_provider_name":"",
-      "call.user_username": "user_uuid",
-      "call.campaign_name":"campaign_uuid",
-      "call.status":"",
-      "call.comment":"",
-      "call.amd":"",
-      "call.disposition":"disposition",
-      "call.sip_provider_disposition":"",
-      "call.sip_provider_status":"",
-      "call.hangup_disposition":"",
-      "call.contact_id":"",
-      "call.contact_first_name":"contact_first_name",
-      "call.contact_last_name":"contact_last_name",
-      "call.number":"contact_number",
-      "call.tags":"tag_uuid",
-    }
-    public getSegmentName(field){
-      return this._colFieldToSegmentName[field]
-    }
-    public get(): Observable<any> {
-        return this.handleRequest.get("/api/calls?page=1&per_page=20&order_by=created_at&order_type=desc&search%5Bcreated_at%5D=1720904400-1720990799&inline_search=")
-        //   .map(res => res.json())
-            // .toPromise();
-    }
-    public getParams(): Promise<any> {
-      return this.handleRequest.get("/api/calls?action=params")
-      //   .map(res => res.json())
-          .toPromise();
-    }
-    public saveParams(params): Observable<any>{
-      return this.handleRequest.patch("/api/calls?action=save_params", params)
-    }
-    public getSegments(): Promise<any> {
-      return this.handleRequest.get("/api/calls?action=segments")
-      //   .map(res => res.json())
-          .toPromise();
-    }
-    getPage(page,filter:any={}): Observable<any>{
-        return this.handleRequest.getPage("/api/calls?page="+page, filter,{})
-        // .toPromise();
-      }
-    block(uuid,blocked): Observable<any>{
 
-      return this.handleRequest.patch("/api/calls/"+uuid+'?action='+((!blocked)?'blacklist_add':'blacklist_remove'), {action:(!blocked)?'blacklist_add':'blacklist_remove'})
-      // .toPromise();
+    /** One call by id. */
+    getByUuid(uuid: string): Observable<CallLogEntry | null> {
+        return this.admin.get<CallLogEntry>('calls', uuid).pipe(
+            map((row) => (row ? CallService.decorate(row) : null))
+        );
     }
-    public getColumns(): Observable<any> {
-        return this.handleRequest.get("/api/calls?action=columns")
+
+    // ==================
+    // Field mapping
+    // ==================
+
+    /** Add the `meta` block the list/detail templates bind to. */
+    static decorate(row: CallLogEntry): CallLogEntry {
+        const direction = CallService.uiDirection(row);
+        row.meta = {
+            _direction: direction,
+            _contact_number: direction === 'outgoing' ? (row.to_number || '') : (row.from_number || ''),
+            _contact_fullname: 'unknown',
+            _duration: CallService.duration(row),
+            _blacklisted: false
+        };
+        // The list groups and formats by created_at; the call's own start time is
+        // the meaningful one, not when the row was inserted.
+        if (row.started_at) { row.created_at = row.started_at; }
+        return row;
     }
-    public getByUuid(uuid:string): Observable<any> {
-      return this.handleRequest.get("/api/calls/"+uuid+'?action=load')
-      //   .map(res => res.json())
-          // .toPromise();
+
+    /**
+     * "inbound"/"outbound"/"webrtc" -> the three icons the list knows. An inbound
+     * call that ended without ever being answered is a missed call.
+     */
+    static uiDirection(row: CallLogEntry): 'incoming' | 'outgoing' | 'missed' {
+        if (row.direction === 'inbound') {
+            return (row.status === 'ended' && !row.answered_at) ? 'missed' : 'incoming';
+        }
+        return 'outgoing';
     }
-    public run(uuid:string): Observable<any> {
-      return this.handleRequest.get("/api/calls/"+uuid+'?action=run')
-      //   .map(res => res.json())
-          // .toPromise();
+
+    /** Talk time when answered, else ring time. Formatted "m:ss". */
+    static duration(row: CallLogEntry): string {
+        const from = row.answered_at || row.started_at;
+        if (!from || !row.ended_at) { return '0:00'; }
+        const seconds = Math.max(0, Math.round((Date.parse(row.ended_at) - Date.parse(from)) / 1000));
+        if (isNaN(seconds)) { return '0:00'; }
+        const minutes = Math.floor(seconds / 60);
+        const rest = seconds % 60;
+        return minutes + ':' + (rest < 10 ? '0' : '') + rest;
     }
-    public export(filters={}): Observable<any> {
-      return this.handleRequest.getWithParams("/api/calls?action=export", filters)
-      //   .map(res => res.json())
-          // .toPromise();
-    }
-  
 }

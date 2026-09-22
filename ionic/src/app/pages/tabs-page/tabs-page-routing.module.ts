@@ -1,11 +1,6 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { SettingsComponent } from '../../partials/settings/settings.component';
-import { SchedulePage } from '../schedule/schedule';
 import { TabsPage } from './tabs-page';
-// import { SchedulePage } from '../schedule/schedule';
-// import { ChatRoomListPage } from '../chat-room-list/chat-room-list';
-
 
 const routes: Routes = [
   {
@@ -18,15 +13,6 @@ const routes: Routes = [
           {
             path: '',
             loadChildren: () => import('../calls/calls.module').then(m => m.CallsModule)
-          }
-        ]
-      },
-      {
-        path: 'dashboard',
-        children: [
-          {
-            path: '',
-            loadChildren: () => import('../dashboard/dashboard.module').then(m => m.DashboardModule)
           }
         ]
       },
@@ -53,15 +39,9 @@ const routes: Routes = [
         ]
       },
       {
-        path: 'identities',
-        children: [
-          {
-            path: '',
-            loadChildren: () => import('../identities-page/identities-page.module').then(m => m.IdentitiesPageModule)
-          }
-        ]
-      },
-      {
+        // Locations (destinations) — kept because the time-condition page and
+        // the account menu open LocationsPage as a modal. The lazy route also
+        // keeps LocationsPageModule in the AOT compilation graph.
         path: 'locations',
         children: [
           {
@@ -89,44 +69,9 @@ const routes: Routes = [
         ]
       },
       {
-        path: 'notifications',
-        children: [
-          {
-            path: '',
-            loadChildren: () => import('../notifications-page/notifications-page.module').then(m => m.NotificationsPageModule)
-          }
-        ]
-      },
-      {
-        path: 'syslog',
-        children: [
-          {
-            path: '',
-            loadChildren: () => import('../syslog-page/syslog-page.module').then(m => m.SyslogPageModule)
-          }
-        ]
-      },
-      {
-        path: 'conference',
-        children: [
-          {
-            path: '',
-            loadChildren: () => import('../conference-page/conference-page.module').then(m => m.ConferencePageModule)
-          }
-        ]
-      },
-      {
-        path: 'reports',
-        children: [
-          {
-            path: '',
-            loadChildren: () => import('../reports-page/reports-page.module').then(m => m.ReportsPageModule)
-          }
-        ]
-      },
-      {
-        path: 'reports/:uuid',
-        loadChildren: () => import('../reports-page/report-run/report-run.module').then(m => m.ReportRunPageModule)
+        // Bots — the connectix box's own /api/admin/bots (list + edit).
+        path: 'bots',
+        loadChildren: () => import('../bot-page/bot-page.module').then(m => m.BotPageModule)
       },
       {
         // In-page (routed) extension edit — opened from Actions instead of a modal.
@@ -151,74 +96,7 @@ const routes: Routes = [
       {
         path: 'conversation/:callUuid',
         loadChildren: () => import('../conversation-page/conversation-page.module').then(m => m.ConversationPageModule)
-      },
-      // {
-      //   path: 'schedule',
-      //   children: [
-      //     {
-      //       path: '',
-      //       component: SchedulePage,
-      //     },
-      //     {
-      //       path: 'session/:sessionId',
-      //       loadChildren: () => import('../session-detail/session-detail.module').then(m => m.SessionDetailModule)
-      //     }
-      //   ]
-      // },
-      // {
-      //   path: 'contacts',
-      //   children: [
-      //     {
-      //       path: '',
-      //       loadChildren: () => import('../contact-list/contact-list.module').then(m => m.ContactListModule)
-      //     },
-      //     {
-      //       path: 'session/:sessionId',
-      //       loadChildren: () => import('../session-detail/session-detail.module').then(m => m.SessionDetailModule)
-      //     },
-      //     {
-      //       path: 'contact-details/:contactId',
-      //       loadChildren: () => import('../contact-detail/contact-detail.module').then(m => m.ContactDetailModule)
-      //     }
-      //   ]
-      // },
-      // {
-      //   path: 'chat',
-      //   children: [
-      //     {
-      //       path: '',
-      //       component: ChatRoomListPage,
-      //     },
-      //     {
-      //       path: 'room/:roomId',
-      //       loadChildren: () => import('../chat-room/chat-room.module').then(m => m.ChatRoomModule)
-      //     }
-      //   ]
-      // },
-      // {
-      //   path: 'map',
-      //   children: [
-      //     {
-      //       path: '',
-      //       loadChildren: () => import('../map/map.module').then(m => m.MapModule)
-      //     }
-      //   ]
-      // },
-      // {
-      //   path: 'about',
-      //   children: [
-      //     {
-      //       path: '',
-      //       loadChildren: () => import('../about/about.module').then(m => m.AboutModule)
-      //     }
-      //   ]
-      // },
-      // {
-      //   path: '',
-      //   redirectTo: '/app/tabs/contacts',
-      //   pathMatch: 'full'
-      // }
-      
+      }
     ]
   }
 ];
@@ -228,4 +106,3 @@ const routes: Routes = [
   exports: [RouterModule]
 })
 export class TabsPageRoutingModule { }
-

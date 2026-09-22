@@ -74,7 +74,12 @@ export class ExtensionDetailPage implements OnInit, OnDestroy, OnChanges {
 
         this.subscription = this.extensionService.getOne(this.uuid).subscribe({
             next: (extension) => {
+                // AdminService degrades a missing/unreachable row to null rather
+                // than throwing — show the empty state, don't blow up the page.
                 this.extension = extension;
+                if (!extension) {
+                    this.error = this.translate.instant('EXTENSION.DETAIL.NOT_FOUND');
+                }
                 this.loading = false;
             },
             error: (err) => {
@@ -111,7 +116,7 @@ export class ExtensionDetailPage implements OnInit, OnDestroy, OnChanges {
     async deleteExtension() {
         const alert = await this.alertCtrl.create({
             header: this.translate.instant('EXTENSION.ACTIONS.DELETE_CONFIRM_TITLE'),
-            message: this.translate.instant('EXTENSION.ACTIONS.DELETE_CONFIRM_MESSAGE', { name: this.extension?.name }),
+            message: this.translate.instant('EXTENSION.ACTIONS.DELETE_CONFIRM_MESSAGE', { name: this.extension?.display_name || this.extension?.username }),
             buttons: [
                 {
                     text: this.translate.instant('BUTTONS.CANCEL'),

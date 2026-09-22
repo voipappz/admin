@@ -6,7 +6,6 @@ import { Events } from '../../core/providers/events';
 import { FilterComponent } from '../../partials/filter/filter.component';
 
 import { CallService } from '../../core/_base/layout';
-import { TyCallFactory } from '../../core/_base/layout/models/ty-call.model';
 import { ConversationFactory } from '../../core/_base/layout/models/conversation.model';
 import { InfiniteScrollCustomEvent, MenuController, ModalController, PopoverController } from '@ionic/angular';
 
@@ -18,6 +17,8 @@ import { InfiniteScrollCustomEvent, MenuController, ModalController, PopoverCont
 })
 export class CallsPage {
   calls: any[] = [];
+  /** `calls` after the type filter — what the list renders. */
+  visibleCalls: any[] = [];
   filters:any= {
     type:'all'
   }
@@ -34,7 +35,6 @@ export class CallsPage {
   private audio: HTMLAudioElement | null = null;
 
   /** Fall back to Hebrew-named mock calls when the server returns an empty list */
-  private useMockFallback = true;
 
   constructor(private modalCtrl: ModalController,
               private events: Events,
@@ -47,50 +47,56 @@ export class CallsPage {
   ionViewDidEnter() {
     this.loadCalls()
   }
+  /**
+   * Load a page of the box's call log (`/api/admin/calls`, read-only).
+   * CallService already maps the local fields (from_number/to_number/direction/
+   * status/started_at/…) into the `meta` block this list renders, so the page
+   * only pages and filters.
+   */
   loadCalls(page=1){
     this.page = page;
 
     this.callSvc.getPage(page,this.filters).subscribe((res: any) => {
-      console.log("res",res)
       if(page==1){
         this.calls=[];
       }
-      res = res.body || [];
-      res.map(record=>{
-        const profile = record.profile || {};
+      const rows = (res && res.body) || [];
+      this.calls = [...this.calls, ...rows];
 
-        // Direction: derive "missed" from incoming + non-answer disposition
-        let direction = profile.direction || 'outgoing';
-        if (direction === 'incoming' && profile.disposition && profile.disposition !== 'answer') {
-          direction = 'missed';
-        }
-
-        // Duration: convert seconds string to "m:ss"
-        const totalSeconds = parseInt(profile.duration, 10) || 0;
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        const formattedDuration = minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
-
-        // Populate meta from profile for template compatibility
-        record.meta = {
-          _direction: direction,
-          _contact_number: profile.callee || '',
-          _contact_fullname: 'unknown',
-          _duration: formattedDuration,
-          _blacklisted: false
-        };
-
-        return record;
-      })
-      this.calls = [...this.calls,...res];
-
-      // Fall back to Hebrew-named mock calls if the server returned nothing
-      if (page === 1 && this.useMockFallback && this.calls.length === 0) {
-        this.calls = TyCallFactory.createMockListHebrew();
-      }
-
+      // No mock fallback: an empty call log must LOOK empty. Filling it with
+      // invented calls made a working box indistinguishable from a broken one.
       this.assignConversationVariants();
+      this.applyFilter();
     });
+  }
+
+  /**
+   * The local call log has no server-side filtering, so the type tabs filter the
+   * loaded rows here rather than sending params the box would ignore. Recomputed
+   * on load/filter only — a getter would hand the template a fresh array on
+   * every change-detection pass and re-render the whole list.
+   */
+  private applyFilter() {
+    const type = this.filters.type || 'all';
+    const term = (this.filters.inline || '').trim();
+    let rows = this.calls;
+
+    if (type !== 'all') {
+      // No local "rejected" disposition — an unanswered inbound call is the
+      // closest thing the box records.
+      const wanted = type === 'rejected' ? 'missed' : type;
+      rows = rows.filter(c => c && c.meta && c.meta._direction === wanted);
+    }
+
+    if (term) {
+      rows = rows.filter(c => {
+        const meta = (c && c.meta) || {};
+        return ((meta._contact_number || '') + ' ' + (meta._contact_fullname || ''))
+            .toLowerCase().indexOf(term) > -1;
+      });
+    }
+
+    this.visibleCalls = rows;
   }
 
   /**
@@ -133,10 +139,11 @@ export class CallsPage {
   //   //   this.loadCalls();
   //   // }
   // }
-  filter(type: string){
-    console.log("filter", type, this.filters)
-    this.filters.type = type;
-    this.loadCalls();
+  filter(type: any){
+    // Called both with a plain type string and with an ion-change event.
+    const value = (type && type.detail) ? type.detail.value : type;
+    this.filters.type = value || 'all';
+    this.applyFilter();
   }
   // async search(){
   //   const modal = await this.modalCtrl.create({
@@ -150,9 +157,10 @@ export class CallsPage {
   //     this.loadCalls();
   //   }
   // }
+  /** Client-side too — the box's call log takes no search params. */
   search(term: string) {
     this.filters.inline = (term || '').toLowerCase();
-    this.loadCalls();
+    this.applyFilter();
   }
 
   play(e,uuid,call){
@@ -161,12 +169,13 @@ export class CallsPage {
    
     call.play_audio = !previous_val;
   }
+  /**
+   * Blacklisting is a mothership feature — the local call log is read-only
+   * (the API answers 405 to any write), so the control is hidden in the
+   * template and this stays a no-op rather than firing a call that can't land.
+   */
   block(e,uuid,call){
-    console.log("block",e,uuid,call)
-    this.callSvc.block(uuid, call.blacklisted)
-    .subscribe(res=>{
-      call.blacklisted = !call.blacklisted
-    })
+    console.warn('[calls] blacklist is not available on the local call log');
   }
   showCall(e,uuid,call){
     console.log("showCall",e,uuid,call)

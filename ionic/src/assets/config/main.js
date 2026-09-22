@@ -1,65 +1,75 @@
-// THE ONE KNOB — and by default it is not even a knob.
-//
-// Every request this app makes goes to the Elixir portal: it performs the
-// login (`Portal.AuthController`), serves the realtime socket, and forwards
-// /api and /tasks to the engine. Served BY that portal at /app, the app is
-// same-origin with all of it — so the address is the empty string, meaning
-// "wherever this page came from", and there is nothing to configure or keep in
-// step. That is the point of bundling the two.
-//
-// There were four of these files (main.ci.js, main.mtn.js, main.prod.js) each
-// naming a different backend, and only main.js was ever loaded by index.html.
-// The others were three addresses to keep in step with nothing, and a reader
-// had to check which one the build used to find that out. Git history has them.
-//
-// `localStorage._domain` overrides it at runtime — the same key the Chrome
-// extension uses — which is how a packed mobile build is aimed at another
-// portal without a rebuild, and how an e2e spec points the UI at a fake node.
-(function () {
-  var origin = '';
-  try {
-    origin = localStorage.getItem('_domain') || '';
-  } catch (e) {
-    // A private window or blocked site data throws on access rather than
-    // returning null. Same-origin is the right answer then, not a crash
-    // before the app has rendered anything.
-    origin = '';
-  }
+var CONFIG = {
+    // API_ENDPOINT:  "https://homer.voipappz.io",//"acvideo.voipappz.io",//
+    // WEBSOCKETS_URL: 'wss://homer.voipappz.io',//"acvideo.voipappz.io:8443/",//
+    // WEBSOCKETS_JANUS_URL: 'wss://homer.voipappz.io',//"wss://acvideo.voipappz.io:8443/",//
 
-  // The realtime socket. Same host as the API by construction: a token minted
-  // by one portal is verified by the same portal, so a socket pointed anywhere
-  // else authenticates against a secret it does not share. Derived rather than
-  // configured for exactly that reason.
-  function wsBase(httpBase) {
-    if (httpBase) {
-      return httpBase.replace(/^http/, 'ws').replace(/\/$/, '');
-    }
-    return (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host;
-  }
+    // // VIDEO APP
+    // API_ENDPOINT:  "https://acvideo.voipappz.io",//"acvideo.voipappz.io",//
+    // WEBSOCKETS_URL: "wss://acvideo.voipappz.io/ws",//'wss:/sbc-ingress.voipappz.io/ws',//"acvideo.voipappz.io:8443/",//
+    // WEBSOCKETS_JANUS_URL: 'wss://acvideo.voipappz.io/',//"wss://acvideo.voipappz.io:8443/",//
+    
+    // // MTN
+    // API_ENDPOINT:  "https://mtnunicom.mtn.com.gh/",
+    // WEBSOCKETS_URL: "wss://mtnunicom.mtn.com.gh/ws",  // ActionCable WebSocket
+    // WEBSOCKETS_SIP_URL: "wss://mtn-portal.voipappz.io:8443",  // SIP.js WebSocket
+    // WEBSOCKETS_JANUS_URL: 'wss://mtn-portal.voipappz.io:8443/',  // Janus WebSocket
 
-  window.CONFIG = {
-    // Empty = relative paths against the portal that served this page.
-    API_ENDPOINT: origin,
-    WEBSOCKETS_URL: wsBase(origin),
+    // // cloud
+    // API_ENDPOINT:  "https://cloud.voipappz.io:9443",
+    // WEBSOCKETS_URL: "wss://cloud.voipappz.io:9443",
+    // WEBSOCKETS_SIP_URL: "wss://cloud.voipappz.io:9443",  // SIP.js WebSocket
+    // WEBSOCKETS_JANUS_URL: 'wss://cloud.voipappz.io:9443/',  // Janus WebSocket
 
-    // SIP AND JANUS ARE DELIBERATELY EMPTY, and that is not an omission.
-    //
-    // The phone registers against the customer's SBC, not against the portal:
-    // media is not something to relay through a BEAM node that redeploys, and
-    // the portal's own SIP stack is the voice bot's leg, not the agent's.
-    //
-    // `webrtc-phone.ts` PREFERS CONFIG.WEBSOCKETS_SIP_URL over the agent's
-    // own `environment.wss_server` when it is set — so setting it here would
-    // override every agent's real environment with one address. Left empty,
-    // the per-agent value from the login wins, which is the only thing that
-    // works when two agents are on different environments.
-    WEBSOCKETS_SIP_URL: '',
-    WEBSOCKETS_JANUS_URL: '',
+    // connectix (Elixir) gateway — the app's ONLY API + realtime backend.
+    // ONE build serves web + Electron + Android; the server resolves as:
+    //   1. localStorage "connectix-server" (the in-app server picker —
+    //      how a packaged Electron/Android build points at a cloud box),
+    //   2. the page origin (web, served same-origin by connectix SpaStatic),
+    //   3. the dev gateway.
+    // WEBSOCKETS_URL is the Phoenix socket BASE (the ws provider appends
+    // /agent). SIP/Janus still point at their own servers, not connectix.
+    API_ENDPOINT: (function () {
+      try {
+        var saved = window.localStorage.getItem("connectix-server");
+        if (saved && /^https?:\/\//.test(saved)) return saved.replace(/\/$/, "");
+      } catch (e) { /* storage unavailable — fall through */ }
+      if (typeof window !== "undefined" && /^https?:$/.test(window.location.protocol)) {
+        return window.location.origin;
+      }
+      return "http://localhost:4001";
+    })(),
+    WEBSOCKETS_URL: null, // derived from API_ENDPOINT below
+    // SIP.js / Janus WebSocket. NOT hardcoded: the real value comes from the
+    // logged-in user (user.environment.wss_server), because the SIP server is a
+    // property of the tenant, not of the build. A hardcoded host here dialled a
+    // box that no longer answers and hung the phone. null = "use what login
+    // gave us"; set it only to pin a server for local testing.
+    WEBSOCKETS_SIP_URL: null,
+    WEBSOCKETS_JANUS_URL: null,
 
-    PAGE_TITLE: 'Connectix',
-    GOOGLE_CLIENT_ID: 'CHANGE_ME',
-    FACEBOOK_KEY: 'CHANGE_ME',
+    // ICE servers for the connectix WebRTC transport (webrtc-channel-phone.ts).
+    // null/[] = host candidates only, which is fine for localhost/LAN but will
+    // NOT connect a caller behind NAT to a cloud-hosted box.
+    // The server already has the authoritative list (`Connectix.Turn`, whose
+    // `ice_servers_json/0` exists precisely for the browser), but nothing on
+    // the Elixir side sends it to the app yet — until it does, set it here:
+    //   WEBRTC_ICE_SERVERS: [{ urls: "stun:stun.example.io:3478" },
+    //                        { urls: "turn:turn.example.io:3478",
+    //                          username: "…", credential: "…" }]
+    WEBRTC_ICE_SERVERS: null,
+
+
+    // // nimbusip
+    // API_ENDPOINT: "https://900.nimbusip.com/",
+    // WEBSOCKETS_URL: "wss://900.nimbusip.com/ws",//'wss:/sbc-ingress.voipappz.io/ws',//"acvideo.voipappz.io:8443/",//
+    // WEBSOCKETS_JANUS_URL: 'wss://900.nimbusip.com/ws',
+
+    PAGE_TITLE: "Connectix",
+    GOOGLE_CLIENT_ID: "CAHNGE_ME",
+    FACEBOOK_KEY: "CAHNGE_ME",
     ITEMS_PER_PAGE: 50,
-    ENV: 'portal'
+    ENV: 'dev'
   };
-})();
+
+// Phoenix socket base always mirrors the API endpoint (one plane).
+CONFIG.WEBSOCKETS_URL = CONFIG.API_ENDPOINT.replace(/^http/, "ws");

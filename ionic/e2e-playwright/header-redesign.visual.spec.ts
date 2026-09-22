@@ -15,12 +15,6 @@ const fakeCalls = [
   { uuid: 'c4', created_at: new Date(now - 3 * day).toISOString(), profile: { direction: 'outgoing', disposition: 'answer', callee: '0248881224', duration: '320' } },
 ];
 
-const fakeDashboards = [{ uuid: 'd1', name: 'My Dashboard' }];
-const fakeWidgets = [
-  { uuid: 'w1', name: 'incoming', title: 'Incoming Calls', template: 'counter', data_url: 'widgets/w1' },
-  { uuid: 'w3', name: 'agents', title: 'Top Agents', template: 'table', data_url: 'widgets/w3' },
-];
-
 const SHOTS = '/tmp/voipappz-shots';
 
 // Navigate and wait for the app shell (tab bar + header) to actually render —
@@ -48,23 +42,13 @@ test('phone panel slides in from the right', async ({ page }) => {
   await page.screenshot({ path: `${SHOTS}/02-phone-panel-right.png` });
 });
 
-test('account menu (settings, notifications, PBX management)', async ({ page }) => {
+test('account menu (settings, PBX management)', async ({ page }) => {
   await stubAuth(page);
   await stubApi(page, '**/api/calls**', fakeCalls);
   await gotoAndSettle(page, '/app/calls');
   await page.locator('.user-avatar-btn').first().click();
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${SHOTS}/03-account-menu.png` });
-});
-
-test('dashboard — title header', async ({ page }) => {
-  await stubAuth(page);
-  await stubApi(page, '**/api/dashboards**', fakeDashboards);
-  await stubApi(page, '**/api/dashboards/d1**', fakeWidgets);
-  await stubApi(page, '**/api/widgets/w1**', { value: 128 });
-  await stubApi(page, '**/api/widgets/w3**', { rows: [{ agent: 'Alice', calls: 42 }] });
-  await gotoAndSettle(page, '/app/dashboard');
-  await page.screenshot({ path: `${SHOTS}/04-dashboard-mobile.png` });
 });
 
 test('hebrew RTL', async ({ page }) => {

@@ -92,6 +92,10 @@ which breaks the moment two agents are on different environments.
 
 ## Phases
 
+**Superseded 2026-09-22:** all user interface becomes the Ionic app. The steps
+are in [ionic-migration.md](ionic-migration.md); the list below is the earlier
+embedding plan, kept for the record.
+
 - [x] **1 — embedded.** `ionic/`, the dockerized Makefile, the `/app` mount and
       controller, the `ionic` Docker stage and CI job, `CONFIG` pointed at the
       portal, the bundle on `/release`.

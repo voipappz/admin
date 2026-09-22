@@ -1,0 +1,27 @@
+.save-button {
+    margin-top: 24px;
+}
+
+.script-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-inline-start: 0;
+}
+
+.script-hint {
+    color: var(--ion-color-medium);
+    font-size: 13px;
+    margin: 0 0 8px;
+}
+
+.rule-row {
+    ion-input {
+        margin-inline-end: 8px;
+    }
+}
+
+.raw-script {
+    font-family: monospace;
+    font-size: 13px;
+}

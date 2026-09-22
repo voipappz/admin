@@ -38,33 +38,6 @@ export class AppComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private heLang = heLang;
   private enLang = enLang;
-  appPages = [
-    {
-      title: 'Schedule',
-      url: '/app/tabs/schedule',
-      icon: 'calendar'
-    },
-    {
-      title: 'Contacts',
-      url: '/app/tabs/contacts',
-      icon: 'people'
-    },
-    {
-      title: 'Chat',
-      url: '/app/tabs/chat',
-      icon: 'chatbubbles'
-    },
-    {
-      title: 'Map',
-      url: '/app/tabs/map',
-      icon: 'map'
-    },
-    {
-      title: 'About',
-      url: '/app/tabs/about',
-      icon: 'information-circle'
-    }
-  ];
   loggedIn = false;
   dark = false;
   header_title:string = "";
@@ -310,11 +283,6 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     
   }
-  openTutorial() {
-    this.menu.enable(false);
-    this.storage.set('ion_did_tutorial', false);
-    this.router.navigateByUrl('/tutorial');
-  }
   destroyWebSocket() {
     this.ws.leave('notifications');
     this.ws.close();
@@ -438,9 +406,17 @@ export class AppComponent implements OnInit, OnDestroy {
       this.webrtc_phone_mode = status !== 'Unregistered' && status.indexOf('Error') === -1;
     });
 
-    // Device / microphone problems (separate channel so status stays a string).
+    // Device / microphone / signaling problems (separate channel so status
+    // stays a string). These are the only report a mid-call failure gets — a
+    // refused `dial`, a denied mic, a dead socket — so they must be visible,
+    // not console-only.
     this.events.subscribe('phone:webrtc-error', (err) => {
-      console.warn('[Phone] WebRTC error:', err);
+      console.error('[Phone] WebRTC error:', err);
+      this.stopRingbackTone();
+      const message = [err?.title, err?.message].filter(Boolean).join(': ') || 'Phone error';
+      this.toastCtrl.create({
+        message, duration: 4000, position: 'top', color: 'danger'
+      }).then(t => t.present());
     });
 
     // Hangup events
@@ -874,29 +850,14 @@ export class AppComponent implements OnInit, OnDestroy {
       .catch((err: any) => console.error('[Phone] Spy action failed:', err));
   }
 
-  // Call history — loads recent calls from /api/calls
+  // Call history — recent calls from the box's own log (/api/admin/calls).
+  // CallService maps the local fields into `meta`, so this just takes the rows.
   loadCallHistory() {
     if (this.loadingCallHistory) return;
     this.loadingCallHistory = true;
     this.callSvc.getPage(1, { type: 'all' }).subscribe({
       next: (res: any) => {
-        const records = (res?.body || []).map((record: any) => {
-          const profile = record.profile || {};
-          let direction = profile.direction || 'outgoing';
-          if (direction === 'incoming' && profile.disposition && profile.disposition !== 'answer') {
-            direction = 'missed';
-          }
-          const totalSeconds = parseInt(profile.duration, 10) || 0;
-          const minutes = Math.floor(totalSeconds / 60);
-          const seconds = totalSeconds % 60;
-          record.meta = {
-            _direction: direction,
-            _contact_number: profile.callee || profile.caller_id_number || '',
-            _duration: minutes + ':' + (seconds < 10 ? '0' : '') + seconds
-          };
-          return record;
-        });
-        this.callHistory = records;
+        this.callHistory = (res?.body || []);
         this.loadingCallHistory = false;
       },
       error: (err: any) => {

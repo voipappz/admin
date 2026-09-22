@@ -18,6 +18,7 @@ import { TimeConditionPage } from '../time-condition-page/time-condition-page';
 export class SettingsPage {
   src:string='assets/img/logo.png';
   user:any={language:''}
+  serverUrl:string = localStorage.getItem('connectix-server') || ''
   detailIcon
   constructor(private translateSvc:TranslationService, public popoverController: PopoverController,private modalCtrl: ModalController,
     private events: Events, private userData:UserData, public router: Router,private navCtrl:NavController) {
@@ -36,6 +37,17 @@ export class SettingsPage {
     this.user.language = event.detail.value
     this.userData.setUserData(event.detail.value,'language')
     this.translateSvc.setLanguage(event.detail.value)
+  }
+  // The connectix server override (see assets/config/main.js resolution
+  // order). Blank clears it back to same-origin/dev; applies on next load.
+  serverChanged(event){
+    const url = (event.detail.value || '').trim().replace(/\/$/, '')
+    this.serverUrl = url
+    if (url) {
+      localStorage.setItem('connectix-server', url)
+    } else {
+      localStorage.removeItem('connectix-server')
+    }
   }
   ionViewWillEnter() {
     

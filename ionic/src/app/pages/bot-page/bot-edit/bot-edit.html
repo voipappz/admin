@@ -1,0 +1,177 @@
+@if (isModal) {
+<ion-header>
+    <ion-toolbar>
+        <ion-buttons slot="start">
+            <ion-button (click)="dismiss()">
+                <ion-icon name="close-outline"></ion-icon>
+            </ion-button>
+        </ion-buttons>
+        <ion-title>
+            {{(isNew ? 'BOT.EDIT.CREATE_TITLE' : 'BOT.EDIT.EDIT_TITLE') | translate}}
+        </ion-title>
+        <ion-buttons slot="end">
+            <ion-button (click)="save()" [disabled]="!formValid || saving">
+                @if (saving) {
+                    <ion-spinner name="crescent" slot="icon-only"></ion-spinner>
+                } @else {
+                    <ion-icon slot="icon-only" name="checkmark-outline"></ion-icon>
+                }
+            </ion-button>
+        </ion-buttons>
+    </ion-toolbar>
+</ion-header>
+} @else {
+<ion-header>
+    <ion-toolbar>
+        <ion-buttons slot="start">
+            <ion-back-button defaultHref="/app/bots"></ion-back-button>
+        </ion-buttons>
+        <ion-title>
+            {{(isNew ? 'BOT.EDIT.CREATE_TITLE' : 'BOT.EDIT.EDIT_TITLE') | translate}}
+        </ion-title>
+        <ion-buttons slot="end">
+            <ion-button (click)="save()" [disabled]="!formValid || saving">
+                @if (saving) {
+                    <ion-spinner name="crescent" slot="icon-only"></ion-spinner>
+                } @else {
+                    <ion-icon slot="icon-only" name="checkmark-outline"></ion-icon>
+                }
+            </ion-button>
+        </ion-buttons>
+    </ion-toolbar>
+</ion-header>
+}
+
+<ion-content class="ion-padding">
+    <ion-list>
+        <!-- Name (required, unique) -->
+        <ion-item>
+            <ion-input
+                [(ngModel)]="formData.name"
+                [label]="'BOT.FIELDS.NAME' | translate"
+                labelPlacement="stacked"
+                [placeholder]="'BOT.PLACEHOLDERS.NAME' | translate"
+                (ionInput)="onNameChange()"
+                required>
+            </ion-input>
+        </ion-item>
+
+        <!-- Model -->
+        <ion-item>
+            <ion-input
+                [(ngModel)]="formData.model"
+                [label]="'BOT.FIELDS.MODEL' | translate"
+                labelPlacement="stacked"
+                [placeholder]="'BOT.PLACEHOLDERS.MODEL' | translate">
+            </ion-input>
+        </ion-item>
+
+        <!-- Greeting -->
+        <ion-item>
+            <ion-textarea
+                [(ngModel)]="formData.greeting"
+                [label]="'BOT.FIELDS.GREETING' | translate"
+                labelPlacement="stacked"
+                [placeholder]="'BOT.PLACEHOLDERS.GREETING' | translate"
+                [autoGrow]="true"
+                [rows]="2">
+            </ion-textarea>
+        </ion-item>
+
+        <!-- System prompt -->
+        <ion-item>
+            <ion-textarea
+                [(ngModel)]="formData.system_prompt"
+                [label]="'BOT.FIELDS.SYSTEM_PROMPT' | translate"
+                labelPlacement="stacked"
+                [placeholder]="'BOT.PLACEHOLDERS.SYSTEM_PROMPT' | translate"
+                [autoGrow]="true"
+                [rows]="4">
+            </ion-textarea>
+        </ion-item>
+
+        <!-- Enabled -->
+        <ion-item>
+            <ion-toggle [(ngModel)]="formData.enabled" justify="space-between">
+                {{'BOT.FIELDS.ENABLED' | translate}}
+            </ion-toggle>
+        </ion-item>
+    </ion-list>
+
+    <!-- Script editor -->
+    <ion-list-header class="script-header">
+        <ion-label>{{'BOT.SCRIPT.TITLE' | translate}}</ion-label>
+        <ion-button fill="clear" size="small" (click)="toggleRawScript()">
+            {{(showRawScript ? 'BOT.SCRIPT.RULE_VIEW' : 'BOT.SCRIPT.TEXT_VIEW') | translate}}
+        </ion-button>
+    </ion-list-header>
+    <p class="script-hint">{{'BOT.SCRIPT.HINT' | translate}}</p>
+
+    @if (showRawScript) {
+        <ion-item>
+            <ion-textarea
+                [(ngModel)]="rawScript"
+                labelPlacement="stacked"
+                [placeholder]="'BOT.SCRIPT.RAW_PLACEHOLDER' | translate"
+                [autoGrow]="true"
+                [rows]="8"
+                class="raw-script">
+            </ion-textarea>
+        </ion-item>
+    } @else {
+        <ion-list>
+            @for (rule of editableRules; track rule) {
+                <ion-item class="rule-row">
+                    <ion-input
+                        [(ngModel)]="rule.keyword"
+                        [label]="'BOT.SCRIPT.KEYWORD' | translate"
+                        labelPlacement="stacked"
+                        [placeholder]="'BOT.SCRIPT.KEYWORD_PLACEHOLDER' | translate">
+                    </ion-input>
+                    <ion-input
+                        [(ngModel)]="rule.reply"
+                        [label]="'BOT.SCRIPT.REPLY' | translate"
+                        labelPlacement="stacked"
+                        [placeholder]="'BOT.SCRIPT.REPLY_PLACEHOLDER' | translate">
+                    </ion-input>
+                    <ion-button fill="clear" color="danger" slot="end" (click)="removeRule(rule)">
+                        <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
+                    </ion-button>
+                </ion-item>
+            }
+
+            @if (editableRules.length === 0) {
+                <ion-item lines="none">
+                    <ion-note color="medium">{{'BOT.SCRIPT.EMPTY' | translate}}</ion-note>
+                </ion-item>
+            }
+        </ion-list>
+
+        <ion-button fill="outline" size="small" (click)="addRule()">
+            <ion-icon slot="start" name="add-outline"></ion-icon>
+            {{'BOT.SCRIPT.ADD_RULE' | translate}}
+        </ion-button>
+    }
+
+    @if (saveError) {
+        <ion-item color="danger">
+            <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
+            <ion-label class="ion-text-wrap">{{saveError}}</ion-label>
+        </ion-item>
+    }
+
+    <!-- Save Button (for non-modal mode) -->
+    @if (!isModal) {
+        <ion-button
+            expand="block"
+            class="save-button"
+            [disabled]="!formValid || saving"
+            (click)="save()">
+            @if (saving) {
+                <ion-spinner name="crescent"></ion-spinner>
+            } @else {
+                {{'BUTTONS.SAVE' | translate}}
+            }
+        </ion-button>
+    }
+</ion-content>

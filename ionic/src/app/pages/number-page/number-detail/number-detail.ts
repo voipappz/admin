@@ -74,7 +74,12 @@ export class NumberDetailPage implements OnInit, OnDestroy, OnChanges {
 
         this.subscription = this.numberService.getOne(this.uuid).subscribe({
             next: (numberEntity) => {
+                // AdminService degrades a missing/unreachable row to null rather
+                // than throwing — show the empty state, don't blow up the page.
                 this.numberEntity = numberEntity;
+                if (!numberEntity) {
+                    this.error = this.translate.instant('NUMBER.DETAIL.NOT_FOUND');
+                }
                 this.loading = false;
             },
             error: (err) => {

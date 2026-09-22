@@ -1,37 +1,4 @@
 export const ITEMS_PER_PAGE = 20;
-export const PAGE_OPTIONS = [
-  // { title: 'MENU.HOME', component: 'page-start', icon: "ios-home" },
-//   { title: 'MENU.Profile', component: 'page-user', icon: "person",name:"dashboard" },
-  { title: 'MENU.DASHBOARD', component: 'page-dashboard', icon: "speedometer",name:"dashboard" },
-  { title: 'MENU.CALL', component: 'page-calls-list', icon: "call",name:"call" },
-  { title: 'MENU.CAMPAIGNS', component: 'page-campaigns', icon: "paper-plane",name:"campaign"  },
-  { title: 'MENU.CONTACT', component: 'page-contacts', icon: "contacts" ,name:"contact" },
-  { title: 'MENU.REPORTS', component: 'page-reports', icon: "stats",name:"report"  },
-  { title: 'MENU.CONFERENCE', component: 'page-conferences', icon: "globe",name:"conference" },
-  { title: 'MENU.ANNOUNCEMENT', component: 'page-announcements', icon: "headset",name:"announcement" },
-  { title: 'MENU.QUEUE', component: 'page-queues', icon: "logo-buffer",name:"queue" },
-  { title: 'MENU.IVR', component: 'page-ivrs', icon: "git-merge",name:"ivr" },
-  // { title: 'MENU.CALL', component: CallsListPage, icon: "call" },
-  
-  { title: 'MENU.BLACKLIST', component: 'page-blacklist', icon: "paper",name:"blacklist" },
-  // { title: 'MENU.ANNOUNCEMENT', component: 'page-announcements', icon: "md-megaphone",name:"voicemail" },
-  { title: 'MENU.VOICEMAIL', component: 'page-show-messages', icon: "recording",name:"voicemail",multiple_voicemails_component:'page-voicemails' },
-  // { title: 'MENU.PHONE', component: 'page-phone', icon: "keypad" },
-  // { title: 'MENU.AGENT', component: 'page-agent', icon: "contact" },
-
-//   { title: 'MENU.LOG', component: 'page-logs', icon: "stats",name:"log"  },
-  { title: 'MENU.RULE', component: 'page-rules', icon: "warning",name:"rule"  },
-//   { title: 'MENU.SEGMENT', component: 'page-segments', icon: "options",name:"segment"  },
-  { title: 'MENU.WORKFLOW', component: 'page-workflows', icon: "pulse",name:"workflow"  },
-  { title: 'MENU.NUMBER_GROUP', component: 'page-number-groups', icon: "folder",name:"number_group"  },
-  { title: 'MENU.TIME_GROUP', component: 'page-time-groups', icon: "timer",name:"time_group"  },
-
-  { title: 'MENU.TICKET', component: 'page-tickets', icon: "contacts" ,name:"ticket" },
-  { title: 'Agent Call', component: 'page-agent-call', icon: "contacts" ,name:"agent_call" },
-  { title: 'Agent in a Call', component: 'page-answer', icon: "contacts" ,name:"answer" },
-  { title: 'Agent Call- Feedback', component: 'page-feedback', icon: "contacts" ,name:"feedback" },
-  { title: 'MENU.SETTINGS',component: 'page-user', icon: "settings" ,name:"setting" },
-];
  /**
  * Returns a deep copy of the object
  */

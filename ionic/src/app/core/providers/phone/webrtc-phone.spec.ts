@@ -5,6 +5,7 @@ import { Events } from '../events';
 import { UserData } from '../user-data';
 import { HandleRequest } from '../../_base/layout/services/handleRequest.service';
 import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { of } from 'rxjs';
 
 describe('WebRTCPhone', () => {
   let service: WebRTCPhone;
@@ -25,7 +26,11 @@ describe('WebRTCPhone', () => {
   beforeEach(() => {
     eventsSpy = jasmine.createSpyObj('Events', ['subscribe', 'publish']);
     userDataSpy = jasmine.createSpyObj('UserData', ['getUserData']);
-    handleRequestSpy = jasmine.createSpyObj('HandleRequest', ['get', 'post', 'patch']);
+    // getJson is what AdminService.meSip() uses to ask the box for this phone's
+    // SIP identity; null = "no local identity", so start() falls back to the
+    // extension carried by the login payload.
+    handleRequestSpy = jasmine.createSpyObj('HandleRequest', ['get', 'post', 'patch', 'getJson']);
+    handleRequestSpy.getJson.and.returnValue(of(null));
 
     userDataSpy.getUserData.and.returnValue({ extension: mockExtension });
 

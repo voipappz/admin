@@ -79,7 +79,7 @@ END OLD HEADER -->
   <ion-row>
     <ion-col size="12" size-md="12" *ngFor="let call of calls"> -->
       <ion-list lines="inset">
-        @for (group of calls|groupByDate:'created_at'; track group) {
+        @for (group of visibleCalls|groupByDate:'created_at'; track group) {
           <ion-item-group>
             <ion-item-divider>
                 <ion-label style="width:calc(100% ); padding: 2px 0px 2px;align-items: center;
@@ -173,15 +173,8 @@ END OLD HEADER -->
                   <ion-icon slot="start" name="chatbubbles-outline"></ion-icon>
                   {{'LOGS.CALLS.ACTIONS.TRANSCRIPT'|translate}}
                 </ion-button>
-                <ion-button size="small" fill="clear" (click)="block($event, call.uuid, call)">
-                  <ion-icon slot="start" [name]="(call.meta._blacklisted)?'checkmark-circle-outline':'ban-outline'"></ion-icon>
-                  @if (call.meta._blacklisted) {
-                    {{'LOGS.CALLS.ACTIONS.UNBLOCK'|translate}}
-                  }
-                  @if (!call.meta._blacklisted) {
-                    {{'LOGS.CALLS.ACTIONS.BLOCK'|translate}}
-                  }
-                </ion-button>
+                <!-- Block/unblock is a mothership feature: the box's call log is
+                     read-only, so the control is hidden rather than dead. -->
                 <ion-button size="small" fill="clear" (click)="showCall($event, call.uuid, call)">
                   <ion-icon slot="start" name="information-circle-outline"></ion-icon>
                   {{'LOGS.CALLS.ACTIONS.MORE'|translate}}

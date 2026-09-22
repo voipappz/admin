@@ -56,7 +56,54 @@
                 required>
             </ion-input>
         </ion-item>
+
+        <!-- Which bot answers this number -->
+        <ion-item>
+            <ion-select
+                [value]="formData.bot_id"
+                (ionChange)="onBotChange($event)"
+                [label]="'NUMBER.FIELDS.BOT' | translate"
+                labelPlacement="stacked"
+                interface="action-sheet"
+                [placeholder]="'NUMBER.PLACEHOLDERS.BOT' | translate">
+                @for (bot of bots; track bot.uuid) {
+                    <ion-select-option [value]="bot.uuid">{{bot.name}}</ion-select-option>
+                }
+            </ion-select>
+        </ion-item>
+
+        @if (botsLoaded && bots.length === 0) {
+            <ion-item lines="none">
+                <ion-note color="medium">{{'NUMBER.EDIT.NO_BOTS' | translate}}</ion-note>
+            </ion-item>
+        }
+
+        <!-- Enabled Toggle -->
+        <ion-item>
+            <ion-toggle [(ngModel)]="formData.enabled" justify="space-between">
+                {{'NUMBER.FIELDS.ENABLED' | translate}}
+            </ion-toggle>
+        </ion-item>
+
+        <!-- Notes -->
+        <ion-item>
+            <ion-textarea
+                [(ngModel)]="formData.notes"
+                [label]="'NUMBER.FIELDS.NOTES' | translate"
+                labelPlacement="stacked"
+                [placeholder]="'NUMBER.PLACEHOLDERS.NOTES' | translate"
+                [autoGrow]="true"
+                [rows]="3">
+            </ion-textarea>
+        </ion-item>
     </ion-list>
+
+    @if (saveError) {
+        <ion-item color="danger">
+            <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
+            <ion-label class="ion-text-wrap">{{saveError}}</ion-label>
+        </ion-item>
+    }
 
     <!-- Save Button (for non-modal mode) -->
     @if (!isModal) {

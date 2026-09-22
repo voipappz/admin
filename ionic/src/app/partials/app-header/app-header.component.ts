@@ -6,8 +6,6 @@ import { Events } from '../../core/providers/events';
 import { UserData } from '../../core/providers/user-data';
 import { AclService } from '../../core/providers/acl.service';
 import { TranslationService } from '../../core/_base/layout/services/translation.service';
-import { NotificationService } from '../../core/_base/layout/services/notification.service';
-import { IdentitiesPage } from '../../pages/identities-page/identities-page';
 import { LocationsPage } from '../../pages/locations-page/locations-page';
 
 @Component({
@@ -25,8 +23,6 @@ export class AppHeaderComponent {
   @ViewChild('userMenuPopover') userMenuPopover: IonPopover;
 
   darkMode: boolean = false;
-  notifications: any[] = [];
-  unreadNotifications: number = 0;
 
   constructor(
     private events: Events,
@@ -36,12 +32,10 @@ export class AppHeaderComponent {
     private popoverCtrl: PopoverController,
     private alertCtrl: AlertController,
     private modalCtrl: ModalController,
-    private notificationService: NotificationService,
     private translationService: TranslationService,
     private translate: TranslateService,
     private router: Router
   ) {
-    this.loadNotifications();
     // Mirror the single app-wide dark state for the toggle icon.
     this.darkMode = document.body.classList.contains('dark-theme');
     this.events.subscribe('app:dark', (val: any) => { this.darkMode = !!val; });
@@ -115,13 +109,6 @@ export class AppHeaderComponent {
     return this.translationService.getSelectedLanguage() || 'en';
   }
 
-  async openIdentities() {
-    const modal = await this.modalCtrl.create({
-      component: IdentitiesPage
-    });
-    await modal.present();
-  }
-
   async openLocations() {
     const modal = await this.modalCtrl.create({
       component: LocationsPage
@@ -133,27 +120,13 @@ export class AppHeaderComponent {
     this.router.navigate(['/app/ivr']);
   }
 
+  openBots() {
+    this.userMenuPopover?.dismiss();
+    this.router.navigate(['/app/bots']);
+  }
+
   openSupport() {
     this.router.navigate(['/support']);
-  }
-
-  openTour() {
-    this.router.navigate(['/tutorial']);
-  }
-
-  openSyslog() {
-    this.userMenuPopover?.dismiss();
-    this.router.navigate(['/app/syslog']);
-  }
-
-  openConference() {
-    this.userMenuPopover?.dismiss();
-    this.router.navigate(['/app/conference']);
-  }
-
-  openReports() {
-    this.userMenuPopover?.dismiss();
-    this.router.navigate(['/app/reports']);
   }
 
   toggleLanguage() {
@@ -161,24 +134,5 @@ export class AppHeaderComponent {
     const newLang = currentLang === 'he' ? 'en' : 'he';
     this.userData.setUserData(newLang, 'language');
     this.translationService.setLanguage(newLang);
-  }
-
-  loadNotifications() {
-    this.notificationService.getAll().subscribe(
-      (data: any) => {
-        this.notifications = data || [];
-        this.unreadNotifications = this.notifications.filter((n: any) => !n.read).length;
-      },
-      (error) => {
-        console.log('Notifications not available:', error);
-        this.notifications = [];
-        this.unreadNotifications = 0;
-      }
-    );
-  }
-
-  // Open the full notifications list (in-page navigation, with a back button).
-  showNotifications(event?: any) {
-    this.router.navigate(['/app/notifications']);
   }
 }

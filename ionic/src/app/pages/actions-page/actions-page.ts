@@ -468,20 +468,4 @@ export class ActionsPage implements OnInit, OnDestroy {
             'announcement': { component: AnnouncementCreateModal }
         };
     }
-
-    /**
-     * Open identity settings as a modal
-     */
-    async openIdentitySettings() {
-        const { IdentitiesPage } = await import('../identities-page/identities-page');
-        const modal = await this.modalCtrl.create({
-            component: IdentitiesPage
-        });
-        await modal.present();
-
-        const { role } = await modal.onDidDismiss();
-        if (role === 'save') {
-            this.loadDefaultIdentity();
-        }
-    }
 }

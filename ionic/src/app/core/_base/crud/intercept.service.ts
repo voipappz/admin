@@ -54,6 +54,13 @@ export class InterceptService implements HttpInterceptor {
 					}
 				},
 				error => {
+					// The connectix box's own admin API (/api/admin/*) is OPTIONAL: a box
+					// without it, or an unreachable one, must never toast or — far worse —
+					// bounce the user out of the app. AdminService degrades these itself.
+					if (typeof error?.url === 'string' && error.url.indexOf('/api/admin/') > -1) {
+						console.warn('[intercept] local admin API error, ignored:', error.status, error.url);
+						return;
+					}
 					console.error("--------------------",error);
 					let status = error.status;
 					let body = error.error;

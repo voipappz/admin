@@ -16,12 +16,6 @@
             </ion-item>
           }
           @if (page!='login') {
-            <ion-item (click)="popoverDidDismiss($event,{ role:'identities'})" [button]="true" [detail]="false">
-              <ion-icon slot="end" name="id-card-outline"></ion-icon>
-              <ion-label>{{'IDENTITIES.TITLE'|translate}}</ion-label>
-            </ion-item>
-          }
-          @if (page!='login') {
             <ion-item (click)="popoverDidDismiss($event,{ role:'locations'})" [button]="true" [detail]="false">
               <ion-icon slot="end" name="compass-outline"></ion-icon>
               <ion-label>{{'LOCATIONS.TITLE'|translate}}</ion-label>

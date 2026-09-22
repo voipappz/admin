@@ -119,16 +119,16 @@ test.describe('WebRTC Phone', () => {
     expect(await phoneIcon.count()).toBeGreaterThan(0);
   });
 
-  test('should navigate to dashboard and show widgets', async ({ page }) => {
-    // Look for Dashboard tab
-    const dashboardTab = page.locator('ion-tab-button:has-text("Dashboard")');
+  test('should navigate to the actions tab', async ({ page }) => {
+    // Look for the Actions tab
+    const actionsTab = page.locator('ion-tab-button[tab="actions"]');
 
-    if (await dashboardTab.isVisible()) {
-      await dashboardTab.click();
+    if (await actionsTab.isVisible()) {
+      await actionsTab.click();
       await page.waitForTimeout(1000);
-      expect(page.url()).toContain('/dashboard');
+      expect(page.url()).toContain('/actions');
     } else {
-      // Dashboard tab may not be visible in all app configurations
+      // Tab bar may not be visible in all app configurations
       // Test passes if we're on any app page
       expect(page.url()).toContain('/app');
     }

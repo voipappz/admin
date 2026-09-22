@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, Subject, BehaviorSubject } from 'rxjs';
 import { UserData } from '../user-data';
 import { HandleRequest } from '../../_base/layout/services/handleRequest.service';
+import { AdminService } from '../../_base/layout/services/admin.service';
 import { Events } from '../events';
 import {
   UserAgent,
@@ -78,7 +79,8 @@ export class WebRTCPhone {
     private events: Events,
     public http: HttpClient,
     public handleRequest: HandleRequest,
-    private sharedData: UserData
+    private sharedData: UserData,
+    private admin: AdminService
   ) {
     console.log('[WebRTCPhone] Initialized with SIP.js 0.21.x');
 
@@ -313,6 +315,31 @@ export class WebRTCPhone {
 
     console.log('[WebRTCPhone] merged phone_extension:', this.phone_extension);
 
+    // The box is the authority on who this phone is: ask /api/admin/me/sip for
+    // the caller's own row in the connectix Users table and register as that.
+    // A 404 (no local user for this session) or no local API at all falls back
+    // to whatever the login payload carried. The WSS server / SIP domain are
+    // NOT touched here — they keep coming from the environment config.
+    this.admin.meSip().subscribe((identity) => {
+      if (identity && identity.username) {
+        console.log('[WebRTCPhone] SIP identity from the box:', identity.username);
+        this.phone_extension = {
+          ...this.phone_extension,
+          username: identity.username,
+          password: identity.password,
+          display_name: identity.display_name || this.phone_extension.display_name
+        };
+      } else {
+        console.log('[WebRTCPhone] no local SIP identity — using the login payload extension');
+      }
+      this.startUserAgent(login_flag);
+    });
+
+    return true;
+  }
+
+  /** Create or restart the UA with whatever credentials `start()` settled on. */
+  private startUserAgent(login_flag: boolean): void {
     if (this.userAgent) {
       if (login_flag) {
         this.createUA(this.phone_extension);
@@ -324,7 +351,6 @@ export class WebRTCPhone {
     } else {
       this.createUA(this.phone_extension);
     }
-    return true;
   }
 
   end(): void {

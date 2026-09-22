@@ -11,6 +11,7 @@ here.
 | [testing.md](testing.md) | Local tests, GitHub Actions coverage and live acceptance limits. |
 | [deployment.md](deployment.md) | Local production image and Kamal deployment workflow. |
 | [ionic-app.md](ionic-app.md) | The Ionic app: how it is bundled and served, what is decided, the phases left. |
+| [ionic-migration.md](ionic-migration.md) | The Ionic app replaces the LiveView: seven steps, each with a gate. |
 
 ## Core decisions
 

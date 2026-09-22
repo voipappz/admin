@@ -1,7 +1,6 @@
 
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { CheckTutorial } from './core/providers/check-tutorial.service';
 
 const routes: Routes = [
   {
@@ -25,43 +24,9 @@ const routes: Routes = [
     path: 'signup',
     loadChildren: () => import('./pages/signup/signup.module').then(m => m.SignUpModule)
   },
-  // {
-  //   path: 'app',
-  //   // loadChildren: () => import('./pages/tabs-page/tabs-page.module').then(m => m.TabsModule)
-  //   children: [
-  //     {
-  //       path: 'contacts',
-  //       // component: ChatRoomListPage,
-  //       loadChildren: () => import('./pages/contact-list/contact-list.module').then(m => m.ContactListModule)
-  //     },
-  //     {
-  //       path: 'room/:roomId/:type',
-  //       loadChildren: () => import('./pages/chat-room/chat-room.module').then(m => m.ChatRoomModule)
-  //     }
-  //   ]
-  // },
   {
     path: 'app',
-    // component: ChatRoomListPage,
     loadChildren: () => import('./pages/tabs-page/tabs-page.module').then(m => m.TabsModule)
-  },
-  {
-    path: 'contacts',
-    // component: ChatRoomListPage,
-    loadChildren: () => import('./pages/contact-list/contact-list.module').then(m => m.ContactListModule)
-  },
-  {
-    path: 'room/:roomId/:type',
-    loadChildren: () => import('./pages/chat-room/chat-room.module').then(m => m.ChatRoomModule)
-  },
-  {
-    path: 'app/room/:roomId/:type/:token',
-    loadChildren: () => import('./pages/chat-room/chat-room.module').then(m => m.ChatRoomModule)
-  },
-  {
-    path: 'tutorial',
-    loadChildren: () => import('./pages/tutorial/tutorial.module').then(m => m.TutorialModule),
-    canLoad: [CheckTutorial]
   },
   { path: '**', redirectTo: '/login', pathMatch: 'full' },
 ];

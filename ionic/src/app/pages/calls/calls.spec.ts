@@ -64,6 +64,25 @@ describe('CallsPage', () => {
   it('should set the inline filter when searching', () => {
     app.search('Alice');
     expect(app.filters.inline).toBe('alice');
-    expect(callSvcSpy.getPage).toHaveBeenCalled();
+  });
+
+  it('should filter locally instead of refetching (the box takes no search params)', () => {
+    app.ionViewDidEnter();
+    callSvcSpy.getPage.calls.reset();
+
+    app.calls = [
+      { uuid: '1', meta: { _direction: 'incoming', _contact_number: '972545234585', _contact_fullname: 'unknown' } },
+      { uuid: '2', meta: { _direction: 'outgoing', _contact_number: '9001', _contact_fullname: 'unknown' } }
+    ];
+
+    app.filter('outgoing');
+    expect(callSvcSpy.getPage).not.toHaveBeenCalled();
+    expect(app.visibleCalls.length).toBe(1);
+    expect(app.visibleCalls[0].uuid).toBe('2');
+
+    app.filter('all');
+    app.search('972545');
+    expect(app.visibleCalls.length).toBe(1);
+    expect(app.visibleCalls[0].uuid).toBe('1');
   });
 });

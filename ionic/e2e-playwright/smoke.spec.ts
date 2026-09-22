@@ -83,7 +83,7 @@ test.describe.skip('Smoke Tests', () => {
 
     // Should be on login page or app page
     const url = page.url();
-    const isValidRoute = url.includes('/login') || url.includes('/app') || url.includes('/tutorial');
+    const isValidRoute = url.includes('/login') || url.includes('/app');
     expect(isValidRoute).toBeTruthy();
   });
 

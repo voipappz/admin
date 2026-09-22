@@ -64,5 +64,17 @@
           <ion-item button detail="true" (click)="goTo('time_condition')">
               <ion-label>{{'SETTINGS.FIELDS.TIME_CONDITION'|translate}}</ion-label>
           </ion-item>
+          <!-- connectix server (the app's one backend). Blank = same-origin
+               (web) / dev default. Packaged Electron/Android builds set the
+               cloud URL here. Saved to localStorage; applies on reload. -->
+          <ion-item>
+            <ion-label position="stacked">{{'SETTINGS.FIELDS.SERVER'|translate}}</ion-label>
+            <ion-input
+              type="url"
+              [value]="serverUrl"
+              placeholder="https://cloud.example.com"
+              (ionChange)="serverChanged($event)">
+            </ion-input>
+          </ion-item>
       </ion-list>
       </ion-content>
