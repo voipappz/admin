@@ -19,6 +19,7 @@ import { usePermissions } from './hooks/usePermissions';
 import { canAccessScreen } from './utils/jwt';
 import { CircularProgress, Box, Typography, Button } from '@mui/material';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
+import { ConfirmProvider } from './components/ui';
 // ONE theme, light + dark, driven by src/theme/tokens.js — see theme.js.
 import muiTheme from './theme/theme';
 
@@ -616,6 +617,8 @@ function App() {
           them in step afterwards through useColorScheme). */}
       <MuiThemeProvider theme={muiTheme} modeStorageKey="theme-preference" defaultMode="light" disableTransitionOnChange>
         <ThemeProvider>
+          {/* One confirmation dialog for the whole app (useConfirm). */}
+          <ConfirmProvider>
           <QueryProvider>
             <AuthProvider>
               <UserAuthProvider>
@@ -639,6 +642,7 @@ function App() {
               </UserAuthProvider>
             </AuthProvider>
           </QueryProvider>
+          </ConfirmProvider>
         </ThemeProvider>
       </MuiThemeProvider>
     </ErrorBoundary>
