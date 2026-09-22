@@ -58,12 +58,18 @@ const ConfirmDialog = ({
     onClose?.(_event, reason);
   };
 
+  // Enter confirms — but only from the dialog itself, never from a control
+  // that has its own Enter behaviour. Cancel is the one that mattered: keydown
+  // bubbles, so the old "anything but a textarea" test meant a keyboard user
+  // pressing Enter on Cancel DELETED the record.
+  const INTERACTIVE = 'button, input, select, textarea, a[href], [contenteditable="true"]';
+
   const onKeyDown = (event) => {
-    if (event.key === 'Enter' && !loading && !event.defaultPrevented &&
-        event.target?.tagName !== 'TEXTAREA') {
-      event.preventDefault();
-      onConfirm?.();
-    }
+    if (event.key !== 'Enter' || loading || event.defaultPrevented) return;
+    if (event.target?.closest?.(INTERACTIVE)) return;
+
+    event.preventDefault();
+    onConfirm?.();
   };
 
   return (
