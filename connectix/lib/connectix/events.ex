@@ -231,6 +231,23 @@ defmodule Connectix.Events do
   def stats, do: stats(__MODULE__)
 
   @spec stats(GenServer.server()) :: map()
+  @doc """
+  A second connection to the store, for reads that must not block the writer.
+
+  `Events.search/2` showed why this exists: one slow `LIKE` scan on the
+  store's own connection holds its mailbox for the whole of its 15s timeout,
+  and every other call — including `stats/0` — queues behind it and times
+  out too, after which the store reports itself closed. A connection opened
+  on the same `db` handle runs on DuckDB's side of the wall: it shares the
+  file and the buffer pool, not the GenServer.
+
+  Read-only is a promise the caller keeps (`Events.Query` refuses anything
+  else before DuckDB sees it); DuckDB has no per-connection read-only mode.
+  `{:error, :not_storing}` while the file is not open.
+  """
+  @spec reader(GenServer.server()) :: {:ok, reference()} | {:error, term()}
+  def reader(server \\ __MODULE__), do: read(server, :reader)
+
   def stats(server) do
     GenServer.call(server, :stats, 15_000)
   catch
@@ -330,6 +347,10 @@ defmodule Connectix.Events do
 
   def handle_call(_request, _from, %{conn: nil} = state),
     do: {:reply, {:error, :not_storing}, state}
+
+  def handle_call(:reader, _from, state) do
+    {:reply, Duckdbex.connection(state.db), state}
+  end
 
   def handle_call({:recent, opts}, _from, state) do
     {where, args} =
