@@ -33,8 +33,6 @@ import {
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useUsers } from './Users';
 import { usersApi } from '../../services/api/usersApi';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
-import { useEventCounts } from '../../hooks/useEventCounts';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import { useNotification } from '../../context/NotificationContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -145,8 +143,6 @@ const Users = () => {
     fetchUsers,
   } = useUsers();
 
-  const goToLogs = useNavigateToLogs();
-  const { counts: eventCounts } = useEventCounts('user');
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [liveDrawerOpen, setLiveDrawerOpen] = useState(false);
   // Live agent status for the chip strip (real-time; snapshot + refreshable)
@@ -511,15 +507,6 @@ const Users = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title="View Logs">
-                              <IconButton
-                                size="small"
-                                onClick={() => goToLogs('user', user.uuid)}
-                                disabled={loading}
-                              >
-                                <EventsCountBadge count={eventCounts[user.uuid]} />
-                              </IconButton>
-                            </Tooltip>
                             {canWrite && (
                               <Tooltip title="Delete user">
                                 <IconButton

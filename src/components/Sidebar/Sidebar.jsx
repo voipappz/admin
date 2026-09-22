@@ -226,8 +226,6 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
             <CircleIcon sx={{ fontSize: 14, color: healthColor }} />
           </IconButton>
         </Tooltip>
-        {/* Logs has no sidebar entry at all — it opens as a modal from a
-            record's "View Logs" action (useNavigateToLogs). */}
         {/* Dark-mode toggle now lives only in the account menu (next to Sign
             Out) — removed the duplicate sidebar button. */}
         <Box className="sidebar-tool-divider" />

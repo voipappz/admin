@@ -46,8 +46,6 @@ import ImportCSVDialog from '../common/ImportCSVDialog/ImportCSVDialog';
 import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx';
 import { orEmpty, stripedTableRowSx } from '../shared/tableTheme.jsx';
 import useCentralizedSearch from '../../hooks/useCentralizedSearch';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
-import { useEventCounts } from '../../hooks/useEventCounts';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import { formatDate } from '../../utils/dateUtils';
 import { getEnabledChipProps } from '../../utils/chipStyles';
@@ -96,8 +94,6 @@ const Queues = () => {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'flow'
   const navigate = useNavigate();
-  const goToLogs = useNavigateToLogs();
-  const { counts: eventCounts } = useEventCounts('queue');
 
   // DID-aware panel mode
   const [searchParams] = useSearchParams();
@@ -553,11 +549,6 @@ const Queues = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title="View Logs">
-                              <IconButton size="small" onClick={() => goToLogs('queue', queue.uuid)} disabled={loading}>
-                                <EventsCountBadge count={eventCounts[queue.uuid]} />
-                              </IconButton>
-                            </Tooltip>
                             {canWrite && (
                               <Tooltip title="Delete queue">
                                 <IconButton size="small" color="error" onClick={() => handleOpenDeleteDialog(queue)} disabled={loading}>

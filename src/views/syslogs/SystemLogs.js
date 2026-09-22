@@ -27,11 +27,10 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     limit: 25,
   });
 
-  // Filters — seeded from `initialParams` when the viewer is opened as a modal
-  // over another screen (the usual case: a record's "View Logs" action), and
-  // from the URL when it is the page itself. A "View logs" action on a user
-  // passes search=<user_uuid>&app=auth&period=24h, which is why the login
-  // mediators put user_uuid= in the log message: the uuid is the search needle
+  // Filters — seeded from `initialParams` when a caller embeds the viewer, and
+  // from the URL when it is the page itself (/logs?search=<uuid>&app=auth&period=24h
+  // still works as a link). The login mediators put user_uuid= in the log
+  // message for exactly that: the uuid is the search needle
   // against the InfluxDB `syslog` message field.
   const initial = useMemo(() => {
     // `!= null` on purpose: the general Syslog view passes '' to mean "no

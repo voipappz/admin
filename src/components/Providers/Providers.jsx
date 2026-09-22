@@ -48,8 +48,6 @@ import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx
 import useCentralizedSearch from '../../hooks/useCentralizedSearch';
 import { orEmpty, stripedTableRowSx } from '../shared/tableTheme.jsx';
 import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
-import { useEventCounts } from '../../hooks/useEventCounts';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';
@@ -499,8 +497,6 @@ const Providers = () => {
     fetchAllTariffs
   } = useProviders();
 
-  const goToLogs = useNavigateToLogs();
-  const { counts: eventCounts } = useEventCounts('provider');
   const navigate = useNavigate();
   // Create goes through the wizard (same as Services); the quick dialog is for edit.
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -772,15 +768,6 @@ const Providers = () => {
                                   </IconButton>
                                 </Tooltip>
                               )}
-                              <Tooltip title="View Logs">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => goToLogs('provider', provider.uuid)}
-                                  disabled={loading}
-                                >
-                                  <EventsCountBadge count={eventCounts[provider.uuid]} />
-                                </IconButton>
-                              </Tooltip>
                             </Box>
                           </TableCell>
                         </TableRow>

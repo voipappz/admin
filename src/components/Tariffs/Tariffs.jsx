@@ -10,7 +10,6 @@ import {
 } from '@mui/icons-material';
 import { useTariffs } from './Tariffs.js';
 import { TariffBridge } from '../Bridges/TariffBridge/TariffBridge.jsx';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
@@ -41,7 +40,6 @@ const Tariffs = () => {
   const { can } = usePermissions();
   const canWrite = can('tariffs', 'write');
   const { registerScreen, unregisterScreen } = useGlobalSearch();
-  const goToLogs = useNavigateToLogs();
 
   const {
     tariffs, loading, selectedTariff, dialogMode, schemes,
@@ -222,11 +220,6 @@ const Tariffs = () => {
                               </IconButton>
                             </Tooltip>
                           )}
-                          <Tooltip title="View Logs">
-                            <IconButton size="small" onClick={() => goToLogs('tariff', t.uuid)} disabled={loading}>
-                              <EventsIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
                           {canWrite && (
                             <Tooltip title="Delete">
                               <IconButton size="small" color="error" onClick={() => handleOpenDeleteDialog(t)} disabled={loading}>

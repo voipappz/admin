@@ -10,7 +10,6 @@ import {
   Close as CloseIcon, EventNote as EventsIcon,
 } from '@mui/icons-material';
 import { useTemplates } from './Templates.js';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
@@ -26,7 +25,6 @@ const Templates = () => {
   const { can } = usePermissions();
   const canWrite = can('templates', 'write');
   const { registerScreen, unregisterScreen } = useGlobalSearch();
-  const goToLogs = useNavigateToLogs();
 
   const {
     templates, loading, selectedTemplate,
@@ -215,11 +213,6 @@ const Templates = () => {
                               <Tooltip title="Edit">
                                 <IconButton size="small" onClick={() => handleOpenDialog(t)} disabled={loading}>
                                   <EditIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="View Logs">
-                                <IconButton size="small" onClick={() => goToLogs('template', t.uuid)} disabled={loading}>
-                                  <EventsIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="Delete">

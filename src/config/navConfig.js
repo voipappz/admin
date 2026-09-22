@@ -34,10 +34,9 @@ export const NAV_ITEMS = [
   // (UserRail.jsx), and App.jsx sends an admin session away from both.
   { text: 'Calls',         path: '/calls',          iconComponent: CallIcon,                  aclKey: 'calls',                          group: 'MONITOR'  },
   { text: 'Messages',      path: '/messages',       iconComponent: ChatIcon,                  aclKey: 'calls',                          group: 'MONITOR'  },
-  // Logs: the app log stream from the InfluxDB `syslog` measurement,
-  // served by /api/logs. It is also
-  // opened as a modal from a record's "View Logs" action (useNavigateToLogs),
-  // but that left the screen itself unreachable except by typing /logs.
+  // Logs: the app log stream from the InfluxDB `syslog` measurement, served
+  // by /api/logs. It is the ONLY place logs are read — the per-record
+  // "View Logs" buttons were removed with the API's per-record trail.
   // Events is the durable half of the pair: the Postgres event store (a log
   // line naming an `action` becomes an event — config/initializers/log.rb).
   { text: 'Logs',          path: '/logs',           iconComponent: SubjectIcon,               aclKey: 'logs',                           group: 'MONITOR'  },

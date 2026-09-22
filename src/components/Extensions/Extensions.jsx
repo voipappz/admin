@@ -57,10 +57,8 @@ import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
 import { formatDate } from '../../utils/dateUtils';
 import { getEnabledChipProps } from '../../utils/chipStyles';
 import { usePhoneContext } from '../../context/PhoneContext';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import useEnvironmentEdit from '../../hooks/useEnvironmentEdit';
 import EnvironmentDialog from '../Environments/EnvironmentDialog/EnvironmentDialog';
-import { useEventCounts } from '../../hooks/useEventCounts';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';
@@ -115,8 +113,6 @@ const Extensions = () => {
   const { showSuccess, showError } = useNotification();
   const { registerScreen, unregisterScreen } = useGlobalSearch();
   const { openWebRTC } = usePhoneContext();
-  const goToLogs = useNavigateToLogs();
-  const { counts: eventCounts } = useEventCounts('extension');
   // Inline application edit — the application name in the table links here.
   const {
     envDialogOpen, envDialogEnvironment, envDialogLoading,
@@ -701,15 +697,6 @@ const Extensions = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title="View Logs">
-                              <IconButton
-                                size="small"
-                                onClick={() => goToLogs('extension', extension.uuid)}
-                                disabled={loading}
-                              >
-                                <EventsCountBadge count={eventCounts[extension.uuid]} />
-                              </IconButton>
-                            </Tooltip>
                           </Box>
                         </TableCell>
                       </TableRow>

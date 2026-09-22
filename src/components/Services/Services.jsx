@@ -47,7 +47,6 @@ import ImportJSONDialog from '../common/ImportJSONDialog/ImportJSONDialog';
 import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch';
 import useCentralizedSearch from '../../hooks/useCentralizedSearch';
 import { stripedTableRowSx } from '../shared/tableTheme.jsx';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
 import './Services.css';
 
@@ -242,7 +241,6 @@ const Services = () => {
 
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuService, setMenuService] = useState(null);
-  const goToLogs = useNavigateToLogs();
 
   // Register search segments with GlobalSearchContext
   const serviceSegments = useMemo(() => [
@@ -480,14 +478,6 @@ const Services = () => {
                       </TableCell>
                       <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
-                          <Tooltip title="View Logs">
-                            <IconButton
-                              size="small"
-                              onClick={() => goToLogs('service', service.uuid)}
-                            >
-                              <EventsIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
                           <IconButton
                             size="small"
                             onClick={(e) => handleMenuOpen(e, service)}
@@ -534,15 +524,6 @@ const Services = () => {
         >
           <SettingsIcon fontSize="small" sx={{ mr: 1 }} />
           Control
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            goToLogs('service', menuService?.uuid);
-            handleMenuClose();
-          }}
-        >
-          <EventsIcon fontSize="small" sx={{ mr: 1 }} />
-          View Logs
         </MenuItem>
         {canWrite && (
           <MenuItem

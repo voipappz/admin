@@ -27,7 +27,6 @@ import CallReceivedIcon from '@mui/icons-material/CallReceived';
 import SmsIcon from '@mui/icons-material/Sms';
 import CloseIcon from '@mui/icons-material/Close';
 import { formatDate } from '../../utils/dateUtils';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 
 const Messages = () => {
   const [quickSearchText, setQuickSearchText] = useState('');
@@ -36,7 +35,6 @@ const Messages = () => {
 
   const { access } = useAuth();
   const { registerScreen, unregisterScreen } = useGlobalSearch();
-  const goToLogs = useNavigateToLogs();
 
   const {
     columns: apiColumns,
@@ -303,30 +301,8 @@ const Messages = () => {
           </Typography>
         ),
       },
-    ].filter(col => !selectedFields || selectedFields.has(col.field) || col.field === 'body')
-      .concat([
-        {
-          field: 'actions',
-          headerName: '',
-          width: 60,
-          sortable: false,
-          filterable: false,
-          renderCell: (params) => (
-            <Tooltip title="View Logs">
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  goToLogs('message', params.row.uuid || params.row.id);
-                }}
-              >
-                <EventsIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          ),
-        },
-      ]);
-  }, [apiColumns, goToLogs]);
+    ].filter(col => !selectedFields || selectedFields.has(col.field) || col.field === 'body');
+  }, [apiColumns]);
 
   // Summary counters
   const summaryCounts = useMemo(() => {

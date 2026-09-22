@@ -34,7 +34,6 @@ import {
   EventNote as EventsIcon,
 } from '@mui/icons-material';
 import { useCampaigns } from './Campaigns';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx';
 import LiveChartsPopout from '../Live/LiveChartsPopout.jsx';
@@ -141,7 +140,6 @@ const Campaigns = () => {
   const canWrite = can('campaigns', 'write');
   const { environments } = useCustomerEnvironment();
   const { registerScreen, unregisterScreen } = useGlobalSearch();
-  const goToLogs = useNavigateToLogs();
   const [numbersCampaign, setNumbersCampaign] = useState(null);
 
   const {
@@ -458,15 +456,6 @@ const Campaigns = () => {
                                   </IconButton>
                                 </Tooltip>
                               )}
-                              <Tooltip title="View Logs">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => goToLogs('campaign', campaign.uuid)}
-                                  disabled={loading}
-                                >
-                                  <EventsIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
                               {canWrite && (
                                 <Tooltip title="Delete">
                                   <IconButton
