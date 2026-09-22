@@ -119,6 +119,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, useSortable, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import './TopBar.css';
+import { ConfirmDialog } from '../ui';
 
 const ITEM_HEIGHT = 68; // application rows: name + type, status/date/id, meta chips
 
@@ -1882,25 +1883,14 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
       />
 
       {/* Environment Delete Confirmation */}
-      <Dialog open={envDeleteConfirmOpen} onClose={() => setEnvDeleteConfirmOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete Application</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete <strong>{envToDelete?.name}</strong>?
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEnvDeleteConfirmOpen(false)} disabled={envSaving}>Cancel</Button>
-          <Button onClick={handleEnvDelete} variant="contained" color="error" disabled={envSaving}
-            startIcon={envSaving ? <CircularProgress size={16} color="inherit" /> : null}
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={envDeleteConfirmOpen}
+        onClose={() => setEnvDeleteConfirmOpen(false)}
+        onConfirm={handleEnvDelete}
+        loading={envSaving}
+        title="Delete Application"
+        entityName={envToDelete?.name}
+      />
 
     </>
   );

@@ -30,7 +30,8 @@ import {
  * and focus trapping; Enter confirms. While `loading`, both buttons lock and
  * Esc/backdrop do nothing, so a slow delete cannot be half-cancelled.
  *
- * data-testid="confirm-delete-button" is kept: the Playwright suite clicks it.
+ * The confirm button is data-testid="confirm-delete-button" by default (the
+ * Playwright suite clicks it); `confirmTestId` keeps a screen's own id.
  */
 const ConfirmDialog = ({
   open,
@@ -46,6 +47,7 @@ const ConfirmDialog = ({
   loading = false,
   children,
   'data-testid': testId,
+  confirmTestId = 'confirm-delete-button',
 }) => {
   const id = useId();
   const titleId = `${id}-title`;
@@ -96,7 +98,7 @@ const ConfirmDialog = ({
           {cancelLabel}
         </Button>
         <Button
-          data-testid="confirm-delete-button"
+          data-testid={confirmTestId}
           onClick={() => onConfirm?.()}
           variant="contained"
           color={destructive ? 'error' : 'primary'}

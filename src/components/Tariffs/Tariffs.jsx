@@ -19,6 +19,7 @@ import { stripedTableRowSx, orEmpty } from '../shared/tableTheme.jsx';
 import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx';
 import useCentralizedSearch from '../../hooks/useCentralizedSearch';
 import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
+import { ConfirmDialog } from '../ui';
 
 const EMPTY_FILTERS = { name: '', scheme: '', enabled: '', search: '' };
 
@@ -257,21 +258,15 @@ const Tariffs = () => {
       />
 
       {/* Delete confirmation */}
-      <Dialog open={deleteDialogOpen} onClose={handleCloseDeleteDialog} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete Tariff</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">
-            Delete <strong>{tariffToDelete?.name}</strong>? Subscriptions and plans still
-            pointing at it will lose their rates.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteDialog} disabled={loading}>Cancel</Button>
-          <Button onClick={handleDeleteTariff} color="error" variant="contained" disabled={loading}>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onClose={handleCloseDeleteDialog}
+        onConfirm={handleDeleteTariff}
+        loading={loading}
+        title="Delete Tariff"
+        message={<Typography>Delete <strong>{tariffToDelete?.name}</strong>?</Typography>}
+        description="Subscriptions and plans still pointing at it will lose their rates."
+      />
     </Box>
   );
 };

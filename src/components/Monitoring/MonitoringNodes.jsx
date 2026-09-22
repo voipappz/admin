@@ -17,6 +17,7 @@ import { toHealth } from '../../utils/gatus';
 import { useAuth } from '../../context/AuthContext';
 import GatusHealthPanel from './GatusHealthPanel.jsx';
 import NodeEditDialog from './NodeEditDialog.jsx';
+import { ConfirmDialog } from '../ui';
 
 /**
  * MonitoringNodes — the list of nodes on the Monitoring page. Each node shows its
@@ -372,21 +373,15 @@ export default function MonitoringNodes() {
         loading={saving}
       />
 
-      <Dialog open={!!confirmDelete} onClose={() => setConfirmDelete(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete node</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Delete <strong>{confirmDelete?.name}</strong>? The row is soft deleted, so its uuid stays
-            resolvable for historical calls. It is refused while customers are still homed on it.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDelete(null)}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={handleDelete} data-testid="node-delete-confirm">
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={handleDelete}
+        title="Delete node"
+        message={<Typography>Delete <strong>{confirmDelete?.name}</strong>?</Typography>}
+        description="The row is soft deleted, so its uuid stays resolvable for historical calls. It is refused while customers are still homed on it."
+        confirmTestId="node-delete-confirm"
+      />
     </Box>
   );
 }
