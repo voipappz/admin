@@ -12,7 +12,8 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
 import { fetchAgents, fetchLiveCalls, summarize } from '../../services/api/liveDashboardApi';
 import { useUserAuth } from '../../context/UserAuthContext';
-import useCableHealth from '../../hooks/useCableHealth';
+import { useCable } from '../../services/cable';
+import CableStatus from './CableStatus';
 import useLiveEntities from '../../hooks/useLiveEntities';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
 import {
@@ -52,14 +53,6 @@ const POLL_MS = 5000;
 // Two missed polls. One can be a slow request; two means the source stopped
 // answering and the numbers on screen are no longer current.
 const STALE_AFTER_S = Math.round((POLL_MS * 2) / 1000);
-
-const CABLE_LABEL = {
-  connected: 'connected',
-  connecting: 'connecting…',
-  error: 'unreachable',
-  unconfigured: 'not configured',
-  idle: 'idle',
-};
 
 /** Seconds since a unix timestamp, formatted HH:MM:SS — the deployed dashboard's format. */
 /** A unix-seconds timestamp as local wall-clock time; '-' when unset. */
@@ -123,7 +116,7 @@ const LiveDashboard = () => {
   // failure mode this screen exists to avoid; we spent an afternoon
   // discovering two dead hosts by hand rather than being told.
   const [lastDataAt, setLastDataAt] = useState(null);
-  const cable = useCableHealth();
+  const cable = useCable();
 
   // The cable carries whole documents the node materialised from the switch's
   // own events; the poll below is the fallback for when it is not there. When
@@ -293,19 +286,21 @@ const LiveDashboard = () => {
         <Chip
           size="small"
           variant="outlined"
-          label={`Realtime cable: ${CABLE_LABEL[cable.status] || cable.status}`}
-          sx={{
-            borderColor: cable.status === 'connected' ? 'success.main' : 'text.disabled',
-            color: cable.status === 'connected' ? 'success.main' : 'text.secondary',
-          }}
-        />
-        <Chip
-          size="small"
-          variant="outlined"
           label={`Source: ${usingCable ? 'cable (live)' : `polling ${POLL_MS / 1000}s`}`}
           sx={{ color: 'text.secondary' }}
         />
       </Box>
+
+      <CableStatus
+        conn={cable}
+        sub={live.subscription}
+        counts={{
+          user: liveAgents.length,
+          queue: live.byScope('queue').length,
+          environment: live.byScope('environment').length,
+        }}
+        now={now}
+      />
 
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
         <Chip label={`${stats.available} Available`} sx={{ bgcolor: statusColor('available', settings), color: '#fff', fontWeight: 600 }} />
@@ -397,7 +392,9 @@ const LiveDashboard = () => {
       </TableContainer>
 
       <Typography variant="caption" color="text.secondary">
-        Polling every {POLL_MS / 1000}s. Live streaming over the cable replaces this once LiveChannel ships.
+        {usingCable
+          ? `Live over the cable. Names and extensions still come from the agent list, polled every ${POLL_MS / 1000}s.`
+          : `Polling every ${POLL_MS / 1000}s — the cable is not delivering; see Realtime cable above.`}
       </Typography>
     </Box>
   );
