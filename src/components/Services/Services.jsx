@@ -36,6 +36,7 @@ import {
   EventNote as EventsIcon
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { ConfirmDialog } from '../ui';
 import { useServices } from './Services';
 import { usePermissions } from '../../hooks/usePermissions';
 import { getEnabledChipProps } from '../../utils/chipStyles';
@@ -115,40 +116,6 @@ const ServiceControlDialog = ({ open, onClose, onConfirm, service, loading }) =>
           color={action === 'stop' ? 'error' : 'primary'}
         >
           {action.charAt(0).toUpperCase() + action.slice(1)}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
-
-/**
- * DeleteConfirmDialog Component
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, service, loading }) => {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Delete Service</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete service{' '}
-          <strong>{service?.display_name}</strong>?
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          This action cannot be undone and will remove all service configuration.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          onClick={onConfirm}
-          variant="contained"
-          color="error"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          Delete
         </Button>
       </DialogActions>
     </Dialog>
@@ -582,12 +549,15 @@ const Services = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteService}
-        service={serviceToDelete}
         loading={loading}
+        title="Delete Service"
+        message={<Typography>Are you sure you want to delete service{' '}
+          <strong>{(serviceToDelete)?.display_name}</strong>?</Typography>}
+        description="This action cannot be undone and will remove all service configuration."
       />
 
       {/* Import JSON Dialog */}

@@ -63,6 +63,7 @@ import WorkflowRunsPanel from './WorkflowRunsPanel';
 import { servicesApi } from '../../services/api/servicesApi';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useNotification } from '../../context/NotificationContext';
+import { ConfirmDialog } from '../ui';
 
 /* ═══════════════════════════════════════════════════════════════════
    Node / Edge types for ReactFlow
@@ -1459,19 +1460,14 @@ const WorkflowCanvas = () => {
       </Menu>
 
       {/* Delete dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => { setDeleteDialogOpen(false); setWfToDelete(null); }} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete Workflow</DialogTitle>
-        <DialogContent>
-          <Typography>Delete <strong>{wfToDelete?.name}</strong>? This cannot be undone.</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => { setDeleteDialogOpen(false); setWfToDelete(null); }}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={handleDelete} disabled={deleting}
-            startIcon={deleting ? <CircularProgress size={14} color="inherit" /> : <DeleteIcon />}>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onClose={() => { setDeleteDialogOpen(false); setWfToDelete(null); }}
+        onConfirm={handleDelete}
+        loading={deleting}
+        title="Delete Workflow"
+        entityName={wfToDelete?.name}
+      />
     </Box>
   );
 };

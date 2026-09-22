@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router';
+import { ConfirmDialog } from '../ui';
 import { useProviders } from './Providers';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -421,42 +422,6 @@ const ProviderDialog = ({ open, onClose, onSave, provider, loading, allTariffs, 
 };
 
 /**
- * DeleteConfirmDialog Component
- * Confirmation dialog for deleting providers
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, provider, loading }) => {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Delete Provider</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete provider{' '}
-          <strong>{provider?.name}</strong>?
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          This action cannot be undone and will affect all associated tariffs.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          onClick={onConfirm}
-          variant="contained"
-          color="error"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
-
-
-/**
  * Providers Component
  * Main component for providers management with sidebar list and wide table
  */
@@ -823,12 +788,15 @@ const Providers = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteProvider}
-        provider={providerToDelete}
         loading={dialogLoading}
+        title="Delete Provider"
+        message={<Typography>Are you sure you want to delete provider{' '}
+          <strong>{(providerToDelete)?.name}</strong>?</Typography>}
+        description="This action cannot be undone and will affect all associated tariffs."
       />
     </Box>
   );

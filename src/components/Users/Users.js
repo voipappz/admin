@@ -4,12 +4,14 @@ import { extensionsApi } from '../../services/api/extensionsApi';
 import { useNotification } from '../../context/NotificationContext';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
 import { addRecentObject } from '../../utils/recentObjects';
+import { useConfirm } from '../ui';
 
 /**
  * Custom hook for Users management
  * Handles business logic for user CRUD operations with table pattern and filters
  */
 export const useUsers = () => {
+  const confirm = useConfirm();
   // State management
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -23,9 +25,6 @@ export const useUsers = () => {
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [userToDuplicate, setUserToDuplicate] = useState(null);
 
-  // Logs state
-  const [logsDialogOpen, setLogsDialogOpen] = useState(false);
-  const [logsUser, setLogsUser] = useState(null);
 
   // Reference data
   const [environments, setEnvironments] = useState([]);
@@ -468,9 +467,9 @@ export const useUsers = () => {
   const handleResetPassword = useCallback(async (user) => {
     if (!user) return;
 
-    const confirmed = window.confirm(
-      `Send password reset email to ${user.email}?`
-    );
+    const confirmed = await confirm({ title: 'Reset password', confirmLabel: 'Send', destructive: false,
+                                      description: null,
+                                      message: `Send password reset email to ${user.email}?` });
 
     if (!confirmed) return;
 
@@ -484,7 +483,7 @@ export const useUsers = () => {
     } finally {
       setLoading(false);
     }
-  }, [showSuccess, showError]);
+  }, [confirm, showSuccess, showError]);
 
   /**
    * Handle password reset (admin action)
@@ -504,23 +503,6 @@ export const useUsers = () => {
       throw error; // Re-throw so dialog can show error
     }
   }, [showError]);
-
-  /**
-   * Handle viewing user logs
-   * Opens the logs dialog - EntityLogsDialog handles fetching internally
-   */
-  const handleViewUserLogs = useCallback((user) => {
-    setLogsUser(user);
-    setLogsDialogOpen(true);
-  }, []);
-
-  /**
-   * Handle closing logs dialog
-   */
-  const handleCloseLogsDialog = useCallback(() => {
-    setLogsDialogOpen(false);
-    setLogsUser(null);
-  }, []);
 
   return {
     // State
@@ -564,13 +546,7 @@ export const useUsers = () => {
     handleResetPassword,
     handleDirectPasswordReset,
     fetchUsers,
-    loadReferenceData,
-
-    // Logs
-    logsDialogOpen,
-    logsUser,
-    handleViewUserLogs,
-    handleCloseLogsDialog
+    loadReferenceData
   };
 };
 

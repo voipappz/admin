@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useSearchParams, useNavigate } from 'react-router';
+import { ConfirmDialog } from '../ui';
 import { useQueues } from './Queues';
 import { queuesApi } from '../../services/api/queuesApi';
 import { didsApi } from '../../services/api/routesApi';
@@ -54,35 +55,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import Alert from '@mui/material/Alert';
 
 const QueuesTopology = lazy(() => import('./QueuesTopology'));
-
-/**
- * DeleteConfirmDialog Component
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, queue, loading }) => (
-  <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-    <DialogTitle>Delete Queue</DialogTitle>
-    <DialogContent>
-      <Typography>
-        Are you sure you want to delete queue <strong>{queue?.name}</strong>?
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-        This will remove the queue and all its tier assignments from the switch.
-      </Typography>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onClose} disabled={loading}>Cancel</Button>
-      <Button
-        onClick={onConfirm}
-        variant="contained"
-        color="error"
-        disabled={loading}
-        startIcon={loading ? <CircularProgress size={20} /> : null}
-      >
-        Delete
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
 
 /**
  * Queues Component
@@ -590,12 +562,14 @@ const Queues = () => {
       />
 
       {/* Delete Confirmation */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteQueue}
-        queue={queueToDelete}
         loading={loading}
+        title="Delete Queue"
+        message={<Typography>Are you sure you want to delete queue <strong>{(queueToDelete)?.name}</strong>?</Typography>}
+        description="This will remove the queue and all its tier assignments from the switch."
       />
 
       {/* Import CSV Dialog */}

@@ -33,6 +33,7 @@ import {
   FormatListNumbered as NumbersIcon,
   EventNote as EventsIcon,
 } from '@mui/icons-material';
+import { ConfirmDialog } from '../ui';
 import { useCampaigns } from './Campaigns';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx';
@@ -50,36 +51,6 @@ import { getEnabledChipProps, getStatusChipProps, getTypeChipColor } from '../..
 import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';
 import './Campaigns.css';
-
-/**
- * Delete confirmation dialog
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, campaign, loading }) => (
-  <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-    <DialogTitle>Delete Campaign</DialogTitle>
-    <DialogContent>
-      <Typography>
-        Are you sure you want to delete campaign{' '}
-        <strong>{campaign?.name}</strong>?
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-        This action cannot be undone. All campaign numbers will also be removed.
-      </Typography>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onClose} disabled={loading}>Cancel</Button>
-      <Button
-        onClick={onConfirm}
-        variant="contained"
-        color="error"
-        disabled={loading}
-        startIcon={loading ? <CircularProgress size={20} /> : null}
-      >
-        Delete
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
 
 /**
  * Duplicate campaign dialog
@@ -504,12 +475,15 @@ const Campaigns = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteCampaign}
-        campaign={campaignToDelete}
         loading={loading}
+        title="Delete Campaign"
+        message={<Typography>Are you sure you want to delete campaign{' '}
+        <strong>{(campaignToDelete)?.name}</strong>?</Typography>}
+        description="This action cannot be undone. All campaign numbers will also be removed."
       />
 
       {/* Duplicate Dialog */}

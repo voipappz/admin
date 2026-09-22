@@ -19,6 +19,7 @@ import { stripedTableRowSx, orEmpty } from '../shared/tableTheme.jsx';
 import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx';
 import useCentralizedSearch from '../../hooks/useCentralizedSearch';
 import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
+import { ConfirmDialog } from '../ui';
 
 const Templates = () => {
   const { selectedCustomer } = useCustomerEnvironment();
@@ -253,24 +254,14 @@ const Templates = () => {
       />
 
       {/* Delete Confirmation */}
-      <Dialog open={deleteDialogOpen} onClose={handleCloseDeleteDialog} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete Template</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete <strong>{templateToDelete?.name}</strong>?
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteDialog} disabled={loading}>Cancel</Button>
-          <Button onClick={handleDeleteTemplate} color="error" variant="contained" disabled={loading}
-            startIcon={loading ? <CircularProgress size={18} /> : <DeleteIcon />}>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onClose={handleCloseDeleteDialog}
+        onConfirm={handleDeleteTemplate}
+        loading={loading}
+        title="Delete Template"
+        entityName={templateToDelete?.name}
+      />
     </Box>
   );
 };
