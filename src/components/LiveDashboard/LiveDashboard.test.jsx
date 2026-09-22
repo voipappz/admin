@@ -196,4 +196,16 @@ describe('LiveDashboard — health strip', () => {
     // implying a realtime feed it does not have.
     expect(await screen.findByText(/Source: polling/i)).toBeInTheDocument();
   });
+
+  it('says why the cable is not live instead of leaving the screen to guess', async () => {
+    // No session token in a test, so no socket opens: the panel must name
+    // that, and open its details by itself because the screen is not live.
+    mockAgents.mockResolvedValue([]);
+    mockCalls.mockResolvedValue([]);
+
+    render(<LiveDashboard />);
+
+    expect(await screen.findByText('Realtime cable: No session')).toBeInTheDocument();
+    expect(screen.getByText('Subscription')).toBeInTheDocument();
+  });
 });
