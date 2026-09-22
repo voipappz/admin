@@ -33,7 +33,6 @@ import { useAccounts } from './useAccounts';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import AccountDialog from './AccountDialog/AccountDialog';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import { formatDate } from '../../utils/dateUtils';
 import { getEnabledChipProps } from '../../utils/chipStyles';
 import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx';
@@ -120,7 +119,6 @@ const Accounts = () => {
     fetchAccounts
   } = useAccounts();
 
-  const goToLogs = useNavigateToLogs();
   const [selectedAccountId, setSelectedAccountId] = useState(null);
 
   // Register search segments with GlobalSearchContext
@@ -416,15 +414,6 @@ const Accounts = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title="View Logs">
-                              <IconButton
-                                size="small"
-                                onClick={() => goToLogs('account', account.uuid)}
-                                disabled={loading}
-                              >
-                                <EventsIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
                           </Box>
                         </TableCell>
                       </TableRow>

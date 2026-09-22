@@ -741,7 +741,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
   }, [handleTicketsOpen]);
 
   // Events modal — opened by the top-right Events icon (no filter) and by
-  // "View logs" actions on other screens (carry a subject query string).
+  // "Events" actions on other screens (carry a subject query string).
   const [eventsModalOpen, setEventsModalOpen] = useState(false);
   const [eventsModalParams, setEventsModalParams] = useState('');
   useEffect(() => {
@@ -751,21 +751,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     };
     window.addEventListener('openEventsModal', handler);
     return () => window.removeEventListener('openEventsModal', handler);
-  }, []);
-
-  // Logs modal — a record's log stream over the current screen. Logs has no
-  // sidebar entry: the stream only means something beside the record that
-  // produced it, so every entry point is a "View Logs" action
-  // (useNavigateToLogs), which carries a search query string.
-  const [logsModalOpen, setLogsModalOpen] = useState(false);
-  const [logsModalParams, setLogsModalParams] = useState('');
-  useEffect(() => {
-    const handler = (e) => {
-      setLogsModalParams((e && e.detail) || '');
-      setLogsModalOpen(true);
-    };
-    window.addEventListener('openLogsModal', handler);
-    return () => window.removeEventListener('openLogsModal', handler);
   }, []);
 
   // Syslog modal — opened by the Syslog tool. Same pattern as the Events modal:
@@ -1552,8 +1537,8 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
 
 
       {/* Events Modal — reuses the full Events screen inside a dialog.
-          Opened from the top-right Events icon and from "View logs" actions
-          on other screens (which pass a subject query string). Keyed by params
+          Opened from the top-right Events icon and from "Events" actions on
+          other screens (which pass a subject query string). Keyed by params
           so re-opening with different filters re-seeds the screen. */}
       <Dialog
         open={eventsModalOpen}
@@ -1582,38 +1567,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         </Box>
       </Dialog>
 
-      {/* Logs Modal — one record's log stream, opened by a "View Logs" action
-          anywhere (useNavigateToLogs). Logs has no sidebar entry: reading the
-          stream beside the row that produced it is the only use, and a full-page
-          trip cost you that row. Keyed by params so re-opening on a different
-          record re-seeds the filters. */}
-      <Dialog
-        open={logsModalOpen}
-        onClose={() => setLogsModalOpen(false)}
-        maxWidth="xl"
-        fullWidth
-        PaperProps={{ sx: { height: '90vh', display: 'flex', flexDirection: 'column' } }}
-      >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1.5, pr: 1 }}>
-          <Typography variant="h6" sx={{ flex: 1 }}>Logs</Typography>
-          <Tooltip title="Open full page">
-            <IconButton size="small" onClick={() => { setLogsModalOpen(false); navigate(`/logs${logsModalParams ? `?${logsModalParams}` : ''}`); }}>
-              <OpenInNewIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <IconButton size="small" onClick={() => setLogsModalOpen(false)} sx={{ ml: 0.5 }}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </DialogTitle>
-        <Box sx={{ flex: 1, overflow: 'auto', p: 0 }}>
-          {logsModalOpen && (
-            <Suspense fallback={null}>
-              <SystemLogs key={logsModalParams} initialParams={logsModalParams} />
-            </Suspense>
-          )}
-        </Box>
-      </Dialog>
-
       {/* Syslog Modal — the full system-logs view in its own window (same pattern
           as the Events modal), instead of living as a Monitoring tab. */}
       <Dialog
@@ -1632,9 +1585,8 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         <Box sx={{ flex: 1, overflow: 'auto', p: 0 }}>
           {syslogModalOpen && (
             <Suspense fallback={null}>
-              {/* '' = the whole stream, explicitly unfiltered — including the
-                  lines carrying no type_uuid, which no record-scoped "View
-                  Logs" action can ever reach. */}
+              {/* '' = the whole stream, explicitly unfiltered: the Syslog
+                  tool is a whole-fleet view, never scoped to one record. */}
               <SystemLogs initialParams="" />
             </Suspense>
           )}

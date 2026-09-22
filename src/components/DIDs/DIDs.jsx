@@ -49,7 +49,6 @@ import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext
 import { formatDate } from '../../utils/dateUtils';
 import { getEnabledChipProps, getTypeChipColor } from '../../utils/chipStyles';
 import useEnvironmentEdit from '../../hooks/useEnvironmentEdit';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import { useEventCounts } from '../../hooks/useEventCounts';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import EnvironmentDialog from '../Environments/EnvironmentDialog/EnvironmentDialog';
@@ -97,8 +96,6 @@ const DeleteConfirmDialog = ({ open, onClose, onConfirm, did, loading }) => {
  */
 const DIDs = () => {
   const navigate = useNavigate();
-  const goToLogs = useNavigateToLogs();
-  const { counts: eventCounts } = useEventCounts('did');
   const { can } = usePermissions();
   const canWrite = can('dids', 'write');
 
@@ -645,15 +642,6 @@ const DIDs = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title="View Logs">
-                              <IconButton
-                                size="small"
-                                onClick={() => goToLogs('did', did.uuid || did.id)}
-                                disabled={loading}
-                              >
-                                <EventsCountBadge count={eventCounts[did.uuid || did.id]} />
-                              </IconButton>
-                            </Tooltip>
                             {canWrite && (
                               <Tooltip title="Delete">
                                 <IconButton

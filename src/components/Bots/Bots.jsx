@@ -56,7 +56,6 @@ import FolderIcon from '@mui/icons-material/Folder';
 import EventsIcon from '@mui/icons-material/EventNote';
 
 import { useBots } from './Bots.js';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import { usePermissions } from '../../hooks/usePermissions';
 import { CodeEditor } from '../Bridges/VMLBridge/CodeEditor.jsx';
 
@@ -105,7 +104,6 @@ const Bots = () => {
   const [newBotName, setNewBotName] = useState('');
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuBot, setMenuBot] = useState(null);
-  const goToLogs = useNavigateToLogs();
 
   // Tab state
   const [activeTab, setActiveTab] = useState(0);
@@ -1109,9 +1107,6 @@ const Bots = () => {
             <RocketLaunchIcon fontSize="small" sx={{ mr: 1 }} /> Deploy
           </MenuItem>
         )}
-        <MenuItem onClick={() => { goToLogs('bot', menuBot?.uuid || menuBot?.id); handleMenuClose(); }}>
-          <EventsIcon fontSize="small" sx={{ mr: 1 }} /> View Logs
-        </MenuItem>
         {canWrite && (
           <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
             <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete

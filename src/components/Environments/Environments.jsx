@@ -39,7 +39,6 @@ import LiveChartsPopout from '../Live/LiveChartsPopout.jsx';
 import { EnvironmentChartsPanel } from '../Live/panels/EntityChartsPanels.jsx';
 import useCentralizedSearch from '../../hooks/useCentralizedSearch';
 import { stripedTableRowSx } from '../shared/tableTheme.jsx';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import './Environments.css';
 
 
@@ -87,7 +86,6 @@ const Environments = () => {
   const { can } = usePermissions();
   const canWrite = can('environments', 'write');
   const { registerScreen, unregisterScreen } = useGlobalSearch();
-  const goToLogs = useNavigateToLogs();
 
   const {
     environments,
@@ -349,15 +347,6 @@ const Environments = () => {
                                   </IconButton>
                                 </Tooltip>
                               )}
-                              <Tooltip title="View Logs">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => goToLogs('environment', env.uuid || env.id)}
-                                  disabled={loading}
-                                >
-                                  <EventsIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
                               {canWrite && (
                                 <Tooltip title="Delete application">
                                   <IconButton

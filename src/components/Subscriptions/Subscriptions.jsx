@@ -38,7 +38,6 @@ import {
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSubscriptions } from './Subscriptions.js';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import { useEventCounts } from '../../hooks/useEventCounts';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -242,10 +241,8 @@ const Subscriptions = () => {
     handleDuplicateSubscription,
   } = useSubscriptions();
 
-  const goToLogs = useNavigateToLogs();
 
   // Per-row "N events" badge — one counts call for the whole list.
-  const { counts: eventCounts } = useEventCounts('subscription');
 
   // Menu state for more actions
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
@@ -798,22 +795,6 @@ const Subscriptions = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title={`View Logs${eventCounts[subscription.uuid] ? ` (${eventCounts[subscription.uuid]})` : ''}`}>
-                              <IconButton
-                                size="small"
-                                onClick={() => goToLogs('subscription', subscription.uuid)}
-                                disabled={loading}
-                              >
-                                <Badge
-                                  badgeContent={eventCounts[subscription.uuid] || 0}
-                                  color="primary"
-                                  max={999}
-                                  sx={{ '& .MuiBadge-badge': { fontSize: '0.55rem', height: 14, minWidth: 14 } }}
-                                >
-                                  <EventsIcon fontSize="small" />
-                                </Badge>
-                              </IconButton>
-                            </Tooltip>
                             <Tooltip title="More actions">
                               <IconButton
                                 size="small"
@@ -876,15 +857,6 @@ const Subscriptions = () => {
             Duplicate Subscription
           </MenuItem>
         )}
-        <MenuItem onClick={() => {
-          if (menuSubscription?.uuid) {
-            goToLogs('subscription', menuSubscription.uuid);
-          }
-          handleMenuClose();
-        }}>
-          <EventsIcon fontSize="small" sx={{ mr: 1 }} />
-          View Logs
-        </MenuItem>
       </Menu>
 
       {/* Create/Edit Dialog */}
