@@ -178,7 +178,7 @@ const Queues = () => {
           setCurrentQueue(null);
         }
       } catch (err) {
-        console.error('Failed to load DID:', err);
+        console.error('Failed to load Route:', err);
         setCurrentDID(null);
         setCurrentQueue(null);
       } finally {
@@ -238,7 +238,7 @@ const Queues = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
             <PhoneIcon sx={{ fontSize: 18, color: 'var(--accent-primary)' }} />
             {didLoading ? (
-              <Typography variant="body2" color="text.secondary">Loading DID...</Typography>
+              <Typography variant="body2" color="text.secondary">Loading Route...</Typography>
             ) : currentDID ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                 <Chip label={currentDID.number} size="small" color="primary" variant="outlined" sx={{ fontWeight: 600 }} />
@@ -247,7 +247,7 @@ const Queues = () => {
                 )}
               </Box>
             ) : (
-              <Typography variant="body2" color="error">DID not found</Typography>
+              <Typography variant="body2" color="error">Route not found</Typography>
             )}
           </Box>
           <Button
@@ -320,8 +320,8 @@ const Queues = () => {
                         bridge_uuid: created.uuid,
                       });
                     } catch (err) {
-                      console.error('Failed to link queue to DID:', err);
-                      showError('Queue created but failed to link to DID. Link it manually in DID settings.');
+                      console.error('Failed to link queue to Route:', err);
+                      showError('Queue created but failed to link to Route. Link it manually in Route settings.');
                     }
                   }
                   setCurrentQueue(created);

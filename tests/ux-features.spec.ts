@@ -51,7 +51,7 @@ test.describe('UX Power Features', () => {
     await expect(popover).toContainText('Recent Pages');
 
     // Should show recently visited pages
-    await expect(popover).toContainText('DIDs');
+    await expect(popover).toContainText('Routes');
     await expect(popover).toContainText('Users');
   });
 

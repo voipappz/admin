@@ -190,7 +190,7 @@ export const providersApi = {
    * @returns {Promise<Array>} - Array of DID objects
    */
   getProviderDids: async (providerUuid) => {
-    return apiService.get(`/api/providers/${providerUuid}?action=dids`, {}, 'fetching provider DIDs', false);
+    return apiService.get(`/api/providers/${providerUuid}?action=dids`, {}, 'fetching provider Routes', false);
   },
 
   /**

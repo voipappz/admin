@@ -21,7 +21,7 @@ import { hasPermission, canAccessScreen } from '../utils/jwt';
  * Usage:
  *   const { can } = usePermissions();
  *   {can('accounts', 'write') && <EditButton/>}
- *   if (!canAccess('dids')) return <Redirect/>;
+ *   if (!canAccess('routes')) return <Redirect/>;
  *
  * @returns {{ can: (screen: string, action?: string) => boolean,
  *            canAccess: (screen: string) => boolean }}

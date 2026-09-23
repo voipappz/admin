@@ -53,7 +53,7 @@ export const openGuide = (guideUrl) => {
 
 /**
  * Get guide URL for a screen
- * @param {string} screenName - The screen name (e.g., 'USERS', 'DIDS')
+ * @param {string} screenName - The screen name (e.g., 'USERS', 'ROUTES')
  * @returns {string|null} The guide URL or null if not found
  */
 export const getGuideUrl = (screenName) => {

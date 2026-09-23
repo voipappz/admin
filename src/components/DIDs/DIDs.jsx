@@ -133,7 +133,7 @@ const DIDs = ({ portalMode = false }) => {
         type: 'did',
         mode: did ? 'edit' : 'create',
         data: did,
-        label: did ? `DID: ${did.name || did.number}` : 'DID: (new)',
+        label: did ? `DID: ${did.name || did.number}` : 'Route: (new)',
         environmentUuid: did?.environment_uuid || '',
       });
       handleCloseDialog(); // Clear hook state; wizard manages its own open/close
@@ -197,10 +197,12 @@ const DIDs = ({ portalMode = false }) => {
   ], [bridgeTypes, environments, providers, portalMode]);
 
   useEffect(() => {
-    // Distinct name so the two surfaces don't share one persisted filter set
-    // (GlobalSearchContext keys localStorage on it) — they show different
-    // segments, and a provider filter restored on the portal can't be cleared.
-    registerScreen(portalMode ? 'PortalDIDs' : 'DIDs', didSegments, {
+    // Each surface registers under its own name. It is the search box's
+    // heading AND the key GlobalSearchContext persists filters under, so the
+    // two must differ: they show different segments, and a provider filter
+    // restored on the portal can't be cleared there. The words match what each
+    // surface calls the screen — the admin's Routes, the portal's Numbers.
+    registerScreen(portalMode ? 'Numbers' : 'Routes', didSegments, {
       onSearch: (params) => {
         const newFilters = {};
         Object.entries(params).forEach(([key, value]) => {
@@ -358,7 +360,7 @@ const DIDs = ({ portalMode = false }) => {
           </Tooltip>
         )}
         {canWrite && (
-          <Tooltip title="Add DID">
+          <Tooltip title="Add Route">
             <IconButton
               size="small"
               onClick={() => handleOpenDialog()}
@@ -610,12 +612,12 @@ const DIDs = ({ portalMode = false }) => {
                         <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
                             {canWrite && (
-                              // Admin edits a DID on the routing canvas. The
+                              // Admin edits a Route on the routing canvas. The
                               // portal opens the wizard instead — a customer
                               // editing their own number wants the fields, and
                               // reaches the canvas through the Routing action
                               // beside this one when they want the flow.
-                              <Tooltip title={portalMode ? 'Edit DID' : 'Edit DID — opens its visual routing flow'}>
+                              <Tooltip title={portalMode ? 'Edit Number' : 'Edit Route — opens its visual routing flow'}>
                                 <IconButton
                                   data-testid="edit-did-button"
                                   size="small"
@@ -641,7 +643,7 @@ const DIDs = ({ portalMode = false }) => {
                               </Tooltip>
                             )}
                             {canWrite && (
-                              <Tooltip title="Duplicate DID">
+                              <Tooltip title="Duplicate Route">
                                 <IconButton
                                   data-testid="duplicate-did-button"
                                   size="small"
@@ -707,7 +709,7 @@ const DIDs = ({ portalMode = false }) => {
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteDID}
         loading={loading}
-        title="Delete DID"
+        title="Delete Route"
         message={<Typography>Are you sure you want to delete DID{' '}
           <strong>{(didToDelete)?.number}</strong>?</Typography>}
         description="This action cannot be undone and will affect call routing."
@@ -735,13 +737,14 @@ const DIDs = ({ portalMode = false }) => {
       )}
 
       {/* Import CSV Dialog */}
+      {/* Admin-only: bulk import is not a portal affordance. */}
       {!portalMode && (
         <ImportCSVDialog
           open={importDialogOpen}
           onClose={handleCloseImportDialog}
           onImport={handleImportCSV}
-          title="Import DIDs from CSV"
-          entityName="DIDs"
+          title="Import Routes from CSV"
+          entityName="Routes"
           environments={environments}
           requireEnvironment={true}
           onSuccess={handleImportSuccess}

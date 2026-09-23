@@ -19,11 +19,11 @@ import './DIDWizard.css';
 const VIEW_HELP = {
   did: {
     create: {
-      title: 'Create a new DID',
-      desc: 'Set up a new phone number (DID) and configure how incoming calls are routed. Fill in the details below, then choose a bridge to handle calls.',
+      title: 'Create a new Route',
+      desc: 'Set up a new phone number (Route) and configure how incoming calls are routed. Fill in the details below, then choose a bridge to handle calls.',
     },
     edit: {
-      title: 'Edit DID',
+      title: 'Edit Route',
       desc: 'Update the settings for this phone number. You can change the name, routing, and metadata.',
     },
   },

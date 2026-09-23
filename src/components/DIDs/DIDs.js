@@ -117,8 +117,8 @@ export const useDIDs = () => {
         setTotalCount(0);
       }
     } catch (err) {
-      console.error('Error fetching DIDs:', err);
-      setError('Failed to fetch DIDs: ' + err.message);
+      console.error('Error fetching Routes:', err);
+      setError('Failed to fetch Routes: ' + err.message);
       setDIDs([]);
     } finally {
       setLoading(false);
@@ -155,8 +155,8 @@ export const useDIDs = () => {
       setDialogOpen(false);
       setSelectedDID(null);
     } catch (err) {
-      console.error('Error saving DID:', err);
-      setError('Failed to save DID: ' + err.message);
+      console.error('Error saving Route:', err);
+      setError('Failed to save Route: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -177,8 +177,8 @@ export const useDIDs = () => {
       setDeleteDialogOpen(false);
       setDIDToDelete(null);
     } catch (err) {
-      console.error('Error deleting DID:', err);
-      setError('Failed to delete DID: ' + err.message);
+      console.error('Error deleting Route:', err);
+      setError('Failed to delete Route: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -217,8 +217,8 @@ export const useDIDs = () => {
       // Refresh list to get accurate data
       fetchDIDs();
     } catch (err) {
-      console.error('Error duplicating DID:', err);
-      setError('Failed to duplicate DID: ' + err.message);
+      console.error('Error duplicating Route:', err);
+      setError('Failed to duplicate Route: ' + err.message);
       throw err; // Re-throw so dialog can show error
     } finally {
       setLoading(false);
@@ -280,7 +280,7 @@ export const useDIDs = () => {
       const types = Array.isArray(response) ? response : (response?.data || []);
       setDidTypes(types);
     } catch (err) {
-      console.error('Error fetching DID types:', err);
+      console.error('Error fetching Route types:', err);
     }
   }, [didTypes.length]);
 
@@ -344,7 +344,7 @@ export const useDIDs = () => {
       const didId = did.id || did.uuid;
       didsApi.getDID(didId)
         .then(fullDIDData => setSelectedDID(fullDIDData))
-        .catch(err => console.error('Error loading DID details:', err));
+        .catch(err => console.error('Error loading Route details:', err));
     }
   }, [fetchBridgeTypes, fetchDIDTypes]);
 
