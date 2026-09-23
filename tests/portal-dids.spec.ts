@@ -46,11 +46,11 @@ test.describe('Portal DIDs', () => {
     console.log('✅ Import CSV not offered on /my-dids');
   });
 
-  test('Console /dids is unchanged by portal mode', async ({ authenticatedPage: page }) => {
-    await page.goto('/dids', { waitUntil: 'networkidle', timeout: 20000 });
+  test('Console /routes/list is unchanged by portal mode', async ({ authenticatedPage: page }) => {
+    await page.goto('/routes/list', { waitUntil: 'networkidle', timeout: 20000 });
     await page.waitForTimeout(1500);
 
-    expect(page.url()).toContain('/dids');
+    expect(page.url()).toContain('/routes/list');
     const table = page.locator('table');
     await expect(table.first()).toBeVisible({ timeout: 15000 });
     console.log('✅ Console DIDs screen still renders');
@@ -118,12 +118,12 @@ test.describe('Portal DIDs', () => {
       return;
     }
 
-    await page.goto(`/routing?did=${did.uuid}`, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await page.goto(`/routes?did=${did.uuid}`, { waitUntil: 'domcontentloaded', timeout: 20000 });
     await page.waitForTimeout(2000);
 
     // /routing moved from ProtectedRoute to DualProtectedRoute — assert the
     // guard still admits the session rather than bouncing it to /account.
-    expect(page.url()).toContain('/routing');
+    expect(page.url()).toContain('/routes');
     console.log('✅ /routing reachable with the dids ACL');
   });
 });

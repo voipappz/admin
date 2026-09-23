@@ -78,10 +78,46 @@ function readStore() {
       parsed.dashboards.unshift({ uuid: 'default', name: 'Default' });
     }
     if (!parsed.widgets.default) parsed.widgets.default = [];
+    // A board stored before order existed keeps the order it was shown in.
+    for (const list of Object.values(parsed.widgets)) numberPositions(list);
     return parsed;
   } catch {
     return emptyStore();
   }
+}
+
+// ---- Order and position ----------------------------------------------------
+//
+// `position` is the widget's place on its board, and it is the ONLY thing the
+// board's order is read from — never insertion order, which is what a fresh
+// duplicate would otherwise scramble. `layout` ({ x, y, col, row }) is the
+// grid placement, in the names the old server-side dashboard used
+// (`PATCH /api/dashboards/:id/widgets/:id`), kept here so a board can carry
+// it without a server. Both live in localStorage with the rest of the
+// definition.
+
+/** Give every widget a position, by its current order, where it has none. */
+function numberPositions(list) {
+  list
+    .slice()
+    .sort((a, b) => (a.position ?? Infinity) - (b.position ?? Infinity))
+    .forEach((w, i) => { w.position = i; });
+}
+
+function byPosition(list) {
+  return list.slice().sort((a, b) => a.position - b.position);
+}
+
+/**
+ * The section of the board a widget type renders in. Moving a widget moves it
+ * among its neighbours in the same section: a tile never trades places with a
+ * chart, because they are never side by side on screen.
+ */
+export function sectionOf(type) {
+  if (['counter', 'gauge', 'stat'].includes(type)) return 'tiles';
+  if (['trend', 'line', 'bar', 'pie'].includes(type)) return 'charts';
+  if (type === 'table') return 'tables';
+  return 'other';
 }
 
 function writeStore(store) {
@@ -125,17 +161,60 @@ export async function deleteDashboard(dashboardUuid) {
   return true;
 }
 
+/** A board's widgets, in the order they are shown. */
 export async function getWidgets(dashboardUuid = 'default') {
-  return readStore().widgets[dashboardUuid] || [];
+  return byPosition(readStore().widgets[dashboardUuid] || []);
 }
 
+/** Appends: a new widget goes last on its board. */
 export async function createWidget(widget, dashboardUuid = 'default') {
   const store = readStore();
-  const created = { ...widget, uuid: uuid(), dashboard_uuid: dashboardUuid };
   if (!store.widgets[dashboardUuid]) store.widgets[dashboardUuid] = [];
-  store.widgets[dashboardUuid].push(created);
+  const list = store.widgets[dashboardUuid];
+  const created = { ...widget, uuid: uuid(), dashboard_uuid: dashboardUuid, position: list.length };
+  list.push(created);
+  numberPositions(list);
   writeStore(store);
   return created;
+}
+
+/**
+ * Move a widget one step among the widgets of its own section (`delta` -1 or
+ * +1). At either end it stays put. Returns the board in its new order.
+ */
+export async function moveWidget(widgetUuid, delta, dashboardUuid = 'default') {
+  const store = readStore();
+  const list = store.widgets[dashboardUuid] || [];
+  const ordered = byPosition(list);
+  const from = ordered.findIndex((w) => w.uuid === widgetUuid);
+  if (from === -1) return ordered;
+  const section = sectionOf(ordered[from].type);
+  const step = delta < 0 ? -1 : 1;
+  let to = from + step;
+  while (to >= 0 && to < ordered.length && sectionOf(ordered[to].type) !== section) to += step;
+  if (to < 0 || to >= ordered.length) return ordered;
+  [ordered[from].position, ordered[to].position] = [ordered[to].position, ordered[from].position];
+  writeStore(store);
+  return byPosition(list);
+}
+
+/**
+ * Grid placement, kept as `{ x, y, col, row }`. `w`/`h` are accepted as
+ * `col`/`row`, the way the old server contract took them.
+ */
+export async function updateWidgetLayout(widgetUuid, layout = {}, dashboardUuid = 'default') {
+  const store = readStore();
+  const widget = (store.widgets[dashboardUuid] || []).find((w) => w.uuid === widgetUuid);
+  if (!widget) return null;
+  widget.layout = {
+    ...(widget.layout || {}),
+    ...(layout.x !== undefined && { x: layout.x }),
+    ...(layout.y !== undefined && { y: layout.y }),
+    ...((layout.col ?? layout.w) !== undefined && { col: layout.col ?? layout.w }),
+    ...((layout.row ?? layout.h) !== undefined && { row: layout.row ?? layout.h }),
+  };
+  writeStore(store);
+  return widget;
 }
 
 export async function updateWidget(widgetUuid, patch, dashboardUuid = 'default') {

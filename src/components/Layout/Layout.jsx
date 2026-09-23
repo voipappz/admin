@@ -10,7 +10,7 @@ import { useUserAuth } from '../../context/UserAuthContext';
 import PortalHeader from './PortalHeader.jsx';
 import { usePortalPreferences } from '../../context/PortalPreferencesContext';
 import PhoneDock, { PHONE_DOCK_WIDTH, loadPhonePinned } from '../Phone/PhoneDock.jsx';
-import PhoneFab, { PHONE_FAB_CLEARANCE } from '../Phone/PhoneFab.jsx';
+import AssistantFab, { ASSISTANT_FAB_CLEARANCE } from '../AIChat/AssistantFab.jsx';
 import { GlobalSearchProvider } from '../../context/GlobalSearchContext';
 import { RecentPagesProvider } from '../../context/RecentPagesContext';
 import { AIChatSidebarProvider, useAIChatSidebar } from '../../context/AIChatSidebarContext';
@@ -29,7 +29,19 @@ const PortalMcpAssistant = lazy(() => import('../AIChat/PortalMcpAssistant.jsx')
 // fall back to the package.json version, then "dev" for local `npm run dev`.
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || __APP_VERSION__ || 'dev';
 
-/** Direct user-authenticated MCP tools modal. */
+/**
+ * The assistant as a QUICK BOT: a panel anchored above the AssistantFab in the
+ * bottom-right corner, the way a chat bubble opens — not a centred dialog that
+ * takes the page over. The page stays readable beside it, so "how many calls
+ * did I have today?" can be asked while looking at the calls. Below `md` the
+ * panel is the whole screen, as before: a 400px panel on a 360px phone is not
+ * a panel. Same MCP assistant, same Cmd/Ctrl+Shift+A.
+ */
+const AssistantCorner = () => {
+  const { aiDrawerOpen, toggleAIDrawer } = useAIChatSidebar();
+  return <AssistantFab open={aiDrawerOpen} onToggle={toggleAIDrawer} />;
+};
+
 const AIChatModal = () => {
   const { aiDrawerOpen, closeAIDrawer, toggleAIDrawer } = useAIChatSidebar();
   const isMobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
@@ -46,28 +58,11 @@ const AIChatModal = () => {
     return () => window.removeEventListener('keydown', handler);
   }, [toggleAIDrawer]);
 
-  return (
-    <Dialog
-      open={aiDrawerOpen}
-      onClose={closeAIDrawer}
-      maxWidth="md"
-      fullWidth
-      fullScreen={isMobile}
-      keepMounted
-      PaperProps={{
-        sx: {
-          height: { xs: '100dvh', md: '70vh' },
-          maxHeight: '700px',
-          backgroundColor: 'var(--theme-bg-primary)',
-          border: '1px solid var(--theme-border)',
-          borderRadius: { xs: 0, md: '12px' },
-          display: 'flex',
-          flexDirection: 'column',
-        }
-      }}
-    >
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 0.5, borderBottom: '1px solid var(--theme-border)' }}>
-        <IconButton onClick={closeAIDrawer} size="small">
+  const body = (
+    <>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.5, py: 0.5, borderBottom: '1px solid var(--theme-border)' }}>
+        <Box component="span" sx={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--theme-text-primary)' }}>Assistant</Box>
+        <IconButton onClick={closeAIDrawer} size="small" aria-label="Close assistant">
           <CloseIcon sx={{ fontSize: 20 }} />
         </IconButton>
       </Box>
@@ -76,7 +71,42 @@ const AIChatModal = () => {
           <PortalMcpAssistant />
         </Suspense>
       </Box>
-    </Dialog>
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <Dialog open={aiDrawerOpen} onClose={closeAIDrawer} fullScreen keepMounted
+        PaperProps={{ sx: { backgroundColor: 'var(--theme-bg-primary)', display: 'flex', flexDirection: 'column' } }}>
+        {body}
+      </Dialog>
+    );
+  }
+
+  return (
+    <Box
+      role="dialog"
+      aria-label="Assistant"
+      aria-hidden={!aiDrawerOpen}
+      data-testid="assistant-quick-bot"
+      sx={{
+        position: 'fixed',
+        right: 20,
+        bottom: 92,
+        width: 400,
+        height: 'min(560px, calc(100vh - 120px))',
+        display: aiDrawerOpen ? 'flex' : 'none',
+        flexDirection: 'column',
+        zIndex: (theme) => theme.zIndex.drawer + 1,
+        backgroundColor: 'var(--theme-bg-primary)',
+        border: '1px solid var(--theme-border)',
+        borderRadius: '12px',
+        boxShadow: '0 12px 32px rgba(0,0,0,0.22)',
+        overflow: 'hidden',
+      }}
+    >
+      {body}
+    </Box>
   );
 };
 // Both served from this deployment's own public/images. The white one used to be
@@ -187,8 +217,9 @@ const Layout = ({ children }) => {
           {children}
         </Box>
       ) : isUserOnlySession ? (
-        // Portal user, not an admin: slim rail + page content, with the phone
-        // docked on the right (see UserRail.jsx / PhoneDock.jsx). No admin
+        // Portal user, not an admin: header + page content, with the phone
+        // docked on the LEFT (PhoneDock.jsx, opened by the header's hamburger)
+        // and the assistant quick bot in the bottom-right corner. No admin
         // sidebar/topbar — the dashboard is the center of this surface.
         // The assistant is here too: it used to exist only in the admin shell
         // below, so a portal user had neither the modal nor its shortcut.
@@ -201,7 +232,7 @@ const Layout = ({ children }) => {
         <GlobalSearchProvider>
         <AIChatSidebarProvider>
         <Box data-testid="user-layout" sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-          <PortalHeader />
+          <PortalHeader phoneOpen={phoneOpen} onTogglePhone={() => setPhoneOpen((open) => !open)} />
           {portalPreferences.error && <Box role="alert" sx={{ p: 1, color: 'error.main' }}>{portalPreferences.error}</Box>}
           <Box
             component="main"
@@ -210,12 +241,12 @@ const Layout = ({ children }) => {
               minWidth: 0,
               // A pinned dock is persistent (no backdrop), so the content has
               // to actually make room for it instead of sliding underneath.
-              mr: { xs: 0, sm: phoneOpen && effectivePhonePinned ? `${PHONE_DOCK_WIDTH}px` : 0 },
-              // The FAB floats over the bottom-right corner, and every screen
-              // on this surface ends in a table — without this the last row
-              // sits underneath it and cannot be clicked.
-              pb: `${PHONE_FAB_CLEARANCE}px`,
-              transition: 'margin-right 0.2s ease'
+              ml: { xs: 0, sm: phoneOpen && effectivePhonePinned ? `${PHONE_DOCK_WIDTH}px` : 0 },
+              // The assistant's bot floats over the bottom-right corner, and
+              // every screen on this surface ends in a table — without this
+              // the last row sits underneath it and cannot be clicked.
+              pb: `${ASSISTANT_FAB_CLEARANCE}px`,
+              transition: 'margin-left 0.2s ease'
             }}
           >
             {/* A local Suspense boundary. Without it, any lazy chunk this
@@ -232,7 +263,7 @@ const Layout = ({ children }) => {
             pinned={effectivePhonePinned}
             onTogglePin={handleTogglePhonePin}
           />
-          <PhoneFab open={phoneOpen} onToggle={() => setPhoneOpen((open) => !open)} />
+          <AssistantCorner />
         </Box>
         <AIChatModal />
         </AIChatSidebarProvider>

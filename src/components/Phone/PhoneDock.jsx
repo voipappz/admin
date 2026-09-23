@@ -1,6 +1,8 @@
-// PhoneDock — the softphone as a right-docked panel, the legacy portal's
+// PhoneDock — the softphone as a LEFT-docked panel, the legacy portal's
 // model: the dashboard is the center of the app and stays put; the phone
-// docks beside it rather than replacing it.
+// docks beside it rather than replacing it. Left, because its trigger is the
+// hamburger at the start of the portal header, and a drawer opens from the
+// side its control lives on.
 //
 // Pinned ("stick it open") => persistent drawer, no backdrop, dashboard stays
 // usable beside it. Unpinned => an ordinary temporary overlay. Pin state
@@ -29,7 +31,7 @@ export default function PhoneDock({ open, onClose, pinned, onTogglePin }) {
   return (
     <Drawer
       variant={persistent ? 'persistent' : 'temporary'}
-      anchor="right"
+      anchor="left"
       open={open}
       onClose={onClose}
       data-testid="phone-dock"

@@ -131,12 +131,12 @@ test.describe('DIDs CRUD', () => {
   });
 
   test('Page loads', async ({ authenticatedPage: page }) => {
-    await page.goto('/dids', { waitUntil: 'domcontentloaded', timeout: 15000 });
-    expect(page.url()).toContain('/dids');
+    await page.goto('/routes/list', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    expect(page.url()).toContain('/routes/list');
   });
 
   test('Import CSV button exists', async ({ authenticatedPage: page }) => {
-    await page.goto('/dids', { waitUntil: 'networkidle', timeout: 20000 });
+    await page.goto('/routes/list', { waitUntil: 'networkidle', timeout: 20000 });
 
     // Check for Import CSV button
     const importButton = page.locator('button:has-text("Import CSV"), button:has-text("Import")');
@@ -152,7 +152,7 @@ test.describe('DIDs CRUD', () => {
   });
 
   test('Import CSV dialog opens', async ({ authenticatedPage: page }) => {
-    await page.goto('/dids', { waitUntil: 'networkidle', timeout: 20000 });
+    await page.goto('/routes/list', { waitUntil: 'networkidle', timeout: 20000 });
 
     const importButton = page.locator('button:has-text("Import CSV"), button:has-text("Import")');
     const hasImportButton = await importButton.count() > 0;
@@ -195,7 +195,7 @@ test.describe('DID Duplicate', () => {
   test.setTimeout(process.env.CI ? 90000 : 30000);
 
   test('Duplicate button exists in DIDs table', async ({ authenticatedPage: page }) => {
-    await page.goto('/dids', { waitUntil: 'networkidle', timeout: 20000 });
+    await page.goto('/routes/list', { waitUntil: 'networkidle', timeout: 20000 });
     await page.waitForTimeout(2000);
 
     // Look for duplicate button in the table actions
@@ -212,7 +212,7 @@ test.describe('DID Duplicate', () => {
   });
 
   test.skip('Duplicate dialog opens with validation', async ({ authenticatedPage: page }) => {
-    await page.goto('/dids', { waitUntil: 'networkidle', timeout: 20000 });
+    await page.goto('/routes/list', { waitUntil: 'networkidle', timeout: 20000 });
     await page.waitForTimeout(2000);
 
     const duplicateButton = page.locator('button[data-testid="duplicate-did-button"], button:has(svg[data-testid="ContentCopyIcon"])');
@@ -253,7 +253,7 @@ test.describe('DID Duplicate', () => {
   });
 
   test('Duplicate validates number uniqueness', async ({ authenticatedPage: page }) => {
-    await page.goto('/dids', { waitUntil: 'networkidle', timeout: 20000 });
+    await page.goto('/routes/list', { waitUntil: 'networkidle', timeout: 20000 });
     await page.waitForTimeout(2000);
 
     const duplicateButton = page.locator('button[data-testid="duplicate-did-button"], button:has(svg[data-testid="ContentCopyIcon"])');

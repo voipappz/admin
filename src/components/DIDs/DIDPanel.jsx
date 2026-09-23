@@ -58,7 +58,7 @@ const PBXRoutingView = lazy(() => import('../PBXRouting/PBXRoutingView'));
  */
 const DIDPanel = () => {
   const { acl } = useAuth();
-  const canWrite = hasPermission(acl, 'dids', 'write');
+  const canWrite = hasPermission(acl, 'routes', 'write'); // `dids` documents still answer: hasPermission aliases them
   const { environments, selectedEnvironments } = useCustomerEnvironment();
 
   // Import dialog state

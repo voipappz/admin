@@ -30,7 +30,6 @@ import UserLogin from './components/Login/UserLogin.jsx';
 // Lazy-load all other route components for code splitting
 const Reports = lazy(() => import('./components/Reports/Reports.jsx'));
 const LiveDashboard = lazy(() => import('./components/LiveDashboard/LiveDashboard.jsx'));
-const Dashboard = lazy(() => import('./components/Dashboard/PortalDashboard.jsx'));
 const AdminDashboard = lazy(() => import('./components/Dashboard/AdminDashboard.jsx'));
 const Phone = lazy(() => import('./components/Phone/PhoneScreen.jsx'));
 // The PORTAL's call history — deliberately not the admin Calls screen
@@ -68,7 +67,7 @@ const RoutingScreen = () => {
 // /dids/:id deep link — per-DID edit is the visual routing flow.
 const DIDEditRedirect = () => {
   const { id } = useParams();
-  return <Navigate to={`/routing?did=${id}`} replace />;
+  return <Navigate to={`/routes?did=${id}`} replace />;
 };
 const CommsLog = lazy(() => import('./components/CommsLog/CommsLog.jsx'));
 const Services = lazy(() => import('./components/Studio/ServicesStudio.jsx'));
@@ -116,11 +115,9 @@ const PortalRoot = () => {
   const admin = useAuth();
   const user = useUserAuth();
   if (admin.initializing || user.initializing) return null;
-  if (user.isAuthenticated) {
-    return canAccessScreen(user.acl, 'dashboard')
-      ? <Layout><Dashboard /></Layout>
-      : <Layout><PortalCalls /></Layout>;
-  }
+  // The portal's landing screen is its call history. The widget dashboard it
+  // used to show now lives in the admin console only (/admin/dashboard).
+  if (user.isAuthenticated) return <Layout><PortalCalls /></Layout>;
   if (admin.isAuthenticated) return <Navigate to="/calls" replace />;
   return <Layout><UserLogin /></Layout>;
 };
@@ -204,7 +201,7 @@ function AppContent() {
       // can go back to the check below. The ADMIN branch above is untouched —
       // the console still enforces the dids ACL on /dids and /routing.
       if (aclKey === 'dids') return children;
-      return canAccessScreen(user.acl, aclKey) ? children : <Navigate to="/dashboard" replace />;
+      return canAccessScreen(user.acl, aclKey) ? children : <Navigate to="/" replace />;
     }
     return <Navigate to="/" replace />;
   };
@@ -243,8 +240,8 @@ function AppContent() {
             </PortalRoute>
           }
         />
-        {/* The dashboard lives AT the portal's root, not beside it — see
-            PortalRoot. This path is kept so existing links still work. */}
+        {/* The portal dashboard is gone (it is an admin screen now); the path
+            is kept so an old link lands on the portal root. */}
         <Route path="/dashboard" element={<Navigate to="/" replace />} />
         <Route
           path="/my-calls"
@@ -482,7 +479,7 @@ function AppContent() {
           }
         />
         <Route
-          path="/dids"
+          path="/routes/list"
           element={
             <ProtectedRoute requiredAcl="routes">
               <Layout>
@@ -491,15 +488,16 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
-        {/* Per-DID edit deep link — editing a DID happens on the visual
-            routing flow (React Flow canvas), so forward to it. */}
-        <Route path="/dids/:id" element={<DIDEditRedirect />} />
+        {/* Per-route edit deep link — editing happens on the visual routing
+            flow (React Flow canvas), so forward to it. The old /dids and
+            /routing paths are gone, not redirected: the screen is Routes. */}
+        <Route path="/routes/:id" element={<DIDEditRedirect />} />
         {/* Dual-surface: the portal's Numbers screen links a number's call flow
             here too, gated on the same `routes` ACL in whichever session is
             live. (The API aliases `routes` to the stored `dids` key in both
             directions, so either spelling resolves — see voipappz-api #18.) */}
         <Route
-          path="/routing"
+          path="/routes"
           element={
             <DualProtectedRoute aclKey="routes">
               <Layout>

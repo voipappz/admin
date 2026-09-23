@@ -129,7 +129,7 @@ const screenTests = [
   },
   {
     name: 'Routes',
-    route: '/dids',
+    route: '/routes/list',
     aclKey: 'routes',
     writeSelectors: {
       addButton: 'button:has-text("Add New")',

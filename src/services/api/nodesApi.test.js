@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // nodesApi imports the DEFAULT export, so the mock has to provide it.
-vi.mock('../apiService', () => {
+// toFormData is the real one: node writes are form-encoded, and the body is
+// what these tests assert.
+vi.mock('../apiService', async (importOriginal) => {
+  const { toFormData } = await importOriginal();
   const apiService = { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn(), getText: vi.fn() };
-  return { apiService, default: apiService, toFormData: vi.fn() };
+  return { apiService, default: apiService, toFormData };
 });
 
 import apiService from '../apiService';
@@ -83,7 +86,11 @@ describe('nodesApi writes', () => {
 
     await nodesApi.createNode(payload);
 
-    expect(apiService.post).toHaveBeenCalledWith('/api/nodes', payload, {}, 'creating node');
+    const [url, body, , context] = apiService.post.mock.calls[0];
+    expect([url, context]).toEqual(['/api/nodes', 'creating node']);
+    expect(body).toBeInstanceOf(URLSearchParams);
+    expect(body.get('name')).toBe('egress-1');
+    expect(body.get('profile[ip_address_internal]')).toBe('10.0.0.9');
   });
 
   it('updates a node by uuid', async () => {
@@ -91,7 +98,32 @@ describe('nodesApi writes', () => {
 
     await nodesApi.updateNode('n2', { name: 'renamed' });
 
-    expect(apiService.patch).toHaveBeenCalledWith('/api/nodes/n2', { name: 'renamed' }, {}, 'updating node');
+    const [url, body, , context] = apiService.patch.mock.calls[0];
+    expect([url, context]).toEqual(['/api/nodes/n2', 'updating node']);
+    expect(body.toString()).toBe('name=renamed');
+  });
+
+  it('sends SIP interfaces as indexed form fields, without derived keys', async () => {
+    apiService.patch.mockResolvedValue({ uuid: 'n2' });
+
+    await nodesApi.updateNode('n2', {
+      sip_interfaces: [{ name: 'sofia', port_external: '5091' }, { name: 'trunk' }],
+    });
+
+    const body = apiService.patch.mock.calls[0][1];
+    expect([...body.entries()]).toEqual([
+      ['sip_interfaces[0][name]', 'sofia'],
+      ['sip_interfaces[0][port_external]', '5091'],
+      ['sip_interfaces[1][name]', 'trunk'],
+    ]);
+  });
+
+  it('clears SIP interfaces with a blank sip_interfaces', async () => {
+    apiService.patch.mockResolvedValue({ uuid: 'n2' });
+
+    await nodesApi.setSipInterfaces('n2', []);
+
+    expect(apiService.patch.mock.calls[0][1].toString()).toBe('sip_interfaces=');
   });
 
   it('deletes a node by uuid', async () => {

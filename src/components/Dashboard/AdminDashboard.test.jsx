@@ -10,6 +10,12 @@ vi.mock('../../hooks/useLiveEntities', () => ({
 }));
 vi.mock('../../services/api/callsApi', () => ({ callsApi: { getCalls: vi.fn().mockResolvedValue([]) } }));
 vi.mock('../../hooks/usePermissions', () => ({ usePermissions: () => ({ can: () => true }) }));
+const auth = vi.fn(() => ({ isRoot: false }));
+vi.mock('../../context/AuthContext', () => ({ useAuth: () => auth() }));
+vi.mock('../../services/api/monitoringApi', () => ({
+  monitoringApi: { getCallsVolumeChart: vi.fn().mockResolvedValue([]) },
+}));
+import { monitoringApi } from '../../services/api/monitoringApi';
 
 const scope = vi.fn();
 vi.mock('../../context/CustomerEnvironmentContext.jsx', () => ({ useCustomerEnvironment: () => scope() }));
@@ -28,7 +34,26 @@ describe('AdminDashboard', () => {
     expect(screen.getByText('3')).toBeInTheDocument();
   });
 
+  it('charts the selected scope, split by direction', async () => {
+    scope.mockReturnValue({ selectedCustomer: { uuid: 'c-1', name: 'acme' }, selectedEnvironments: [{ uuid: 'env-1', name: 'main' }] });
+    render(<AdminDashboard />);
+    await vi.waitFor(() => expect(monitoringApi.getCallsVolumeChart)
+      .toHaveBeenCalledWith('env-1', 1440, '1h', 'c-1', 'direction'));
+  });
+
+  // The bird's-eye view: a root admin with nothing selected sees every
+  // customer, one series each, rather than an empty chart.
+  it('charts every customer for a root admin with no selection', async () => {
+    auth.mockReturnValue({ isRoot: true });
+    scope.mockReturnValue({ selectedCustomer: null, selectedEnvironments: [] });
+    render(<AdminDashboard />);
+    await vi.waitFor(() => expect(monitoringApi.getCallsVolumeChart)
+      .toHaveBeenCalledWith(null, 1440, '1h', null, 'customer_uuid'));
+    expect(await screen.findByRole('heading', { name: /every customer/i })).toBeInTheDocument();
+  });
+
   it('asks for an application when none is selected', () => {
+    auth.mockReturnValue({ isRoot: false });
     scope.mockReturnValue({ selectedCustomer: null, selectedEnvironments: [] });
     render(<AdminDashboard />);
     expect(screen.getByText('Select an application to see live activity')).toBeInTheDocument();

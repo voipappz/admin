@@ -1,9 +1,21 @@
-import apiService from '../apiService';
+import apiService, { toFormData } from '../apiService';
 
 // The API sends X-Total with both node lists, and apiService wraps an array
 // that has one as { data, total }. The Nodes screen wants the rows, so both
 // reads unwrap here; without it the screen showed "No nodes" over a full list.
 const rowsOf = (r) => (Array.isArray(r) ? r : (r?.data ?? r?.nodes ?? []));
+
+// Node writes are form-encoded, the API's convention (responses are JSON).
+// toFormData drops an empty array, and an empty list cannot be form-encoded
+// anyway, so a cleared interface list goes as a blank `sip_interfaces=`,
+// which the API reads as "no interfaces".
+const nodeForm = (data) => {
+  const form = toFormData(data);
+  if (Array.isArray(data?.sip_interfaces) && data.sip_interfaces.length === 0) {
+    form.append('sip_interfaces', '');
+  }
+  return form;
+};
 
 /**
  * Nodes & Organization API Service — centralized access to node and organization data.
@@ -74,7 +86,7 @@ export const nodesApi = {
    * @returns {Promise<Object>} - the created node
    */
   createNode: async (node) => {
-    return apiService.post('/api/nodes', node, {}, 'creating node');
+    return apiService.post('/api/nodes', nodeForm(node), {}, 'creating node');
   },
 
   /**
@@ -84,39 +96,33 @@ export const nodesApi = {
    * @returns {Promise<Object>} - the updated node
    */
   updateNode: async (uuid, changes) => {
-    return apiService.patch(`/api/nodes/${encodeURIComponent(uuid)}`, changes, {}, 'updating node');
+    return apiService.patch(`/api/nodes/${encodeURIComponent(uuid)}`, nodeForm(changes), {}, 'updating node');
   },
 
   /**
-   * Replace a node's SIP interfaces — managed AS PROFILE.
+   * Replace a node's SIP interfaces.
    *
-   * Interfaces are part of the node and live in its profile as flat keys, one
-   * prefix per interface: sip_interface1.name, sip_interface1.port_internal,
-   * sip_interface2.name, ... The API has no separate write path for them; a
-   * PATCH with `profile` is how one is added, changed or removed. This
-   * flattens the list you pass into those keys, drops every existing
-   * sip_interface* key first, and keeps the rest of the profile as it is.
+   * Interfaces live in the node's own `sip_interfaces` column (one flat hash
+   * each: name, ip_address_internal, ip_address_external, port_internal,
+   * port_external), not in its profile — the API moved them out of the
+   * profile's sip_interface<n>.* keys. A PATCH with `sip_interfaces` replaces
+   * the whole list, so pass every interface the node should end up with.
+   * The derived keys GET adds (node_uuid, ip, port) are dropped here.
+   * Root-only, like every node write.
    *
-   * Whole-array: pass every interface the node should end up with. Each entry
-   * is { name, profile: { ip_address_internal, ip_address_external,
-   * port_internal, port_external } }. Root-only, like every node write.
-   *
-   * @param {{uuid: string, profile?: Object}} node - the node as returned by getNodes()
-   * @param {Array<{name: string, profile: Object}>} interfaces
+   * @param {string} uuid
+   * @param {Array<Object>} interfaces
    * @returns {Promise<Object>} - the updated node, with sip_interfaces
    */
-  setSipInterfaces: async (node, interfaces) => {
-    const profile = Object.fromEntries(
-      Object.entries(node.profile || {}).filter(([k]) => !k.startsWith('sip_interface'))
+  setSipInterfaces: async (uuid, interfaces) => {
+    const sipInterfaces = (interfaces || []).map((iface) =>
+      Object.fromEntries(
+        Object.entries(iface || {}).filter(
+          ([k, v]) => !['node_uuid', 'ip', 'port'].includes(k) && v !== undefined && v !== null && v !== ''
+        )
+      )
     );
-    (interfaces || []).forEach((iface, i) => {
-      const prefix = `sip_interface${i + 1}`;
-      if (iface.name) profile[`${prefix}.name`] = String(iface.name);
-      Object.entries(iface.profile || {}).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && v !== '') profile[`${prefix}.${k}`] = String(v);
-      });
-    });
-    return nodesApi.updateNode(node.uuid, { profile });
+    return nodesApi.updateNode(uuid, { sip_interfaces: sipInterfaces });
   },
 
   /**

@@ -623,7 +623,7 @@ const DIDs = ({ portalMode = false }) => {
                                   size="small"
                                   onClick={() => portalMode
                                     ? handleOpenDialog(did)
-                                    : navigate(`/routing?did=${did.uuid || did.id}`)}
+                                    : navigate(`/routes?did=${did.uuid || did.id}`)}
                                   disabled={loading}
                                 >
                                   <EditIcon fontSize="small" />
@@ -635,7 +635,7 @@ const DIDs = ({ portalMode = false }) => {
                                 <IconButton
                                   data-testid="routing-did-button"
                                   size="small"
-                                  onClick={() => navigate(`/routing?did=${did.uuid || did.id}`)}
+                                  onClick={() => navigate(`/routes?did=${did.uuid || did.id}`)}
                                   disabled={loading}
                                 >
                                   <RoutingIcon fontSize="small" />

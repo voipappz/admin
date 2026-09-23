@@ -256,7 +256,10 @@ const CustomerEditDialog = ({
               data-testid="customer-node-select"
             >
               <MenuItem value=""><em>None</em></MenuItem>
-              {nodes.filter(n => n.name && ['app', 'switch'].includes(n.type)).map((node) => (
+              {/* Every named node. GET /api/nodes sends no `type` (the API
+                  dropped it), so the old filter on type listed nothing and the
+                  saved node_uuid showed blank. No role filter for now. */}
+              {nodes.filter(n => n.name).map((node) => (
                 <MenuItem key={node.uuid} value={node.uuid}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography variant="body2" fontWeight={600}>{node.name}</Typography>

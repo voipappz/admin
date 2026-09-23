@@ -173,7 +173,7 @@ const DIDSelectorPopover = ({ open, anchorEl, onClose, selectedEnvironments, onD
 
   const handleActionGoToDIDSettings = useCallback(() => {
     if (actionMenuDID && onNavigate) {
-      onNavigate(`/dids?highlight=${actionMenuDID.uuid}`);
+      onNavigate(`/routes/list?highlight=${actionMenuDID.uuid}`);
     }
     handleActionMenuClose();
     handleClose();

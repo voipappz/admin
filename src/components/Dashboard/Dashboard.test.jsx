@@ -25,11 +25,13 @@ vi.mock('./useDashboardSnapshot.js', () => ({
   },
 }));
 
-vi.mock('../../services/api/dashboardWidgetsApi.js', () => ({
+vi.mock('../../services/api/dashboardWidgetsApi.js', async () => ({
+  sectionOf: (await vi.importActual('../../services/api/dashboardWidgetsApi.js')).sectionOf,
   getWidgets: () => Promise.resolve([]),
   createWidget: vi.fn(),
   updateWidget: vi.fn(),
   deleteWidget: vi.fn(),
+  moveWidget: vi.fn(),
   setDashboardStorageScope: vi.fn(),
 }));
 
