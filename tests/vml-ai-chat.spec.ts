@@ -6,7 +6,7 @@ test.describe('VML AI Chat', () => {
 
   test('AI Generate button exists in VML editor toolbar', async ({ authenticatedPage: page }) => {
     // Navigate to DIDs page where VML bridge can be opened
-    await page.goto('/dids', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.goto('/routes/list', { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     // Click Create DID to open dialog

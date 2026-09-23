@@ -59,7 +59,7 @@ const RoutingScreen = () => {
 // /dids/:id deep link — per-DID edit is the visual routing flow.
 const DIDEditRedirect = () => {
   const { id } = useParams();
-  return <Navigate to={`/routing?did=${id}`} replace />;
+  return <Navigate to={`/routes?did=${id}`} replace />;
 };
 const CommsLog = lazy(() => import('./components/CommsLog/CommsLog.jsx'));
 const Services = lazy(() => import('./components/Studio/ServicesStudio.jsx'));
@@ -457,7 +457,7 @@ function AppContent() {
           }
         />
         <Route
-          path="/dids"
+          path="/routes/list"
           element={
             <ProtectedRoute requiredAcl="routes">
               <Layout>
@@ -466,11 +466,12 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
-        {/* Per-DID edit deep link — editing a DID happens on the visual
-            routing flow (React Flow canvas), so forward to it. */}
-        <Route path="/dids/:id" element={<DIDEditRedirect />} />
+        {/* Per-route edit deep link — editing happens on the visual routing
+            flow (React Flow canvas), so forward to it. The old /dids and
+            /routing paths are gone, not redirected: the screen is Routes. */}
+        <Route path="/routes/:id" element={<DIDEditRedirect />} />
         <Route
-          path="/routing"
+          path="/routes"
           element={
             <ProtectedRoute requiredAcl="routes">
               <Layout>

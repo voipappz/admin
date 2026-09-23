@@ -23,7 +23,7 @@ import { canAccessScreen } from '../utils/jwt';
 // environment selector. Everything else stays reachable through the Studio and
 // ⌘K search (routes still exist), it's just off the rail.
 export const NAV_ITEMS = [
-  { text: 'Routes',          path: '/routing',        iconComponent: SchemaIcon,                aclKey: 'routes',          alwaysShow: true, group: 'MANAGE'   },
+  { text: 'Routes',          path: '/routes',          iconComponent: SchemaIcon,                aclKey: 'routes',          alwaysShow: true, group: 'MANAGE'   },
   { text: 'Services',      path: '/services',       iconComponent: MiscellaneousServicesIcon, aclKey: 'services',                       group: 'MANAGE'   },
   { text: 'Devices',       path: '/extensions',     iconComponent: DevicesIcon,               aclKey: 'extensions',                     group: 'MANAGE'   },
   { text: 'Subscriptions', path: '/subscriptions',  iconComponent: LoyaltyIcon,               aclKey: 'subscriptions',                  group: 'MANAGE'   },

@@ -36,7 +36,7 @@ export const RESOURCE_TYPES = [
   { key: 'calls',         label: 'Call',         endpoint: '/api/calls',         route: '/calls',      nameField: 'caller_id', subtitleField: 'destination', icon: PhoneInTalkIcon, searchParam: 'search[caller_id]' },
   { key: 'extensions',    label: 'Device',       endpoint: '/api/devices',    route: '/extensions', nameField: 'name', subtitleField: 'username',  icon: PhoneIcon },
   { key: 'queues',        label: 'Queue',        endpoint: '/api/queues',        route: null,          nameField: 'name', subtitleField: 'strategy',  icon: GroupsIcon },
-  { key: 'dids',          label: 'Route',          endpoint: '/api/routes',          route: '/dids',       nameField: 'number', subtitleField: 'name',    icon: DialpadIcon },
+  { key: 'dids',          label: 'Route',          endpoint: '/api/routes',          route: '/routes/list',       nameField: 'number', subtitleField: 'name',    icon: DialpadIcon },
   { key: 'ivrs',          label: 'IVR',          endpoint: '/api/ivrs',          route: null,          nameField: 'name', subtitleField: null,         icon: AccountTreeIcon },
   { key: 'conferences',   label: 'Conference',   endpoint: '/api/conferences',   route: null,          nameField: 'name', subtitleField: 'status',    icon: MeetingRoomIcon },
   { key: 'announcements', label: 'Announcement', endpoint: '/api/announcements', route: null,          nameField: 'name', subtitleField: null,         icon: CampaignIcon },

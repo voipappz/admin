@@ -38,7 +38,7 @@ test.describe('UX Power Features', () => {
     await page.goto('/users', { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForLoadState('networkidle', { timeout: 10000 });
 
-    await page.goto('/dids', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.goto('/routes/list', { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     // Click clock icon (AccessTimeIcon button in topbar-actions)
