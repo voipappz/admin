@@ -6,8 +6,8 @@
 // recent call history comes from PostgreSQL through /api/calls. InfluxDB is
 // reserved for monitoring and logs and is intentionally absent here.
 //
-// The wrapper decides the scope: which environment the live channel follows
-// and where "View call history" goes. /api/calls needs no parameters — the
+// The wrapper decides the scope: which environment the live channel follows,
+// where "View call history" goes, and any extra panel it renders as children. /api/calls needs no parameters — the
 // server scopes it to the session (a portal user's environment, an admin's
 // selected environments).
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -45,6 +45,7 @@ export default function LiveCallsDashboard({
   callsAllowed = true,
   historyPath = '/my-calls',
   testId = 'dashboard-page',
+  children = null,
 }) {
   const navigate = useNavigate();
   const live = useLiveEntities(environmentUuid);
@@ -107,6 +108,11 @@ export default function LiveCallsDashboard({
         <Box><StatCard label="Incoming" value={live.connected ? aggregate.incoming : '—'} icon={CallReceivedIcon} color="info.main" /></Box>
         <Box><StatCard label="Outgoing" value={live.connected ? aggregate.outgoing : '—'} icon={CallMadeIcon} color="primary.main" /></Box>
       </Box>
+
+      {/* A wrapper's own panels (the admin's calls chart) sit between the live
+          tiles and the recent-calls list: live now, then the period, then the
+          detail. */}
+      {children}
 
       {callsAllowed && <Paper elevation={0} sx={{ p: { xs: 1.5, md: 2 }, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
         <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>Recent calls</Typography>
