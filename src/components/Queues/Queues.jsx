@@ -276,7 +276,7 @@ const Queues = () => {
                 <Button variant="outlined" size="small" onClick={handleClearDID} sx={{ textTransform: 'none' }}>
                   View All Queues
                 </Button>
-                <Button variant="outlined" size="small" onClick={() => navigate('/dids')} sx={{ textTransform: 'none' }}>
+                <Button variant="outlined" size="small" onClick={() => navigate('/routes/list')} sx={{ textTransform: 'none' }}>
                   Go to DIDs
                 </Button>
               </Box>

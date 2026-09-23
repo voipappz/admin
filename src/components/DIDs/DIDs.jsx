@@ -588,7 +588,7 @@ const DIDs = () => {
                               <Tooltip title="Edit Route — opens its visual routing flow">
                                 <IconButton
                                   size="small"
-                                  onClick={() => navigate(`/routing?did=${did.uuid || did.id}`)}
+                                  onClick={() => navigate(`/routes?did=${did.uuid || did.id}`)}
                                   disabled={loading}
                                 >
                                   <EditIcon fontSize="small" />

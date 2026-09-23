@@ -4,7 +4,7 @@ test.describe('VML Editor Smoke Test', () => {
   test.setTimeout(90000);
 
   test('Full VML editor walkthrough with screenshots', async ({ authenticatedPage: page }) => {
-    await page.goto('/dids', { waitUntil: 'networkidle', timeout: 20000 });
+    await page.goto('/routes/list', { waitUntil: 'networkidle', timeout: 20000 });
     await page.waitForTimeout(2000);
 
     // Step 1: Open DID wizard
