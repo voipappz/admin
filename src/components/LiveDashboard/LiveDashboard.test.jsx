@@ -1,31 +1,34 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import LiveDashboard from './LiveDashboard';
 
 /**
- * Renders the screen for real, with the two contexts and the API mocked.
+ * Renders the screen for real, with the two contexts and the cable mocked.
  *
- * The point is not the assertions so much as the render itself: this screen
- * pulls in two contexts, and a component that throws at import or on first
- * paint shows up in a browser as a blank page with the error only in the
- * console. A test that mounts it catches that in CI instead.
- *
- * It also pins the behaviour that matters most on this deployment — an
- * unreachable call source must NOT be reported as "no calls in progress". An
- * empty table and an unknown one look identical and mean opposite things.
+ * What this pins: the screen has ONE source. Every row is a document off the
+ * cable, and when the cable is not delivering the screen says so rather than
+ * showing anything — there is no API to fall back to, and the assertion at
+ * the bottom is that none is called.
  */
 
-const mockAgents = vi.fn();
-const mockCalls = vi.fn();
+const mockApiGet = vi.fn();
+vi.mock('../../services/apiService', () => ({
+  apiService: { get: (...a) => mockApiGet(...a), post: (...a) => mockApiGet(...a) },
+}));
 
-vi.mock('../../services/api/liveDashboardApi', async () => {
-  const actual = await vi.importActual('../../services/api/liveDashboardApi');
-  return {
-    ...actual,
-    fetchAgents: (...a) => mockAgents(...a),
-    fetchLiveCalls: (...a) => mockCalls(...a),
-  };
-});
+// The cable, as the hook presents it: rows plus the subscription's state.
+let liveRows = [];
+let liveStatus = 'confirmed';
+vi.mock('../../hooks/useLiveEntities', () => ({
+  default: (environmentUuid) => ({
+    rows: liveRows,
+    byScope: (want) => liveRows.filter((r) => r.scope === want),
+    connected: liveStatus === 'confirmed',
+    rejected: liveStatus === 'rejected',
+    status: liveStatus,
+    subscription: { status: liveStatus, confirmedAt: null, frames: liveRows.length, lastFrameAt: null, identifier: null, environmentUuid },
+  }),
+}));
 
 // A portal session: one environment, straight off the user object.
 vi.mock('../../context/UserAuthContext', () => ({
@@ -41,14 +44,18 @@ vi.mock('../../context/CustomerEnvironmentContext', () => ({
   useCustomerEnvironment: () => ({ selectedEnvironments: [] }),
 }));
 
+// A user document as the node writes it: identity from the mothership, the
+// rest from the switch.
 const agent = (over = {}) => ({
-  uuid: 'a1',
+  scope: 'user',
+  id: 'a1',
   user_name: '20 Noam',
   extension_username: '211',
   status: 'available',
-  state: '',
+  status_name: 'Available',
+  state: 'waiting',
   status_updated_at: '',
-  call_outgoing_count: null,
+  call_outgoing_count: 3,
   call_incoming_count: null,
   first_call_at: '',
   call_answer_at: '',
@@ -56,156 +63,117 @@ const agent = (over = {}) => ({
   ...over,
 });
 
+const environment = (over = {}) => ({
+  scope: 'environment',
+  id: 'env-906',
+  live_calls_incoming: ['c1', 'c2'],
+  live_calls_outgoing: ['c3'],
+  live_calls_local: [],
+  ...over,
+});
+
 describe('LiveDashboard', () => {
   beforeEach(() => {
     localStorage.clear();
-    mockAgents.mockReset();
-    mockCalls.mockReset();
+    mockApiGet.mockReset();
+    liveRows = [];
+    liveStatus = 'confirmed';
   });
 
-  it('renders the environment from the session, not from a picker', async () => {
-    mockAgents.mockResolvedValue([agent()]);
-    mockCalls.mockResolvedValue([]);
-
+  it('renders the environment from the session, not from a picker', () => {
     render(<LiveDashboard />);
 
-    expect(await screen.findByText('4186 - MATEMATICA')).toBeInTheDocument();
+    expect(screen.getByText('4186 - MATEMATICA')).toBeInTheDocument();
     // `/api/applications` answers 401 for a user token, so the screen must
     // never depend on having fetched a list.
     expect(screen.queryByLabelText('Environment')).not.toBeInTheDocument();
   });
 
-  it('scopes both fetches to the session environment', async () => {
-    mockAgents.mockResolvedValue([]);
-    mockCalls.mockResolvedValue([]);
+  it('shows agent rows straight off the cable, identity included', () => {
+    liveRows = [agent(), agent({ id: 'a2', user_name: 'Dana', extension_username: '212' })];
 
     render(<LiveDashboard />);
 
-    await waitFor(() => expect(mockAgents).toHaveBeenCalledWith('env-906'));
-    expect(mockCalls).toHaveBeenCalledWith('env-906');
-  });
-
-  it('shows agent rows', async () => {
-    mockAgents.mockResolvedValue([agent(), agent({ uuid: 'a2', user_name: 'Dana', extension_username: '212' })]);
-    mockCalls.mockResolvedValue([]);
-
-    render(<LiveDashboard />);
-
-    expect(await screen.findByText('20 Noam')).toBeInTheDocument();
+    expect(screen.getByText('20 Noam')).toBeInTheDocument();
     expect(screen.getByText('Dana')).toBeInTheDocument();
     expect(screen.getByText('211')).toBeInTheDocument();
+    expect(screen.getByText('212')).toBeInTheDocument();
   });
 
-  it('counts the pills from the rows rather than a second source', async () => {
-    mockAgents.mockResolvedValue([
-      agent(), agent({ uuid: 'a2' }), agent({ uuid: 'a3', status: 'on_break' }),
-    ]);
-    mockCalls.mockResolvedValue([]);
+  it("labels the status chip with the tenant's own status name", () => {
+    // `status` is the switch's type and keys the colour; `status_name` is what
+    // the tenant called it, and is what an operator recognises.
+    liveRows = [agent({ status: 'on_break', status_name: 'Lunch' })];
 
     render(<LiveDashboard />);
 
-    expect(await screen.findByText('2 Available')).toBeInTheDocument();
+    expect(screen.getByText('Lunch')).toBeInTheDocument();
     expect(screen.getByText('1 On Break')).toBeInTheDocument();
   });
 
-  it('says "no calls in progress" only when it actually knows', async () => {
-    mockAgents.mockResolvedValue([agent()]);
-    mockCalls.mockResolvedValue([]);
+  it('falls back to the status type when the node has no name for it yet', () => {
+    liveRows = [agent({ status: 'logged_out', status_name: undefined })];
 
     render(<LiveDashboard />);
 
-    expect(await screen.findByText('No calls in progress')).toBeInTheDocument();
+    expect(screen.getByText('logged_out')).toBeInTheDocument();
   });
 
-  it('admits it cannot tell when the call source is unreachable', async () => {
-    // Every call source refuses a portal token on this deployment: /api/calls
-    // and ?action=live answer 500, the Influx path 404s. Reporting "no calls"
-    // there would be a claim the screen cannot make.
-    mockAgents.mockResolvedValue([agent()]);
-    mockCalls.mockRejectedValue(new Error('500'));
+  it('counts the pills from the rows rather than a second source', () => {
+    liveRows = [agent(), agent({ id: 'a2' }), agent({ id: 'a3', status: 'on_break', status_name: 'On Break' })];
 
     render(<LiveDashboard />);
 
-    expect(await screen.findByText(/Live calls unavailable/i)).toBeInTheDocument();
+    expect(screen.getByText('2 Available')).toBeInTheDocument();
+    expect(screen.getByText('1 On Break')).toBeInTheDocument();
+  });
+
+  it('counts calls in progress off the environment document', () => {
+    liveRows = [environment()];
+
+    render(<LiveDashboard />);
+
+    expect(screen.getByText('Live calls (3)')).toBeInTheDocument();
+    expect(screen.getByText('Incoming')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+  });
+
+  it('says "no calls in progress" only when the cable is confirmed', () => {
+    render(<LiveDashboard />);
+
+    expect(screen.getByText('No calls in progress')).toBeInTheDocument();
+    expect(screen.getByText('No agents in this environment')).toBeInTheDocument();
+  });
+
+  it('shows nothing and says so when the cable is not delivering', () => {
+    // An empty table and an unknown one look identical and mean opposite
+    // things. With no fallback, "not live" is the only honest thing to paint.
+    liveStatus = 'unavailable';
+
+    render(<LiveDashboard />);
+
+    expect(screen.getAllByText(/Not live — the cable is not delivering/)).toHaveLength(2);
     expect(screen.queryByText('No calls in progress')).not.toBeInTheDocument();
+    expect(screen.queryByText('No agents in this environment')).not.toBeInTheDocument();
   });
 
-  it('keeps the agents table when only the call fetch fails', async () => {
-    mockAgents.mockResolvedValue([agent()]);
-    mockCalls.mockRejectedValue(new Error('500'));
+  it('never calls the API — the cable is the only source', () => {
+    liveRows = [agent(), environment()];
+    liveStatus = 'unavailable';
 
     render(<LiveDashboard />);
 
-    // Promise.allSettled, so one failure must not blank the other table.
-    expect(await screen.findByText('20 Noam')).toBeInTheDocument();
+    expect(mockApiGet).not.toHaveBeenCalled();
   });
 
-  it('renders live calls when they are available', async () => {
-    mockAgents.mockResolvedValue([]);
-    mockCalls.mockResolvedValue([{
-      uuid: 'c1',
-      created_at: new Date().toISOString(),
-      direction: 'incoming',
-      state: 'answer',
-      caller: '00526014798',
-      destination: '306',
-      leg: 'did → que',
-    }]);
-
-    render(<LiveDashboard />);
-
-    expect(await screen.findByText('00526014798')).toBeInTheDocument();
-    expect(screen.getByText('306')).toBeInTheDocument();
-  });
-});
-
-describe('LiveDashboard — health strip', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    mockAgents.mockReset();
-    mockCalls.mockReset();
-  });
-
-  it('reports data freshness once something has actually arrived', async () => {
-    mockAgents.mockResolvedValue([agent()]);
-    mockCalls.mockResolvedValue([]);
-
-    render(<LiveDashboard />);
-
-    expect(await screen.findByText(/Data fresh/i)).toBeInTheDocument();
-  });
-
-  it('says data was never received when the source never answered', async () => {
-    // The failure this strip exists for: the screen keeps painting, and
-    // without it nothing on screen admits the numbers are not current.
-    mockAgents.mockRejectedValue(new Error('unreachable'));
-    mockCalls.mockRejectedValue(new Error('unreachable'));
-
-    render(<LiveDashboard />);
-
-    expect(await screen.findByText(/Data never received/i)).toBeInTheDocument();
-  });
-
-  it('names the source it is actually using', async () => {
-    mockAgents.mockResolvedValue([]);
-    mockCalls.mockResolvedValue([]);
-
-    render(<LiveDashboard />);
-
-    // No cable in a test environment, so it must say polling rather than
-    // implying a realtime feed it does not have.
-    expect(await screen.findByText(/Source: polling/i)).toBeInTheDocument();
-  });
-
-  it('says why the cable is not live instead of leaving the screen to guess', async () => {
+  it('says why the cable is not live instead of leaving the screen to guess', () => {
     // No session token in a test, so no socket opens: the panel must name
     // that, and open its details by itself because the screen is not live.
-    mockAgents.mockResolvedValue([]);
-    mockCalls.mockResolvedValue([]);
+    liveStatus = 'unavailable';
 
     render(<LiveDashboard />);
 
-    expect(await screen.findByText('Realtime cable: No session')).toBeInTheDocument();
+    expect(screen.getByText('Realtime cable: No session')).toBeInTheDocument();
     expect(screen.getByText('Subscription')).toBeInTheDocument();
   });
 });
