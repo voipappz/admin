@@ -280,6 +280,34 @@ describe('JWT Utilities', () => {
     });
   });
 
+  describe('hasPermission - renamed capabilities', () => {
+    // The API aliases routes <-> dids instead of migrating stored ACLs, so an
+    // account whose document still says `dids` must reach the Routes screen.
+    it('grants routes from a document that says dids', () => {
+      const acl = { data: { dids: { main: ['read', 'write'] } } };
+      expect(hasPermission(acl, 'routes', 'read')).toBe(true);
+      expect(hasPermission(acl, 'routes', 'write')).toBe(true);
+      expect(canAccessScreen(acl, 'routes')).toBe(true);
+    });
+
+    it('grants dids from a document that says routes', () => {
+      const acl = { data: { routes: { main: ['read'] } } };
+      expect(hasPermission(acl, 'dids', 'read')).toBe(true);
+      expect(hasPermission(acl, 'dids', 'write')).toBe(false);
+    });
+
+    it('prefers the exact key when both are present', () => {
+      const acl = { data: { routes: { main: ['read'] }, dids: { main: ['read', 'write'] } } };
+      expect(hasPermission(acl, 'routes', 'write')).toBe(false);
+    });
+
+    it('does not alias anything else', () => {
+      const acl = { data: { dids: { main: ['read', 'write'] } } };
+      expect(hasPermission(acl, 'users', 'read')).toBe(false);
+      expect(canAccessScreen(acl, 'accounts')).toBe(false);
+    });
+  });
+
   describe('hasPermission - SECURITY TESTS', () => {
     // CRITICAL: These tests ensure ACL security is properly enforced
     // NOTE: root flag is ONLY for customer/environment selection, NOT for bypassing ACL

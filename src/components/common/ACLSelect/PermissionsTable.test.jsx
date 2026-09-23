@@ -50,4 +50,33 @@ describe('PermissionsTable', () => {
       reports: { main: ['read', 'write'], AgentStats: ['read', 'write'] },
     });
   });
+
+  // `dids` became `routes`; stored documents still say `dids` and the API
+  // aliases the two rather than migrating. The editor reads through the alias
+  // and writes the catalogue's key, so the grant shows and a save does not leave
+  // two spellings behind.
+  describe('a renamed capability (dids -> routes)', () => {
+    const catalogue = { routes: { main: ['read', 'write'] }, users: { main: ['read', 'write'] } };
+
+    it('shows a dids grant on the routes row', () => {
+      render(<PermissionsTable typeData={catalogue} value={{ dids: { main: ['read'] } }} onChange={() => {}} />);
+      expect(screen.getByRole('switch', { name: 'routes read' })).toBeChecked();
+      expect(screen.getByRole('switch', { name: 'routes write' })).not.toBeChecked();
+      expect(screen.getByText('1 / 4')).toBeInTheDocument();
+    });
+
+    it('writes routes and drops dids when toggled', () => {
+      const onChange = vi.fn();
+      render(<PermissionsTable typeData={catalogue} value={{ dids: { main: ['read'] } }} onChange={onChange} />);
+      fireEvent.click(screen.getByRole('switch', { name: 'routes write' }));
+      expect(onChange).toHaveBeenCalledWith({ routes: { main: ['read', 'write'] } });
+    });
+
+    it('lists one row when the catalogue carries both spellings', () => {
+      const both = { ...catalogue, dids: { main: ['read', 'write'] } };
+      render(<PermissionsTable typeData={both} value={{}} onChange={() => {}} />);
+      expect(screen.getByRole('switch', { name: 'routes read' })).toBeInTheDocument();
+      expect(screen.queryByRole('switch', { name: 'dids read' })).toBeNull();
+    });
+  });
 });
