@@ -83,10 +83,10 @@ defmodule ConnectixWeb.Telemetry do
         tags: [:result],
         description: "Screen-pop instruction loads by outcome"
       ),
-      counter("connectix.nats.messages.count",
-        event_name: [:connectix, :nats, :message],
+      counter("connectix.esl.events.count",
+        event_name: [:connectix, :esl, :event],
         tags: [:result],
-        description: "NATS messages by outcome: received, dropped (buffer full), undecodable"
+        description: "FreeSWITCH events by outcome: received, dropped (buffer full), undecodable"
       ),
 
       # A call has four places it can silently stop: RTP never arrives, the
@@ -153,7 +153,7 @@ defmodule ConnectixWeb.Telemetry do
   def prometheus_metrics do
     Enum.filter(metrics(), fn metric ->
       match?([:connectix, :screen_pop | _rest], metric.name) or
-        match?([:connectix, :nats | _rest], metric.name) or
+        match?([:connectix, :esl | _rest], metric.name) or
         match?([:connectix, :call | _rest], metric.name) or
         match?([:connectix, :system | _rest], metric.name)
     end)

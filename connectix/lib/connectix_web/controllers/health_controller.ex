@@ -76,15 +76,14 @@ defmodule ConnectixWeb.HealthController do
   """
   def report(conn, _params) do
     checks = %{
-      # THE ONLY SOURCE OF EVENTS. Every user's state, every notification and
-      # the whole call firehose arrive on one broker subscription, so this
-      # being down means no screen pops, nothing reaching a browser and an
-      # empty store — and nothing else fails, which is why it has to be
-      # reported rather than left as silence.
+      # THE ONLY SOURCE OF EVENTS. The callcenter stream arrives on one Event
+      # Socket connection to the switch, so this being down means no screen
+      # pops and an empty store — and nothing else fails, which is why it has
+      # to be reported rather than left as silence.
       #
-      # Configured-but-not-subscribed is the real failure mode: a portal
-      # pointed at a broker it cannot reach looks exactly like a quiet switch.
-      nats: nats_check(),
+      # Configured-but-not-connected is the real failure mode: a portal
+      # pointed at a switch it cannot reach looks exactly like a quiet one.
+      freeswitch: freeswitch_check(),
       engine: check(engine?(), "ENGINE_URL is not set — /auth and /api are not forwarded"),
 
       # THE ONE THAT ENDS A DEPLOYMENT. The event store and Mnesia share this
@@ -126,7 +125,7 @@ defmodule ConnectixWeb.HealthController do
   defp check(false, detail), do: %{status: "down", detail: detail}
 
   # TWO QUESTIONS, ONE CHECK, and the second is the one nothing else asks:
-  # not "is the subscription up" but "is anything arriving on it". A dead feed
+  # not "is the connection up" but "is anything arriving on it". A dead feed
   # answers yes to the first — the socket is open and the producer says
   # `{:subscribed, …}` — which is exactly how a silent switch passed every
   # probe this app had.
@@ -134,14 +133,15 @@ defmodule ConnectixWeb.HealthController do
   # The numbers travel with the verdict for the same reason the disk check's
   # do: a monitor wants to alert on a gap SHORTER than the one that trips the
   # deadman, and it cannot do that with a bare ok/down.
-  defp nats_check do
+  defp freeswitch_check do
     if Connectix.Realtime.EventPipeline.enabled?() do
-      status = Connectix.Realtime.NatsProducer.status()
+      status = Connectix.Realtime.EslProducer.status()
 
       base = %{
-        subjects: Connectix.Realtime.EventPipeline.subjects(),
-        last_event_at: iso8601(Connectix.Realtime.NatsProducer.last_message_at()),
-        silent_ms: Connectix.Realtime.NatsProducer.silent_ms(),
+        switch: Connectix.Realtime.FreeSwitch.address(Connectix.Realtime.FreeSwitch.settings()),
+        events: Connectix.Realtime.EventPipeline.events(),
+        last_event_at: iso8601(Connectix.Realtime.EslProducer.last_message_at()),
+        silent_ms: Connectix.Realtime.EslProducer.silent_ms(),
         deadman_ms: Connectix.Realtime.Deadman.threshold_ms()
       }
 
@@ -149,22 +149,26 @@ defmodule ConnectixWeb.HealthController do
       # body reads the clock twice, so a gap that crosses the threshold between
       # the two returns "down" with no detail to say why.
       case {status, Connectix.Realtime.Deadman.check()} do
-        {{:subscribed, _subjects}, :ok} ->
+        {{:subscribed, _events}, :ok} ->
           Map.put(base, :status, "ok")
 
-        {{:subscribed, _subjects}, {:alarm, detail}} ->
+        {{:subscribed, _events}, {:alarm, detail}} ->
           Map.merge(base, %{status: "down", detail: detail})
 
         {unsubscribed, _deadman} ->
           Map.merge(base, %{
             status: "down",
             detail:
-              "the broker subscription is not up — no events, no screen pops " <>
+              "the switch connection is not up — no events, no screen pops " <>
                 "(producer: #{inspect(unsubscribed)})"
           })
       end
     else
-      check(false, "NATS_URL or NATS_SUBJECTS is not set — no events, no screen pops")
+      check(
+        false,
+        "no FreeSWITCH named: the rule file has no freeswitch.host and ESL_URL is not set " <>
+          "— no events, no screen pops"
+      )
     end
   end
 

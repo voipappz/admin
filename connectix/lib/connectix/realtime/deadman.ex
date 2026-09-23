@@ -1,27 +1,27 @@
 defmodule Connectix.Realtime.Deadman do
   @moduledoc """
-  Alarms when the broker subscription is up and nothing is arriving on it.
+  Alarms when the switch connection is up and nothing is arriving on it.
 
   **This is the failure that reports itself as healthy.** Every other check in
   this app asks whether a thing is configured or connected, and all of them
-  pass while the switch is silent: `NatsProducer.status/0` says
-  `{:subscribed, …}` because the subscription exists, `/health` is green, the
+  pass while the switch is silent: `EslProducer.status/0` says
+  `{:subscribed, …}` because the connection exists, `/health` is green, the
   socket is open, the process is alive. The first person to notice is an agent
   saying their screen stopped popping, some unknown number of calls later.
 
   It is not hypothetical. A connection can die without saying so — a NAT or a
   load balancer drops an established socket, there is no close frame and no
   error, and the process holds a dead socket until something restarts it. The
-  producer re-subscribes when the connection process dies; when it does not
-  die, nothing notices at all.
+  producer reconnects when the socket or the connection process dies; when
+  neither does, nothing notices at all — except that `HEARTBEAT` stops.
 
   So the question this asks is the only one that cannot be answered by looking
   at configuration: **has anything actually arrived recently?**
 
-  ## Silence is not the same as being unsubscribed
+  ## Silence is not the same as being disconnected
 
-  `NatsProducer.silent_ms/0` returns `nil` when there is no subscription, and
-  this treats that as "not my alarm". The subscription check already reports
+  `EslProducer.silent_ms/0` returns `nil` when there is no connection, and
+  this treats that as "not my alarm". The connection check already reports
   it, and an outage that fires two alarms reads as two faults.
 
   ## One line per episode
@@ -42,7 +42,7 @@ defmodule Connectix.Realtime.Deadman do
     * `/health` — the numbers, so a monitor can alert on a gap shorter than
       the one that trips this.
 
-  `PopRule.nats_deadman_ms/0` is the threshold and `deadman: off` in the rule
+  `PopRule.deadman_ms/0` is the threshold and `deadman: off` in the rule
   file disables it.
   """
 
@@ -51,7 +51,7 @@ defmodule Connectix.Realtime.Deadman do
   require Logger
 
   alias Connectix.Realtime.EventPipeline
-  alias Connectix.Realtime.NatsProducer
+  alias Connectix.Realtime.EslProducer
   alias Connectix.Realtime.PopRule
 
   # Frequent enough that the alarm is timely, rare enough to be free. The
@@ -73,7 +73,7 @@ defmodule Connectix.Realtime.Deadman do
 
   @doc "The configured silence the portal tolerates, in milliseconds."
   @spec threshold_ms() :: non_neg_integer()
-  def threshold_ms, do: PopRule.nats_deadman_ms()
+  def threshold_ms, do: PopRule.deadman_ms()
 
   @doc """
   `:ok`, or `{:alarm, message}` naming how long it has been and what that means.
@@ -83,7 +83,7 @@ defmodule Connectix.Realtime.Deadman do
   was not looking at the portal when it fired.
   """
   @spec check() :: :ok | {:alarm, String.t()}
-  def check, do: evaluate(NatsProducer.silent_ms(), threshold_ms())
+  def check, do: evaluate(EslProducer.silent_ms(), threshold_ms())
 
   @doc false
   # Pure, so the decision can be tested without a broker, a clock or a process.
@@ -94,8 +94,8 @@ defmodule Connectix.Realtime.Deadman do
 
   def evaluate(silent, threshold) do
     {:alarm,
-     "no events for #{humanize(silent)} — the broker subscription is up and " <>
-       "nothing is arriving on #{subjects()} (deadman #{humanize(threshold)}). " <>
+     "no events for #{humanize(silent)} — the switch connection is up and " <>
+       "nothing is arriving from FreeSWITCH (#{events()}; deadman #{humanize(threshold)}). " <>
        "Screen pops are not firing."}
   end
 
@@ -115,9 +115,9 @@ defmodule Connectix.Realtime.Deadman do
     if minutes == 0, do: "#{hours}h", else: "#{hours}h #{minutes}m"
   end
 
-  defp subjects do
-    case EventPipeline.subjects() do
-      [] -> "any subject"
+  defp events do
+    case EventPipeline.events() do
+      [] -> "no events named"
       named -> Enum.join(named, ", ")
     end
   end

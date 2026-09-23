@@ -13,8 +13,9 @@ docker run -d --name app -p 8000:8000 -e PORT=8000 \
   -e SECRET_KEY_BASE=... voipappz-app:local
 ```
 
-Runtime env comes from `.env` beside the compose file (`ENGINE_URL`, `NATS_URL`,
-the optional cable connection, and the portal database — see `.env.example`).
+Runtime env comes from `.env` beside the compose file (`ENGINE_URL`,
+`FREESWITCH_ESL_PASSWORD` for the switch the mounted rule file names, and the
+portal database — see `.env.example`).
 
 ## Deploy to Nimbus with Kamal
 

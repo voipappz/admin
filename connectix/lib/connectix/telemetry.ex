@@ -8,7 +8,7 @@ defmodule Connectix.Telemetry do
 
   @screen_pop_event [:connectix, :screen_pop, :event]
   @screen_pop_load [:connectix, :screen_pop, :instruction_load]
-  @nats_message [:connectix, :nats, :message]
+  @esl_event [:connectix, :esl, :event]
 
   @event_results [
     :received,
@@ -21,7 +21,7 @@ defmodule Connectix.Telemetry do
     :rejected
   ]
   @load_results [:started, :loaded, :failed]
-  @nats_results [:received, :dropped, :undecodable]
+  @esl_results [:received, :dropped, :undecodable]
 
   @call_audio [:connectix, :call, :audio]
   @call_stt [:connectix, :call, :stt]
@@ -32,7 +32,7 @@ defmodule Connectix.Telemetry do
   @sip_events [:registered, :register_refused, :calling, :ringing, :answered, :ended, :failed]
 
   def events,
-    do: [@screen_pop_event, @screen_pop_load, @nats_message, @call_audio, @call_stt, @call_sip]
+    do: [@screen_pop_event, @screen_pop_load, @esl_event, @call_audio, @call_stt, @call_sip]
 
   def screen_pop_event(result) when result in @event_results do
     :telemetry.execute(@screen_pop_event, %{count: 1}, %{result: result})
@@ -43,12 +43,12 @@ defmodule Connectix.Telemetry do
   end
 
   @doc """
-  One message off NATS: `:received` by the producer, `:dropped` when its
-  buffer overflowed, `:undecodable` when the body was not a JSON object.
-  `received` minus the other two is what reached a handler.
+  One event off the FreeSWITCH Event Socket: `:received` by the producer,
+  `:dropped` when its buffer overflowed, `:undecodable` when it arrived with no
+  headers. `received` minus the other two is what reached a handler.
   """
-  def nats_message(result) when result in @nats_results do
-    :telemetry.execute(@nats_message, %{count: 1}, %{result: result})
+  def esl_event(result) when result in @esl_results do
+    :telemetry.execute(@esl_event, %{count: 1}, %{result: result})
   end
 
   @doc """

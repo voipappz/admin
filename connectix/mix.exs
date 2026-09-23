@@ -115,12 +115,23 @@ defmodule Connectix.MixProject do
       # ActionCable client transport. Cable owns authentication, channel names
       # and event streams; Elixir holds no direct NATS connection.
       {:mint_web_socket, "~> 1.0"},
-      # Kept for the dormant Realtime.Bus compatibility module, and used by
-      # `Realtime.Nats` when the Broadway event pipeline is switched on.
-      {:gnat, "~> 1.9"},
-      # The event pipeline (`Realtime.EventPipeline`): parallel decode of the
-      # NATS event stream with back-pressure, instead of one process decoding
-      # the whole firehose.
+      # FreeSWITCH Event Socket client. `Realtime.FreeSwitch` opens the
+      # connection with it; `Realtime.EslProducer` owns it.
+      #
+      # VENDORED, not from hex, for one reason: switchx 1.0.1 depends on the
+      # `uuid` package, and this tree already depends on `elixir_uuid` (pulled
+      # by sagents/langchain). Both ship the module `UUID` under different OTP
+      # apps, so with both present Mix compiles one and the other never gets an
+      # app file — `mix compile` then fails with "could not find an app file
+      # at .../uuid/ebin/uuid.app". No override or `hex:` rename fixes it,
+      # because the two dep names still resolve to two apps. `vendor/switchx`
+      # is switchx 1.0.1 verbatim with its one UUID dep repointed at
+      # `elixir_uuid` (same `UUID` module, used only in call paths we never
+      # take) and its telemetry pin widened to match the rest of the tree.
+      {:switchx, path: "vendor/switchx"},
+      # The event pipeline (`Realtime.EventPipeline`): parallel translation of
+      # the switch's events with back-pressure, instead of one process handling
+      # the whole feed.
       {:broadway, "~> 1.3"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_metrics_prometheus_core, "~> 1.1"},

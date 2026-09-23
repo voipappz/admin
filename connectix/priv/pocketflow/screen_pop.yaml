@@ -39,55 +39,58 @@
 service_uuid: callcenter-screen-pop
 service_type: screen_pop
 
-# THE BROKER.
+# THE SWITCH.
+#
+# The portal reads FreeSWITCH's events first-hand, over the Event Socket
+# (mod_event_socket, inbound mode, port 8021). No relay node and no broker sit
+# between the switch and the pipeline.
 #
 # Two gates, in order, and they answer different questions:
 #
-#   subjects  what ARRIVES at all -- the broker delivers nothing else
+#   events    what ARRIVES at all -- the switch sends nothing else
 #   triggers  what POPS, out of what arrived
 #
-# `subjects` IS PER-CUSTOMER and lives in the customer file: a stream
-# identifier IS its NATS subject, verbatim, so the names are the platform's own
-# and they name one site's switch. NATS splits a subject on dots ALONE, so a
-# colon-form name like `node:test1` is a SINGLE token: `*` matches it and every
-# other colon-form stream at once, while `state.>` matches every state stream.
-# There is no `notifications:*`, because the colon is not a separator.
+# `host` IS PER-CUSTOMER and lives in the customer file: it names one site's
+# switch. What is shared is HOW to listen:
 #
-#   node:<uuid>            the firehose, relayed onto call_events unchanged
-#   call_events            the same stream, one hop later
-#   state.<scope>.<id>     one entity's state, folded per user
-#   notifications:<uuid>   one user's notifications, delivered verbatim
-#   dashboard_user:<uuid>  one user's dashboard state, folded
+#   HEARTBEAT                 every 20 s while the connection is alive; the
+#                             deadman's liveness signal, never stored or popped
+#   CUSTOM callcenter::info   mod_callcenter's events -- bridge-agent-start,
+#                             agent-offering, agent-state-change... -- which is
+#                             the whole surface the screen pop reads
 #
-# Naming no subjects anywhere falls back to NATS_SUBJECTS in the environment.
+# Name only what is needed. Measured on a live switch, 86% of the traffic was
+# CHANNEL_HANGUP_COMPLETE at 8.6KB a frame, and none of it pops anything; a
+# broker wildcard delivered all of it, this list does not.
 #
-# `${VAR}` IS EXPANDED FROM THE ENVIRONMENT, and that is how a credential stays
-# out of a file. A URL can carry a password; written literally it would be
-# committed. Everything else is verbatim.
+# `${VAR}` IS EXPANDED FROM THE ENVIRONMENT, and that is how the credential
+# stays out of a file: the password is named here and stored in .env, never
+# written here. Everything else is verbatim.
 #
 # `deadman` IS HOW LONG SILENCE IS ALLOWED TO LAST. Past it the portal alarms:
-# an error in the log, `nats: down` with the numbers on /health, and the reason
-# pushed to Uptime Kuma. `off` disables it. Accepts `15m`, `900s`, `2h`,
-# `900000ms`, or a bare number meaning seconds.
+# an error in the log, `freeswitch: down` with the numbers on /health, and the
+# reason pushed to Uptime Kuma. `off` disables it. Accepts `1m`, `60s`, `2h`,
+# `60000ms`, or a bare number meaning seconds.
 #
 # THIS IS THE ONE FAILURE THAT REPORTS ITSELF AS HEALTHY. Every other check
 # asks whether something is configured or connected, and a dead feed passes all
 # of them: the socket is open, the producer says `{:subscribed, ...}`, /health
 # is green, and not one event is arriving. A connection can die without saying
-# so -- a NAT or a load balancer drops an established socket, there is no close
-# frame and no error -- and the first person to notice is an agent mentioning
-# that their screen stopped popping, some unknown number of calls later.
+# so -- a NAT drops an established socket, there is no close frame and no
+# error -- and the first person to notice is an agent mentioning that their
+# screen stopped popping, some unknown number of calls later.
 #
-# The number is a bet about the quietest legitimate stretch a deployment has.
-# Too short and it fires every night, which is worse than not having it; an
-# alarm that cries wolf is an alarm nobody reads. Fifteen minutes because these
-# switches publish agent state continuously while anyone is logged in, so a gap
-# that size means something is wrong rather than quiet. A site that genuinely
-# goes quiet overnight should RAISE this in its customer file or set it to
-# `off` -- not lower the log level.
-nats:
-  url: ${NATS_URL}
-  deadman: 15m
+# One minute, because HEARTBEAT arrives every 20 seconds for as long as the
+# connection is alive: a minute of silence is three missed heartbeats, never a
+# quiet switch. A site that drops HEARTBEAT from `events` must raise this to
+# match its own traffic.
+freeswitch:
+  port: 8021
+  password: ${FREESWITCH_ESL_PASSWORD}
+  events:
+    - HEARTBEAT
+    - CUSTOM callcenter::info
+  deadman: 1m
 
 # WHO THE SWITCH MEANS, when it names an agent.
 #

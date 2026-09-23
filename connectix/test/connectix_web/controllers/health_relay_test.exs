@@ -38,17 +38,17 @@ defmodule ConnectixWeb.HealthRelayTest do
     end
   end
 
-  test "an unconfigured broker is down, and says what that costs" do
-    without(["NATS_URL", "NATS_SUBJECTS"], fn ->
+  test "an unconfigured switch is down, and says what that costs" do
+    without(["ESL_URL"], fn ->
       refute Connectix.Realtime.EventPipeline.enabled?()
 
       body = report()
-      nats = body["checks"]["nats"]
+      freeswitch = body["checks"]["freeswitch"]
 
-      assert nats["status"] == "down",
-             "a portal with no broker consumes nothing; health must not call that ok"
+      assert freeswitch["status"] == "down",
+             "a portal with no switch consumes nothing; health must not call that ok"
 
-      assert nats["detail"] =~ "no events"
+      assert freeswitch["detail"] =~ "no events"
 
       assert body["status"] == "degraded"
       refute body["ready"]
@@ -59,27 +59,25 @@ defmodule ConnectixWeb.HealthRelayTest do
     # Configured-but-not-subscribed is the failure worth seeing: the URL is
     # right, the subjects are named, and the producer never got a subscription.
     without([], fn ->
-      System.put_env("NATS_URL", "nats://127.0.0.1:4222")
-      System.put_env("NATS_SUBJECTS", "node:test1")
+      System.put_env("ESL_URL", "esl://:pw@127.0.0.1:8021")
 
       # No producer is running in this test, and `status/0` is one term for the
       # node — a producer from another test that did not shut down cleanly
       # would otherwise leave "subscribed" behind and make this pass for the
       # wrong reason.
-      refute Connectix.Realtime.NatsProducer.pid() &&
-               Process.alive?(Connectix.Realtime.NatsProducer.pid()),
+      refute Connectix.Realtime.EslProducer.pid() &&
+               Process.alive?(Connectix.Realtime.EslProducer.pid()),
              "a producer is still running; this test asserts on the no-producer case"
 
       on_exit(fn ->
-        System.delete_env("NATS_URL")
-        System.delete_env("NATS_SUBJECTS")
+        System.delete_env("ESL_URL")
       end)
 
       assert Connectix.Realtime.EventPipeline.enabled?()
 
-      nats = report()["checks"]["nats"]
-      assert nats["status"] == "down"
-      assert nats["detail"] =~ "not up"
+      freeswitch = report()["checks"]["freeswitch"]
+      assert freeswitch["status"] == "down"
+      assert freeswitch["detail"] =~ "not up"
     end)
   end
 end

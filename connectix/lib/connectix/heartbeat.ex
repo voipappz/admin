@@ -72,11 +72,11 @@ defmodule Connectix.Heartbeat do
       []
       |> check(
         Connectix.Realtime.EventPipeline.enabled?() and
-          match?({:subscribed, _}, Connectix.Realtime.NatsProducer.status()),
-        "broker subscription down — no events"
+          match?({:subscribed, _}, Connectix.Realtime.EslProducer.status()),
+        "switch connection down — no events"
       )
-      # SUBSCRIBED AND SILENT, which the check above cannot see: it asks
-      # whether the subscription exists, and a dead feed has one. This is the
+      # CONNECTED AND SILENT, which the check above cannot see: it asks
+      # whether the connection exists, and a dead feed has one. This is the
       # failure that reports itself as healthy, so it is the one most worth
       # pushing somewhere that rings.
       |> alarm(Connectix.Realtime.Deadman.check())

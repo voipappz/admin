@@ -19,9 +19,11 @@ defmodule Connectix.Realtime.PopRule do
 
   @key {__MODULE__, :rule}
   @default_path "pocketflow/screen_pop.yaml"
-  # Fifteen minutes. See `nats_deadman_ms/0` for why this number and not a
-  # tighter one.
-  @default_deadman_ms 900_000
+  # One minute. FreeSWITCH sends HEARTBEAT every 20 s while the connection is
+  # up, so three missed in a row is a dead feed, not a quiet one. See
+  # `deadman_ms/0`.
+  @default_deadman_ms 60_000
+  @default_esl_port 8021
   # Where the rule came from, carried inside the cached rule so `source/0`
   # costs the same read as everything else rather than stat-ing the disk again.
   @source_key "__source__"
@@ -95,32 +97,43 @@ defmodule Connectix.Realtime.PopRule do
   def event_name(_event), do: nil
 
   @doc """
-  The broker settings, from the rule file's `nats:` block.
+  The switch, from the rule file's `freeswitch:` block.
 
-      nats:
-        url: ${NATS_URL}
-        subjects:
-          - node:test1
-          - state.>
+      freeswitch:
+        host: 194.36.89.216
+        port: 8021
+        password: ${FREESWITCH_ESL_PASSWORD}
+        events:
+          - HEARTBEAT
+          - CUSTOM callcenter::info
+        deadman: 1m
 
   **`${VAR}` is expanded from the environment**, and that is how a credential
-  stays out of a file that lives in git. The URL carries a password; writing it
-  literally here would commit it. A value with no `${}` is used verbatim, which
-  is right for a subject list and for a broker that needs no credential.
+  stays out of a file that lives in git. The password is named here and never
+  written here. A value with no `${}` is used verbatim.
 
   An unset variable expands to nothing, and an empty setting is the same as an
   absent one — the same rule `Connectix.Config` follows, because a shipping
-  tool writes `FOO=` for a value it does not have.
+  tool writes `FOO=` for a value it does not have. `host` is nil when the file
+  names none, and `Realtime.FreeSwitch` then falls back to `ESL_URL`.
   """
-  @spec nats() :: %{url: String.t() | nil, subjects: [String.t()]}
-  def nats do
-    block = rule() |> Map.get("nats", %{}) |> normalise_block()
+  @spec freeswitch() :: %{
+          host: String.t() | nil,
+          port: pos_integer(),
+          password: String.t() | nil,
+          events: [String.t()],
+          deadman_ms: non_neg_integer()
+        }
+  def freeswitch do
+    block = rule() |> Map.get("freeswitch", %{}) |> normalise_block()
 
     %{
-      url: block |> Map.get("url") |> expand() |> presence(),
-      subjects:
+      host: block |> Map.get("host") |> expand() |> presence(),
+      port: block |> Map.get("port") |> expand() |> presence() |> port(),
+      password: block |> Map.get("password") |> expand() |> presence(),
+      events:
         block
-        |> Map.get("subjects", [])
+        |> Map.get("events", [])
         |> List.wrap()
         |> Enum.map(&(&1 |> to_string() |> expand() |> String.trim()))
         |> Enum.reject(&(&1 == ""))
@@ -129,8 +142,17 @@ defmodule Connectix.Realtime.PopRule do
     }
   end
 
+  defp port(nil), do: @default_esl_port
+
+  defp port(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {port, ""} when port > 0 -> port
+      _not_a_port -> @default_esl_port
+    end
+  end
+
   @doc """
-  How long the broker may be silent before the portal calls it dead, in
+  How long the switch may be silent before the portal calls it dead, in
   milliseconds. `0` disables the check.
 
   Subscribed-and-silent is the failure this exists for, and it is the one
@@ -144,20 +166,22 @@ defmodule Connectix.Realtime.PopRule do
   It is a bet about the quietest legitimate stretch this deployment has. Too
   short and it fires every night, which is worse than not having it — an alarm
   that cries wolf is an alarm nobody reads. Too long and a dead feed goes
-  unnoticed for that long. #{div(@default_deadman_ms, 60_000)} minutes is the
-  default because this switch publishes agent state continuously while anyone
-  is logged in, so a gap that size means something is wrong rather than quiet.
+  unnoticed for that long. #{div(@default_deadman_ms, 1_000)} seconds is the
+  default because the producer subscribes to `HEARTBEAT`, which FreeSWITCH
+  sends every 20 seconds for as long as the connection is alive — so a gap that
+  size is three missed heartbeats, never a quiet switch. A deployment that
+  removes `HEARTBEAT` from `events` must raise this to match its own traffic.
 
   A deployment whose switch genuinely goes silent overnight should raise it or
   set `deadman: off`, not lower the log level.
   """
-  @spec nats_deadman_ms() :: non_neg_integer()
-  def nats_deadman_ms, do: nats().deadman_ms
+  @spec deadman_ms() :: non_neg_integer()
+  def deadman_ms, do: freeswitch().deadman_ms
 
   # Unset in the file falls back to the environment, then to the default. `off`
   # is a deliberate 0 and must survive both.
   defp default_deadman(nil) do
-    case System.get_env("NATS_DEADMAN") |> presence() |> duration_ms() do
+    case System.get_env("ESL_DEADMAN") |> presence() |> duration_ms() do
       nil -> @default_deadman_ms
       configured -> configured
     end
@@ -189,15 +213,15 @@ defmodule Connectix.Realtime.PopRule do
   defp scaled([_whole, number, "h"]), do: String.to_integer(number) * 3_600_000
 
   @doc """
-  The NATS subjects to subscribe to, from the rule file.
+  The FreeSWITCH event names to subscribe to, from the rule file.
 
-  Empty when the file names none, and `Realtime.EventPipeline` then falls back
-  to `NATS_SUBJECTS`. The two gates are deliberately in one file: `subjects`
-  decides what ARRIVES and `triggers` decides what POPS out of what arrived, so
-  a subject named nowhere looks exactly like a switch with nothing to say.
+  Empty when the file names none, and `Realtime.FreeSwitch` then uses its
+  defaults. The two gates are deliberately in one file: `events` decides what
+  ARRIVES and `triggers` decides what POPS out of what arrived, so an event
+  named nowhere looks exactly like a switch with nothing to say.
   """
-  @spec subjects() :: [String.t()]
-  def subjects, do: nats().subjects
+  @spec events() :: [String.t()]
+  def events, do: freeswitch().events
 
   @doc """
   Agent ids named explicitly in the rule file.
@@ -348,10 +372,6 @@ defmodule Connectix.Realtime.PopRule do
   end
 
   def ids_for(_id), do: []
-
-  @doc "The broker URL from the rule file, or nil."
-  @spec nats_url() :: String.t() | nil
-  def nats_url, do: nats().url
 
   defp normalise_block(%{} = block), do: block
   defp normalise_block(_not_a_map), do: %{}
@@ -541,7 +561,7 @@ defmodule Connectix.Realtime.PopRule do
 
   # One level down, which is as deep as this file goes: a customer naming
   # `profile.record_url` must not drop the shared `profile.unknown_caller`
-  # beside it, and one naming `nats.subjects` must not drop `nats.url`.
+  # beside it, and one naming `freeswitch.host` must not drop `freeswitch.password`.
   defp overlay(base, nil), do: base
 
   defp overlay(base, customer) do

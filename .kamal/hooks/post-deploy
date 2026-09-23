@@ -96,8 +96,8 @@ probe "GET  /health/alive            (liveness)" "/health/alive" 200
 probe "GET  /health/ready            (readiness)" "/health/ready" 200
 
 # /health deliberately returns 200 even when its JSON status is "degraded".
-# Check both the HTTP surface and the body so a missing NATS_URL, cable or
-# engine cannot pass the deploy smoke.
+# Check both the HTTP surface and the body so a missing switch or engine
+# cannot pass the deploy smoke.
 probe "GET  /health                  (dependency report)" "/health" 200
 _health_ok=0
 _attempt=0

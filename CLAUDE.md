@@ -68,16 +68,17 @@ host nobody meant to touch. The Makefile refuses rather than guessing.
 
 `make dev` starts the portal — the whole app, one container.
 
-The broker is: `make dev` starts a local NATS with JetStream beside the portal,
-and the portal consumes from whatever `NATS_URL` names. The Chrome extension is
-not part of it, and
-lives in `../chrome` with its own Makefile — `make -C ../chrome build`, then
-load `../chrome/angular/dist` unpacked.
+There is no broker and no relay: the portal connects to **FreeSWITCH's own
+Event Socket** (`mod_event_socket`, :8021) and consumes the switch's events
+first-hand. The switch is named in the mounted customer rule
+(`freeswitch.host`), its password in `FREESWITCH_ESL_PASSWORD`; `ESL_URL` is
+the fallback for a deployment without the file. The Chrome extension is not
+part of the stack, and lives in `../chrome` with its own Makefile —
+`make -C ../chrome build`, then load `../chrome/angular/dist` unpacked.
 
 | Service | Port | What it is |
 |---|---|---|
-| `elixir` | **4001** | The portal — **the origin, and the whole app**. Serves the LiveView UI and `/ws/events`, performs the login, verifies its own tokens, consumes events from the broker, forwards the rest of `/auth` · `/api/` · `/tasks/` upstream. |
-| `nats` | **4222** | The broker events arrive on. JetStream on, store on a named volume. |
+| `elixir` | **4001** | The portal — **the origin, and the whole app**. Serves the LiveView UI and `/ws/events`, performs the login, verifies its own tokens, consumes events from the switch, forwards the rest of `/auth` · `/api/` · `/tasks/` upstream. |
 
 **4001 is the origin and does not move.** The LiveView UI and the Chrome
 extension both point at it, and neither should ever have to change.
@@ -149,12 +150,14 @@ are dressed on the way out for exactly that reason.
 
 One runtime piece: **the Elixir portal** (`connectix/`, :4001) — the origin
 and the whole app. A `WebSock` handler at `/ws/events` (not a Phoenix Channel:
-the contract is a plain JSON frame protocol), one broker subscription fanned
-out over `Phoenix.PubSub`, token
-verification through the node's `ApiProxy` channel, and a Phoenix LiveView UI
-(`ChatLive` at `/chat`, gated by `ConnectixWeb.Plugs.BasicAuth` — see
-`connectix/CLAUDE.md` for the LiveView/Bot-first conventions). Elixir holds no
-direct NATS connection. `ConnectixWeb.Plugs.EngineProxy` forwards the
+the contract is a plain JSON frame protocol), one Event Socket connection to
+FreeSWITCH (`Realtime.EslProducer`, a Broadway producer on the `switchx`
+client) fanned out over `Phoenix.PubSub`, local token verification, and a
+Phoenix LiveView UI (`ChatLive` at `/chat`, gated by
+`ConnectixWeb.Plugs.BasicAuth` — see `connectix/CLAUDE.md` for the
+LiveView/Bot-first conventions). Elixir holds no broker connection: the
+switch is the source, and `docs/freeswitch-esl-consumer.md` records why the
+NATS consumer was retired. `ConnectixWeb.Plugs.EngineProxy` forwards the
 mothership's own routes (`/auth`, `/api/`, `/tasks/`) upstream, and **owns
 the CORS policy on them**: the extension's origin is a
 `chrome-extension://<id>` no upstream allowlist can name, so the upstream's
@@ -191,8 +194,10 @@ LiveView UI specifically) HTTP Basic Auth — see `connectix/CLAUDE.md`.
 ## Environment
 
 Env is the whole tenant-configuration surface — see `.env.example` (documented
-inline). `NATS_URL` and the `nats.subjects` block in
-`connectix/priv/pocketflow/screen_pop.yaml` decide where events come from. Production Kamal destinations set `ENGINE_URL` in mothership.
+inline). The `freeswitch:` block in the customer's rule file (host) and
+`connectix/priv/pocketflow/screen_pop.yaml` (events, deadman, the password's
+variable name) decide where events come from; `ESL_URL` is the fallback.
+Production Kamal destinations set `ENGINE_URL` in mothership.
 
 - Editing `.env` + `docker compose restart` does **not** re-read env vars — use
   `docker compose up -d --force-recreate <service>`.
@@ -332,7 +337,7 @@ sockets. So the trail to follow next is on the extension side, and the
 
 ### Monitoring
 
-`/health` (unauthenticated, no content negotiation) reports `nats`,
+`/health` (unauthenticated, no content negotiation) reports `freeswitch`,
 `engine`, `events` and `disk`, with numbers on the disk check so a
 monitor can alert BEFORE the floor. `/health/ready` deliberately does NOT fail
 on low disk: it is the deploy gate and the load-balancer signal, and failing it
@@ -352,8 +357,10 @@ never armed: when a NAT or load balancer drops an established connection
 there is no close frame and no error, `Mint` reports nothing, and the process
 holds a dead socket until something restarts it. Default TCP keepalive is two
 hours, which is why the symptom was "notifications stop after a few hours".
-The broker connection reconnects on its own and the producer re-subscribes;
-`/health` reports `nats` down in between. The old singleton
+The Event Socket producer monitors both its connection process and the socket
+port (the client library swallows `tcp_closed`), reconnects with backoff, and
+reads FreeSWITCH's 20-second `HEARTBEAT` under a one-minute deadman;
+`/health` reports `freeswitch` down in between. The old singleton
 `ApiProxy` is the worse one to lose: it carries `CallEvents` for every user, so
 its death looks exactly like a quiet switch.
 

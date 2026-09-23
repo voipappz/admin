@@ -16,7 +16,7 @@ SHELL := bash
 PHONY_TARGETS := help check-make iex tui tmux tmux-kill mise env dev \
                  up down logs health test ci probe status extension app \
                  kamal-config kamal-push deploy deployed \
-                 nats-watch sipp sipp-stop sipp-logs sipp-uac
+                 sipp sipp-stop sipp-logs sipp-uac
 
 .PHONY: $(PHONY_TARGETS)
 
@@ -44,7 +44,8 @@ PORTAL   ?= http://$(if $(PORTAL_ADDR),$(PORTAL_ADDR),localhost:4001)
 # refuse to start without SECRET_KEY (reading it from a `va-app` container as a
 # last resort) because the portal minted a CABLE credential with it. The cable
 # is gone. The portal signs and verifies its own tokens with a key derived from
-# the endpoint's secret_key_base, and reads events straight off NATS, so the
+# the endpoint's secret_key_base, and reads events straight off the switch's
+# Event Socket, so the
 # gate stopped a working stack from starting — silently, since its message was
 # the last thing make printed before the error.
 STACK_UP = PORTAL_ENGINE_URL="$(PORTAL_ENGINE_URL)" docker compose up -d
@@ -217,40 +218,12 @@ app: ## Build the Ionic app and bundle it into the portal (served at /app)
 
 ##@ Check
 
-tunnel: ## Public TCP address for the local broker (no account needed)
-	@docker compose --profile tunnel up -d bore >/dev/null
-	@echo "waiting for the tunnel to register..."
-	@addr=""; \
-	for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do \
-	  addr=`docker compose --profile tunnel logs bore 2>/dev/null | grep -oE 'remote_port=[0-9]+' | tail -1 | cut -d= -f2 || true`; \
-	  if [ -n "$$addr" ]; then break; fi; \
-	  sleep 1; \
-	done; \
-	host=$${BORE_SERVER:-bore.pub}; \
-	if [ -n "$$addr" ]; then \
-	  echo ""; \
-	  echo "  nats://$$host:$$addr"; \
-	  echo ""; \
-	  echo "  NO AUTHENTICATION. Anyone with this address can read every event"; \
-	  echo "  and publish ones the portal acts on. Down with: make tunnel-stop"; \
-	else \
-	  echo ""; \
-	  echo "  no address. the tunnel said:"; \
-	  docker compose --profile tunnel logs bore 2>/dev/null | tail -5 | sed 's/^/    /'; \
-	  exit 1; \
-	fi
-
-tunnel-stop: ## Take the public address down
-	@docker compose --profile tunnel stop bore >/dev/null 2>&1 || true
-	@docker compose --profile tunnel rm -f bore >/dev/null 2>&1 || true
-	@echo "tunnel down"
-
 # SIPP — the SIP test peer, in its own container, driven with no broker and no
 # agent: `sipp` IS the image's entrypoint, so a run is just arguments.
 #
 # `make sipp` starts the long-running side: a UAS on 5060 that answers whatever
 # dials it, which is what the portal's own phone calls. Deployed the same way,
-# as a kamal accessory beside nats.
+# as a kamal accessory beside the portal.
 #
 # `make sipp-uac` is the other direction, and it is a ONE-SHOT rather than a
 # service — it places calls and exits, so it is `run`, not `up`.
@@ -269,10 +242,6 @@ sipp-logs: ## Follow what SIPp is doing
 sipp-uac: ## [ARGS=...] Place calls with SIPp, once, then exit
 	@docker compose --profile sipp run --rm --no-deps sipp \
 	  $(if $(ARGS),$(ARGS),-sn uac 127.0.0.1:$(SIPP_PORT) -m 1 -r 1 -p 5061 -nostdin -timeout 20)
-
-nats-watch: ## Print every subject the local broker carries, live
-	@docker compose exec -T nats nats sub '>' 2>/dev/null \
-	  || docker run --rm --network host natsio/nats-box:latest nats sub '>' --server nats://127.0.0.1:4222
 
 health: ## Where it is, whether it answers, and whether events are arriving
 	@PORTAL="$(PORTAL)" PORTAL_ENGINE_URL="$(PORTAL_ENGINE_URL)" scripts/health.sh

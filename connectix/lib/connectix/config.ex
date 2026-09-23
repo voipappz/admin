@@ -639,61 +639,17 @@ defmodule Connectix.Config do
   def events_db, do: env("EVENTS_DB")
 
   @doc """
-  The NATS broker the event pipeline consumes from (`NATS_URL`), or nil.
+  The FreeSWITCH Event Socket the pipeline consumes from (`ESL_URL`), or nil.
 
-      NATS_URL=nats://internal:<password>@185.28.152.124:4222
+      ESL_URL=esl://:<password>@194.36.89.216:8021
 
-  `nats://host:port` with optional `user:pass@` or `token@` userinfo — the same
-  URL the va-crystal node takes, so one value configures both. Unset, no
-  connection is opened and `Realtime.EventPipeline` does not start.
+  The fallback for a deployment whose rule file names no `freeswitch.host`;
+  the file wins when it does. The password is the userinfo — there is no
+  username in the protocol. Unset, and with no host in the file, no connection
+  is opened and `Realtime.EventPipeline` does not start.
   """
-  @spec nats_url() :: String.t() | nil
-  def nats_url, do: env("NATS_URL")
-
-  @doc """
-  The NATS subjects the event pipeline subscribes to (`NATS_SUBJECTS`).
-
-  Comma-separated. **A stream identifier IS its NATS subject, verbatim**, so
-  these are the platform's own stream names:
-
-  | stream | subject |
-  |---|---|
-  | the call firehose | `call_events`, and `node:<uuid>` which is relayed onto it unchanged |
-  | one user's notifications | `notifications:<user_uuid>` |
-  | one user's dashboard state | `dashboard_user:<user_uuid>` |
-  | one entity's state | `state.<scope>.<id>` |
-
-  **Wildcards only span dots.** NATS splits a subject on `.` alone, so
-  `notifications:<uuid>` is a SINGLE token and there is no `notifications:*`
-  that matches every user's. `*` matches any one token, which is every
-  colon-form stream at once; `state.>` matches every state stream. So the
-  subscription that covers all four is:
-
-      NATS_SUBJECTS=*,state.>
-
-  Naming subjects one at a time is also supported and is what a deployment
-  watching one node wants:
-
-      NATS_SUBJECTS=node:test1,state.user.>
-
-  Empty by default, and empty means no pipeline even when `NATS_URL` is set: a
-  subject has to be named to be consumed, so that an absent row in the event
-  store means "the node sent nothing" and never "we were not listening".
-  """
-  @spec nats_subjects() :: [String.t()]
-  def nats_subjects do
-    case env("NATS_SUBJECTS") do
-      nil ->
-        []
-
-      value ->
-        value
-        |> String.split(",", trim: true)
-        |> Enum.map(&String.trim/1)
-        |> Enum.reject(&(&1 == ""))
-        |> Enum.uniq()
-    end
-  end
+  @spec esl_url() :: String.t() | nil
+  def esl_url, do: env("ESL_URL")
 
   @doc """
   Whether this was compiled for the test suite. Read at compile time — `Mix`
@@ -753,9 +709,7 @@ defmodule Connectix.Config do
       {"MNESIA_DIR", mnesia_dir()},
       {"EVENTS_DIR", events_dir()},
       {"EVENTS_DB", events_db() || "not set"},
-      {"NATS_URL", presence(nats_url())},
-      {"NATS_SUBJECTS",
-       if(nats_subjects() == [], do: "not set", else: Enum.join(nats_subjects(), ","))},
+      {"ESL_URL", presence(esl_url())},
       {"WHATSAPP_ACCESS_TOKEN", presence(whatsapp_access_token())},
       {"WHATSAPP_PHONE_NUMBER_ID", presence(whatsapp_phone_number_id())},
       {"WHATSAPP_APP_SECRET", presence(whatsapp_app_secret())},

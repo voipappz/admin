@@ -12,6 +12,7 @@ here.
 | [deployment.md](deployment.md) | Local production image and Kamal deployment workflow. |
 | [ionic-app.md](ionic-app.md) | The Ionic app: how it is bundled and served, what is decided, the phases left. |
 | [ionic-migration.md](ionic-migration.md) | The Ionic app replaces the LiveView: seven steps, each with a gate. |
+| [freeswitch-esl-consumer.md](freeswitch-esl-consumer.md) | The Broadway pipeline reads FreeSWITCH over its Event Socket (switchx); the NATS consumer is retired. Decision, design, what was learned. |
 
 ## Core decisions
 

@@ -12,18 +12,14 @@
 # file name, because a mounted file is always called screen_pop.yaml.
 customer: connectix
 
-nats:
-  # `node:test1` is this switch's firehose. NATS splits a subject on dots
-  # ALONE, so the colon form is a SINGLE token — there is no `node:*` that
-  # would match it and nothing else.
-  #
-  # Verified live on 2026-09-17 against nats://185.28.152.124:4222: a real
-  # queue call produced member-queue-start, agent-offering to all seven
-  # agents, bridge-agent-start naming 88309e98… and bridge-agent-fail for the
-  # other six, all on this subject.
-  subjects:
-    - node:test1
-    - state.>
+freeswitch:
+  # This switch's Event Socket. The portal connects here directly; the
+  # credential is `${FREESWITCH_ESL_PASSWORD}` from the shared policy, stored
+  # in the environment and never in this file. Answers on 8021 from the public
+  # internet -- verified 2026-09-22 from a developer machine (the switch sends
+  # `auth/request`); not yet verified from the portal host itself.
+  host: 194.36.89.216
+  port: 8021
 
 # THE MAPPING THE WHOLE SCREEN POP HINGES ON, and an entry with a password is
 # also a login: the portal performs `/auth/user_login` against these, so

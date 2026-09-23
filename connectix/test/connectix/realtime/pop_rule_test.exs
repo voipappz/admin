@@ -86,7 +86,7 @@ defmodule Connectix.Realtime.PopRuleTest do
       # A dead feed passes every other check this app has: the socket is open,
       # the producer says subscribed, /health is green. Shipping without a
       # threshold means shipping without the only check that would catch it.
-      assert PopRule.nats_deadman_ms() == 900_000
+      assert PopRule.deadman_ms() == 60_000
     end
 
     test "reads minutes, seconds, hours and milliseconds" do
@@ -114,25 +114,25 @@ defmodule Connectix.Realtime.PopRuleTest do
     test "an unreadable value falls back rather than disabling the check" do
       # `15 minutes` is the plausible typo, and the dangerous reading of it is
       # 0 — which turns the alarm off silently. Falling back keeps it armed.
-      assert deadman("15 minutes") == 900_000
-      assert deadman("") == 900_000
-      assert deadman(nil) == 900_000
+      assert deadman("15 minutes") == 60_000
+      assert deadman("") == 60_000
+      assert deadman(nil) == 60_000
     end
 
     test "the environment supplies it when the file does not" do
-      System.put_env("NATS_DEADMAN", "3m")
+      System.put_env("ESL_DEADMAN", "3m")
       assert deadman(nil) == 180_000
     after
-      System.delete_env("NATS_DEADMAN")
+      System.delete_env("ESL_DEADMAN")
     end
   end
 
   defp deadman(value) do
-    nats = %{"url" => "nats://127.0.0.1:4222", "subjects" => ["node:test1"]}
-    nats = if is_nil(value), do: nats, else: Map.put(nats, "deadman", value)
+    switch = %{"host" => "127.0.0.1", "password" => "pw"}
+    switch = if is_nil(value), do: switch, else: Map.put(switch, "deadman", value)
 
-    write_rule(%{"nats" => nats, "triggers" => ["bridge-agent-start"]})
-    PopRule.nats_deadman_ms()
+    write_rule(%{"freeswitch" => switch, "triggers" => ["bridge-agent-start"]})
+    PopRule.deadman_ms()
   end
 
   defp write_rule(rule) do
@@ -190,7 +190,7 @@ defmodule Connectix.Realtime.PopRuleTest do
       # The suite runs against priv/pocketflow/customers/example.yaml, named in
       # config/test.exs exactly as a deployment names its mount.
       assert PopRule.record_url() =~ "{phone}"
-      assert PopRule.subjects() != []
+      assert PopRule.events() != []
       assert map_size(PopRule.agents()) > 0
     end
 
@@ -203,7 +203,7 @@ defmodule Connectix.Realtime.PopRuleTest do
 
       refute Map.has_key?(rule, "agents")
       refute get_in(rule, ["profile", "record_url"])
-      refute get_in(rule, ["nats", "subjects"])
+      refute get_in(rule, ["freeswitch", "host"])
     end
 
     test "with nothing mounted there are no agents, so nobody can sign in" do

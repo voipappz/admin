@@ -128,25 +128,12 @@ env:
     # inheriting a default would quietly authenticate this tenant's users
     # against the wrong mothership.
     ENGINE_URL: https://nimbus-prod.voipappz.io
-    # NATS_URL is required by the Elixir portal's token-verification request/reply
-    # path. It contains credentials and therefore comes from the host's
-    # /etc/voipappz/secrets.env above, never from clear Kamal config. The
-    # post-deploy /health body check fails if it is missing.
-    #
-    # For this to work the node's SECRET_KEY must equal the mothership's token
-    # signing secret. Cable verifies mothership USER tokens against it, and
-    # when it is empty the node refuses EVERY connection
-    # (va-crystal node/realtime/app.cr:90) — which presents as a socket that
-    # closes before `welcome`, indistinguishable from a dead network.
-    # NOT localhost: this container runs on the `kamal` bridge network, so
-    # localhost is the container itself and the node listens on the HOST. The
-    # add-host below maps host.docker.internal to the host gateway.
-    # EVENTS COME FROM THE BROKER, not from a relay in front of it. NOT
-    # localhost: this container runs on the `kamal` bridge network, so
-    # localhost is the container itself and the broker listens on the HOST.
-    # The add-host below maps host.docker.internal to the host gateway.
-    NATS_URL: nats://host.docker.internal:4222
-    NATS_SUBJECTS: "*,state.>"
+    # EVENTS COME FROM THE SWITCH. The portal connects to FreeSWITCH's Event
+    # Socket itself (docs/freeswitch-esl-consumer.md); the broker on this host
+    # (host.docker.internal:4222) is no longer read. NAME THE SWITCH before
+    # deploying: `freeswitch.host` in this site's mounted rule file, or
+    # ESL_URL as a host secret (it carries the password). Until one of them is
+    # set, /health says `freeswitch: down` and nothing pops.
   secret:
     # DATABASE_URL was here until 2026-09-07. 39c92198 dropped Ecto; nothing
     # read it, and a declared-but-missing secret fails the whole deploy — so

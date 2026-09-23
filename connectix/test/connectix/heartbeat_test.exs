@@ -59,7 +59,7 @@ defmodule Connectix.HeartbeatTest do
       assert message != ""
 
       if status == :down do
-        assert message =~ ~r/broker subscription|event store|disk/
+        assert message =~ ~r/switch connection|event store|disk/
       end
     end
 

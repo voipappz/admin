@@ -6,7 +6,7 @@ defmodule ConnectixWeb.HealthControllerTest do
     test "reports the broker, because it is where every event comes from", %{conn: conn} do
       body = conn |> get(~p"/health") |> json_response(200)
 
-      assert Map.has_key?(body["checks"], "nats")
+      assert Map.has_key?(body["checks"], "freeswitch")
       # The transports it replaced are gone, and so are their checks.
       refute Map.has_key?(body["checks"], "bus")
       refute Map.has_key?(body["checks"], "cable")

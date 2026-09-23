@@ -208,53 +208,16 @@ defmodule ConnectixWeb.RealtimeSocket do
   and disappears with it, which is correct: an agent with no socket has nowhere
   to receive anything.
   """
-  def register_identity(%{user_uuid: user_uuid, token: token} = claims)
+  def register_identity(%{user_uuid: user_uuid, token: token})
       when is_binary(user_uuid) and is_binary(token) do
     user_uuid
     |> Connectix.Realtime.AgentIdentity.resolve(token)
     |> then(&register_agent_ids(user_uuid, &1))
 
-    announce_presence(user_uuid, Map.get(claims, :environment_uuid))
     :ok
   end
 
   def register_identity(_claims), do: :ok
-
-  # THE REGISTRATION THAT USED TO BE A SIDE EFFECT.
-  #
-  # Subscribing to the node's per-user channel is what stamped
-  # `user:<uuid>:logged_in_at`, so holding that connection WAS the presence
-  # record. Nothing subscribes now, so nobody would ever be marked present
-  # again — and the failure is silent, which is the worst kind: every consumer
-  # of that field simply reads a stale timestamp forever.
-  #
-  # So the portal says it itself, in the node's own envelope and on the node's
-  # own subject, which is what the node published when it did this. Best
-  # effort: a broker that is away must not stop a socket from opening.
-  defp announce_presence(user_uuid, environment_uuid) do
-    at = DateTime.utc_now()
-
-    payload = %{
-      event: "user.login",
-      at: DateTime.to_unix(at),
-      scope: "user",
-      id: user_uuid,
-      data: %{
-        action: "user.login",
-        logged_in_at: Calendar.strftime(at, "%Y-%m-%d %H:%M:%S")
-      },
-      metadata:
-        if(is_binary(environment_uuid) and environment_uuid != "",
-          do: %{environment_uuid: environment_uuid},
-          else: %{}
-        )
-    }
-
-    case Connectix.Realtime.Nats.publish("state.user.#{user_uuid}", payload) do
-      :ok -> :ok
-      {:error, reason} -> Logger.debug("presence: not announced (#{inspect(reason)})")
-    end
-  end
 
   @doc false
   def register_session(user_uuid, environment_uuid)

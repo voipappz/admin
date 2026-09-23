@@ -180,34 +180,18 @@ env:
     # deployment's users against a different mothership.
     ENGINE_URL: https://nimbus-prod.voipappz.io
 
-    # THE EVENT TRANSPORT.
+    # THE EVENT TRANSPORT IS THE SWITCH ITSELF. The portal connects to
+    # FreeSWITCH's Event Socket (194.36.89.216:8021, named in the mounted rule
+    # file's `freeswitch.host`) and consumes `callcenter::info` first-hand; the
+    # shared broker at 185.28.152.124 is no longer read
+    # (docs/freeswitch-esl-consumer.md). The credential is
+    # FREESWITCH_ESL_PASSWORD in the host's /etc/connectix/secrets.env — never
+    # here.
     #
-    # IN THE CLEAR because there is nothing to hide: the broker takes no
-    # credentials. Measured — a connection with none is accepted and the server
-    # does not advertise `auth_required`. It was carried as a host secret while
-    # the URL had a `user:pass@` in it, which turned out to be decoration.
-    #
-    # THAT ALSO MEANS THE BROKER IS OPEN. Anyone who can reach it can read
-    # every call event and publish ones this portal will act on — a forged
-    # `bridge-agent-start` opens a CRM tab on a real agent's screen. That is an
-    # infrastructure decision, recorded here because the portal cannot defend
-    # against it.
-    NATS_URL: nats://185.28.152.124:4222
-    #
-    # WHICH BROKER IT SHOULD NAME is a decision, not a default. The accessory
-    # below runs one ON this host, reachable as `nats://connectix-nats:4222`,
-    # and NOTHING PUBLISHES TO IT YET — a portal pointed there comes up healthy
-    # and consumes nothing, because `nats` is in the /health report and not in
-    # /health/ready, so kamal's gate passes either way. The events this
-    # deployment wants are on the switch's broker. Point at that one until the
-    # accessory is fed, by a leaf-node link or by whatever writes to it.
-
-    # Cable's four streams, named as subjects. `*` matches any ONE token, which
-    # is every colon-form stream at once (`node:<uuid>`, `call_events`,
-    # `notifications:<uuid>`, `dashboard_user:<uuid>`); `state.>` is every
-    # state stream. NATS splits on dots alone, so there is no `notifications:*`
-    # that would match one kind — `*` is how you get them all.
-    NATS_SUBJECTS: "*,state.>"
+    # ESL IS A CONTROL CHANNEL, not a read-only feed: whoever holds the
+    # password can originate and hang up calls. The switch's
+    # event_socket.conf.xml must allow this host's address in
+    # `apply-inbound-acl` and nothing wider.
 
     # Which model, and therefore which provider key above is the live one.
     # Stated rather than defaulted: the default is a Sonnet, and a deployment
@@ -258,46 +242,9 @@ env:
   # login.
 
 # ---------------------------------------------------------------------------
-# The broker the portal consumes events from.
-#
-# LOCAL ON PURPOSE. The upstream broker is on another machine, and a WAN hop
-# carrying a call firehose is the part that stalls first — the same reasoning
-# that put the cable's plaintext hop in the note above. A broker on the box
-# means the portal's subscription never crosses the internet; what crosses is
-# whatever feeds this one.
-#
-# JETSTREAM IS ON, and it is the one thing cable could not do. Core NATS is
-# fire-and-forget: anything published while the portal is restarting is gone,
-# with no replay and no error, which is indistinguishable from a quiet switch.
-# `-js` with a durable store on the volume lets a consumer resume from where it
-# stopped instead. The portal uses core subscriptions today; the store is here
-# so switching to a durable consumer is a config change and not a redeploy of
-# the broker.
-#
-# BOUND TO LOOPBACK. `127.0.0.1:4222:4222` publishes the port on the host for
-# debugging (`nats sub` from an SSH session) without exposing an unauthenticated
-# broker to the internet. Containers reach it over the kamal network by the
-# alias, not through this mapping.
 accessories:
-  nats:
-    image: nats:2.10-alpine
-    host: 185.47.173.106
-    # -js          JetStream, stored under -sd
-    # -sd /data    on the volume below, so a restart keeps the stream
-    # -m 8222      monitoring endpoint, for /varz and /connz when something
-    #              is wrong and "is anything subscribed" is the question
-    cmd: "-js -sd /data -m 8222"
-    port: "127.0.0.1:4222:4222"
-    volumes:
-      - "connectix-nats:/data"
-    options:
-      # Stable address for the app container — see the note in the base
-      # deploy.yml: kamal names containers <service>-<role>-<image-hash> and
-      # that changes every deploy, so a bare hostname needs an alias.
-      network-alias: connectix-nats
-
-  # SIPP — a SIP peer to test the portal's own phone against, in the same shape
-  # as the broker above: an image whose entrypoint IS the program, with the
+  # SIPP — a SIP peer to test the portal's own phone against: an image whose
+  # entrypoint IS the program, with the
   # flags as the command.
   #
   # IT ANSWERS, IT DOES NOT CALL. A long-running SIPp is a UAS: it waits on
@@ -350,11 +297,11 @@ accessories:
 #                     kamal accessory boot sipp -d connectix
 #                     It answers calls on the internal network only; nothing
 #                     is published, and the portal dials connectix-sipp:5060.
-#   3b. Broker.       ONLY if this deployment is meant to consume the LOCAL
-#                     one: kamal accessory boot nats -d connectix
-#                     Nothing publishes to it yet, so a portal pointed there
-#                     consumes nothing. Pointing NATS_URL at the switch's
-#                     broker instead needs no accessory at all.
+#   3b. Switch.       FREESWITCH_ESL_PASSWORD in the host's secrets file, and
+#                     this host's address allowed by the switch's
+#                     event_socket.conf.xml `apply-inbound-acl`. Verify from
+#                     the host before deploying:
+#                       nc -v 194.36.89.216 8021   -> "Content-Type: auth/request"
 #   4. Ports.         80 and 443 reachable from the internet. ufw is inactive,
 #                     so anything blocking them is upstream of the host — and
 #                     80 must be open BEFORE the first deploy or ACME cannot

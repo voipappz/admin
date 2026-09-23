@@ -164,30 +164,22 @@ defmodule Connectix.ConfigTest do
     end
   end
 
-  describe "nats_subjects/0" do
-    test "is empty when unset, so no pipeline starts" do
-      with_env([{"NATS_SUBJECTS", nil}], fn ->
-        assert Config.nats_subjects() == []
+  describe "esl_url/0" do
+    test "is nil when unset, so no pipeline starts" do
+      with_env([{"ESL_URL", nil}], fn ->
+        assert Config.esl_url() == nil
       end)
     end
 
-    test "keeps a subject's colon, because NATS splits on dots alone" do
-      # `node:test1` is ONE token. Treating the colon as a separator would
-      # subscribe to something nobody publishes.
-      with_env([{"NATS_SUBJECTS", "node:test1"}], fn ->
-        assert Config.nats_subjects() == ["node:test1"]
+    test "an empty value is unset, because a deploy manifest writes FOO= for no value" do
+      with_env([{"ESL_URL", ""}], fn ->
+        assert Config.esl_url() == nil
       end)
     end
 
-    test "splits on commas, trims, and drops blanks and duplicates" do
-      with_env([{"NATS_SUBJECTS", " node:test1 , state.> ,,node:test1"}], fn ->
-        assert Config.nats_subjects() == ["node:test1", "state.>"]
-      end)
-    end
-
-    test "carries wildcards through untouched" do
-      with_env([{"NATS_SUBJECTS", "*,state.>"}], fn ->
-        assert Config.nats_subjects() == ["*", "state.>"]
+    test "is the url verbatim; Realtime.FreeSwitch parses it" do
+      with_env([{"ESL_URL", "esl://:pw@switch:8021"}], fn ->
+        assert Config.esl_url() == "esl://:pw@switch:8021"
       end)
     end
   end

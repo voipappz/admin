@@ -15,10 +15,10 @@ defmodule Connectix.Application do
       )
     end
 
-    # THE EVENT TRANSPORT. One broker connection, then the Broadway
-    # pipeline subscribed on it. Both empty unless NATS_URL (and, for the
-    # pipeline, NATS_SUBJECTS) is set — an unconfigured deployment starts
-    # no process rather than one that fails, and `/health` says `nats` is
+    # THE EVENT TRANSPORT. The Broadway pipeline, whose producer opens the
+    # Event Socket connection to FreeSWITCH itself. Empty unless the rule file
+    # (or ESL_URL) names a switch — an unconfigured deployment starts no
+    # process rather than one that fails, and `/health` says `freeswitch` is
     # down rather than leaving the silence unexplained.
     children =
       [
@@ -56,9 +56,8 @@ defmodule Connectix.Application do
           Connectix.Realtime.Sessions,
           {Registry, keys: :duplicate, name: Connectix.Realtime.SessionRegistry},
           Connectix.Realtime.ScreenPop,
-          # The per-user half of the broker's streams: one signed-in
-          # user's state folded into a view and pushed to their browser. Before
-          # the pipeline below, which casts into it.
+          # One signed-in user's state folded into a view and pushed to their
+          # browser. Before the pipeline below, which casts into it.
           Connectix.Realtime.UserStreams,
           # Browser<->SIP WebRTC bridge (Connectix.WebRtc.*, ported from
           # connectix.io/phone): keyed registry so a Membrane pipeline leg
@@ -72,7 +71,6 @@ defmodule Connectix.Application do
           Connectix.WebRtc.Transport,
           Connectix.WebRtc.SipBridge
         ] ++
-        Connectix.Realtime.Nats.children() ++
         Connectix.Realtime.EventPipeline.children() ++
         Connectix.Realtime.Deadman.children() ++
         Connectix.Heartbeat.children() ++

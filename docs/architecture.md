@@ -33,27 +33,24 @@ alike (one process, one container):
 
 | Piece | Where | Role |
 |---|---|---|
-| Elixir portal | `connectix/` (:4001) | **The origin, and the whole app.** Serves the LiveView UI and `/ws/events`, forwards `/auth` · `/api/` · `/tasks/`, verifies user tokens through Cable and fans accepted events out over `Phoenix.PubSub`. It holds no direct NATS connection. |
+| Elixir portal | `connectix/` (:4001) | **The origin, and the whole app.** Serves the LiveView UI and `/ws/events`, forwards `/auth` · `/api/` · `/tasks/`, verifies user tokens itself and fans accepted events out over `Phoenix.PubSub`. It holds no broker connection. |
 | Mothership (voipappz-api) | external, env-pointed | Accounts + login (`/auth/user_login` + optional per-customer OTP), calls, reports, feature flags, portal branding. The source of truth. |
 | PostgREST | external, **optional** | A second, direct-SQL data plane (`/rest/v1/*`) for tenant-custom tables/views — see below. Currently unserved (see below). |
-| Core NATS | external | va-crystal's Cable backend and the mothership use the broker. It is not an Elixir portal transport. |
-| Cable (va-crystal/Nimbus WS) | external, optional | The portal's platform transport: token verification and API relay on the application connection, per-user state/notifications, and one application-level `CallEvents` subscription. |
+| FreeSWITCH | external, per customer | **The source of events.** The portal connects to its Event Socket (`mod_event_socket`, :8021, named in the customer's rule file) and consumes `callcenter::info` first-hand through Broadway. No relay node and no broker sit in between — see [freeswitch-esl-consumer.md](freeswitch-esl-consumer.md). |
 
-## Realtime: Cable owns the portal boundary
+## Realtime: the switch feeds the portal directly
 
 ```text
-Elixir portal ── cable connections ─► va-crystal ──► NATS / mothership
-      │                │
-      │                ├─ application: verify, API relay, CallEvents
-      │                └─ per user: registration, state, notifications
-      ▼
-Phoenix.PubSub ──► one /ws/events socket per browser
+FreeSWITCH ── Event Socket ─► EslProducer ─► Broadway processors ─► ScreenPop / Events
+                                                      │
+                                                      ▼
+                                       Phoenix.PubSub ──► one /ws/events socket per browser
 ```
 
-Cable owns authentication, channel names, stream identifiers and the
-`logged_in_at` registration a confirmed subscription performs. The portal
-subscribes to no raw NATS subject and holds no broker connection; NATS remains
-underneath va-crystal's Cable backend.
+The portal authenticates to the switch, names the events it wants
+(`HEARTBEAT` and `CUSTOM callcenter::info` by default), and turns each event
+into the node-shaped frame the rule file and the store already read. The
+Cable relay and the NATS subscription that preceded this are gone.
 
 **Which streams a connection receives is derived from the token's claims**, never
 from anything the client names. A client that could name a `user_uuid` could

@@ -9,8 +9,8 @@ defmodule Connectix.Realtime.Inspector do
 
   The other half is no longer per-agent. Events used to arrive on one upstream
   connection per user, so a row could show one half up and the other down; they
-  now arrive on ONE broker subscription for the whole portal, reported once
-  rather than per agent.
+  now arrive on ONE Event Socket connection to the switch for the whole portal,
+  reported once rather than per agent.
 
   Read by the TUI over RPC (`Connectix.Tui`), and usable from `make iex`:
 
@@ -38,7 +38,7 @@ defmodule Connectix.Realtime.Inspector do
       # Still called `api_proxy` because that is the key the TUI reads and it
       # answers the same question the old one did: is the thing that carries
       # everyone's events actually up.
-      api_proxy: nats()
+      api_proxy: freeswitch()
     }
   end
 
@@ -73,15 +73,15 @@ defmodule Connectix.Realtime.Inspector do
   end
 
   @doc """
-  The one subscription that carries every user's events.
+  The one connection that carries every user's events.
 
-  `configured?` is whether this deployment was given a broker at all;
-  `relay_ready?` is whether the producer is actually subscribed. The gap
-  between them is the whole failure mode — a portal pointed at a broker it
-  cannot reach looks identical to a quiet switch.
+  `configured?` is whether this deployment was given a switch at all;
+  `relay_ready?` is whether the producer is actually connected and listening.
+  The gap between them is the whole failure mode — a portal pointed at a switch
+  it cannot reach looks identical to a quiet one.
   """
-  def nats do
-    status = Connectix.Realtime.NatsProducer.status()
+  def freeswitch do
+    status = Connectix.Realtime.EslProducer.status()
 
     %{
       configured?: Connectix.Realtime.EventPipeline.enabled?(),
@@ -89,13 +89,13 @@ defmodule Connectix.Realtime.Inspector do
       relay_ready?: match?({:subscribed, _}, status),
       confirmed:
         case status do
-          {:subscribed, subjects} -> Enum.sort(subjects)
+          {:subscribed, events} -> Enum.sort(events)
           _not_subscribed -> []
         end,
       attempts: 0,
       pending: 0,
       last_frame_ms_ago: nil,
-      url: Connectix.Config.nats_url()
+      url: Connectix.Realtime.FreeSwitch.address(Connectix.Realtime.FreeSwitch.settings())
     }
   end
 
@@ -113,12 +113,12 @@ defmodule Connectix.Realtime.Inspector do
   end
 
   @doc """
-  Reopen the one upstream subscription every agent's events arrive on.
+  Reopen the one switch connection every agent's events arrive on.
 
   There is nothing per-agent left to reopen, so this is deliberately global:
-  it drops the broker subscription and lets the producer take it again. Kicking
-  one agent's socket (`kick/1`) is the per-agent recovery.
+  it drops the Event Socket connection and lets the producer make it again.
+  Kicking one agent's socket (`kick/1`) is the per-agent recovery.
   """
   @spec resubscribe() :: :ok
-  def resubscribe, do: Connectix.Realtime.NatsProducer.resubscribe()
+  def resubscribe, do: Connectix.Realtime.EslProducer.reconnect()
 end

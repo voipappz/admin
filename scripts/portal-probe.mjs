@@ -4,15 +4,14 @@
 // This goes through the portal rather than straight at va-crystal's cable,
 // because that is the path a browser and the Chrome extension actually take.
 // Probing cable directly proved a hop no client uses and skipped the two that
-// fail most often: the portal's NATS token verification, and its own cable
-// credential.
+// fail most often: the portal's own token verification, and the socket
+// upgrade behind it.
 //
 // The stages are distinct and mean different things:
 //
-//   HTTP 401 / immediate close  -> the TOKEN was refused. The portal asked the
-//                                  API over NATS and the API said no — or
-//                                  NATS_URL is unset, in which case the portal
-//                                  refuses everything by design.
+//   HTTP 401 / immediate close  -> the TOKEN was refused: the portal verifies
+//                                  it locally against its own signing key, and
+//                                  a token another platform issued fails there.
 //   welcome, cable_ready:false  -> you are authenticated; the portal has no
 //                                  upstream cable. Check CABLE_URL.
 //   welcome, no frames          -> in, but this user produced no events.
@@ -110,10 +109,9 @@ ws.addEventListener('close', (ev) => {
   console.log(`\nwelcome=${welcomed} cable_ready=${cableReady} frames=${frames}`);
   if (!welcomed) {
     console.log('\n>> TOKEN REFUSED — closed before the welcome frame.');
-    console.log('   The portal verifies the token by asking the API over NATS before the');
-    console.log('   socket exists. Either the API rejected it, or NATS_URL is unset — in');
-    console.log('   which case the portal refuses every connection by design, and the');
-    console.log('   fix is configuration, not the token.');
+    console.log('   The portal verifies the token locally, against its own signing key,');
+    console.log('   before the socket exists. A token issued by another platform, or an');
+    console.log('   expired one, fails there — the fix is a fresh login, not the socket.');
   } else if (cableReady === false) {
     console.log('\n>> AUTHENTICATED, but the portal has no upstream cable.');
     console.log('   Check CABLE_URL, and that the node is up (make cable).');

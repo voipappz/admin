@@ -17,13 +17,11 @@
 # file name, because a mounted file is always called screen_pop.yaml.
 customer: example
 
-nats:
-  # This site's streams. A stream identifier IS its NATS subject, verbatim.
-  # NATS splits on dots ALONE, so `node:<uuid>` is a SINGLE token and there is
-  # no `node:*` that matches it and nothing else.
-  subjects:
-    - node:example
-    - state.>
+freeswitch:
+  # This site's switch: the address its Event Socket (mod_event_socket,
+  # port 8021) listens on and the portal can route to. The events to consume
+  # and the credential's variable name are in the shared policy.
+  host: ${FREESWITCH_HOST}
 
 # This site's people, keyed by email or by portal uuid. `powerlink` is the
 # uuid the SWITCH names them by (`meta.CC-Agent`), which is never the portal

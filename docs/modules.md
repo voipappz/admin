@@ -42,7 +42,8 @@ Calls is the reference implementation for new list modules.
 |---|---|---|
 | Origin/forwarder | `connectix/lib/connectix_web/plugs/engine_proxy.ex` | Forwards `/auth`, `/api/`, `/tasks/` to the mothership; answers preflights and owns the CORS policy on those routes. |
 | Realtime socket | `connectix/lib/connectix_web/realtime_socket.ex` | `/ws/events` — a raw WebSock upgrade speaking the flat JSON frame contract shipped clients already use. |
-| Token verification | `connectix/lib/connectix/realtime/token_auth.ex`, `bus.ex` | NATS request/reply to the API. Refuses rather than falling back when no bus is configured. |
+| Token verification | `connectix/lib/connectix/realtime/token_auth.ex` | Local: the portal signs and verifies its own tokens. |
+| Event source | `connectix/lib/connectix/realtime/free_switch.ex`, `esl_producer.ex`, `free_switch/frame.ex`, `event_pipeline.ex` | FreeSWITCH Event Socket → Broadway producer → node-shaped frames → `ScreenPop`. |
 | Cable client | `connectix/lib/connectix/realtime/cable_client.ex`, `cable_token.ex` | One upstream cable connection for the whole app, on a credential the portal mints from the verified identity. |
 | Health probes | `connectix/lib/connectix_web/controllers/health_controller.ex` | `/health/alive` (liveness, never drain-aware) and `/health/ready` (readiness, 503 from the start of shutdown). |
 
