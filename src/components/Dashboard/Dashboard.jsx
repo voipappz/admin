@@ -13,7 +13,7 @@ import BuilderWidget from '../DashboardBuilder/BuilderWidget.jsx';
 import { useWidgetValue } from '../DashboardBuilder/useWidgetValue.js';
 import { formatWidgetValue, resolveIcon, thresholdColor } from '../DashboardBuilder/widgetPresentation.js';
 import {
-  getWidgets, createWidget, updateWidget, deleteWidget, setDashboardStorageScope
+  getWidgets, createWidget, updateWidget, deleteWidget, moveWidget, sectionOf, setDashboardStorageScope
 } from '../../services/api/dashboardWidgetsApi.js';
 import { useDashboardSnapshot } from './useDashboardSnapshot.js';
 import { useUserAuth } from '../../context/UserAuthContext.jsx';
@@ -228,10 +228,18 @@ export default function Dashboard() {
     loadWidgets();
   }, [dashboardId, loadWidgets]);
 
+  // One step up or down among the widgets of the same section; the store
+  // keeps the order, so the board comes back the way it was left.
+  const shiftWidget = useCallback(async (widget, delta) => {
+    await moveWidget(widget.uuid, delta, dashboardId);
+    loadWidgets();
+  }, [dashboardId, loadWidgets]);
+
+  // Already in stored order (getWidgets sorts by position); split by section.
   const { tiles, charts, tables } = useMemo(() => ({
-    tiles: customWidgets.filter((w) => ['counter', 'gauge', 'stat'].includes(w.type)),
-    charts: customWidgets.filter((w) => ['trend', 'line', 'bar', 'pie'].includes(w.type)),
-    tables: customWidgets.filter((w) => w.type === 'table')
+    tiles: customWidgets.filter((w) => sectionOf(w.type) === 'tiles'),
+    charts: customWidgets.filter((w) => sectionOf(w.type) === 'charts'),
+    tables: customWidgets.filter((w) => sectionOf(w.type) === 'tables')
   }), [customWidgets]);
   const customPanels = charts.length > 0 || tables.length > 0;
   // "Nothing configured AND nothing happened" — distinct from "something
@@ -284,7 +292,7 @@ export default function Dashboard() {
             canEditDashboard
               ? <BuilderWidget
                   key={widget.uuid} widget={widget} snapshot={snapshot} saving={savingWidget}
-                  onEdit={setEditingWidget} onDuplicate={duplicateWidget} onDelete={removeWidget}
+                  onEdit={setEditingWidget} onDuplicate={duplicateWidget} onDelete={removeWidget} onMove={shiftWidget}
                 />
               : <DashboardStatTile key={widget.uuid} widget={widget} />
           ))
@@ -324,7 +332,7 @@ export default function Dashboard() {
               canEditDashboard
                 ? <BuilderWidget
                     key={widget.uuid} widget={widget} snapshot={snapshot} saving={savingWidget}
-                    onEdit={setEditingWidget} onDuplicate={duplicateWidget} onDelete={removeWidget}
+                    onEdit={setEditingWidget} onDuplicate={duplicateWidget} onDelete={removeWidget} onMove={shiftWidget}
                   />
                 : <DashboardTrendCard key={widget.uuid} widget={widget} />
             ))}

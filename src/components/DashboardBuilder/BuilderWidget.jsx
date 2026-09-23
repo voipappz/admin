@@ -2,6 +2,8 @@ import {
   Box, IconButton, LinearProgress, ListItemIcon, ListItemText, Menu,
   MenuItem, Paper, Stack, Typography
 } from '@mui/material';
+import ArrowDownwardOutlinedIcon from '@mui/icons-material/ArrowDownwardOutlined';
+import ArrowUpwardOutlinedIcon from '@mui/icons-material/ArrowUpwardOutlined';
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -57,7 +59,7 @@ function TablePreview({ rows, fields }) {
  * useWidgetValue; 'table' reads recent_calls off the shared snapshot
  * (Postgres-backed — see useDashboardSnapshot).
  */
-export default function BuilderWidget({ widget: storedWidget, snapshot, saving, onEdit, onDuplicate, onDelete }) {
+export default function BuilderWidget({ widget: storedWidget, snapshot, saving, onEdit, onDuplicate, onDelete, onMove }) {
   const [menuAnchor, setMenuAnchor] = useState(null);
   const widget = withDefaults(storedWidget);
   const Icon = resolveIcon(widget.icon);
@@ -99,6 +101,20 @@ export default function BuilderWidget({ widget: storedWidget, snapshot, saving, 
           <ListItemIcon><ContentCopyOutlinedIcon fontSize="small" /></ListItemIcon>
           <ListItemText primary="Duplicate widget" />
         </MenuItem>
+        {/* Order is part of the board and is saved with it (dashboardWidgetsApi):
+            one step among the widgets of the same section. */}
+        {onMove && (
+          <MenuItem onClick={() => { setMenuAnchor(null); onMove(widget, -1); }}>
+            <ListItemIcon><ArrowUpwardOutlinedIcon fontSize="small" /></ListItemIcon>
+            <ListItemText primary="Move up" />
+          </MenuItem>
+        )}
+        {onMove && (
+          <MenuItem onClick={() => { setMenuAnchor(null); onMove(widget, +1); }}>
+            <ListItemIcon><ArrowDownwardOutlinedIcon fontSize="small" /></ListItemIcon>
+            <ListItemText primary="Move down" />
+          </MenuItem>
+        )}
         <MenuItem sx={{ color: 'error.main' }} onClick={() => { setMenuAnchor(null); onDelete(widget); }}>
           <ListItemIcon><DeleteOutlineIcon fontSize="small" color="error" /></ListItemIcon>
           <ListItemText primary="Delete widget" />
