@@ -53,6 +53,7 @@ import { TEMPLATE_TYPES } from '../../Templates/Templates.js';
 import { templatesApi } from '../../../services/api/templatesApi';
 import { snippetCategories, scriptTemplates } from './luaFreeSwitchCompletions.js';
 import { Z } from '../../../utils/zIndex.js';
+import { useConfirm } from '../../ui';
 
 /**
  * VMLBridge Component — FreeSWitch Lua IDE
@@ -75,6 +76,7 @@ export const VMLBridge = ({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onDrillDown
 }) => {
+  const confirm = useConfirm();
   const layer = zLayer || Z.L2;
   const { selectedEnvironments } = useCustomerEnvironment();
 
@@ -174,9 +176,10 @@ export const VMLBridge = ({
     }
   };
 
-  const handleApplyTemplate = (template) => {
+  const handleApplyTemplate = async (template) => {
     if (vmlContent && vmlContent.trim()) {
-      if (!window.confirm('Replace current editor content with this template?')) {
+      if (!(await confirm({ title: 'Replace editor content', confirmLabel: 'Replace',
+                             message: 'Replace current editor content with this template?' }))) {
         setTemplateAnchor(null);
         return;
       }
@@ -194,11 +197,12 @@ export const VMLBridge = ({
   const vmlChat = useVMLChat();
 
   // Insert last AI-generated code into the editor
-  const handleAiInsertCode = () => {
+  const handleAiInsertCode = async () => {
     const code = vmlChat.getLastAgentCode();
     if (!code) return;
     if (vmlContent && vmlContent.trim()) {
-      if (!window.confirm('Replace current editor content with generated code?')) return;
+      if (!(await confirm({ title: 'Replace editor content', confirmLabel: 'Replace',
+                             message: 'Replace current editor content with generated code?' }))) return;
     }
     setVMLContent(code);
     setAiDialogOpen(false);
@@ -721,7 +725,7 @@ export const VMLBridge = ({
               ) : vmlChat.sessions.length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
                   <ChatBubbleOutlineIcon sx={{ fontSize: 28, color: '#27272a', mb: 0.5 }} />
-                  <Typography sx={{ fontSize: '0.7rem', color: '#6b7280' }}>No sessions yet</Typography>
+                  <Typography sx={{ fontSize: '0.7rem', color: 'var(--mui-palette-text-secondary)' }}>No sessions yet</Typography>
                 </Box>
               ) : (
                 vmlChat.sessions.map((session) => (
@@ -754,7 +758,7 @@ export const VMLBridge = ({
                     <IconButton
                       size="small"
                       onClick={(e) => { e.stopPropagation(); vmlChat.deleteSession(session.session_id); }}
-                      sx={{ opacity: 0, '.MuiBox-root:hover &': { opacity: 1 }, color: '#6b7280', p: 0.25 }}
+                      sx={{ opacity: 0, '.MuiBox-root:hover &': { opacity: 1 }, color: 'var(--mui-palette-text-secondary)', p: 0.25 }}
                     >
                       <DeleteOutlineIcon sx={{ fontSize: 14 }} />
                     </IconButton>
@@ -774,7 +778,7 @@ export const VMLBridge = ({
                   <Typography sx={{ color: '#fafafa', fontWeight: 600, mb: 0.5 }}>
                     VML AI Assistant
                   </Typography>
-                  <Typography sx={{ color: '#6b7280', fontSize: '0.85rem', textAlign: 'center', maxWidth: 400 }}>
+                  <Typography sx={{ color: 'var(--mui-palette-text-secondary)', fontSize: '0.85rem', textAlign: 'center', maxWidth: 400 }}>
                     Describe the Lua script you need. You can iterate — ask follow-up questions to refine the code.
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2, justifyContent: 'center', maxWidth: 500 }}>
@@ -907,7 +911,7 @@ export const VMLBridge = ({
                       '&:hover fieldset': { borderColor: '#3f3f46' },
                       '&.Mui-focused fieldset': { borderColor: '#C586C0' }
                     },
-                    '& .MuiInputBase-input': { '&::placeholder': { color: '#6b7280', opacity: 1 } }
+                    '& .MuiInputBase-input': { '&::placeholder': { color: 'var(--mui-palette-text-secondary)', opacity: 1 } }
                   }}
                 />
                 {vmlChat.isStreaming ? (
@@ -919,16 +923,16 @@ export const VMLBridge = ({
                     onClick={() => vmlChat.sendMessage(vmlChat.inputValue)}
                     disabled={!vmlChat.inputValue.trim()}
                     sx={{
-                      bgcolor: '#fafafa', color: '#18181b',
+                      bgcolor: 'var(--mui-palette-surface-muted)', color: '#18181b',
                       '&:hover': { bgcolor: '#e5e5e5' },
-                      '&.Mui-disabled': { bgcolor: '#27272a', color: '#6b7280' }
+                      '&.Mui-disabled': { bgcolor: '#27272a', color: 'var(--mui-palette-text-secondary)' }
                     }}
                   >
                     <SendIcon />
                   </IconButton>
                 )}
               </Box>
-              <Typography sx={{ textAlign: 'center', fontSize: '0.6rem', color: '#6b7280', mt: 0.5 }}>
+              <Typography sx={{ textAlign: 'center', fontSize: '0.6rem', color: 'var(--mui-palette-text-secondary)', mt: 0.5 }}>
                 Enter to send, Shift+Enter for new line
               </Typography>
             </Box>

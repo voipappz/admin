@@ -27,6 +27,7 @@ import {
 import { useState } from 'react';
 import { formatDate } from '../../../utils/dateUtils';
 import SkillSelect from '../../common/SkillSelect/SkillSelect.jsx';
+import CopyableEmail from '../../common/CopyableEmail/CopyableEmail.jsx';
 
 /**
  * UsersList Component
@@ -114,9 +115,9 @@ const UsersList = ({
     filters.created_at || filters.updated_at;
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'var(--mui-palette-background-paper)' }}>
       {/* Add New User Button */}
-      <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
+      <Box sx={{ p: 2, borderBottom: '1px solid var(--mui-palette-divider)' }}>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -129,7 +130,7 @@ const UsersList = ({
       </Box>
 
       {/* Filters Section */}
-      <Box sx={{ borderBottom: '1px solid #e0e0e0' }}>
+      <Box sx={{ borderBottom: '1px solid var(--mui-palette-divider)' }}>
         <Accordion
           expanded={filtersExpanded}
           onChange={() => setFiltersExpanded(!filtersExpanded)}
@@ -333,7 +334,7 @@ const UsersList = ({
       </Box>
 
       {/* Users Count */}
-      <Box sx={{ px: 2, py: 1, bgcolor: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
+      <Box sx={{ px: 2, py: 1, bgcolor: 'var(--mui-palette-surface-muted)', borderBottom: '1px solid var(--mui-palette-divider)' }}>
         <Typography variant="caption" color="text.secondary">
           {`Total: ${users.length}`}
         </Typography>
@@ -354,7 +355,7 @@ const UsersList = ({
               const isSelected = selectedUserId === userId;
 
               return (
-                <ListItem key={userId} disablePadding sx={{ borderBottom: '1px solid #f0f0f0' }}>
+                <ListItem key={userId} disablePadding sx={{ borderBottom: '1px solid var(--mui-palette-divider)' }}>
                   <ListItemButton
                     selected={isSelected}
                     onClick={() => onSelect(userId)}
@@ -362,7 +363,7 @@ const UsersList = ({
                       py: 1.5,
                       px: 2,
                       transition: 'background-color 0.2s',
-                      '&:hover': { bgcolor: '#f5f5f5' },
+                      '&:hover': { bgcolor: 'var(--mui-palette-surface-muted)' },
                       '&.Mui-selected': {
                         bgcolor: '#e3f2fd !important',
                         borderLeft: '3px solid',
@@ -403,7 +404,7 @@ const UsersList = ({
                           mb: 0.5,
                         }}
                       >
-                        {user.email || 'No email'}
+                        <CopyableEmail email={user.email} fallback="No email" />
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {formatDate(user.created_at)}

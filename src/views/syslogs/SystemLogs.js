@@ -27,11 +27,10 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     limit: 25,
   });
 
-  // Filters — seeded from `initialParams` when the viewer is opened as a modal
-  // over another screen (the usual case: a record's "View Logs" action), and
-  // from the URL when it is the page itself. A "View logs" action on a user
-  // passes search=<user_uuid>&app=auth&period=24h, which is why the login
-  // mediators put user_uuid= in the log message: the uuid is the search needle
+  // Filters — seeded from `initialParams` when a caller embeds the viewer, and
+  // from the URL when it is the page itself (/logs?search=<uuid>&app=auth&period=24h
+  // still works as a link). The login mediators put user_uuid= in the log
+  // message for exactly that: the uuid is the search needle
   // against the InfluxDB `syslog` message field.
   const initial = useMemo(() => {
     // `!= null` on purpose: the general Syslog view passes '' to mean "no
@@ -43,7 +42,7 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
       search: q.get('search') || q.get('inline') || '',
       app: q.get('app') || '',
       host: q.get('host') || '',
-      severity: q.get('severity') || '',
+      severity: ({ error: 'err', warn: 'warning' })[q.get('severity')] || q.get('severity') || '',
       action: q.get('action') || '',
       period: q.get('period') || '1h',
     };
@@ -77,6 +76,7 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
 
   // Chart aggregation data (from server)
   const [chartAggregation, setChartAggregation] = useState([]);
+  const [severityAggregation, setSeverityAggregation] = useState([]);
   const [chartLoading, setChartLoading] = useState(false);
 
   // Auto-refresh: 0 = off, 10/30/60 seconds
@@ -110,7 +110,7 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     }
   }, []);
 
-  // Load logs — calls InfluxDB-backed /api/syslogs
+  // Load syslogs from the InfluxDB-backed /api/logs endpoint.
   const loadLogs = useCallback(async () => {
     try {
       setLoading(true);
@@ -161,13 +161,21 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
 
       // group_by accepts 'action' too — `action` is a tag on the series, and
       // "logs by action" is the chart that makes the actioned lines legible.
-      if (groupBy)          params.group_by = groupBy;
+      if (groupBy) params.group_by = groupBy;
 
-      const response = await syslogsApi.fetchAggregate(params);
+      const [response, severityResponse] = await Promise.all([
+        syslogsApi.fetchAggregate(params),
+        groupBy === 'severity'
+          ? Promise.resolve(null)
+          : syslogsApi.fetchAggregate({ ...params, group_by: 'severity' }),
+      ]);
       setChartAggregation(Array.isArray(response) ? response : response?.data || []);
+      const severityData = severityResponse ?? response;
+      setSeverityAggregation(Array.isArray(severityData) ? severityData : severityData?.data || []);
     } catch (error) {
       console.error('Failed to load chart data:', error);
       setChartAggregation([]);
+      setSeverityAggregation([]);
     } finally {
       setChartLoading(false);
     }
@@ -343,6 +351,7 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
 
     // Chart state
     chartAggregation,
+    severityAggregation,
     chartLoading,
     chartInterval,
 

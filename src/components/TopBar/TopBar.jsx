@@ -48,6 +48,7 @@ import { Z } from '../../utils/zIndex';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CloseIcon from '@mui/icons-material/Close';
@@ -55,11 +56,11 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CircleIcon from '@mui/icons-material/Circle';
 import CodeIcon from '@mui/icons-material/Code';
+import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import SettingsIcon from '@mui/icons-material/Settings';
 import TerminalIcon from '@mui/icons-material/Terminal';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -87,9 +88,9 @@ import { useNodeHealth } from '../../hooks/useNodeHealth';
 import CommandPalette from '../CommandPalette/CommandPalette';
 import EnvironmentResourcesPanel from './EnvironmentResourcesPanel';
 import NotificationPanel from '../Notifications/NotificationPanel/NotificationPanel';
-import TicketDialog from '../Tickets/TicketDialog/TicketDialog';
 import TicketDetailView from '../Tickets/TicketDetailView/TicketDetailView';
 import { useTickets } from '../Tickets/Tickets';
+import { openZendeskWidget } from '../../services/zendeskWidget';
 import { useApiHealth } from '../../hooks/useApiHealth';
 import GatusHealthPanel from '../Monitoring/GatusHealthPanel.jsx';
 import ApiHealthPanel from '../Monitoring/ApiHealthPanel.jsx';
@@ -118,6 +119,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, useSortable, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import './TopBar.css';
+import { ConfirmDialog } from '../ui';
 
 const ITEM_HEIGHT = 68; // application rows: name + type, status/date/id, meta chips
 
@@ -163,8 +165,8 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
 
   // Responsive: below md the fixed sidebar is hidden (hamburger drives the drawer);
   // on phones the secondary top-right tools collapse into a single ⋮ overflow menu.
-  const isMobile = useMediaQuery('(max-width:899px)');
-  const isPhone = useMediaQuery('(max-width:600px)');
+  const isMobile = useMediaQuery((t) => t.breakpoints.down('md'));
+  const isPhone = useMediaQuery((t) => t.breakpoints.down('sm'));
   const [toolsMenuAnchor, setToolsMenuAnchor] = useState(null);
   const { notifications, markAsRead, deleteNotification, refreshNotifications, fetchNotificationCount, fetchNotificationDetails } = useNotifications();
   const {
@@ -216,7 +218,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     detailedAccountData,
     detailedCustomerData,
     fetchAccountDetails,
-    fetchEnvironments: fetchAccountEnvironments,
+    searchEnvironments: searchAccountEnvironments,
     fetchAcls: fetchAccountAcls,
     updateCustomerData,
     createDialogOpen: accountCreateDialogOpen,
@@ -257,8 +259,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     loading: ticketsLoading,
     selectedTicket,
     ticketComments,
-    dialogOpen: ticketCreateOpen,
-    handleOpenDialog,
     detailViewOpen: ticketDetailOpen,
     ticketStats,
     page: ticketPage,
@@ -266,8 +266,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     totalCount: ticketTotalCount,
     sortBy: ticketSortBy,
     sortOrder: ticketSortOrder,
-    handleCloseDialog: handleCloseTicketCreate,
-    handleCreateTicket,
     handleUpdateTicket,
     handleAddComment: handleAddTicketComment,
     fetchTicketDetails: fetchTicketDetailsForRefresh,
@@ -326,13 +324,13 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
   useEffect(() => {
     const handler = () => {
       fetchAccountDetails();
-      fetchAccountEnvironments();
+      searchAccountEnvironments();
       fetchAccountAcls();
       setAccountDialogOpen(true);
     };
     window.addEventListener('openAccountDialog', handler);
     return () => window.removeEventListener('openAccountDialog', handler);
-  }, [fetchAccountDetails, fetchAccountEnvironments, fetchAccountAcls]);
+  }, [fetchAccountDetails, searchAccountEnvironments, fetchAccountAcls]);
 
   // Notifications drawer — the bell moved to the sidebar bottom and dispatches this.
   useEffect(() => {
@@ -744,7 +742,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
   }, [handleTicketsOpen]);
 
   // Events modal — opened by the top-right Events icon (no filter) and by
-  // "View logs" actions on other screens (carry a subject query string).
+  // "Events" actions on other screens (carry a subject query string).
   const [eventsModalOpen, setEventsModalOpen] = useState(false);
   const [eventsModalParams, setEventsModalParams] = useState('');
   useEffect(() => {
@@ -754,21 +752,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     };
     window.addEventListener('openEventsModal', handler);
     return () => window.removeEventListener('openEventsModal', handler);
-  }, []);
-
-  // Logs modal — a record's log stream over the current screen. Logs has no
-  // sidebar entry: the stream only means something beside the record that
-  // produced it, so every entry point is a "View Logs" action
-  // (useNavigateToLogs), which carries a search query string.
-  const [logsModalOpen, setLogsModalOpen] = useState(false);
-  const [logsModalParams, setLogsModalParams] = useState('');
-  useEffect(() => {
-    const handler = (e) => {
-      setLogsModalParams((e && e.detail) || '');
-      setLogsModalOpen(true);
-    };
-    window.addEventListener('openLogsModal', handler);
-    return () => window.removeEventListener('openLogsModal', handler);
   }, []);
 
   // Syslog modal — opened by the Syslog tool. Same pattern as the Events modal:
@@ -840,9 +823,9 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     { key: 'wizard', label: 'Wizard', icon: <AutoFixHighIcon fontSize="small" />, onClick: () => window.dispatchEvent(new Event('openWizardModal')) },
     { key: 'events', label: 'Events', icon: <EventNoteIcon fontSize="small" />, onClick: () => window.dispatchEvent(new CustomEvent('openEventsModal', { detail: '' })) },
     { key: 'syslog', label: 'Syslog', icon: <ArticleIcon fontSize="small" />, onClick: () => window.dispatchEvent(new Event('openSyslogModal')) },
-    { key: 'settings', label: 'Settings', icon: <SettingsIcon fontSize="small" />, onClick: () => navigate('/settings') },
     { key: 'help', label: 'Help Center', icon: <HelpOutlineIcon fontSize="small" />, onClick: () => window.open('https://voipappz.zendesk.com/hc/en-us', '_blank', 'noopener') },
     { key: 'devzone', label: 'API DevZone', icon: <CodeIcon fontSize="small" />, onClick: () => navigate('/devzone') },
+    { key: 'mcp', label: 'MCP', icon: <HubOutlinedIcon fontSize="small" />, onClick: () => navigate('/mcp') },
     { key: 'theme', label: isDarkMode ? 'Light Mode' : 'Dark Mode', icon: isDarkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />, onClick: toggleTheme },
   ];
 
@@ -921,11 +904,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           <Tooltip title="Events">
             <IconButton size="small" onClick={() => window.dispatchEvent(new CustomEvent('openEventsModal', { detail: '' }))} sx={{ color: 'var(--theme-text-secondary)', '&:hover': { backgroundColor: 'var(--theme-hover)' } }}>
               <EventNoteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Settings">
-            <IconButton size="small" onClick={() => navigate('/settings')} sx={{ color: 'var(--theme-text-secondary)', '&:hover': { backgroundColor: 'var(--theme-hover)' } }}>
-              <SettingsIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           <Tooltip title="Syslog">
@@ -1573,8 +1551,8 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
 
 
       {/* Events Modal — reuses the full Events screen inside a dialog.
-          Opened from the top-right Events icon and from "View logs" actions
-          on other screens (which pass a subject query string). Keyed by params
+          Opened from the top-right Events icon and from "Events" actions on
+          other screens (which pass a subject query string). Keyed by params
           so re-opening with different filters re-seeds the screen. */}
       <Dialog
         open={eventsModalOpen}
@@ -1603,38 +1581,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         </Box>
       </Dialog>
 
-      {/* Logs Modal — one record's log stream, opened by a "View Logs" action
-          anywhere (useNavigateToLogs). Logs has no sidebar entry: reading the
-          stream beside the row that produced it is the only use, and a full-page
-          trip cost you that row. Keyed by params so re-opening on a different
-          record re-seeds the filters. */}
-      <Dialog
-        open={logsModalOpen}
-        onClose={() => setLogsModalOpen(false)}
-        maxWidth="xl"
-        fullWidth
-        PaperProps={{ sx: { height: '90vh', display: 'flex', flexDirection: 'column' } }}
-      >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1.5, pr: 1 }}>
-          <Typography variant="h6" sx={{ flex: 1 }}>Logs</Typography>
-          <Tooltip title="Open full page">
-            <IconButton size="small" onClick={() => { setLogsModalOpen(false); navigate(`/logs${logsModalParams ? `?${logsModalParams}` : ''}`); }}>
-              <OpenInNewIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <IconButton size="small" onClick={() => setLogsModalOpen(false)} sx={{ ml: 0.5 }}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </DialogTitle>
-        <Box sx={{ flex: 1, overflow: 'auto', p: 0 }}>
-          {logsModalOpen && (
-            <Suspense fallback={null}>
-              <SystemLogs key={logsModalParams} initialParams={logsModalParams} />
-            </Suspense>
-          )}
-        </Box>
-      </Dialog>
-
       {/* Syslog Modal — the full system-logs view in its own window (same pattern
           as the Events modal), instead of living as a Monitoring tab. */}
       <Dialog
@@ -1653,9 +1599,8 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         <Box sx={{ flex: 1, overflow: 'auto', p: 0 }}>
           {syslogModalOpen && (
             <Suspense fallback={null}>
-              {/* '' = the whole stream, explicitly unfiltered — including the
-                  lines carrying no type_uuid, which no record-scoped "View
-                  Logs" action can ever reach. */}
+              {/* '' = the whole stream, explicitly unfiltered: the Syslog
+                  tool is a whole-fleet view, never scoped to one record. */}
               <SystemLogs initialParams="" />
             </Suspense>
           )}
@@ -1701,14 +1646,17 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1.5, pr: 1 }}>
           <ConfirmationNumberIcon color="primary" sx={{ fontSize: 22 }} />
           <Typography variant="h6" sx={{ flex: 1 }}>Tickets</Typography>
+          {/* Support widget — Zendesk's answer bot suggests Help Center
+              articles first, and "Get in touch" opens a ticket that lands in
+              this same list (tagged with the account's customer). */}
           <Button
             size="small"
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => { handleOpenDialog(); }}
+            variant="outlined"
+            startIcon={<AutoAwesomeIcon />}
+            onClick={openZendeskWidget}
             sx={{ textTransform: 'none', fontSize: '0.8rem', mr: 1 }}
           >
-            Create Ticket
+            Get help
           </Button>
           <Tooltip title="Refresh">
             <IconButton size="small" onClick={handleTicketRefresh} disabled={ticketsLoading}>
@@ -1886,13 +1834,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         </DialogContent>
       </Dialog>
 
-      {/* Create Ticket Dialog */}
-      <TicketDialog
-        open={ticketCreateOpen}
-        onClose={handleCloseTicketCreate}
-        onSubmit={handleCreateTicket}
-        loading={ticketsLoading}
-      />
 
       {/* Account Dialogs */}
       <AccountDialog
@@ -1914,6 +1855,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         loading={accountSaving}
         environments={accountEnvironments}
         environmentsLoading={accountEnvironmentsLoading}
+        onSearchEnvironments={searchAccountEnvironments}
         acls={accountAcls}
         aclsLoading={accountAclsLoading}
       />
@@ -1954,25 +1896,14 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
       />
 
       {/* Environment Delete Confirmation */}
-      <Dialog open={envDeleteConfirmOpen} onClose={() => setEnvDeleteConfirmOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete Application</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete <strong>{envToDelete?.name}</strong>?
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEnvDeleteConfirmOpen(false)} disabled={envSaving}>Cancel</Button>
-          <Button onClick={handleEnvDelete} variant="contained" color="error" disabled={envSaving}
-            startIcon={envSaving ? <CircularProgress size={16} color="inherit" /> : null}
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={envDeleteConfirmOpen}
+        onClose={() => setEnvDeleteConfirmOpen(false)}
+        onConfirm={handleEnvDelete}
+        loading={envSaving}
+        title="Delete Application"
+        entityName={envToDelete?.name}
+      />
 
     </>
   );

@@ -9,7 +9,7 @@
  * failure and hands back null, which is why every Monitoring card read 0.
  *
  * What replaces them:
- *   syslog counts / severity aggregation → syslogsApi (`/api/syslogs/*`)
+ *   syslog counts / severity aggregation → syslogsApi (`/api/logs/*`)
  *   host metrics (cpu, mem, disk, system) → monitoringApi.runInfluxQuery, which
  *     the server builds from the Influxer models in lib/models/influxdb/
  *   on-demand detailed service health    → getDetailedHealth, below

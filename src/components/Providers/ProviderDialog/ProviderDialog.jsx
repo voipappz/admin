@@ -584,6 +584,7 @@ const ProviderDialog = ({
                   error={!!errors.password || (submitAttempted && !formData.password?.trim())}
                   helperText={errors.password || (submitAttempted && !formData.password?.trim() ? 'Password is required' : '')}
                   disabled={loading}
+                  autoComplete="new-password"
                   data-testid="password-input"
                   required
                 />
@@ -782,6 +783,7 @@ const ProviderDialog = ({
                   error={!!errors['profile.api_key']}
                   helperText={errors['profile.api_key'] || 'Your API key for the selected service'}
                   disabled={loading}
+                  autoComplete="new-password"
                   data-testid="llm-api-key-input"
                   required
                   placeholder="sk-..."
@@ -852,6 +854,7 @@ const ProviderDialog = ({
                   error={!!errors.password}
                   helperText={errors.password || 'Authentication password or secret (optional)'}
                   disabled={loading}
+                  autoComplete="new-password"
                   data-testid="password-input"
                 />
               </Grid>
@@ -895,7 +898,7 @@ const ProviderDialog = ({
               <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 600, mb: 1, mt: 1 }}>
                 Profile
               </Typography>
-              <Box sx={{ p: 2, backgroundColor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+              <Box sx={{ p: 2, backgroundColor: 'var(--mui-palette-surface-muted)', borderRadius: 1, border: '1px solid var(--mui-palette-divider)' }}>
                 <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap' }}>
                   {JSON.stringify(provider.profile, null, 2)}
                 </Typography>
@@ -929,7 +932,7 @@ const ProviderDialog = ({
                   <Typography variant="h6" sx={{ color: 'primary.main', mb: 1, mt: 2 }}>
                     Customer Details
                   </Typography>
-                  <Box sx={{ p: 2, backgroundColor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                  <Box sx={{ p: 2, backgroundColor: 'var(--mui-palette-surface-muted)', borderRadius: 1, border: '1px solid var(--mui-palette-divider)' }}>
                     <Grid container spacing={2}>
                       <Grid item xs={12} sm={4}>
                         <Typography variant="caption" color="text.secondary">Customer Name</Typography>
@@ -951,7 +954,7 @@ const ProviderDialog = ({
                 <Typography variant="h6" sx={{ color: 'primary.main', mb: 1, mt: 2 }}>
                   Provider Information
                 </Typography>
-                <Box sx={{ p: 2, backgroundColor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                <Box sx={{ p: 2, backgroundColor: 'var(--mui-palette-surface-muted)', borderRadius: 1, border: '1px solid var(--mui-palette-divider)' }}>
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={4}>
                       <Typography variant="caption" color="text.secondary">Provider UUID</Typography>

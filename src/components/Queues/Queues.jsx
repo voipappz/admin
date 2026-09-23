@@ -35,9 +35,10 @@ import {
 } from '@mui/icons-material';
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useSearchParams, useNavigate } from 'react-router';
+import { ConfirmDialog } from '../ui';
 import { useQueues } from './Queues';
 import { queuesApi } from '../../services/api/queuesApi';
-import { didsApi } from '../../services/api/didsApi';
+import { didsApi } from '../../services/api/routesApi';
 import { useNotification } from '../../context/NotificationContext';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -46,8 +47,6 @@ import ImportCSVDialog from '../common/ImportCSVDialog/ImportCSVDialog';
 import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx';
 import { orEmpty, stripedTableRowSx } from '../shared/tableTheme.jsx';
 import useCentralizedSearch from '../../hooks/useCentralizedSearch';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
-import { useEventCounts } from '../../hooks/useEventCounts';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import { formatDate } from '../../utils/dateUtils';
 import { getEnabledChipProps } from '../../utils/chipStyles';
@@ -56,35 +55,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import Alert from '@mui/material/Alert';
 
 const QueuesTopology = lazy(() => import('./QueuesTopology'));
-
-/**
- * DeleteConfirmDialog Component
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, queue, loading }) => (
-  <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-    <DialogTitle>Delete Queue</DialogTitle>
-    <DialogContent>
-      <Typography>
-        Are you sure you want to delete queue <strong>{queue?.name}</strong>?
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-        This will remove the queue and all its tier assignments from the switch.
-      </Typography>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onClose} disabled={loading}>Cancel</Button>
-      <Button
-        onClick={onConfirm}
-        variant="contained"
-        color="error"
-        disabled={loading}
-        startIcon={loading ? <CircularProgress size={20} /> : null}
-      >
-        Delete
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
 
 /**
  * Queues Component
@@ -96,8 +66,6 @@ const Queues = () => {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'flow'
   const navigate = useNavigate();
-  const goToLogs = useNavigateToLogs();
-  const { counts: eventCounts } = useEventCounts('queue');
 
   // DID-aware panel mode
   const [searchParams] = useSearchParams();
@@ -553,11 +521,6 @@ const Queues = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title="View Logs">
-                              <IconButton size="small" onClick={() => goToLogs('queue', queue.uuid)} disabled={loading}>
-                                <EventsCountBadge count={eventCounts[queue.uuid]} />
-                              </IconButton>
-                            </Tooltip>
                             {canWrite && (
                               <Tooltip title="Delete queue">
                                 <IconButton size="small" color="error" onClick={() => handleOpenDeleteDialog(queue)} disabled={loading}>
@@ -582,7 +545,7 @@ const Queues = () => {
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={handleRowsPerPageChange}
               rowsPerPageOptions={[10, 25, 50, 100]}
-              sx={{ borderTop: '1px solid #e0e0e0' }}
+              sx={{ borderTop: '1px solid var(--mui-palette-divider)' }}
             />
           </Box>
         </Paper>
@@ -599,12 +562,14 @@ const Queues = () => {
       />
 
       {/* Delete Confirmation */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteQueue}
-        queue={queueToDelete}
         loading={loading}
+        title="Delete Queue"
+        message={<Typography>Are you sure you want to delete queue <strong>{(queueToDelete)?.name}</strong>?</Typography>}
+        description="This will remove the queue and all its tier assignments from the switch."
       />
 
       {/* Import CSV Dialog */}

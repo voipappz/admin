@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { zendeskApi } from '../../services/api/zendeskApi';
 import { useNotification } from '../../context/NotificationContext';
+import { ZENDESK_TICKET_SUBMITTED } from '../../services/zendeskWidget';
 
 /**
  * Custom hook for Tickets management
@@ -295,6 +296,12 @@ export const useTickets = () => {
   const handleRefresh = useCallback(async () => {
     await Promise.all([fetchTickets(), fetchTicketStats()]);
   }, [fetchTickets, fetchTicketStats]);
+
+  // A ticket sent from the Zendesk widget — reload so it shows up here.
+  useEffect(() => {
+    window.addEventListener(ZENDESK_TICKET_SUBMITTED, handleRefresh);
+    return () => window.removeEventListener(ZENDESK_TICKET_SUBMITTED, handleRefresh);
+  }, [handleRefresh]);
 
   return {
     // State

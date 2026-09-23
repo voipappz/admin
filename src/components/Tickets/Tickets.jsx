@@ -24,7 +24,6 @@ import {
 import { useState } from 'react';
 import { useTickets } from './Tickets';
 import TicketsList from './TicketsList/TicketsList';
-import TicketDialog from './TicketDialog/TicketDialog';
 import TicketDetailView from './TicketDetailView/TicketDetailView';
 import { stripedTableRowSx } from '../shared/tableTheme.jsx';
 import './Tickets.css';
@@ -100,7 +99,6 @@ const Tickets = () => {
     loading,
     selectedTicket,
     ticketComments,
-    dialogOpen,
     detailViewOpen,
     ticketStats,
     page,
@@ -109,9 +107,6 @@ const Tickets = () => {
     sortBy,
     sortOrder,
     filters,
-    handleOpenDialog,
-    handleCloseDialog,
-    handleCreateTicket,
     handleUpdateTicket,
     handleAddComment,
     fetchTicketDetails,
@@ -156,7 +151,6 @@ const Tickets = () => {
             loading={loading}
             filters={filters}
             onFiltersChange={handleFiltersChange}
-            onAdd={handleOpenDialog}
             onResetFilters={handleResetFilters}
           />
         </Paper>
@@ -209,7 +203,7 @@ const Tickets = () => {
           <Box
             sx={{
               p: 2,
-              borderBottom: '1px solid #e0e0e0',
+              borderBottom: '1px solid var(--mui-palette-divider)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -409,7 +403,7 @@ const Tickets = () => {
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={handleRowsPerPageChange}
               rowsPerPageOptions={[10, 25, 50, 100]}
-              sx={{ borderTop: '1px solid #e0e0e0' }}
+              sx={{ borderTop: '1px solid var(--mui-palette-divider)' }}
             />
           </Box>
         </Paper>
@@ -430,13 +424,6 @@ const Tickets = () => {
         )}
       </Box>
 
-      {/* Create Ticket Dialog */}
-      <TicketDialog
-        open={dialogOpen}
-        onClose={handleCloseDialog}
-        onSubmit={handleCreateTicket}
-        loading={loading}
-      />
     </Box>
   );
 };

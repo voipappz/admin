@@ -59,7 +59,7 @@ const LOG_CARDS = [
 ];
 
 const SEVERITY_SERIES = [
-  { field: 'debug',   name: 'Debug',    color: '#9ca3af' },
+  { field: 'debug',   name: 'Debug',    color: 'var(--mui-palette-text-secondary)' },
   { field: 'info',    name: 'Info',     color: '#3b82f6' },
   { field: 'notice',  name: 'Notice',   color: '#06b6d4' },
   { field: 'warning', name: 'Warning',  color: '#f59e0b' },
@@ -68,7 +68,7 @@ const SEVERITY_SERIES = [
 ];
 
 const APP_COLUMNS = [
-  { field: 'appname', headerName: 'App', flex: 1, minWidth: 140 },
+  { field: 'app', headerName: 'App', flex: 1, minWidth: 140 },
   { field: 'err', headerName: 'Error', width: 90, type: 'number' },
   { field: 'warning', headerName: 'Warning', width: 90, type: 'number' },
   { field: 'info', headerName: 'Info', width: 90, type: 'number' },
@@ -304,7 +304,7 @@ const Monitoring = () => {
               ))}
             </Box>
 
-            {/* Log aggregations — /api/syslogs */}
+            {/* Log aggregations — /api/logs */}
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               {LOG_CARDS.map(c => {
                 const t = c.thresholdPath

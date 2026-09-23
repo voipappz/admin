@@ -154,7 +154,7 @@ const TimeHistogram = ({
     svg
       .attr("width", width)
       .attr("height", height)
-      .style("background", "#ffffff");
+      .style("background", "var(--mui-palette-background-paper)");
 
     const g = svg.append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
@@ -246,7 +246,7 @@ const TimeHistogram = ({
       .call(xAxis)
       .selectAll("text")
       .style("font-size", "10px")
-      .style("fill", "#666");
+      .style("fill", "var(--mui-palette-text-secondary)");
 
     // Name the clock. The rows below this chart render in local time, so an
     // unlabelled axis reads as local and quietly disagrees with them.
@@ -255,7 +255,7 @@ const TimeHistogram = ({
       .attr("y", chartHeight + 26)
       .attr("text-anchor", "end")
       .style("font-size", "9px")
-      .style("fill", "#999")
+      .style("fill", "var(--mui-palette-text-disabled)")
       .text("GMT");
 
     // Y Axis
@@ -267,7 +267,7 @@ const TimeHistogram = ({
       .call(yAxis)
       .selectAll("text")
       .style("font-size", "10px")
-      .style("fill", "#666");
+      .style("fill", "var(--mui-palette-text-secondary)");
 
     // Grid lines
     g.append("g")
@@ -312,8 +312,8 @@ const TimeHistogram = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        bgcolor: '#ffffff',
-        border: '1px solid #e5e7eb',
+        bgcolor: 'var(--mui-palette-background-paper)',
+        border: '1px solid var(--mui-palette-divider)',
         borderRadius: 1
       }}>
         <Typography variant="body2" color="text.secondary">
@@ -328,8 +328,8 @@ const TimeHistogram = ({
       ref={containerRef}
       sx={{
         width: '100%',
-        bgcolor: '#ffffff',
-        border: '1px solid #e5e7eb',
+        bgcolor: 'var(--mui-palette-background-paper)',
+        border: '1px solid var(--mui-palette-divider)',
         borderRadius: 1,
         overflow: 'hidden'
       }}

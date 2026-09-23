@@ -2,60 +2,52 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
 /**
- * The cable consumer, driven by frames rather than a socket.
+ * The live subscription, driven through a fake consumer rather than a socket.
  *
- * useWebSocket is mocked so these assert what this hook is actually
- * responsible for: turning a stream of whole-document frames into a stable set
- * of rows. The socket itself (connect, welcome, subscribe, reconnect) is the
- * existing hook's job and is unchanged by this work.
- *
- * The behaviours pinned here are the ones that decide whether a dashboard is
- * correct or merely plausible: a document REPLACES its entity rather than
- * merging into it, a deletion removes the row, and renders are coalesced so a
- * busy environment cannot melt the tab.
+ * The page's consumer (services/cable.js) is @rails/actioncable's; connecting,
+ * the welcome handshake, resubscribing and reconnect backoff are that
+ * library's job. What this hook owns — and these pin — is the subscription it
+ * asks for and what it makes of the callbacks: a document REPLACES its entity
+ * rather than merging into it, a deletion removes the row, a reconnect's fresh
+ * snapshot replaces the old rows, and renders are coalesced so a busy
+ * environment cannot melt the tab.
  */
 
-let mockState = { data: null, connectionStatus: 'Disconnected', error: null };
-const useWebSocketSpy = vi.fn(() => mockState);
+let subscriptions = [];
+let mockConsumer = null;
 
-vi.mock('./useWebSocket', () => ({
-  useWebSocket: (...args) => useWebSocketSpy(...args),
-}));
+function makeConsumer() {
+  return {
+    subscriptions: {
+      create: vi.fn((identifier, callbacks) => {
+        const sub = { identifier, callbacks, unsubscribe: vi.fn() };
+        subscriptions.push(sub);
+        return sub;
+      }),
+    },
+  };
+}
 
-vi.mock('../config.js', () => ({
-  config: { ws: { cable: 'ws://node.test:4000/cable' } },
+vi.mock('../services/cable.js', () => ({
+  getConsumer: () => mockConsumer,
 }));
 
 const { default: useLiveEntities } = await import('./useLiveEntities');
 
 const frame = (scope, id, doc, extra = {}) => ({ scope, id, revision: 1, deleted: false, doc, ...extra });
+const current = () => subscriptions.at(-1);
 
-/**
- * Push one frame. Each gets its own act() so the effect actually runs —
- * batching several into one act() means the hook only ever sees the last,
- * which is a property of React, not of the cable.
- */
-function push(rerender, f, props) {
-  mockState = { ...mockState, data: f };
-  act(() => {
-    if (props === undefined) rerender();
-    else rerender(props);
-  });
-}
-
-/** Push a frame and let the coalescing window elapse. */
-function deliver(rerender, f, props) {
-  push(rerender, f, props);
+/** Deliver one frame and let the coalescing window elapse. */
+function deliver(f) {
+  act(() => { current().callbacks.received(f); });
   act(() => { vi.advanceTimersByTime(300); });
 }
 
 describe('useLiveEntities', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    localStorage.clear();
-    localStorage.setItem('auth', JSON.stringify({ access: 'admin-token' }));
-    mockState = { data: null, connectionStatus: 'Connected', error: null };
-    useWebSocketSpy.mockClear();
+    subscriptions = [];
+    mockConsumer = makeConsumer();
   });
 
   afterEach(() => vi.useRealTimers());
@@ -63,50 +55,81 @@ describe('useLiveEntities', () => {
   it('subscribes to LiveChannel for the given environment', () => {
     renderHook(() => useLiveEntities('env-1'));
 
-    const [url, , opts] = useWebSocketSpy.mock.calls.at(-1);
-    expect(url).toContain('ws://node.test:4000/cable');
-    expect(url).toContain('token=admin-token');
-    expect(opts.identifier).toEqual({ channel: 'LiveChannel', environment_uuid: 'env-1' });
-    // LiveChannel streams on subscribe; the DashboardLive `login` handshake
-    // would just be an unhandled frame.
-    expect(opts.loginAction).toBe(false);
+    expect(mockConsumer.subscriptions.create).toHaveBeenCalledTimes(1);
+    expect(current().identifier).toEqual({ channel: 'LiveChannel', environment_uuid: 'env-1' });
   });
 
   it('narrows to a scope when one is given', () => {
     renderHook(() => useLiveEntities('env-1', 'user'));
-    const [, , opts] = useWebSocketSpy.mock.calls.at(-1);
-    expect(opts.identifier.scope).toBe('user');
+    expect(current().identifier.scope).toBe('user');
   });
 
   it('does not subscribe without an environment', () => {
-    renderHook(() => useLiveEntities(null));
-    const [, , opts] = useWebSocketSpy.mock.calls.at(-1);
-    expect(opts.identifier).toBeNull();
+    const { result } = renderHook(() => useLiveEntities(null));
+    expect(mockConsumer.subscriptions.create).not.toHaveBeenCalled();
+    expect(result.current.status).toBe('idle');
   });
 
-  it('sends the portal token when there is no admin session', () => {
-    localStorage.clear();
-    localStorage.setItem('user_auth', JSON.stringify({ token: 'portal-token' }));
-    renderHook(() => useLiveEntities('env-1'));
-    expect(useWebSocketSpy.mock.calls.at(-1)[0]).toContain('token=portal-token');
+  it('says so when there is no cable to subscribe on', () => {
+    mockConsumer = null;
+    const { result } = renderHook(() => useLiveEntities('env-1'));
+    expect(result.current.status).toBe('unavailable');
+    expect(result.current.connected).toBe(false);
+  });
+
+  it('is pending until the node confirms, then live', () => {
+    const { result } = renderHook(() => useLiveEntities('env-1'));
+    expect(result.current.status).toBe('pending');
+    expect(result.current.connected).toBe(false);
+
+    act(() => { current().callbacks.connected({ reconnected: false }); });
+    expect(result.current.connected).toBe(true);
+    expect(result.current.subscription.confirmedAt).toEqual(expect.any(Number));
+  });
+
+  it('unsubscribes when the screen goes away', () => {
+    // Dropping the reference is not enough: the server keeps streaming to a
+    // subscription nobody told it to end.
+    const { unmount } = renderHook(() => useLiveEntities('env-1'));
+    unmount();
+    expect(current().unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('moves the subscription when the environment changes', () => {
+    const { rerender } = renderHook(({ env }) => useLiveEntities(env), { initialProps: { env: 'env-1' } });
+    const first = current();
+    rerender({ env: 'env-2' });
+
+    expect(first.unsubscribe).toHaveBeenCalledTimes(1);
+    expect(current().identifier.environment_uuid).toBe('env-2');
   });
 
   it('builds rows from the frames it receives', () => {
-    const { result, rerender } = renderHook(() => useLiveEntities('env-1'));
+    const { result } = renderHook(() => useLiveEntities('env-1'));
 
-    deliver(rerender, frame('user', 'u1', { user_name: 'Noam', answer_counter: 2 }));
+    deliver(frame('user', 'u1', { user_name: 'Noam', answer_counter: 2 }));
 
     expect(result.current.rows).toHaveLength(1);
     expect(result.current.rows[0]).toMatchObject({ scope: 'user', id: 'u1', user_name: 'Noam' });
   });
 
+  it('counts frames and when the last one arrived, with the coalesced render', () => {
+    const { result } = renderHook(() => useLiveEntities('env-1'));
+
+    deliver(frame('user', 'u1', {}));
+    deliver(frame('user', 'u2', {}));
+
+    expect(result.current.subscription.frames).toBe(2);
+    expect(result.current.subscription.lastFrameAt).toEqual(expect.any(Number));
+  });
+
   it('REPLACES an entity rather than merging into it', () => {
     // Each frame is a whole document. Merging would leave a field alive after
     // the node cleared it — talking_to_number after a hangup, say.
-    const { result, rerender } = renderHook(() => useLiveEntities('env-1'));
+    const { result } = renderHook(() => useLiveEntities('env-1'));
 
-    deliver(rerender, frame('user', 'u1', { state: 'answer', talking_to_number: '0501112222' }));
-    deliver(rerender, frame('user', 'u1', { state: 'waiting' }));
+    deliver(frame('user', 'u1', { state: 'answer', talking_to_number: '0501112222' }));
+    deliver(frame('user', 'u1', { state: 'waiting' }));
 
     expect(result.current.rows).toHaveLength(1);
     expect(result.current.rows[0].state).toBe('waiting');
@@ -116,20 +139,39 @@ describe('useLiveEntities', () => {
   it('removes a row on a deletion frame', () => {
     // Whole-document replacement updates rows but never removes one that is
     // gone, so a deleted key has to arrive as an explicit removal.
-    const { result, rerender } = renderHook(() => useLiveEntities('env-1'));
+    const { result } = renderHook(() => useLiveEntities('env-1'));
 
-    deliver(rerender, frame('user', 'u1', { state: 'answer' }));
+    deliver(frame('user', 'u1', { state: 'answer' }));
     expect(result.current.rows).toHaveLength(1);
 
-    deliver(rerender, { scope: 'user', id: 'u1', deleted: true, doc: {} });
+    deliver({ scope: 'user', id: 'u1', deleted: true, doc: {} });
     expect(result.current.rows).toHaveLength(0);
   });
 
-  it('keeps entities of different scopes apart', () => {
-    const { result, rerender } = renderHook(() => useLiveEntities('env-1'));
+  it('replaces the rows with the snapshot a reconnect re-delivers', () => {
+    // A key deleted while the link was down never sends its deletion; the
+    // watch re-delivers every CURRENT key on resubscribe, so the old map has
+    // to go or the deleted entity stays on screen forever.
+    const { result } = renderHook(() => useLiveEntities('env-1'));
+    act(() => { current().callbacks.connected({ reconnected: false }); });
+    deliver(frame('user', 'gone', { state: 'answer' }));
+    deliver(frame('user', 'stays', { state: 'waiting' }));
 
-    deliver(rerender, frame('user', 'x', { user_name: 'Noam' }));
-    deliver(rerender, frame('queue', 'x', { call_count: 4 }));
+    act(() => { current().callbacks.disconnected({ willAttemptReconnect: true }); });
+    expect(result.current.status).toBe('reconnecting');
+
+    act(() => { current().callbacks.connected({ reconnected: true }); });
+    deliver(frame('user', 'stays', { state: 'waiting' }));
+
+    expect(result.current.rows.map((r) => r.id)).toEqual(['stays']);
+    expect(result.current.connected).toBe(true);
+  });
+
+  it('keeps entities of different scopes apart', () => {
+    const { result } = renderHook(() => useLiveEntities('env-1'));
+
+    deliver(frame('user', 'x', { user_name: 'Noam' }));
+    deliver(frame('queue', 'x', { call_count: 4 }));
 
     // Same id, different entities — keying on id alone would collapse them.
     expect(result.current.rows).toHaveLength(2);
@@ -138,9 +180,11 @@ describe('useLiveEntities', () => {
   });
 
   it('coalesces a burst into one render', () => {
-    const { result, rerender } = renderHook(() => useLiveEntities('env-1'));
+    const { result } = renderHook(() => useLiveEntities('env-1'));
 
-    for (let i = 0; i < 20; i++) push(rerender, frame('user', `u${i}`, { n: i }));
+    act(() => {
+      for (let i = 0; i < 20; i++) current().callbacks.received(frame('user', `u${i}`, { n: i }));
+    });
 
     // Nothing painted yet — the window has not elapsed.
     expect(result.current.rows).toHaveLength(0);
@@ -156,7 +200,7 @@ describe('useLiveEntities', () => {
       initialProps: { env: 'env-1' },
     });
 
-    deliver(rerender, frame('user', 'u1', { user_name: 'Noam' }), { env: 'env-1' });
+    deliver(frame('user', 'u1', { user_name: 'Noam' }));
     expect(result.current.rows).toHaveLength(1);
 
     act(() => { rerender({ env: 'env-2' }); });
@@ -165,19 +209,22 @@ describe('useLiveEntities', () => {
   });
 
   it('reports a rejected subscription distinctly from a dropped connection', () => {
-    // Rejected means the token carries no tenant, or the environment is not
-    // this session's — reconnecting would be refused again.
-    mockState = { data: null, connectionStatus: 'Rejected', error: 'Subscription rejected' };
+    // Rejected means the environment is not this session's, or the node could
+    // not resolve it — resubscribing would be refused again.
     const { result } = renderHook(() => useLiveEntities('env-1'));
+    act(() => { current().callbacks.rejected(); });
+    // The close that may follow must not overwrite the reason.
+    act(() => { current().callbacks.disconnected({ willAttemptReconnect: true }); });
 
     expect(result.current.rejected).toBe(true);
     expect(result.current.connected).toBe(false);
+    expect(result.current.status).toBe('rejected');
   });
 
   it('ignores a malformed frame instead of throwing', () => {
-    const { result, rerender } = renderHook(() => useLiveEntities('env-1'));
+    const { result } = renderHook(() => useLiveEntities('env-1'));
 
-    deliver(rerender, { scope: 'user' }); // no id
+    deliver({ scope: 'user' }); // no id
     expect(result.current.rows).toHaveLength(0);
   });
 });

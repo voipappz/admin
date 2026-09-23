@@ -158,7 +158,7 @@ AND status = 'completed'`;
               {isEdit ? 'Edit Monitor' : 'Add Monitor'}
             </Typography>
           </Box>
-          <IconButton onClick={onClose} size="small" sx={{ color: '#94a3b8' }}>
+          <IconButton onClick={onClose} size="small" sx={{ color: 'var(--mui-palette-text-secondary)' }}>
             <CloseIcon />
           </IconButton>
         </Box>
@@ -184,14 +184,14 @@ AND status = 'completed'`;
                 '&:hover fieldset': { borderColor: '#4b5563' },
                 '&.Mui-focused fieldset': { borderColor: '#22c55e' }
               },
-              '& .MuiInputLabel-root': { color: '#94a3b8' },
+              '& .MuiInputLabel-root': { color: 'var(--mui-palette-text-secondary)' },
               '& .MuiFormHelperText-root': { color: '#ef4444' }
             }}
           />
 
           {/* Query Type */}
           <FormControl fullWidth>
-            <InputLabel sx={{ color: '#94a3b8' }}>Query Type</InputLabel>
+            <InputLabel sx={{ color: 'var(--mui-palette-text-secondary)' }}>Query Type</InputLabel>
             <Select
               value={formData.query_type}
               label="Query Type"
@@ -202,7 +202,7 @@ AND status = 'completed'`;
                 '& .MuiOutlinedInput-notchedOutline': { borderColor: '#374151' },
                 '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4b5563' },
                 '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#22c55e' },
-                '& .MuiSvgIcon-root': { color: '#94a3b8' }
+                '& .MuiSvgIcon-root': { color: 'var(--mui-palette-text-secondary)' }
               }}
             >
               {QUERY_TYPES.map(type => (
@@ -235,14 +235,14 @@ AND status = 'completed'`;
                 '&:hover fieldset': { borderColor: '#4b5563' },
                 '&.Mui-focused fieldset': { borderColor: '#22c55e' }
               },
-              '& .MuiInputLabel-root': { color: '#94a3b8' },
+              '& .MuiInputLabel-root': { color: 'var(--mui-palette-text-secondary)' },
               '& .MuiFormHelperText-root': { color: errors.query ? '#ef4444' : '#64748b' }
             }}
           />
 
           {/* Interval */}
           <FormControl fullWidth>
-            <InputLabel sx={{ color: '#94a3b8' }}>Check Interval</InputLabel>
+            <InputLabel sx={{ color: 'var(--mui-palette-text-secondary)' }}>Check Interval</InputLabel>
             <Select
               value={formData.interval}
               label="Check Interval"
@@ -253,7 +253,7 @@ AND status = 'completed'`;
                 '& .MuiOutlinedInput-notchedOutline': { borderColor: '#374151' },
                 '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4b5563' },
                 '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#22c55e' },
-                '& .MuiSvgIcon-root': { color: '#94a3b8' }
+                '& .MuiSvgIcon-root': { color: 'var(--mui-palette-text-secondary)' }
               }}
             >
               {INTERVALS.map(interval => (
@@ -266,7 +266,7 @@ AND status = 'completed'`;
 
           {/* Threshold Row */}
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-            <Typography sx={{ color: '#94a3b8', pt: 2, whiteSpace: 'nowrap' }}>
+            <Typography sx={{ color: 'var(--mui-palette-text-secondary)', pt: 2, whiteSpace: 'nowrap' }}>
               Alert when value
             </Typography>
             <FormControl sx={{ minWidth: 100 }}>
@@ -280,7 +280,7 @@ AND status = 'completed'`;
                   '& .MuiOutlinedInput-notchedOutline': { borderColor: '#374151' },
                   '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4b5563' },
                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#22c55e' },
-                  '& .MuiSvgIcon-root': { color: '#94a3b8' }
+                  '& .MuiSvgIcon-root': { color: 'var(--mui-palette-text-secondary)' }
                 }}
               >
                 {OPERATORS.map(op => (
@@ -328,7 +328,7 @@ AND status = 'completed'`;
                 '&:hover fieldset': { borderColor: '#4b5563' },
                 '&.Mui-focused fieldset': { borderColor: '#22c55e' }
               },
-              '& .MuiInputLabel-root': { color: '#94a3b8' }
+              '& .MuiInputLabel-root': { color: 'var(--mui-palette-text-secondary)' }
             }}
           />
 
@@ -366,7 +366,7 @@ AND status = 'completed'`;
         <Button
           onClick={onClose}
           disabled={loading}
-          sx={{ color: '#94a3b8' }}
+          sx={{ color: 'var(--mui-palette-text-secondary)' }}
         >
           {canWrite ? 'Cancel' : 'Close'}
         </Button>

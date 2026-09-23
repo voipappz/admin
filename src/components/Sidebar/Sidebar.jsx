@@ -14,13 +14,13 @@ import {
 } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import CodeIcon from '@mui/icons-material/Code';
+import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
 import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
+import SettingsIcon from '@mui/icons-material/Settings';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import MenuIcon from '@mui/icons-material/Menu';
 import CircleIcon from '@mui/icons-material/Circle';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import { useAIChatSidebar } from '../../context/AIChatSidebarContext';
 import useApiHealth from '../../hooks/useApiHealth';
 import useGatusHealth from '../../hooks/useGatusHealth';
 import { useAuth } from '../../context/AuthContext';
@@ -28,6 +28,7 @@ import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext
 import { getPermittedNavItems, getPermittedTopbarItems } from '../../config/navConfig';
 import useNavBadges from '../../hooks/useNavBadges';
 import './Sidebar.css';
+import CopyableEmail from '../common/CopyableEmail/CopyableEmail.jsx';
 
 // First letter of the customer name for the switcher avatar (mirrors the
 // account avatar at the bottom). Falls back to a neutral glyph.
@@ -38,9 +39,7 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
   const location = useLocation();
   const { acl, user } = useAuth();
   const { selectedCustomer } = useCustomerEnvironment();
-  // The assistant opened only on Cmd/Ctrl+Shift+A, so nobody found it.
-  const { openAIDrawer } = useAIChatSidebar() || {};
-  const isMobile = useMediaQuery('(max-width:899px)');
+  const isMobile = useMediaQuery((t) => t.breakpoints.down('md'));
   // ── Health, as one colour ────────────────────────────────────────────────
   // Two sources, because neither alone tells the truth:
   //   useApiHealth   the app plane — DB / Redis / NATS, from GET /health
@@ -197,7 +196,7 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
       )}
 
       {/* Bottom tools — a trimmed utility cluster: Monitoring, then theme/help/
-          devzone/tickets, then the account row. Wizard moved into the customer
+          devzone/MCP/settings/tickets, then the account row. Wizard moved into the customer
           box; Notifications moved to the Monitoring right rail. Events/Syslog
           live under Logs. */}
       <Box className="sidebar-bottom-tools" sx={{ mt: 'auto' }}>
@@ -227,23 +226,9 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
             <CircleIcon sx={{ fontSize: 14, color: healthColor }} />
           </IconButton>
         </Tooltip>
-        {/* Logs has no sidebar entry at all — it opens as a modal from a
-            record's "View Logs" action (useNavigateToLogs). */}
         {/* Dark-mode toggle now lives only in the account menu (next to Sign
             Out) — removed the duplicate sidebar button. */}
         <Box className="sidebar-tool-divider" />
-        {openAIDrawer && (
-          <Tooltip title="Assistant (Ctrl+Shift+A)" placement="right" arrow>
-            <IconButton
-              className="sidebar-tool-button"
-              onClick={() => { openAIDrawer(); onNavigate?.(); }}
-              aria-label="Assistant"
-              data-testid="sidebar-assistant"
-            >
-              <AutoAwesomeIcon />
-            </IconButton>
-          </Tooltip>
-        )}
         <Tooltip title="Help Center" placement="right" arrow>
           <IconButton
             className="sidebar-tool-button"
@@ -263,6 +248,24 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
             aria-label="API DevZone"
           >
             <CodeIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="MCP" placement="right" arrow>
+          <IconButton
+            className="sidebar-tool-button"
+            onClick={() => handleNavigate('/mcp')}
+            aria-label="MCP"
+          >
+            <HubOutlinedIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Settings" placement="right" arrow>
+          <IconButton
+            className="sidebar-tool-button"
+            onClick={() => handleNavigate('/settings')}
+            aria-label="Settings"
+          >
+            <SettingsIcon />
           </IconButton>
         </Tooltip>
         <Tooltip title="Tickets" placement="right" arrow>
@@ -291,7 +294,7 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
             </Avatar>
             <Box className="sidebar-profile-meta">
               <Typography className="sidebar-profile-name" noWrap>{accountName}</Typography>
-              {user?.email && <Typography className="sidebar-profile-email" noWrap>{user.email}</Typography>}
+              {user?.email && <Typography className="sidebar-profile-email" noWrap><CopyableEmail email={user.email} /></Typography>}
             </Box>
             <KeyboardArrowUpIcon className="sidebar-profile-chev" />
           </Box>

@@ -15,7 +15,7 @@ const BRIDGE_TYPE_ENDPOINTS = {
   'queue': '/api/queues',
   'que': '/api/queues',  // Legacy alias for queue
   'ivr': '/api/ivrs',
-  'number': '/api/dids',  // Number bridge type maps to DIDs
+  'number': '/api/routes',  // Number bridge type maps to DIDs
   'call_condition': '/api/call_conditions',
   'vml': '/api/vmls',
   'conference': '/api/conferences',

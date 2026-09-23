@@ -10,7 +10,6 @@ import {
 } from '@mui/icons-material';
 import { useTariffs } from './Tariffs.js';
 import { TariffBridge } from '../Bridges/TariffBridge/TariffBridge.jsx';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
@@ -20,6 +19,7 @@ import { stripedTableRowSx, orEmpty } from '../shared/tableTheme.jsx';
 import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx';
 import useCentralizedSearch from '../../hooks/useCentralizedSearch';
 import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
+import { ConfirmDialog } from '../ui';
 
 const EMPTY_FILTERS = { name: '', scheme: '', enabled: '', search: '' };
 
@@ -41,7 +41,6 @@ const Tariffs = () => {
   const { can } = usePermissions();
   const canWrite = can('tariffs', 'write');
   const { registerScreen, unregisterScreen } = useGlobalSearch();
-  const goToLogs = useNavigateToLogs();
 
   const {
     tariffs, loading, selectedTariff, dialogMode, schemes,
@@ -222,11 +221,6 @@ const Tariffs = () => {
                               </IconButton>
                             </Tooltip>
                           )}
-                          <Tooltip title="View Logs">
-                            <IconButton size="small" onClick={() => goToLogs('tariff', t.uuid)} disabled={loading}>
-                              <EventsIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
                           {canWrite && (
                             <Tooltip title="Delete">
                               <IconButton size="small" color="error" onClick={() => handleOpenDeleteDialog(t)} disabled={loading}>
@@ -248,7 +242,7 @@ const Tariffs = () => {
             onPageChange={handlePageChange} rowsPerPage={rowsPerPage}
             onRowsPerPageChange={handleRowsPerPageChange}
             rowsPerPageOptions={[10, 25, 50, 100]}
-            sx={{ borderTop: '1px solid #e0e0e0', flexShrink: 0 }}
+            sx={{ borderTop: '1px solid var(--mui-palette-divider)', flexShrink: 0 }}
           />
         </Paper>
       </Box>
@@ -264,21 +258,15 @@ const Tariffs = () => {
       />
 
       {/* Delete confirmation */}
-      <Dialog open={deleteDialogOpen} onClose={handleCloseDeleteDialog} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete Tariff</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">
-            Delete <strong>{tariffToDelete?.name}</strong>? Subscriptions and plans still
-            pointing at it will lose their rates.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteDialog} disabled={loading}>Cancel</Button>
-          <Button onClick={handleDeleteTariff} color="error" variant="contained" disabled={loading}>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onClose={handleCloseDeleteDialog}
+        onConfirm={handleDeleteTariff}
+        loading={loading}
+        title="Delete Tariff"
+        message={<Typography>Delete <strong>{tariffToDelete?.name}</strong>?</Typography>}
+        description="Subscriptions and plans still pointing at it will lose their rates."
+      />
     </Box>
   );
 };

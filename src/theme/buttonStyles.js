@@ -1,149 +1,70 @@
 /**
- * Global Button Styles
- * Consistent button styling to be used across the entire application
+ * Shared button sx presets, on the theme palette (no hex here: the palette
+ * flips with dark mode, a literal does not). Prefer <Button variant color>
+ * from the theme; these exist for the four callers that predate it.
  */
-
-export const primaryButtonStyle = {
-  backgroundColor: '#65758E',
-  color: 'white',
+const base = {
   fontWeight: 500,
   fontSize: '0.875rem',
   textTransform: 'none',
   px: 2.5,
   py: 0.75,
-  fontFamily: 'Rubik, sans-serif',
-  borderRadius: '6px',
+  borderRadius: 1.5,
   boxShadow: 'none',
-  '&:hover': {
-    backgroundColor: '#4FA3A6',
-    boxShadow: 'none',
-  },
-  '&:active': {
-    backgroundColor: '#3d9497',
-  },
-  '&.Mui-disabled': {
-    backgroundColor: '#d1d5db',
-    color: '#9ca3af',
-  }
+  '&:hover': { boxShadow: 'none' },
+};
+
+export const primaryButtonStyle = {
+  ...base,
+  bgcolor: 'primary.main',
+  color: 'primary.contrastText',
+  '&:hover': { bgcolor: 'primary.dark', boxShadow: 'none' },
+  '&:active': { bgcolor: 'primary.dark' },
+  '&.Mui-disabled': { bgcolor: 'action.disabledBackground', color: 'text.disabled' },
 };
 
 export const secondaryButtonStyle = {
-  backgroundColor: '#f3f4f6',
-  color: '#374151',
-  fontWeight: 500,
-  fontSize: '0.875rem',
-  textTransform: 'none',
-  px: 2.5,
-  py: 0.75,
-  fontFamily: 'Rubik, sans-serif',
-  borderRadius: '6px',
-  boxShadow: 'none',
-  '&:hover': {
-    backgroundColor: '#e5e7eb',
-    boxShadow: 'none',
-  },
-  '&:active': {
-    backgroundColor: '#d1d5db',
-  }
+  ...base,
+  bgcolor: 'surface.muted',
+  color: 'text.primary',
+  '&:hover': { bgcolor: 'surface.sunken', boxShadow: 'none' },
+  '&:active': { bgcolor: 'surface.sunken' },
 };
 
 export const outlinedButtonStyle = {
-  backgroundColor: 'transparent',
-  color: '#65758E',
-  fontWeight: 500,
-  fontSize: '0.875rem',
-  textTransform: 'none',
-  px: 2.5,
-  py: 0.75,
-  fontFamily: 'Rubik, sans-serif',
-  borderRadius: '6px',
-  border: '1px solid #65758E',
-  boxShadow: 'none',
-  '&:hover': {
-    backgroundColor: 'rgba(101, 117, 142, 0.04)',
-    border: '1px solid #65758E',
-    boxShadow: 'none',
-  },
-  '&:active': {
-    backgroundColor: 'rgba(101, 117, 142, 0.12)',
-  }
+  ...base,
+  bgcolor: 'transparent',
+  color: 'primary.main',
+  border: 1,
+  borderColor: 'primary.main',
+  '&:hover': { bgcolor: 'action.hover', borderColor: 'primary.main', boxShadow: 'none' },
+  '&:active': { bgcolor: 'action.selected' },
 };
 
 export const dangerButtonStyle = {
-  backgroundColor: '#ef4444',
-  color: 'white',
-  fontWeight: 500,
-  fontSize: '0.875rem',
-  textTransform: 'none',
-  px: 2.5,
-  py: 0.75,
-  fontFamily: 'Rubik, sans-serif',
-  borderRadius: '6px',
-  boxShadow: 'none',
-  '&:hover': {
-    backgroundColor: '#dc2626',
-    boxShadow: 'none',
-  },
-  '&:active': {
-    backgroundColor: '#b91c1c',
-  }
+  ...base,
+  bgcolor: 'error.main',
+  color: 'error.contrastText',
+  '&:hover': { bgcolor: 'error.dark', boxShadow: 'none' },
+  '&:active': { bgcolor: 'error.dark' },
 };
 
 export const successButtonStyle = {
-  backgroundColor: '#10b981',
-  color: 'white',
-  fontWeight: 500,
-  fontSize: '0.875rem',
-  textTransform: 'none',
-  px: 2.5,
-  py: 0.75,
-  fontFamily: 'Rubik, sans-serif',
-  borderRadius: '6px',
-  boxShadow: 'none',
-  '&:hover': {
-    backgroundColor: '#059669',
-    boxShadow: 'none',
-  },
-  '&:active': {
-    backgroundColor: '#047857',
-  }
+  ...base,
+  bgcolor: 'success.main',
+  color: 'success.contrastText',
+  '&:hover': { bgcolor: 'success.dark', boxShadow: 'none' },
+  '&:active': { bgcolor: 'success.dark' },
 };
 
-// Button Group styles for connected buttons
 export const buttonGroupStyle = {
-  borderRadius: '6px',
-  overflow: 'hidden',
-  boxShadow: 'none',
-  '& .MuiButton-root': {
-    ...primaryButtonStyle,
-    borderRadius: 0,
-    '&:not(:last-child)': {
-      borderRight: '1px solid rgba(255, 255, 255, 0.2)',
-    }
-  }
+  '& .MuiButton-root': { textTransform: 'none', fontWeight: 500 },
 };
 
-// Icon Button styles
 export const iconButtonStyle = {
-  color: '#65758E',
-  fontFamily: 'Rubik, sans-serif',
-  '&:hover': {
-    backgroundColor: 'rgba(101, 117, 142, 0.08)',
-  }
+  color: 'primary.main',
+  '&:hover': { bgcolor: 'action.hover' },
 };
 
-// Small button variant
-export const smallButtonStyle = {
-  ...primaryButtonStyle,
-  fontSize: '0.75rem',
-  px: 2,
-  py: 0.5,
-};
-
-// Large button variant
-export const largeButtonStyle = {
-  ...primaryButtonStyle,
-  fontSize: '1rem',
-  px: 3,
-  py: 1,
-};
+export const smallButtonStyle = { fontSize: '0.75rem', px: 1.5, py: 0.5 };
+export const largeButtonStyle = { fontSize: '1rem', px: 3.5, py: 1 };

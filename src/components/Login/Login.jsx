@@ -9,7 +9,6 @@ import {
   CircularProgress,
   Alert
 } from '@mui/material';
-import { Link as RouterLink } from 'react-router';
 import { useLogin } from './Login';
 import './Login.css';
 
@@ -59,13 +58,14 @@ const Login = () => {
         </Alert>
       )}
 
-      <Box component="form" onSubmit={handleSubmit} className="login-form" data-testid="login-form">
+      <Box component="form" id="admin-login-form" name="admin-login" action="/admin-login" method="post" onSubmit={handleSubmit} className="login-form" data-testid="login-form">
         <FormControl fullWidth className="form-group">
           <TextField
             fullWidth
             id="email"
             name="email"
-            placeholder="Email"
+            label="Admin email"
+            placeholder="admin@example.com"
             value={email}
             onChange={handleEmailChange}
             onBlur={() => handleBlur('email')}
@@ -88,7 +88,8 @@ const Login = () => {
             fullWidth
             id="password"
             name="password"
-            placeholder="Password"
+            label="Admin password"
+            placeholder="Your password"
             type="password"
             value={password}
             onChange={handlePasswordChange}
@@ -130,17 +131,6 @@ const Login = () => {
             Forgot Password?
           </Typography>
 
-          {/* The other door — see UserLogin.jsx for why it's stateless. */}
-          <Typography
-            variant="body2"
-            component={RouterLink}
-            to="/"
-            className="forgot-password"
-            data-testid="admin-user-login-link"
-            sx={{ display: 'block', mt: 1, opacity: 0.7 }}
-          >
-            {'\u2190 User sign-in'}
-          </Typography>
         </Box>
       </Box>
     </>

@@ -9,7 +9,7 @@ import useRowHandlers from './RowHandlers/useRowHandlers.js';
 import useUrlSync from './UrlSync/useUrlSync.js';
 import { useAuth } from '../../context/AuthContext';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
+import { useNavigateToEvents } from '../../hooks/useNavigateToLogs';
 import { formatDuration } from '../../utils/phoneUtils';
 
 // Components
@@ -97,7 +97,10 @@ const Calls = () => {
     const id = setInterval(refreshLiveCalls, 10000);
     return () => clearInterval(id);
   }, [chartMode, refreshLiveCalls]);
-  const goToLogs = useNavigateToLogs();
+  // The call detail panel's "Events" button: the Postgres event store for this
+  // call. It used to be wired to the per-record logs modal, which is gone --
+  // logs are read on the Logs screen (/logs) only.
+  const goToEvents = useNavigateToEvents();
 
   // Get authentication context
   const { access } = useAuth();
@@ -800,7 +803,7 @@ const Calls = () => {
               }}
             />
           ) : (
-            <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 3 }}>
+            <Typography variant="body2" sx={{ color: 'var(--mui-palette-text-secondary)', textAlign: 'center', py: 3 }}>
               No calls in the selected period.
             </Typography>
           ))}
@@ -829,7 +832,7 @@ const Calls = () => {
             onAddNote={handleAddNote}
             onViewConversation={handleViewConversation}
             onViewLogs={handleViewLogs}
-            onViewEvents={() => goToLogs('call', selectedCall.uuid || selectedCall.id)}
+            onViewEvents={() => goToEvents('call', selectedCall.uuid || selectedCall.id)}
             isMobile
           />
         ) : (
@@ -951,7 +954,7 @@ const Calls = () => {
               onAddNote={handleAddNote}
               onViewConversation={handleViewConversation}
               onViewLogs={handleViewLogs}
-              onViewEvents={() => goToLogs('call', selectedCall.uuid || selectedCall.id)}
+              onViewEvents={() => goToEvents('call', selectedCall.uuid || selectedCall.id)}
             />
           )}
           {selectedCall && panelMode === 'conversation' && (

@@ -29,11 +29,11 @@ import {
   Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { ConfirmDialog } from '../ui';
 import { useAccounts } from './useAccounts';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import AccountDialog from './AccountDialog/AccountDialog';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import { formatDate } from '../../utils/dateUtils';
 import { getEnabledChipProps } from '../../utils/chipStyles';
 import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx';
@@ -42,42 +42,7 @@ import { orEmpty, stripedTableRowSx } from '../shared/tableTheme.jsx';
 import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
 import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';
-
-/**
- * DeleteConfirmDialog Component
- * Confirmation dialog for deleting accounts
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, account, loading }) => {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Delete Account</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete account{' '}
-          <strong>{account?.name}</strong>?
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          This action cannot be undone and will remove all account data.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          data-testid="confirm-delete-button"
-          onClick={onConfirm}
-          variant="contained"
-          color="error"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
+import CopyableEmail from '../common/CopyableEmail/CopyableEmail.jsx';
 
 /**
  * Accounts Component
@@ -119,7 +84,6 @@ const Accounts = () => {
     fetchAccounts
   } = useAccounts();
 
-  const goToLogs = useNavigateToLogs();
   const [selectedAccountId, setSelectedAccountId] = useState(null);
 
   // Register search segments with GlobalSearchContext
@@ -227,7 +191,7 @@ const Accounts = () => {
           }}
         >
           {/* Header */}
-          <Box sx={{ borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ borderBottom: '1px solid var(--mui-palette-divider)', display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <CentralizedSearch
                 segments={accountSegments}
@@ -366,7 +330,7 @@ const Accounts = () => {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {orEmpty(account.email)}
+                            <CopyableEmail email={account.email} fallback={orEmpty(account.email)} />
                           </Typography>
                         </TableCell>
                         <TableCell>
@@ -415,15 +379,6 @@ const Accounts = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title="View Logs">
-                              <IconButton
-                                size="small"
-                                onClick={() => goToLogs('account', account.uuid)}
-                                disabled={loading}
-                              >
-                                <EventsIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
                           </Box>
                         </TableCell>
                       </TableRow>
@@ -443,7 +398,7 @@ const Accounts = () => {
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={handleRowsPerPageChange}
               rowsPerPageOptions={[10, 25, 50, 100]}
-              sx={{ borderTop: '1px solid #e0e0e0' }}
+              sx={{ borderTop: '1px solid var(--mui-palette-divider)' }}
             />
           </Box>
         </Paper>
@@ -466,12 +421,15 @@ const Accounts = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteAccount}
-        account={accountToDelete}
         loading={dialogLoading}
+        title="Delete Account"
+        message={<Typography>Are you sure you want to delete account{' '}
+          <strong>{(accountToDelete)?.name}</strong>?</Typography>}
+        description="This action cannot be undone and will remove all account data."
       />
     </Box>
   );

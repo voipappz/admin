@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { monitorsApi, getOverallStatus } from '../../services/api/monitorsApi';
 import { useNotification } from '../../context/NotificationContext';
+import { useConfirm } from '../ui';
 
 /**
  * Custom hook for HealthMonitor component
  * Manages monitors data, timeseries, and auto-refresh
  */
 export const useHealthMonitor = () => {
+  const confirm = useConfirm();
   // Monitors state
   const [monitors, setMonitors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -155,7 +157,7 @@ export const useHealthMonitor = () => {
    * Delete monitor
    */
   const handleDeleteMonitor = useCallback(async (monitorId) => {
-    if (!window.confirm('Are you sure you want to delete this monitor?')) {
+    if (!(await confirm({ title: 'Delete monitor', message: 'Are you sure you want to delete this monitor?' }))) {
       return;
     }
 
@@ -167,7 +169,7 @@ export const useHealthMonitor = () => {
       console.error('Error deleting monitor:', err);
       showError(err.message || 'Failed to delete monitor');
     }
-  }, [showSuccess, showError, fetchMonitors]);
+  }, [confirm, showSuccess, showError, fetchMonitors]);
 
   /**
    * Trigger immediate check

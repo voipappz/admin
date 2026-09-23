@@ -26,6 +26,7 @@ import { servicesApi } from '../../services/api/servicesApi';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
 import { getEnabledChipProps } from '../../utils/chipStyles';
 import ServiceDialog from '../Services/ServiceDialog';
+import { ConfirmDialog } from '../ui';
 
 const WorkflowServicePanel = ({ onServiceCreated }) => {
   const { selectedEnvironment } = useCustomerEnvironment();
@@ -229,26 +230,14 @@ const WorkflowServicePanel = ({ onServiceCreated }) => {
       />
 
       {/* Delete confirmation */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Delete Service</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleteLoading}>Cancel</Button>
-          <Button
-            onClick={handleDelete}
-            color="error"
-            variant="contained"
-            disabled={deleteLoading}
-            startIcon={deleteLoading ? <CircularProgress size={16} /> : null}
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={handleDelete}
+        loading={deleteLoading}
+        title="Delete Service"
+        entityName={deleteTarget?.name}
+      />
     </Box>
   );
 };

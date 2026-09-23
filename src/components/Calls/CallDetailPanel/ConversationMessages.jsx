@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Box, Typography, CircularProgress } from '@mui/material';
+import { Box, Typography, CircularProgress, Button } from '@mui/material';
 import MessageIcon from '@mui/icons-material/Message';
 import PhoneIcon from '@mui/icons-material/Phone';
 import PhoneCallbackIcon from '@mui/icons-material/PhoneCallback';
@@ -29,11 +29,11 @@ const getInteractionIcon = (type) => {
     case 'outbound': return <PhoneIcon sx={{ color: '#3b82f6' }} />;
     case 'missed': return <PhoneMissedIcon sx={{ color: '#ef4444' }} />;
     case 'voicemail': return <VoicemailIcon sx={{ color: '#f59e0b' }} />;
-    default: return <MessageIcon sx={{ color: '#6b7280' }} />;
+    default: return <MessageIcon sx={{ color: 'var(--mui-palette-text-secondary)' }} />;
   }
 };
 
-const ConversationMessages = ({ messages, loading, error, emptyMessage }) => {
+const ConversationMessages = ({ messages, loading, error, emptyMessage, onRetry }) => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -46,7 +46,7 @@ const ConversationMessages = ({ messages, loading, error, emptyMessage }) => {
     return (
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, p: 5 }}>
         <CircularProgress size={40} sx={{ color: '#65758E' }} />
-        <Typography variant="body2" sx={{ fontFamily: 'Rubik, sans-serif', color: '#9ca3af' }}>
+        <Typography variant="body2" sx={{ fontFamily: 'Rubik, sans-serif', color: 'var(--mui-palette-text-secondary)' }}>
           Loading conversation...
         </Typography>
       </Box>
@@ -57,8 +57,9 @@ const ConversationMessages = ({ messages, loading, error, emptyMessage }) => {
     return (
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, p: 5 }}>
         <Typography variant="body2" sx={{ fontFamily: 'Rubik, sans-serif', color: '#ef4444' }}>
-          Failed to load conversation: {error}
+          {error}
         </Typography>
+        {onRetry && <Button onClick={onRetry}>Retry</Button>}
       </Box>
     );
   }
@@ -67,7 +68,7 @@ const ConversationMessages = ({ messages, loading, error, emptyMessage }) => {
     return (
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, p: 5 }}>
         <MessageIcon sx={{ fontSize: 56, color: '#d1d5db' }} />
-        <Typography variant="h6" sx={{ fontFamily: 'Rubik, sans-serif', color: '#9ca3af' }}>
+        <Typography variant="h6" sx={{ fontFamily: 'Rubik, sans-serif', color: 'var(--mui-palette-text-secondary)' }}>
           {emptyMessage || 'No conversation found'}
         </Typography>
         <Typography variant="body2" sx={{ fontFamily: 'Rubik, sans-serif', color: '#d1d5db', textAlign: 'center' }}>

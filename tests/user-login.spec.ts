@@ -68,20 +68,21 @@ test.describe('User Login (root) OTP Flow', () => {
   });
 });
 
-test.describe('The two doors point at each other', () => {
-  test('portal login links to the admin login, and back', async ({ page }) => {
+// The two doors are the URL prefix now — `/` is the portal, `/admin` the
+// console — so neither login links to the other.
+test.describe('The two doors are separate', () => {
+  test('neither login offers a link to the other door', async ({ page }) => {
     await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await page.click('[data-testid="user-admin-login-link"]');
-    await expect(page).toHaveURL(/\/admin$/, { timeout: 15000 });
-    await expect(page.locator('[data-testid="login-form"]')).toBeVisible({ timeout: 15000 });
-
-    await page.click('[data-testid="admin-user-login-link"]');
-    await expect(page).toHaveURL(/:\d+\/$/, { timeout: 15000 });
     await expect(page.locator('[data-testid="user-login-form"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('[data-testid="user-admin-login-link"]')).toHaveCount(0);
+
+    await page.goto('/admin', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-testid="login-form"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('[data-testid="admin-user-login-link"]')).toHaveCount(0);
   });
 
-  test('a failed user sign-in fails forward to the admin door', async ({ page }) => {
+  test('a failed user sign-in reports the error on the portal form', async ({ page }) => {
     await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.route('**/auth/user_login**', (route) =>
       route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ id: 'unauthorized', message: 'Invalid email or password' }) }));
@@ -90,7 +91,6 @@ test.describe('The two doors point at each other', () => {
     await page.fill('[data-testid="user-password-input"] input', 'wrong');
     await page.click('[data-testid="user-login-button"]');
     await expect(page.locator('[data-testid="user-error-message"]')).toBeVisible({ timeout: 15000 });
-    await expect(page.locator('[data-testid="user-admin-login-link"]')).toContainText('administrator');
   });
 });
 

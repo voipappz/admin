@@ -57,7 +57,7 @@ const getStatusDotColor = (tier) => {
 /* ── Shared sub-components ── */
 
 const CardHeader = ({ type, onEdit }) => {
-  const config = TYPE_CONFIG[type] || { icon: PhoneIcon, color: '#757575', label: type };
+  const config = TYPE_CONFIG[type] || { icon: PhoneIcon, color: 'var(--mui-palette-text-secondary)', label: type };
   const Icon = config.icon;
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
@@ -99,7 +99,7 @@ const SectionDivider = ({ label }) => (
 );
 
 const DownstreamBadge = ({ label, type, name, onEdit }) => {
-  const config = TYPE_CONFIG[type] || { icon: PhoneIcon, color: '#757575', label: type };
+  const config = TYPE_CONFIG[type] || { icon: PhoneIcon, color: 'var(--mui-palette-text-secondary)', label: type };
   const Icon = config.icon;
   return (
     <Box sx={{
@@ -226,7 +226,7 @@ const CallConditionCard = ({ data, ruleDestinations, fallbackDest, onEditBridge 
           </Typography>
           {visibleResources.map((res, i) => {
             const bt = res.bridge_type === 'que' ? 'queue' : res.bridge_type;
-            const config = TYPE_CONFIG[bt] || { icon: PhoneIcon, color: '#757575', label: bt || 'Unknown' };
+            const config = TYPE_CONFIG[bt] || { icon: PhoneIcon, color: 'var(--mui-palette-text-secondary)', label: bt || 'Unknown' };
             const destName = ruleDestinations?.[res.bridge_uuid] || res.bridge?.name || bt;
             const Icon = config.icon;
             return (
@@ -301,7 +301,7 @@ const IVRCard = ({ data, entryDestinations, timeoutDest, invalidDest, onEditBrid
           </Typography>
           {visibleEntries.map((entry, i) => {
             const bt = entry.bridge_type === 'que' ? 'queue' : entry.bridge_type;
-            const config = TYPE_CONFIG[bt] || { icon: PhoneIcon, color: '#757575', label: bt || 'Unknown' };
+            const config = TYPE_CONFIG[bt] || { icon: PhoneIcon, color: 'var(--mui-palette-text-secondary)', label: bt || 'Unknown' };
             const destName = entryDestinations?.[entry.bridge_uuid] || entry.bridge?.name || bt || '';
             const Icon = config.icon;
             const digit = entry.key || entry.digit || entry.name || i;

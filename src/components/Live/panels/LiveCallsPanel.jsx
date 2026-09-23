@@ -24,12 +24,12 @@ import LiveChartStrip from '../LiveChartStrip';
 
 const gridSx = {
   ...stripedDataGridSx,
-  backgroundColor: '#fff',
-  color: '#333',
-  border: '1px solid #e0e0e0',
-  '& .MuiDataGrid-cell': { color: '#333', borderColor: '#e0e0e0', cursor: 'pointer' },
-  '& .MuiDataGrid-columnHeader': { backgroundColor: '#f5f5f5', color: '#333', borderColor: '#e0e0e0' },
-  '& .MuiDataGrid-footerContainer': { backgroundColor: '#f5f5f5', color: '#333', borderColor: '#e0e0e0' },
+  backgroundColor: 'var(--mui-palette-background-paper)',
+  color: 'var(--mui-palette-text-primary)',
+  border: '1px solid var(--mui-palette-divider)',
+  '& .MuiDataGrid-cell': { color: 'var(--mui-palette-text-primary)', borderColor: 'var(--mui-palette-divider)', cursor: 'pointer' },
+  '& .MuiDataGrid-columnHeader': { backgroundColor: 'var(--mui-palette-surface-muted)', color: 'var(--mui-palette-text-primary)', borderColor: 'var(--mui-palette-divider)' },
+  '& .MuiDataGrid-footerContainer': { backgroundColor: 'var(--mui-palette-surface-muted)', color: 'var(--mui-palette-text-primary)', borderColor: 'var(--mui-palette-divider)' },
 };
 
 const getRowId = (row) => row.id || row.uuid || row.call_uuid || `row-${Math.random().toString(36).slice(2, 11)}`;
@@ -44,16 +44,16 @@ const GROUP_BY_OPTIONS = [
 
 /** Events-style detail reveal: a key/value list for a single live call. */
 const LiveRowDetail = ({ row, onClose }) => (
-  <Paper elevation={0} sx={{ width: 300, flexShrink: 0, border: '1px solid #e0e0e0', borderRadius: 2, p: 2, backgroundColor: '#fff', overflowY: 'auto' }}>
+  <Paper elevation={0} sx={{ width: 300, flexShrink: 0, border: '1px solid var(--mui-palette-divider)', borderRadius: 2, p: 2, backgroundColor: 'var(--mui-palette-background-paper)', overflowY: 'auto' }}>
     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#333', flexGrow: 1 }}>Call Detail</Typography>
+      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'var(--mui-palette-text-primary)', flexGrow: 1 }}>Call Detail</Typography>
       <IconButton size="small" onClick={onClose}><CloseIcon fontSize="small" /></IconButton>
     </Box>
     {Object.entries(row)
       .filter(([, v]) => v !== null && v !== undefined && v !== '' && typeof v !== 'object')
       .map(([k, v]) => (
-        <Box key={k} sx={{ display: 'flex', py: 0.5, borderBottom: '1px solid #f1f5f9' }}>
-          <Typography variant="caption" sx={{ width: 110, flexShrink: 0, color: '#6b7280', fontFamily: 'monospace', fontSize: 11, fontWeight: 600 }}>{k}</Typography>
+        <Box key={k} sx={{ display: 'flex', py: 0.5, borderBottom: '1px solid var(--mui-palette-divider)' }}>
+          <Typography variant="caption" sx={{ width: 110, flexShrink: 0, color: 'var(--mui-palette-text-secondary)', fontFamily: 'monospace', fontSize: 11, fontWeight: 600 }}>{k}</Typography>
           <Typography variant="caption" sx={{ color: '#111', wordBreak: 'break-all' }}>{String(v)}</Typography>
         </Box>
       ))}
@@ -110,7 +110,7 @@ const LiveCallsPanel = ({ open = true }) => {
           <Tooltip title="Whisper"><IconButton size="small" onClick={stop(() => handleCallAction(uuid, 'whisper'))} sx={{ color: '#ff9800' }}><RecordVoiceOverIcon fontSize="small" /></IconButton></Tooltip>
           <Tooltip title="Barge"><IconButton size="small" onClick={stop(() => handleCallAction(uuid, 'barge'))} sx={{ color: '#9c27b0' }}><GroupsIcon fontSize="small" /></IconButton></Tooltip>
           <Tooltip title="Hangup"><IconButton size="small" onClick={stop(() => handleCallAction(uuid, 'hangup'))} sx={{ color: '#f44336' }}><CallEndIcon fontSize="small" /></IconButton></Tooltip>
-          <Tooltip title="More"><IconButton size="small" onClick={(e) => { e.stopPropagation(); setActionAnchor(e.currentTarget); setActionUuid(uuid); }} sx={{ color: '#666' }}><MoreVertIcon fontSize="small" /></IconButton></Tooltip>
+          <Tooltip title="More"><IconButton size="small" onClick={(e) => { e.stopPropagation(); setActionAnchor(e.currentTarget); setActionUuid(uuid); }} sx={{ color: 'var(--mui-palette-text-secondary)' }}><MoreVertIcon fontSize="small" /></IconButton></Tooltip>
         </Box>
       );
     },
@@ -166,9 +166,9 @@ const LiveCallsPanel = ({ open = true }) => {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ width: { xs: '100%', sm: 320 } }}
-          InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ color: '#999' }} /></InputAdornment>) }}
+          InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ color: 'var(--mui-palette-text-secondary)' }} /></InputAdornment>) }}
         />
-        <Typography variant="caption" sx={{ color: '#999', fontWeight: 600, ml: 1 }}>Group by</Typography>
+        <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', fontWeight: 600, ml: 1 }}>Group by</Typography>
         {GROUP_BY_OPTIONS.map((opt) => (
           <Chip
             key={opt.key}
@@ -209,7 +209,7 @@ const LiveCallsPanel = ({ open = true }) => {
       <Box sx={{ display: 'flex', gap: 2 }}>
         <Box sx={{ flexGrow: 1 }}>
           {!loading && filtered.length === 0 ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8, color: '#999', border: '1px dashed #e0e0e0', borderRadius: 2, backgroundColor: '#fff' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8, color: 'var(--mui-palette-text-secondary)', border: '1px dashed var(--mui-palette-divider)', borderRadius: 2, backgroundColor: 'var(--mui-palette-background-paper)' }}>
               <PhoneInTalkIcon sx={{ fontSize: 48, mb: 1, opacity: 0.35 }} />
               <Typography variant="body1" sx={{ fontWeight: 500 }}>
                 {search ? 'No live calls match your filter' : 'No active calls right now'}
@@ -234,7 +234,7 @@ const LiveCallsPanel = ({ open = true }) => {
               />
             </Box>
           )}
-          <Typography variant="caption" sx={{ color: '#999', mt: 0.5, display: 'block' }}>
+          <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', mt: 0.5, display: 'block' }}>
             {search ? `Showing ${filtered.length} of ${totalCount}` : `${totalCount} live call${totalCount === 1 ? '' : 's'}`} · auto-refreshes every 30s
           </Typography>
         </Box>

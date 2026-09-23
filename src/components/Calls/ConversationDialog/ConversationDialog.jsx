@@ -90,7 +90,7 @@ const ConversationDialog = ({ open, onClose, callUuid, callerName, calleeName })
       case 'outbound': return <PhoneIcon sx={{ color: '#3b82f6' }} />;
       case 'missed': return <PhoneMissedIcon sx={{ color: '#ef4444' }} />;
       case 'voicemail': return <VoicemailIcon sx={{ color: '#f59e0b' }} />;
-      default: return <MessageIcon sx={{ color: '#6b7280' }} />;
+      default: return <MessageIcon sx={{ color: 'var(--mui-palette-text-secondary)' }} />;
     }
   };
 
@@ -132,7 +132,7 @@ const ConversationDialog = ({ open, onClose, callUuid, callerName, calleeName })
             {contactName}
           </Typography>
           <Typography variant="caption" sx={{
-            color: '#9ca3af',
+            color: 'var(--mui-palette-text-secondary)',
             fontFamily: 'Rubik, sans-serif',
           }}>
             {calleeName || conversation?.phoneNumber || ''}
@@ -156,7 +156,7 @@ const ConversationDialog = ({ open, onClose, callUuid, callerName, calleeName })
             <MessageIcon sx={{ fontSize: 56, color: '#d1d5db' }} />
             <Typography variant="h6" sx={{
               fontFamily: 'Rubik, sans-serif',
-              color: '#9ca3af',
+              color: 'var(--mui-palette-text-secondary)',
             }}>
               No conversation found
             </Typography>

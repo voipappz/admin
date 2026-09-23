@@ -25,6 +25,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import UploadIcon from '@mui/icons-material/Upload';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import { ConfirmDialog } from '../ui';
 import { useDIDs } from './DIDs';
 import { useAuth } from '../../context/AuthContext';
 import { hasPermission } from '../../utils/jwt';
@@ -42,7 +43,7 @@ import { ExtensionBridge } from '../Bridges/ExtensionBridge/ExtensionBridge.jsx'
 import { ivrApi } from '../../services/api/ivrApi';
 import { queuesApi } from '../../services/api/queuesApi';
 import { botsApi } from '../../services/api/botsApi';
-import { didsApi } from '../../services/api/didsApi';
+import { didsApi } from '../../services/api/routesApi';
 import { getAnnouncement } from '../../services/api/announcementsApi';
 import { getVML } from '../../services/api/vmlsApi';
 import { getCallCondition } from '../../services/api/callConditionsApi';
@@ -50,36 +51,6 @@ import { extensionsApi } from '../../services/api/extensionsApi';
 
 const QueuesTopology = lazy(() => import('../Queues/QueuesTopology'));
 const PBXRoutingView = lazy(() => import('../PBXRouting/PBXRoutingView'));
-
-/**
- * DeleteConfirmDialog — confirmation dialog for deleting DIDs
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, did, loading }) => (
-  <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-    <DialogTitle>Delete DID</DialogTitle>
-    <DialogContent>
-      <Typography>
-        Are you sure you want to delete DID{' '}
-        <strong>{did?.number}</strong>?
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-        This action cannot be undone and will affect call routing.
-      </Typography>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onClose} disabled={loading}>Cancel</Button>
-      <Button
-        onClick={onConfirm}
-        variant="contained"
-        color="error"
-        disabled={loading}
-        startIcon={loading ? <CircularProgress size={20} /> : null}
-      >
-        Delete
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
 
 /**
  * DIDPanel — self-contained DID management panel for the TopBar popover.
@@ -479,12 +450,15 @@ const DIDPanel = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteDID}
-        did={didToDelete}
         loading={loading}
+        title="Delete DID"
+        message={<Typography>Are you sure you want to delete DID{' '}
+        <strong>{(didToDelete)?.number}</strong>?</Typography>}
+        description="This action cannot be undone and will affect call routing."
       />
 
       {/* Duplicate DID Dialog */}

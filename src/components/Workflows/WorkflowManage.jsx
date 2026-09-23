@@ -63,6 +63,7 @@ import WorkflowRunsPanel from './WorkflowRunsPanel';
 import { servicesApi } from '../../services/api/servicesApi';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useNotification } from '../../context/NotificationContext';
+import { ConfirmDialog } from '../ui';
 
 /* ═══════════════════════════════════════════════════════════════════
    Node / Edge types for ReactFlow
@@ -547,7 +548,7 @@ const TestPanel = ({ workflow }) => {
                 <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
                   Event Data Sent
                 </Typography>
-                <Paper variant="outlined" sx={{ p: 1, bgcolor: '#fafafa', maxHeight: 100, overflow: 'auto' }}>
+                <Paper variant="outlined" sx={{ p: 1, bgcolor: 'var(--mui-palette-surface-muted)', maxHeight: 100, overflow: 'auto' }}>
                   <pre style={{ margin: 0, fontSize: '10px', lineHeight: 1.3, whiteSpace: 'pre-wrap', color: '#555' }}>
                     {JSON.stringify(result.event_data, null, 2)}
                   </pre>
@@ -1459,19 +1460,14 @@ const WorkflowCanvas = () => {
       </Menu>
 
       {/* Delete dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => { setDeleteDialogOpen(false); setWfToDelete(null); }} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete Workflow</DialogTitle>
-        <DialogContent>
-          <Typography>Delete <strong>{wfToDelete?.name}</strong>? This cannot be undone.</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => { setDeleteDialogOpen(false); setWfToDelete(null); }}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={handleDelete} disabled={deleting}
-            startIcon={deleting ? <CircularProgress size={14} color="inherit" /> : <DeleteIcon />}>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onClose={() => { setDeleteDialogOpen(false); setWfToDelete(null); }}
+        onConfirm={handleDelete}
+        loading={deleting}
+        title="Delete Workflow"
+        entityName={wfToDelete?.name}
+      />
     </Box>
   );
 };

@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render as renderReact, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import PortalCalls from './PortalCalls';
+import { PORTAL_DEFAULTS } from '../../context/PortalPreferencesContext';
+
+const mockSavePreferences = vi.fn();
+vi.mock('../../context/PortalPreferencesContext', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, usePortalPreferences: () => ({ preferences: actual.PORTAL_DEFAULTS, ready: true, save: mockSavePreferences }) };
+});
+vi.mock('../../views/syslogs/TimeHistogram', () => ({ default: () => <div data-testid="calls-chart" /> }));
+const render = (element, url = '/my-calls') => renderReact(<MemoryRouter initialEntries={[url]}>{element}</MemoryRouter>);
 
 /**
  * My Calls reads /api/calls — the same endpoint the admin Calls screen pages
@@ -10,28 +20,61 @@ import PortalCalls from './PortalCalls';
  */
 
 const mockGetCalls = vi.fn();
+const mockGetAggregate = vi.fn();
+const mockGetSegments = vi.fn();
 
 vi.mock('../../services/api/callsApi', () => ({
-  callsApi: { getCalls: (...a) => mockGetCalls(...a) },
+  callsApi: {
+    getCalls: (...a) => mockGetCalls(...a),
+    getAggregate: (...a) => mockGetAggregate(...a),
+    getSegments: (...a) => mockGetSegments(...a),
+  },
 }));
+
+const mockDial = vi.fn(() => Promise.resolve());
+let mockConnected = false;
 
 vi.mock('../../context/SoftphoneContext', () => ({
-  useSoftphone: () => ({ dial: vi.fn(() => Promise.resolve()), connected: false }),
+  useSoftphone: () => ({ dial: mockDial, connected: mockConnected }),
 }));
 
+// The detail panel loads a transcript; keep it off the network.
+vi.mock('../../services/conversationService', () => ({
+  default: { getConversationByCallId: vi.fn(() => Promise.resolve(null)), getMessages: vi.fn() },
+}));
+
+vi.mock('../../context/AuthContext', () => ({
+  useAuth: () => ({ access: null }),
+}));
+
+// The API's :portal_list shape (voipappz-api lib/serializers/call.rb): the
+// call's facts live under `profile`, not at the top level. Reading them from
+// the top level is what rendered every row as "–" / 00:00.
 const row = (i) => ({
   uuid: `call-${i}`,
-  direction: 'inbound',
-  caller: `05000000${String(i).padStart(2, '0')}`,
-  callee: '201',
-  disposition: 'answered',
   created_at: '2026-09-15T10:00:00Z',
-  billsec_duration: 42,
+  recording: { url: null },
+  meta: {},
+  tags: [],
+  profile: {
+    direction: 'in',
+    caller: `05000000${String(i).padStart(2, '0')}`,
+    callee: '201',
+    cause: 'answer',
+    talk_duration: 42,
+  },
 });
 
 describe('PortalCalls', () => {
   beforeEach(() => {
     mockGetCalls.mockReset();
+    mockGetAggregate.mockReset();
+    mockGetSegments.mockReset();
+    mockGetAggregate.mockResolvedValue([]);
+    mockGetSegments.mockResolvedValue([]);
+    mockDial.mockClear();
+    mockConnected = false;
+    mockSavePreferences.mockClear();
   });
 
   it('fetches from /api/calls with page, per_page and a created_at range', async () => {
@@ -54,14 +97,15 @@ describe('PortalCalls', () => {
     expect(await screen.findByText('0500000002')).toBeInTheDocument();
   });
 
-  it('offers the next page only when the current one is full', async () => {
+  it('uses the full filtered count to offer the next page', async () => {
+    mockGetAggregate.mockResolvedValue([{ time: '2026-09-18T10:00:00', answer: 26 }]);
     mockGetCalls.mockResolvedValueOnce(Array.from({ length: 25 }, (_, i) => row(i)));
     mockGetCalls.mockResolvedValueOnce([row(99)]);
 
     render(<PortalCalls />);
 
     const next = await screen.findByTestId('portal-calls-next');
-    expect(next).not.toBeDisabled();
+    await waitFor(() => expect(next).not.toBeDisabled());
     fireEvent.click(next);
 
     expect(await screen.findByText('0500000099')).toBeInTheDocument();
@@ -89,5 +133,55 @@ describe('PortalCalls', () => {
 
     expect(await screen.findByText(/Could not load your calls/)).toBeInTheDocument();
     expect(screen.queryByText('No calls in this period.')).not.toBeInTheDocument();
+  });
+
+  it('reads caller, callee and cause from the nested profile', async () => {
+    mockGetCalls.mockResolvedValue([row(3)]);
+
+    render(<PortalCalls />);
+
+    expect(await screen.findByText('0500000003')).toBeInTheDocument();
+    expect(screen.getByText('201')).toBeInTheDocument();
+    expect(screen.getByText('Answer')).toBeInTheDocument();
+  });
+
+  it('opens the shared call detail panel when a row is clicked', async () => {
+    mockGetCalls.mockResolvedValue([row(4)]);
+
+    render(<PortalCalls />);
+
+    fireEvent.click(await screen.findByText('0500000004'));
+    expect(await screen.findByText('Transcription')).toBeInTheDocument();
+  });
+
+  it('calls an inbound caller back from the row', async () => {
+    mockConnected = true;
+    mockGetCalls.mockResolvedValue([row(5)]);
+
+    render(<PortalCalls />);
+
+    fireEvent.click(await screen.findByTestId('portal-calls-dial'));
+    expect(mockDial).toHaveBeenCalledWith('0500000005');
+  });
+
+  it('sends the same wildcard search to the list and the chart', async () => {
+    mockGetCalls.mockResolvedValue([row(1)]);
+    render(<PortalCalls />, '/my-calls?q=050%2501&direction=incoming');
+    await screen.findByText('0500000001');
+    expect(mockGetCalls.mock.calls[0][0]).toEqual(expect.objectContaining({
+      'search[inline]': '050%01', 'search[call.direction][IS]': 'incoming',
+    }));
+    expect(mockGetAggregate.mock.calls[0][0]).toEqual(expect.objectContaining({
+      'search[inline]': '050%01', 'search[call.direction][IS]': 'incoming',
+    }));
+    expect(screen.queryByPlaceholderText('Search number or cause')).not.toBeInTheDocument();
+  });
+
+  it('saves chart visibility on the user', async () => {
+    mockGetCalls.mockResolvedValue([]);
+    render(<PortalCalls />);
+    fireEvent.click(screen.getByRole('button', { name: 'Hide chart' }));
+    expect(mockSavePreferences).toHaveBeenCalledWith({ calls_chart: 'false' });
+    expect(PORTAL_DEFAULTS.calls_page_size).toBe('25');
   });
 });

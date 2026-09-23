@@ -204,7 +204,7 @@ const UserDetails = ({
         p: { xs: 1, sm: 2, md: 3 },
         height: '100%',
         overflow: 'auto',
-        bgcolor: '#fff',
+        bgcolor: 'var(--mui-palette-background-paper)',
       }}
     >
       {/* Header */}

@@ -24,16 +24,21 @@ import DetailRow from './DetailRow';
 import ConversationMessages from './ConversationMessages';
 import conversationService from '../../../services/conversationService';
 import { useAuth } from '../../../context/AuthContext';
+import { apiService } from '../../../services/apiService';
 import { formatDuration } from '../../../utils/phoneUtils';
 import { formatPhoneNumber } from '../../../utils/phoneUtils';
 import moment from 'moment';
 import './CallDetailPanel.css';
 
-const CallDetailPanel = ({ call, onClose, onOpenRecording, onViewLogs, onViewEvents, isMobile }) => {
-  const { access } = useAuth();
+const CallDetailPanel = ({ call, onClose, onOpenRecording, onViewLogs, onViewEvents, onCallBack, isMobile }) => {
+  // The portal reuses this panel with a user session, where AuthContext holds
+  // no admin token; apiService.getToken() returns whichever session exists.
+  const { access: adminAccess } = useAuth();
+  const access = adminAccess || apiService.getToken();
   const [transcript, setTranscript] = useState([]);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [transcriptError, setTranscriptError] = useState(null);
+  const [transcriptAttempt, setTranscriptAttempt] = useState(0);
 
   const callUuid = call?.uuid;
 
@@ -56,8 +61,8 @@ const CallDetailPanel = ({ call, onClose, onOpenRecording, onViewLogs, onViewEve
           : msgData?.messages ? msgData.messages
           : [];
         if (!cancelled) setTranscript(msgArray.filter(m => m.type !== 'note'));
-      } catch (err) {
-        if (!cancelled) setTranscriptError(err.message);
+      } catch {
+        if (!cancelled) setTranscriptError('The transcript is temporarily unavailable. Please try again.');
       } finally {
         if (!cancelled) setTranscriptLoading(false);
       }
@@ -65,7 +70,7 @@ const CallDetailPanel = ({ call, onClose, onOpenRecording, onViewLogs, onViewEve
 
     load();
     return () => { cancelled = true; };
-  }, [callUuid, access]);
+  }, [callUuid, access, transcriptAttempt]);
 
   if (!call) return null;
 
@@ -244,6 +249,7 @@ const CallDetailPanel = ({ call, onClose, onOpenRecording, onViewLogs, onViewEve
           messages={transcript}
           loading={transcriptLoading}
           error={transcriptError}
+          onRetry={() => setTranscriptAttempt((attempt) => attempt + 1)}
           emptyMessage="No transcription for this call"
         />
       </Box>
@@ -273,6 +279,18 @@ const CallDetailPanel = ({ call, onClose, onOpenRecording, onViewLogs, onViewEve
             }}
           >
             Play Recording
+          </Button>
+        )}
+        {onCallBack && (
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<PhoneIcon />}
+            onClick={onCallBack}
+            data-testid="call-detail-call-back"
+            sx={{ textTransform: 'none', fontFamily: 'Rubik, sans-serif', fontWeight: 500, borderRadius: '8px', flex: 1 }}
+          >
+            Call back
           </Button>
         )}
         {onViewLogs && (

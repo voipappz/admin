@@ -420,7 +420,7 @@ const EventPipelineBuilder = ({
 
                 {liveEvents.length > 0 ? (
                   <Box sx={{
-                    border: '1px solid #e5e7eb',
+                    border: '1px solid var(--mui-palette-divider)',
                     borderRadius: 1,
                     overflow: 'hidden',
                     maxHeight: 200,
@@ -435,7 +435,7 @@ const EventPipelineBuilder = ({
                           alignItems: 'center',
                         }}
                       >
-                        <Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#6b7280', minWidth: 60 }}>
+                        <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'var(--mui-palette-text-secondary)', minWidth: 60 }}>
                           {event.time ? new Date(event.time).toLocaleTimeString() : ''}
                         </Typography>
                         <Chip

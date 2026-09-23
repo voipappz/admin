@@ -37,6 +37,7 @@ import {
   EventNote as EventsIcon
 } from '@mui/icons-material';
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { ConfirmDialog } from '../ui';
 import { useExtensions } from './Extensions';
 import { extensionsApi } from '../../services/api/extensionsApi';
 import { environmentsApi } from '../../services/api/environmentsApi';
@@ -57,48 +58,12 @@ import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
 import { formatDate } from '../../utils/dateUtils';
 import { getEnabledChipProps } from '../../utils/chipStyles';
 import { usePhoneContext } from '../../context/PhoneContext';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
-import { useEventCounts } from '../../hooks/useEventCounts';
+import useEnvironmentEdit from '../../hooks/useEnvironmentEdit';
+import EnvironmentDialog from '../Environments/EnvironmentDialog/EnvironmentDialog';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';
 import './Extensions.css';
-
-/**
- * DeleteConfirmDialog Component
- * Confirmation dialog for deleting extensions
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, extension, loading }) => {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Delete Device</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete device{' '}
-          <strong>{extension?.name || extension?.username}</strong>?
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          This action cannot be undone and will remove the device data.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          data-testid="confirm-delete-button"
-          onClick={onConfirm}
-          variant="contained"
-          color="error"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
 
 /**
  * Extensions Component
@@ -107,13 +72,17 @@ const DeleteConfirmDialog = ({ open, onClose, onConfirm, extension, loading }) =
 const Extensions = () => {
   const { can } = usePermissions();
   const canWrite = can('extensions', 'write');
+  const canEditEnv = can('environments', 'write');
   const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const { showSuccess, showError } = useNotification();
   const { registerScreen, unregisterScreen } = useGlobalSearch();
   const { openWebRTC } = usePhoneContext();
-  const goToLogs = useNavigateToLogs();
-  const { counts: eventCounts } = useEventCounts('extension');
+  // Inline application edit — the application name in the table links here.
+  const {
+    envDialogOpen, envDialogEnvironment, envDialogLoading,
+    handleEnvEdit, handleEnvSave, handleEnvClose
+  } = useEnvironmentEdit();
 
   const {
     extensions,
@@ -614,9 +583,22 @@ const Extensions = () => {
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2">
-                            {orEmpty(extension.environment?.name)}
-                          </Typography>
+                          {/* Application name links to the application edit dialog */}
+                          {extension.environment?.uuid && canEditEnv ? (
+                            <Tooltip title="Edit application" placement="top-start">
+                              <Typography
+                                variant="body2"
+                                onClick={(e) => { e.stopPropagation(); handleEnvEdit(extension.environment); }}
+                                sx={{ cursor: 'pointer', color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
+                              >
+                                {orEmpty(extension.environment.name)}
+                              </Typography>
+                            </Tooltip>
+                          ) : (
+                            <Typography variant="body2">
+                              {orEmpty(extension.environment?.name)}
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell>
                           <MetaTagChips meta={extension.meta} />
@@ -680,15 +662,6 @@ const Extensions = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title="View Logs">
-                              <IconButton
-                                size="small"
-                                onClick={() => goToLogs('extension', extension.uuid)}
-                                disabled={loading}
-                              >
-                                <EventsCountBadge count={eventCounts[extension.uuid]} />
-                              </IconButton>
-                            </Tooltip>
                           </Box>
                         </TableCell>
                       </TableRow>
@@ -708,7 +681,7 @@ const Extensions = () => {
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={handleRowsPerPageChange}
               rowsPerPageOptions={[10, 25, 50, 100]}
-              sx={{ borderTop: '1px solid #e0e0e0' }}
+              sx={{ borderTop: '1px solid var(--mui-palette-divider)' }}
             />
           </Box>
         </Paper>
@@ -728,13 +701,25 @@ const Extensions = () => {
         loading={dialogLoading}
       />
 
+      {/* Application edit — opened from the application name link in the table */}
+      <EnvironmentDialog
+        open={envDialogOpen}
+        onClose={handleEnvClose}
+        onSave={async (formData) => { await handleEnvSave(formData); fetchExtensions(); }}
+        environment={envDialogEnvironment}
+        loading={envDialogLoading}
+      />
+
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteExtension}
-        extension={extensionToDelete}
         loading={dialogLoading}
+        title="Delete Device"
+        message={<Typography>Are you sure you want to delete device{' '}
+          <strong>{(extensionToDelete)?.name || (extensionToDelete)?.username}</strong>?</Typography>}
+        description="This action cannot be undone and will remove the device data."
       />
 
       {/* Import Extensions CSV Dialog */}
@@ -874,7 +859,7 @@ const Extensions = () => {
             <CircularProgress sx={{ my: 4 }} />
           ) : (
             <>
-              <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, border: '1px solid #e0e0e0' }}>
+              <Box sx={{ p: 2, bgcolor: 'var(--mui-palette-background-paper)', borderRadius: 1, border: '1px solid var(--mui-palette-divider)' }}>
                 <img
                   src={qrImageUrl}
                   alt={`QR Code for ${qrExtension?.name}`}

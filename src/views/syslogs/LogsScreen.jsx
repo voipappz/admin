@@ -1,7 +1,7 @@
 import SystemLogs from './SystemLogs.jsx';
 
 /**
- * Logs — the syslog viewer (/api/syslogs).
+ * Logs — the InfluxDB-backed app log viewer (/api/logs).
  *
  * This used to carry seven tabs, one per InfluxDB measurement: containers,
  * api, exceptions, sip, node and a custom query browser. Five of them named

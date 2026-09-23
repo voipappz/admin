@@ -32,8 +32,11 @@ import {
 } from '@mui/icons-material';
 import { formatDate } from '../../../utils/dateUtils';
 import './NotificationPanel.css';
+import CopyableEmail from '../../common/CopyableEmail/CopyableEmail.jsx';
+import { useConfirm } from '../../ui';
 
 const NotificationPanel = ({ notification, onClose, onMarkAsRead, onDelete, fetchNotificationDetails }) => {
+  const confirm = useConfirm();
   const [copySuccess, setCopySuccess] = useState(false);
   const [fullDetails, setFullDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -102,8 +105,8 @@ const NotificationPanel = ({ notification, onClose, onMarkAsRead, onDelete, fetc
     onMarkAsRead(notification.uuid);
   };
 
-  const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this notification?')) {
+  const handleDelete = async () => {
+    if (await confirm({ title: 'Delete notification', message: 'Are you sure you want to delete this notification?' })) {
       onDelete(notification.uuid);
       onClose();
     }
@@ -305,7 +308,7 @@ const NotificationPanel = ({ notification, onClose, onMarkAsRead, onDelete, fetc
                   </Typography>
                 )}
                 <Typography variant="body2" color="textSecondary">
-                  {displayNotification.recipient.email}
+                  <CopyableEmail email={displayNotification.recipient.email} />
                 </Typography>
                 <Typography variant="caption" color="textSecondary">
                   ID: {displayNotification.recipient.uuid}

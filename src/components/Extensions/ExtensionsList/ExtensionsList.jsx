@@ -75,9 +75,9 @@ const ExtensionsList = ({
     filters.environment_uuid || filters.created_at || filters.updated_at;
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'var(--mui-palette-background-paper)' }}>
       {/* Add New Device Button */}
-      <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
+      <Box sx={{ p: 2, borderBottom: '1px solid var(--mui-palette-divider)' }}>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -90,7 +90,7 @@ const ExtensionsList = ({
       </Box>
 
       {/* Filters Section */}
-      <Box sx={{ borderBottom: '1px solid #e0e0e0' }}>
+      <Box sx={{ borderBottom: '1px solid var(--mui-palette-divider)' }}>
         <Accordion
           expanded={filtersExpanded}
           onChange={() => setFiltersExpanded(!filtersExpanded)}

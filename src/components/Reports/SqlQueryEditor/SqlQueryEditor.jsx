@@ -117,7 +117,7 @@ const SqlQueryEditor = ({ onSave, onChange, initialStatement = '' }) => {
         value={query}
         onChange={(e) => updateQuery(e.target.value)}
         placeholder={DEFAULT_QUERY}
-        InputProps={{ sx: { fontFamily: 'Monaco, Menlo, Consolas, monospace', fontSize: 13, bgcolor: '#f8f9fa' } }}
+        InputProps={{ sx: { fontFamily: 'Monaco, Menlo, Consolas, monospace', fontSize: 13, bgcolor: 'var(--mui-palette-surface-muted)' } }}
       />
 
       {/* Actions */}

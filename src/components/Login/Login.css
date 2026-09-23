@@ -12,7 +12,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   min-height: 100vh;
-  font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
+  font-family: var(--font-family);
 }
 
 /* ───── LEFT: Hero panel ───── */
@@ -223,7 +223,7 @@
   transition: background 0.2s;
   height: auto;
   border: none;
-  font-family: 'Source Sans 3', sans-serif;
+  font-family: var(--font-family);
 }
 
 .login-input .MuiOutlinedInput-root:hover,
@@ -376,5 +376,97 @@
 
   .form-panel-logo {
     max-width: 150px;
+  }
+}
+
+/* ───── Portal (end-user) login: one centred card, no hero ───── */
+.login-page.login-page--portal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--accent-color) 12%, transparent), transparent 34%),
+    linear-gradient(145deg, #f8fafc 0%, var(--theme-bg-secondary, #eef2f6) 100%);
+}
+
+.login-page--portal .login-paper {
+  max-width: 420px;
+  padding: 36px 36px 28px;
+  border: 1px solid var(--theme-border, #e5e7eb);
+  background: var(--theme-bg-primary, #fff) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 24px 70px rgba(30, 37, 48, 0.12) !important;
+}
+
+.portal-login-brand {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+  margin-bottom: 24px;
+}
+
+.portal-login-logo {
+  display: block;
+  width: auto;
+  max-width: 190px;
+  max-height: 52px;
+  object-fit: contain;
+}
+
+.login-page--portal .form-title {
+  margin: 0 0 8px !important;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.login-page--portal .forgot-description {
+  margin-bottom: 18px !important;
+}
+
+/* Full-width buttons and 16px inputs: easy to tap, and iOS does not zoom. */
+.login-page--portal .form-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-page--portal .login-button,
+.login-page--portal .back-button,
+.login-page--portal .forgot-submit-button {
+  width: 100%;
+  min-height: 48px;
+}
+
+.login-page--portal .form-control input {
+  font-size: 16px;
+}
+
+.login-page--portal .forgot-password {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+}
+
+.portal-login-footer {
+  width: 100%;
+  margin-top: 28px !important;
+  color: var(--navy) !important;
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .login-page.login-page--portal {
+    align-items: flex-start;
+    padding: 32px 12px;
+  }
+
+  .login-page--portal .login-paper {
+    padding: 28px 20px;
   }
 }

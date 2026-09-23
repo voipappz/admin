@@ -104,7 +104,7 @@ const ReportsStrip = ({ category, title, height = 140, sx }) => {
         <Box sx={{ flexGrow: 1 }} />
         {/* WHEN — the period control, and the dates it actually resolved to */}
         {range && (
-          <Typography variant="caption" sx={{ color: '#6b7280', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
+          <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
             {formatRange(range.start, range.end)}
           </Typography>
         )}
@@ -119,18 +119,18 @@ const ReportsStrip = ({ category, title, height = 140, sx }) => {
         </ToggleButtonGroup>
         <Tooltip title="Refresh">
           <span>
-            <IconButton size="small" onClick={fetchReports} disabled={loading} sx={{ color: '#666', p: 0.25 }}>
+            <IconButton size="small" onClick={fetchReports} disabled={loading} sx={{ color: 'var(--mui-palette-text-secondary)', p: 0.25 }}>
               <RefreshIcon sx={{ fontSize: 16 }} />
             </IconButton>
           </span>
         </Tooltip>
         <Tooltip title="Open full reports">
-          <IconButton size="small" onClick={() => setDrawerOpen(true)} sx={{ color: '#666', p: 0.25 }}>
+          <IconButton size="small" onClick={() => setDrawerOpen(true)} sx={{ color: 'var(--mui-palette-text-secondary)', p: 0.25 }}>
             <OpenInFullIcon sx={{ fontSize: 15 }} />
           </IconButton>
         </Tooltip>
         <Tooltip title={collapsed ? 'Show chart' : 'Hide chart'}>
-          <IconButton size="small" onClick={toggleCollapsed} sx={{ color: '#666', p: 0.25 }}>
+          <IconButton size="small" onClick={toggleCollapsed} sx={{ color: 'var(--mui-palette-text-secondary)', p: 0.25 }}>
             {collapsed ? <ExpandMoreIcon sx={{ fontSize: 17 }} /> : <ExpandLessIcon sx={{ fontSize: 17 }} />}
           </IconButton>
         </Tooltip>
@@ -144,7 +144,7 @@ const ReportsStrip = ({ category, title, height = 140, sx }) => {
         ) : active ? (
           <ReportChart chart={active.chart} columns={active.columns} rows={active.rows} height={height} />
         ) : (
-          <Typography variant="caption" sx={{ color: '#999', display: 'block', textAlign: 'center', py: 2 }}>
+          <Typography variant="caption" sx={{ color: 'var(--mui-palette-text-secondary)', display: 'block', textAlign: 'center', py: 2 }}>
             No report data in this period.
           </Typography>
         )

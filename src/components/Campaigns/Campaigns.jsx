@@ -33,8 +33,8 @@ import {
   FormatListNumbered as NumbersIcon,
   EventNote as EventsIcon,
 } from '@mui/icons-material';
+import { ConfirmDialog } from '../ui';
 import { useCampaigns } from './Campaigns';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx';
 import LiveChartsPopout from '../Live/LiveChartsPopout.jsx';
@@ -51,36 +51,6 @@ import { getEnabledChipProps, getStatusChipProps, getTypeChipColor } from '../..
 import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';
 import './Campaigns.css';
-
-/**
- * Delete confirmation dialog
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, campaign, loading }) => (
-  <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-    <DialogTitle>Delete Campaign</DialogTitle>
-    <DialogContent>
-      <Typography>
-        Are you sure you want to delete campaign{' '}
-        <strong>{campaign?.name}</strong>?
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-        This action cannot be undone. All campaign numbers will also be removed.
-      </Typography>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onClose} disabled={loading}>Cancel</Button>
-      <Button
-        onClick={onConfirm}
-        variant="contained"
-        color="error"
-        disabled={loading}
-        startIcon={loading ? <CircularProgress size={20} /> : null}
-      >
-        Delete
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
 
 /**
  * Duplicate campaign dialog
@@ -141,7 +111,6 @@ const Campaigns = () => {
   const canWrite = can('campaigns', 'write');
   const { environments } = useCustomerEnvironment();
   const { registerScreen, unregisterScreen } = useGlobalSearch();
-  const goToLogs = useNavigateToLogs();
   const [numbersCampaign, setNumbersCampaign] = useState(null);
 
   const {
@@ -458,15 +427,6 @@ const Campaigns = () => {
                                   </IconButton>
                                 </Tooltip>
                               )}
-                              <Tooltip title="View Logs">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => goToLogs('campaign', campaign.uuid)}
-                                  disabled={loading}
-                                >
-                                  <EventsIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
                               {canWrite && (
                                 <Tooltip title="Delete">
                                   <IconButton
@@ -498,7 +458,7 @@ const Campaigns = () => {
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={handleRowsPerPageChange}
               rowsPerPageOptions={[10, 25, 50, 100]}
-              sx={{ borderTop: '1px solid #e0e0e0' }}
+              sx={{ borderTop: '1px solid var(--mui-palette-divider)' }}
             />
           </Box>
         </Paper>
@@ -515,12 +475,15 @@ const Campaigns = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteCampaign}
-        campaign={campaignToDelete}
         loading={loading}
+        title="Delete Campaign"
+        message={<Typography>Are you sure you want to delete campaign{' '}
+        <strong>{(campaignToDelete)?.name}</strong>?</Typography>}
+        description="This action cannot be undone. All campaign numbers will also be removed."
       />
 
       {/* Duplicate Dialog */}

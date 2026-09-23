@@ -31,6 +31,7 @@ import {
   EventNote as EventsIcon,
   AccountTree as RoutingIcon
 } from '@mui/icons-material';
+import { ConfirmDialog } from '../ui';
 import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router';
@@ -43,54 +44,17 @@ import { orEmpty, stripedTableRowSx } from '../shared/tableTheme.jsx';
 import DIDWizard, { useWizard } from './DIDWizard/DIDWizard.jsx';
 import ImportCSVDialog from '../common/ImportCSVDialog/ImportCSVDialog';
 import DuplicateDIDDialog from './DuplicateDIDDialog/DuplicateDIDDialog';
-import { didsApi } from '../../services/api/didsApi';
+import { didsApi } from '../../services/api/routesApi';
 import { providersApi } from '../../services/api/providersApi';
 import { voipResourcesApi } from '../../services/api/voipResourcesApi';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
 import { formatDate } from '../../utils/dateUtils';
 import { getEnabledChipProps, getTypeChipColor } from '../../utils/chipStyles';
 import useEnvironmentEdit from '../../hooks/useEnvironmentEdit';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
-import { useEventCounts } from '../../hooks/useEventCounts';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import EnvironmentDialog from '../Environments/EnvironmentDialog/EnvironmentDialog';
 import './DIDs.css';
 
-
-/**
- * DeleteConfirmDialog Component
- * Confirmation dialog for deleting DIDs
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, did, loading }) => {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Delete DID</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete DID{' '}
-          <strong>{did?.number}</strong>?
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          This action cannot be undone and will affect call routing.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          onClick={onConfirm}
-          variant="contained"
-          color="error"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
 
 /**
  * DIDs Component
@@ -104,10 +68,6 @@ const DeleteConfirmDialog = ({ open, onClose, onConfirm, did, loading }) => {
  */
 const DIDs = ({ portalMode = false }) => {
   const navigate = useNavigate();
-  const goToLogs = useNavigateToLogs();
-  // No logs affordance in the portal, so don't pay for the counts behind it —
-  // a falsy subject makes the hook a no-op (see useEventCounts).
-  const { counts: eventCounts } = useEventCounts(portalMode ? null : 'did');
   const { can } = usePermissions();
   // Portal users' ACLs carry no dids entry, so can('dids','write') is false for
   // all of them — the screen would render as a read-only table with no Add,
@@ -233,7 +193,7 @@ const DIDs = ({ portalMode = false }) => {
     // Provider options never load in the portal (no ACL), and a select with no
     // options degrades to a free-text box — a filter that can't be filled.
     ...(portalMode ? [] : [{ name: 'provider_uuid', label: 'Provider', type: 'select', data: (providers || []).map(p => ({ uuid: p.uuid, name: p.name })) }]),
-    { name: 'meta', label: 'Tag', type: 'tag', url: '/api/dids?action=meta_keys' },
+    { name: 'meta', label: 'Tag', type: 'tag', url: '/api/routes?action=meta_keys' },
   ], [bridgeTypes, environments, providers, portalMode]);
 
   useEffect(() => {
@@ -692,17 +652,6 @@ const DIDs = ({ portalMode = false }) => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            {!portalMode && (
-                              <Tooltip title="View Logs">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => goToLogs('did', did.uuid || did.id)}
-                                  disabled={loading}
-                                >
-                                  <EventsCountBadge count={eventCounts[did.uuid || did.id]} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
                             {canWrite && (
                               <Tooltip title="Delete">
                                 <IconButton
@@ -734,7 +683,7 @@ const DIDs = ({ portalMode = false }) => {
             rowsPerPage={rowsPerPage}
             onRowsPerPageChange={handleRowsPerPageChange}
             rowsPerPageOptions={[10, 25, 50, 100]}
-            sx={{ borderTop: '1px solid #e0e0e0' }}
+            sx={{ borderTop: '1px solid var(--mui-palette-divider)' }}
           />
         </Box>
       </Paper>
@@ -753,12 +702,15 @@ const DIDs = ({ portalMode = false }) => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteDID}
-        did={didToDelete}
         loading={loading}
+        title="Delete DID"
+        message={<Typography>Are you sure you want to delete DID{' '}
+          <strong>{(didToDelete)?.number}</strong>?</Typography>}
+        description="This action cannot be undone and will affect call routing."
       />
 
       {/* Duplicate DID Dialog */}

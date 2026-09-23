@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router';
+import { ConfirmDialog } from '../ui';
 import { useProviders } from './Providers';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -48,8 +49,6 @@ import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx
 import useCentralizedSearch from '../../hooks/useCentralizedSearch';
 import { orEmpty, stripedTableRowSx } from '../shared/tableTheme.jsx';
 import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
-import { useEventCounts } from '../../hooks/useEventCounts';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';
@@ -254,6 +253,7 @@ const ProviderDialog = ({ open, onClose, onSave, provider, loading, allTariffs, 
                   required
                   placeholder="sk-..."
                   helperText="Your API key for the selected service"
+                  autoComplete="new-password"
                   InputProps={{ sx: { fontFamily: 'monospace', fontSize: '0.85rem' } }}
                 />
                 <TextField
@@ -422,42 +422,6 @@ const ProviderDialog = ({ open, onClose, onSave, provider, loading, allTariffs, 
 };
 
 /**
- * DeleteConfirmDialog Component
- * Confirmation dialog for deleting providers
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, provider, loading }) => {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Delete Provider</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete provider{' '}
-          <strong>{provider?.name}</strong>?
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          This action cannot be undone and will affect all associated tariffs.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          onClick={onConfirm}
-          variant="contained"
-          color="error"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
-
-
-/**
  * Providers Component
  * Main component for providers management with sidebar list and wide table
  */
@@ -498,8 +462,6 @@ const Providers = () => {
     fetchAllTariffs
   } = useProviders();
 
-  const goToLogs = useNavigateToLogs();
-  const { counts: eventCounts } = useEventCounts('provider');
   const navigate = useNavigate();
   // Create goes through the wizard (same as Services); the quick dialog is for edit.
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -771,15 +733,6 @@ const Providers = () => {
                                   </IconButton>
                                 </Tooltip>
                               )}
-                              <Tooltip title="View Logs">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => goToLogs('provider', provider.uuid)}
-                                  disabled={loading}
-                                >
-                                  <EventsCountBadge count={eventCounts[provider.uuid]} />
-                                </IconButton>
-                              </Tooltip>
                             </Box>
                           </TableCell>
                         </TableRow>
@@ -799,7 +752,7 @@ const Providers = () => {
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={handleRowsPerPageChange}
               rowsPerPageOptions={[10, 25, 50, 100]}
-              sx={{ borderTop: '1px solid #e0e0e0' }}
+              sx={{ borderTop: '1px solid var(--mui-palette-divider)' }}
             />
           </Box>
         </Paper>
@@ -835,12 +788,15 @@ const Providers = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteProvider}
-        provider={providerToDelete}
         loading={dialogLoading}
+        title="Delete Provider"
+        message={<Typography>Are you sure you want to delete provider{' '}
+          <strong>{(providerToDelete)?.name}</strong>?</Typography>}
+        description="This action cannot be undone and will affect all associated tariffs."
       />
     </Box>
   );

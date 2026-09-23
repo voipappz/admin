@@ -1,7 +1,8 @@
 import { apiService } from '../apiService';
 
-// Syslogs API — queries InfluxDB-backed /api/syslogs endpoints
-const BASE = '/api/syslogs';
+// Syslog API — /api/logs reads the application's InfluxDB `syslog`
+// measurement (the former /api/syslogs path has no alias).
+const BASE = '/api/logs';
 
 /**
  * Build a URLSearchParams string from the common syslogs query shape.
@@ -19,6 +20,7 @@ const buildQuery = (params = {}) => {
   if (params.action)            qs.append('action', params.action);
   if (params.customer_uuid)     qs.append('customer_uuid', params.customer_uuid);
   if (params.inline)            qs.append('inline', params.inline);
+  if (params.subject_uuid)      qs.append('subject_uuid', params.subject_uuid);
   if (params.interval)          qs.append('interval', params.interval);
   if (params.group_by)          qs.append('group_by', params.group_by);
   return qs.toString();
@@ -39,6 +41,7 @@ export const syslogsApi = {
       action: params.action,
       customer_uuid: params.customer_uuid,
       inline: params.inline,
+      subject_uuid: params.subject_uuid,
     });
     return apiService.get(`${BASE}?${qs}`, {}, 'fetching syslogs', false, true);
   },
@@ -60,7 +63,7 @@ export const syslogsApi = {
   },
 
   /**
-   * Per-(appname, severity) counts over the window: [{ appname, severity, latest_value }].
+   * Per-(app, severity) counts over the window: [{ app, severity, latest_value }].
    * This is the aggregation the Monitoring cards and the App Breakdown table read.
    * `bucket` is accepted for call-site symmetry; the server aggregates the whole
    * window into one row per pair, so it does not affect the result.
@@ -81,6 +84,10 @@ export const syslogsApi = {
     enabled
       ? apiService.post(`${BASE}/monitoring`, {}, {}, 'enabling syslog monitoring', false, true)
       : apiService.delete(`${BASE}/monitoring`, {}, 'disabling syslog monitoring', false, true),
+
+  /** App error-rate breaches: [{ app, count, window, threshold, level }]. */
+  fetchAlerts: () =>
+    apiService.get(`${BASE}/alerts`, {}, 'fetching log alerts', false, true),
 
   fetchApps: () =>
     apiService.get(`${BASE}/apps`, {}, 'fetching syslog apps', false, true),

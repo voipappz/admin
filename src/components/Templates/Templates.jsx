@@ -10,7 +10,6 @@ import {
   Close as CloseIcon, EventNote as EventsIcon,
 } from '@mui/icons-material';
 import { useTemplates } from './Templates.js';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
@@ -20,13 +19,13 @@ import { stripedTableRowSx, orEmpty } from '../shared/tableTheme.jsx';
 import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx';
 import useCentralizedSearch from '../../hooks/useCentralizedSearch';
 import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
+import { ConfirmDialog } from '../ui';
 
 const Templates = () => {
   const { selectedCustomer } = useCustomerEnvironment();
   const { can } = usePermissions();
   const canWrite = can('templates', 'write');
   const { registerScreen, unregisterScreen } = useGlobalSearch();
-  const goToLogs = useNavigateToLogs();
 
   const {
     templates, loading, selectedTemplate,
@@ -217,11 +216,6 @@ const Templates = () => {
                                   <EditIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
-                              <Tooltip title="View Logs">
-                                <IconButton size="small" onClick={() => goToLogs('template', t.uuid)} disabled={loading}>
-                                  <EventsIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
                               <Tooltip title="Delete">
                                 <IconButton size="small" color="error" onClick={() => handleOpenDeleteDialog(t)} disabled={loading}>
                                   <DeleteIcon fontSize="small" />
@@ -242,7 +236,7 @@ const Templates = () => {
               onPageChange={handlePageChange} rowsPerPage={rowsPerPage}
               onRowsPerPageChange={handleRowsPerPageChange}
               rowsPerPageOptions={[10, 25, 50, 100]}
-              sx={{ borderTop: '1px solid #e0e0e0' }}
+              sx={{ borderTop: '1px solid var(--mui-palette-divider)' }}
             />
           </Box>
         </Paper>
@@ -260,24 +254,14 @@ const Templates = () => {
       />
 
       {/* Delete Confirmation */}
-      <Dialog open={deleteDialogOpen} onClose={handleCloseDeleteDialog} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete Template</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete <strong>{templateToDelete?.name}</strong>?
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteDialog} disabled={loading}>Cancel</Button>
-          <Button onClick={handleDeleteTemplate} color="error" variant="contained" disabled={loading}
-            startIcon={loading ? <CircularProgress size={18} /> : <DeleteIcon />}>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onClose={handleCloseDeleteDialog}
+        onConfirm={handleDeleteTemplate}
+        loading={loading}
+        title="Delete Template"
+        entityName={templateToDelete?.name}
+      />
     </Box>
   );
 };

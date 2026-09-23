@@ -38,7 +38,8 @@ import {
   Dns as DnsIcon,
 } from '@mui/icons-material';
 
-import { didsApi } from '../../services/api/didsApi';
+import { ConfirmDialog } from '../ui';
+import { didsApi } from '../../services/api/routesApi';
 import { providersApi } from '../../services/api/providersApi';
 import { voipResourcesApi } from '../../services/api/voipResourcesApi';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
@@ -268,38 +269,6 @@ const BridgeEditor = ({ node, onClose, onSave, bridgeTypes, bridgeResources, did
       );
   }
 };
-
-/**
- * DeleteConfirmDialog — confirmation dialog for deleting DIDs or Providers
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, item, itemType, loading }) => (
-  <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-    <DialogTitle>Delete {itemType === 'provider' ? 'Provider' : 'DID'}</DialogTitle>
-    <DialogContent>
-      <Typography>
-        Are you sure you want to delete {itemType === 'provider' ? 'provider' : 'DID'}{' '}
-        <strong>{itemType === 'provider' ? item?.name : item?.number}</strong>?
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-        {itemType === 'provider'
-          ? 'This will remove the provider and may affect DIDs using it.'
-          : 'This action cannot be undone and will affect call routing.'}
-      </Typography>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onClose} disabled={loading}>Cancel</Button>
-      <Button
-        onClick={onConfirm}
-        variant="contained"
-        color="error"
-        disabled={loading}
-        startIcon={loading ? <CircularProgress size={20} /> : null}
-      >
-        Delete
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
 
 /**
  * PBXRoutingView — Self-contained Twilio Studio-style routing builder.
@@ -1165,13 +1134,17 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialog.open}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleConfirmDelete}
-        item={deleteDialog.item}
-        itemType={deleteDialog.type}
         loading={deleteLoading}
+        title={<>Delete {(deleteDialog.type) === 'provider' ? 'Provider' : 'DID'}</>}
+        message={<Typography>Are you sure you want to delete {(deleteDialog.type) === 'provider' ? 'provider' : 'DID'}{' '}
+        <strong>{(deleteDialog.type) === 'provider' ? (deleteDialog.item)?.name : (deleteDialog.item)?.number}</strong>?</Typography>}
+        description={<>{(deleteDialog.type) === 'provider'
+          ? 'This will remove the provider and may affect DIDs using it.'
+          : 'This action cannot be undone and will affect call routing.'}</>}
       />
     </Box>
   );

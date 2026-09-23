@@ -37,9 +37,8 @@ import {
   AccountBalanceWallet as AccountBalanceWalletIcon,
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { ConfirmDialog } from '../ui';
 import { useSubscriptions } from './Subscriptions.js';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
-import { useEventCounts } from '../../hooks/useEventCounts';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import SubscriptionDialog from './SubscriptionDialog/SubscriptionDialog';
@@ -59,41 +58,6 @@ import { getEnabledChipProps, getStatusChipProps } from '../../utils/chipStyles'
 import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';
 import './Subscriptions.css';
-
-/**
- * DeleteConfirmDialog Component
- * Confirmation dialog for deleting subscriptions
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, subscription, loading }) => {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Delete Subscription</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete subscription{' '}
-          <strong>{subscription?.name}</strong>?
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          This action cannot be undone and will affect billing.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          onClick={onConfirm}
-          variant="contained"
-          color="error"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
 
 /**
  * ActionConfirmDialog Component
@@ -242,10 +206,8 @@ const Subscriptions = () => {
     handleDuplicateSubscription,
   } = useSubscriptions();
 
-  const goToLogs = useNavigateToLogs();
 
   // Per-row "N events" badge — one counts call for the whole list.
-  const { counts: eventCounts } = useEventCounts('subscription');
 
   // Menu state for more actions
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
@@ -798,22 +760,6 @@ const Subscriptions = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title={`View Logs${eventCounts[subscription.uuid] ? ` (${eventCounts[subscription.uuid]})` : ''}`}>
-                              <IconButton
-                                size="small"
-                                onClick={() => goToLogs('subscription', subscription.uuid)}
-                                disabled={loading}
-                              >
-                                <Badge
-                                  badgeContent={eventCounts[subscription.uuid] || 0}
-                                  color="primary"
-                                  max={999}
-                                  sx={{ '& .MuiBadge-badge': { fontSize: '0.55rem', height: 14, minWidth: 14 } }}
-                                >
-                                  <EventsIcon fontSize="small" />
-                                </Badge>
-                              </IconButton>
-                            </Tooltip>
                             <Tooltip title="More actions">
                               <IconButton
                                 size="small"
@@ -842,7 +788,7 @@ const Subscriptions = () => {
             rowsPerPage={rowsPerPage}
             onRowsPerPageChange={handleRowsPerPageChange}
             rowsPerPageOptions={[10, 25, 50, 100]}
-            sx={{ borderTop: '1px solid #e0e0e0', flexShrink: 0 }}
+            sx={{ borderTop: '1px solid var(--mui-palette-divider)', flexShrink: 0 }}
           />
       </Paper>
 
@@ -876,15 +822,6 @@ const Subscriptions = () => {
             Duplicate Subscription
           </MenuItem>
         )}
-        <MenuItem onClick={() => {
-          if (menuSubscription?.uuid) {
-            goToLogs('subscription', menuSubscription.uuid);
-          }
-          handleMenuClose();
-        }}>
-          <EventsIcon fontSize="small" sx={{ mr: 1 }} />
-          View Logs
-        </MenuItem>
       </Menu>
 
       {/* Create/Edit Dialog */}
@@ -904,12 +841,15 @@ const Subscriptions = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteSubscription}
-        subscription={subscriptionToDelete}
         loading={dialogLoading}
+        title="Delete Subscription"
+        message={<Typography>Are you sure you want to delete subscription{' '}
+          <strong>{(subscriptionToDelete)?.name}</strong>?</Typography>}
+        description="This action cannot be undone and will affect billing."
       />
 
       {/* Action Confirmation Dialog */}

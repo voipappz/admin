@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link as RouterLink } from 'react-router';
 import {
   Box,
   TextField,
@@ -9,15 +8,18 @@ import {
   FormControl,
   FormHelperText,
   CircularProgress,
-  Alert
+  Alert,
+  IconButton,
+  InputAdornment
 } from '@mui/material';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import { useUserLogin } from './UserLogin';
 import { loadCustomerPortalData } from '../../services/customerPortalService';
 import './Login.css';
 
-// The `/` entry point — end-user (customer) login. Same visual template as
-// the admin Login (Login.jsx) so the two surfaces read as one product; the
-// only difference is which hook (and which backend endpoints) it's wired to.
+// The `/` entry point — a compact, tenant-branded customer login that remains
+// easy to use on a phone and keeps admin credentials visually distinct.
 const UserLogin = () => {
   const {
     email,
@@ -51,6 +53,7 @@ const UserLogin = () => {
     handleForgotOtpSubmit,
     handleForgotResetSubmit
   } = useUserLogin();
+  const [showPassword, setShowPassword] = useState(false);
 
   // Per-tenant branding (logo, brand colour) for this unauthenticated screen —
   // resolved server-side from the request's origin host. Always fetched
@@ -63,11 +66,9 @@ const UserLogin = () => {
     return () => { alive = false; };
   }, []);
 
-  // No logo by default: the portal login shows one only when the tenant has
-  // its own logo_url. (The admin login at /admin keeps the VoipAppz logo.)
-  const brandLogo = portalData?.logo_url || null;
-  const brandName = portalData?.logo_title || 'VoipAppz';
   const brandColor = portalData?.logo_color;
+  const brandLogo = portalData?.logo_url || '/images/VA_logo_blue.png';
+  const brandName = portalData?.logo_title || 'VoipAppz';
 
   // Favicon/title only while THIS screen is mounted — the admin console (and
   // its own login at /admin) must keep its own tab identity, not inherit a
@@ -98,8 +99,11 @@ const UserLogin = () => {
 
   const renderLoginForm = () => (
     <>
-      <Typography component="h3" className="form-title">
-        Sign In
+      <Typography component="h1" className="form-title">
+        Welcome back
+      </Typography>
+      <Typography variant="body2" className="forgot-description">
+        Sign in to view your calls, use your phone, and ask the assistant.
       </Typography>
 
       {expectsOtp && (
@@ -123,13 +127,14 @@ const UserLogin = () => {
           with the other). This separates them as far as a single origin
           allows; genuinely separate credentials would need the portal on
           its own subdomain. */}
-      <Box component="form" id="portal-login-form" name="portal-login" onSubmit={handleSubmit} className="login-form" data-testid="user-login-form">
+      <Box component="form" id="portal-login-form" name="portal-login" action="/portal-login" method="post" onSubmit={handleSubmit} className="login-form" data-testid="user-login-form">
         <FormControl fullWidth className="form-group">
           <TextField
             fullWidth
             id="user-email"
             name="portal_email"
-            placeholder="Email or extension"
+            label="Email or extension"
+            placeholder="you@example.com or 2300"
             value={email}
             onChange={handleEmailChange}
             onBlur={() => handleBlur('email')}
@@ -144,7 +149,7 @@ const UserLogin = () => {
             // #find_user!). type="email" made the browser reject "2300"
             // before the form could ever be submitted.
             type="text"
-            inputMode="email"
+            inputMode="text"
             autoComplete="section-portal username"
           />
           {touched.email && email === '' && (
@@ -157,8 +162,9 @@ const UserLogin = () => {
             fullWidth
             id="user-password"
             name="portal_password"
-            placeholder="Password"
-            type="password"
+            label="Password"
+            placeholder="Your password"
+            type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={handlePasswordChange}
             onBlur={() => handleBlur('password')}
@@ -168,6 +174,19 @@ const UserLogin = () => {
             required
             error={touched.password && password === ''}
             autoComplete="section-portal current-password"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    edge="end"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                  >
+                    {showPassword ? <VisibilityOffOutlinedIcon /> : <VisibilityOutlinedIcon />}
+                  </IconButton>
+                </InputAdornment>
+              )
+            }}
           />
           {touched.password && password === '' && (
             <FormHelperText error className="help-block">Password is required.</FormHelperText>
@@ -183,36 +202,20 @@ const UserLogin = () => {
             disabled={loading || !email || !password}
             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Signing in...' : 'Sign in'}
           </Button>
 
           <Typography
             variant="body2"
-            component="a"
-            href="javascript:;"
+            component="button"
+            type="button"
             className="forgot-password"
             onClick={handleForgotPasswordClick}
             data-testid="user-forgot-password-link"
           >
-            Forgot Password?
+            Forgot password?
           </Typography>
 
-          {/* The other door. Stateless on purpose: nothing is remembered about
-              who used this browser last, so it reads identically on every
-              tenant and every machine. After a failed sign-in the wording
-              turns into a fail-forward — an admin who tried the wrong form is
-              one click from the right one, with no automatic retry, so the
-              lockout counter is never charged twice. */}
-          <Typography
-            variant="body2"
-            component={RouterLink}
-            to="/admin"
-            className="forgot-password"
-            data-testid="user-admin-login-link"
-            sx={{ display: 'block', mt: 1, opacity: error ? 1 : 0.7 }}
-          >
-            {error ? 'Not a user account? Sign in as administrator \u2192' : 'Administrator sign-in \u2192'}
-          </Typography>
         </Box>
       </Box>
     </>
@@ -240,6 +243,7 @@ const UserLogin = () => {
             fullWidth
             id="user-otp-code"
             name="otp-code"
+            label="Verification code"
             placeholder="6-digit code"
             value={otpCode}
             onChange={handleOtpCodeChange}
@@ -308,7 +312,8 @@ const UserLogin = () => {
                 fullWidth
                 id="user-forgot-email"
                 name="forgot-email"
-                placeholder="Email"
+                label="Email"
+                placeholder="you@example.com"
                 value={forgotEmail}
                 onChange={handleForgotEmailChange}
                 onBlur={() => handleBlur('forgotEmail')}
@@ -375,6 +380,7 @@ const UserLogin = () => {
                 fullWidth
                 id="user-forgot-otp-code"
                 name="forgot-otp-code"
+                label="Verification code"
                 placeholder="6-digit code"
                 value={forgotOtpCode}
                 onChange={handleForgotOtpChange}
@@ -446,7 +452,8 @@ const UserLogin = () => {
               fullWidth
               id="user-new-password"
               name="new-password"
-              placeholder="New Password"
+              label="New password"
+              placeholder="At least 8 characters"
               type="password"
               value={newPassword}
               onChange={handleNewPasswordChange}
@@ -464,7 +471,8 @@ const UserLogin = () => {
               fullWidth
               id="user-confirm-password"
               name="confirm-password"
-              placeholder="Confirm Password"
+              label="Confirm password"
+              placeholder="Repeat the new password"
               type="password"
               value={confirmPassword}
               onChange={handleConfirmPasswordChange}
@@ -508,36 +516,21 @@ const UserLogin = () => {
   };
 
   return (
-    <Box className="login-page" style={brandColor ? { '--accent-color': brandColor } : undefined}>
-      <Box className="login-hero">
-        {brandLogo && <img src={brandLogo} alt={brandName} className="hero-logo" />}
-        <p className="hero-welcome" data-testid="user-brand-name">Welcome to {brandName}</p>
-        <p className="hero-tagline">VoIP Application Platform</p>
-
-        <div className="hero-blocks">
-          <div className="block block--orange-lg" />
-          <div className="block block--teal" />
-          <div className="block block--white-sm" />
-          <div className="block block--orange-sm" />
-          <div className="block block--navy" />
-          <div className="block block--white-lg" />
-          <div className="block block--teal-sm" />
-        </div>
-
-        <span className="hero-footer">&copy; {new Date().getFullYear()} {brandName}</span>
-      </Box>
-
-      <Box className="login-form-panel">
-        {brandLogo && <img src={brandLogo} alt={brandName} className="form-panel-logo" />}
-        <Paper elevation={0} className="login-paper">
-          {showForgetForm
-            ? renderForgotForm()
-            : otpStep
-              ? renderOtpForm()
-              : renderLoginForm()
-          }
-        </Paper>
-      </Box>
+    <Box className="login-page login-page--portal" style={brandColor ? { '--accent-color': brandColor } : undefined}>
+      <Paper elevation={0} className="login-paper">
+        <Box className="portal-login-brand">
+          <img src={brandLogo} alt={brandName} className="portal-login-logo" />
+        </Box>
+        {showForgetForm
+          ? renderForgotForm()
+          : otpStep
+            ? renderOtpForm()
+            : renderLoginForm()
+        }
+        <Typography variant="caption" className="portal-login-footer">
+          Your workspace is protected with secure sign-in.
+        </Typography>
+      </Paper>
     </Box>
   );
 };

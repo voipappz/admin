@@ -28,6 +28,7 @@ import {
   EventNote as EventsIcon,
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { ConfirmDialog } from '../ui';
 import { useEnvironments } from './Environments';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
@@ -39,45 +40,8 @@ import LiveChartsPopout from '../Live/LiveChartsPopout.jsx';
 import { EnvironmentChartsPanel } from '../Live/panels/EntityChartsPanels.jsx';
 import useCentralizedSearch from '../../hooks/useCentralizedSearch';
 import { stripedTableRowSx } from '../shared/tableTheme.jsx';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
 import './Environments.css';
 
-
-/**
- * DeleteConfirmDialog Component
- * Confirmation dialog for deleting environments
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, environment, loading }) => {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth data-testid="delete-confirmation-dialog">
-      <DialogTitle>Delete Application</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete environment{' '}
-          <strong>{environment?.name}</strong>?
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          This action cannot be undone and will affect all resources in this environment.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          onClick={onConfirm}
-          variant="contained"
-          color="error"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-          data-testid="confirm-delete-button"
-        >
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
 
 /**
  * Environments Component
@@ -87,7 +51,6 @@ const Environments = () => {
   const { can } = usePermissions();
   const canWrite = can('environments', 'write');
   const { registerScreen, unregisterScreen } = useGlobalSearch();
-  const goToLogs = useNavigateToLogs();
 
   const {
     environments,
@@ -201,7 +164,7 @@ const Environments = () => {
         height: '100%',
         display: 'flex',
         overflow: 'hidden',
-        backgroundColor: '#f5f5f5'
+        backgroundColor: 'var(--mui-palette-surface-muted)'
       }}
     >
       {/* Application live charts (relocated from the removed Home screen) */}
@@ -349,15 +312,6 @@ const Environments = () => {
                                   </IconButton>
                                 </Tooltip>
                               )}
-                              <Tooltip title="View Logs">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => goToLogs('environment', env.uuid || env.id)}
-                                  disabled={loading}
-                                >
-                                  <EventsIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
                               {canWrite && (
                                 <Tooltip title="Delete application">
                                   <IconButton
@@ -390,7 +344,7 @@ const Environments = () => {
             rowsPerPage={rowsPerPage}
             onRowsPerPageChange={handleRowsPerPageChange}
             rowsPerPageOptions={[10, 25, 50, 100]}
-            sx={{ borderTop: '1px solid #e0e0e0' }}
+            sx={{ borderTop: '1px solid var(--mui-palette-divider)' }}
           />
         </Box>
       </Paper>
@@ -407,12 +361,16 @@ const Environments = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteEnvironment}
-        environment={environmentToDelete}
         loading={loading}
+        title="Delete Application"
+        message={<Typography>Are you sure you want to delete environment{' '}
+          <strong>{(environmentToDelete)?.name}</strong>?</Typography>}
+        description="This action cannot be undone and will affect all resources in this environment."
+        data-testid="delete-confirmation-dialog"
       />
     </Box>
   );

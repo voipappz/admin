@@ -13,7 +13,7 @@ import {
   Chip
 } from '@mui/material';
 import { ContentCopy as DuplicateIcon, Phone as PhoneIcon, CheckCircle as ValidIcon, Error as ErrorIcon } from '@mui/icons-material';
-import { didsApi } from '../../../services/api/didsApi';
+import { didsApi } from '../../../services/api/routesApi';
 
 /**
  * DuplicateDIDDialog Component

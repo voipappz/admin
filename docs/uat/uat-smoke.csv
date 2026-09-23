@@ -1,0 +1,61 @@
+"Block","ID","What we are testing","Before you start","What to do","What you should see","Priority","Tester","Date","Result","Notes"
+"SIGN IN  (`/login`)","T-01","Sign in with email and password","You have an account and its password.","1. Open the portal.
+2. Enter your email and password.
+3. Press Sign in.","The password step is accepted and the screen asks for a code.","CRITICAL","","","Not Run",""
+"SIGN IN  (`/login`)","T-02","The code arrives and signs you in","You are on the code step from T-01.","1. Read the code that was sent to you.
+2. Enter it.
+3. Press Verify.","You land on the dashboard, signed in, with your name shown.","CRITICAL","","","Not Run",""
+"SIGN IN  (`/login`)","T-08","Sign out","You are signed in.","1. Press Sign out.
+2. Press the browser Back button.","You are returned to the sign-in screen and Back does not get you in.","CRITICAL","","","Not Run",""
+"ACCOUNTS  (`/accounts`)","T-11","Permissions decide the menu","The account from T-10, with only Calls allowed.","1. Edit its permissions to Calls only.
+2. Sign in as that account.","Only the screens it is allowed appear; the rest are not reachable, including by typing the address.","CRITICAL","","","Not Run",""
+"ACCOUNTS  (`/accounts`)","T-17","One customer cannot see another","needs: a second customer on the same system.","1. Sign in as an account of customer A.
+2. Open the accounts list.","Only customer A's accounts are listed. Nothing of customer B appears anywhere.","CRITICAL","","","Not Run",""
+"APPLICATIONS  (`/environments`)","T-23","Create an application","You have full access.","1. Create an application with a name and a domain.
+2. Save.","It appears in the list and can be picked in the environment selector.","CRITICAL","","","Not Run",""
+"USERS  (`/users`)","T-28","Create a user","An application exists.","1. Press Create User.
+2. Fill in name, email and extension number.
+3. Save.
+4. Open Devices.","The user is listed AND a device for them appears on Devices.","CRITICAL","","","Not Run",""
+"USERS  (`/users`)","T-29","The new user's phone can register","The user from T-28. needs: a softphone.","1. Configure the softphone with that extension and its password.
+2. Register it.
+3. Open Devices.","The phone registers and the device shows as online.","CRITICAL","","","Not Run","A device that exists but was never sent to its node looks fine here and refuses every registration — this row is what catches that."
+"USERS  (`/users`)","T-30","The user can sign in to the portal","The user from T-28.","1. Sign in at the user portal with their email and password.","They reach their own screens (My calls, Phone) and see only their own calls.","CRITICAL","","","Not Run",""
+"DEVICES  (`/extensions`)","T-34","Create a device","An application exists.","1. Press Add Device.
+2. Fill in Name, Device Number and SIP Password.
+3. Save.","It appears in the list straight away.","CRITICAL","","","Not Run",""
+"DEVICES  (`/extensions`)","T-35","The device registers","The device from T-34. needs: a softphone.","1. Point the softphone at the platform with that number and password.
+2. Register.
+3. Reload the list.","The device shows as registered / online.","CRITICAL","","","Not Run",""
+"DEVICES  (`/extensions`)","T-36","Call between two devices","Two registered devices. needs: two softphones.","1. From device A, dial device B's number.","B rings, the call connects, both sides have audio, and hanging up ends it on both.","CRITICAL","","","Not Run",""
+"ROUTING AND NUMBERS  (`/routing`)","T-43","Add a number","An application exists.","1. Press Add DID.
+2. Enter the number and save.","It is listed against that application.","CRITICAL","","","Not Run",""
+"ROUTING AND NUMBERS  (`/routing`)","T-44","A number rings a device","The number from T-43 and a registered device. needs: a way to dial the number.","1. Point the number at that device.
+2. Call the number from outside.","The device rings, the call connects with audio both ways.","CRITICAL","","","Not Run",""
+"PROVIDERS  (`/providers`)","T-61","Outbound call through the provider","The provider from T-60, a registered device. needs: a number you can call.","1. Point outbound calls at the provider.
+2. From the device, dial an outside number.","The far end rings, the call connects with audio, and it appears in Calls as outgoing.","CRITICAL","","","Not Run",""
+"PROVIDERS  (`/providers`)","T-62","Inbound from the provider","A number delivered by that provider.","1. Call that number from outside.","The call arrives and follows the routing set for the number.","CRITICAL","","","Not Run",""
+"NODES  (`/nodes`)","T-65","Which nodes are connected","You are signed in as root.","1. Open Nodes.","Every node is listed with an up-to-date connected state, and the ones that are actually running show as connected.","CRITICAL","","","Not Run",""
+"CALLS  (`/calls`, `/calls-log`)","T-73","The finished call is in the log","The call from T-71, hung up.","1. Open the call log.","The call is there with the right numbers, direction, start time and duration.","CRITICAL","","","Not Run",""
+"CALLS  (`/calls`, `/calls-log`)","T-79","An agent sees only their own calls","A user with the portal.","1. Sign in as the user.
+2. Open My calls.","They see their own calls, and none of anyone else's.","CRITICAL","","","Not Run",""
+"SERVICES  (`/services`)","T-86","The webhook is delivered","The service from T-85. **Wait one minute after saving.**","1. Send it a test event with delivery turned on.
+2. Look at your URL.
+3. Open the service.","Your URL received the request, and the service's sent counter went up.","CRITICAL","","","Not Run","The screen reports that the event was *sent*, not that your endpoint accepted it — check your own endpoint and the counter. Changes take up to a minute to take effect; judging sooner makes a correct fix look broken."
+"SUBSCRIPTIONS, TARIFFS AND BILLING","T-95","Calls use the balance","A subscription with a small balance. needs: a chargeable call.","1. Note the balance.
+2. Make a chargeable call.
+3. Reload.","The balance has gone down and the call is in Transactions with a cost.","CRITICAL","","","Not Run",""
+"DASHBOARD AND LIVE  (`/`, `/live`)","T-110","Dashboard figures","Some calls today.","1. Open the dashboard.
+2. Compare with the call log for the same period.","The totals agree with the call log.","CRITICAL","","","Not Run",""
+"DASHBOARD AND LIVE  (`/`, `/live`)","T-111","Live updates while a call runs","A registered device.","1. Open the live screen.
+2. Make a call and hang up.","The call appears while it runs and the counts go back down after it ends, without reloading.","CRITICAL","","","Not Run",""
+"MONITORING, HEALTH, LOGS AND EVENTS","T-114","System health","You are signed in.","1. Open the health screen.","Every check is listed and the essential ones are green.","CRITICAL","","","Not Run",""
+"MONITORING, HEALTH, LOGS AND EVENTS","T-124","One customer's logs only","needs: a second customer.","1. Sign in as customer A.
+2. Search Logs for something of customer B's.","Nothing of customer B's is returned.","CRITICAL","","","Not Run",""
+"THE WHOLE WAY THROUGH — run this last","T-130","A new customer, end to end","You are signed in with full access. needs: two softphones and a number.","1. Create an application.
+2. Create two users on it.
+3. Register both softphones.
+4. Add a number and point it at one of them.
+5. Call between the two devices.
+6. Call the number from outside.
+7. Open the call log, the dashboard and Transactions.","Every step works without a developer touching anything, and the calls you made are the calls the log, the dashboard and the charges show.","CRITICAL","","","Not Run","If this row passes, the release is usable. If it fails, the release is not, whatever else passed."

@@ -24,7 +24,10 @@ const TextSearchFilter = ({
   onChange,
   placeholder = `Search by ${label?.toLowerCase() || field}...`,
   fullWidth = true,
-  sx = {}
+  sx = {},
+  inputRef,
+  inputProps,
+  endAdornment
 }) => {
   const handleChange = (event) => {
     onChange(field, event.target.value);
@@ -34,12 +37,15 @@ const TextSearchFilter = ({
     <TextField
       label={label}
       value={value}
+      inputRef={inputRef}
+      inputProps={inputProps}
       onChange={handleChange}
       placeholder={placeholder}
       fullWidth={fullWidth}
       size="small"
       variant="outlined"
       InputProps={{
+        endAdornment,
         startAdornment: (
           <InputAdornment position="start">
             <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />

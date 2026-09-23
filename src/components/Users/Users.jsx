@@ -31,10 +31,9 @@ import {
   Add as AddIcon
 } from '@mui/icons-material';
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { ConfirmDialog } from '../ui';
 import { useUsers } from './Users';
 import { usersApi } from '../../services/api/usersApi';
-import useNavigateToLogs from '../../hooks/useNavigateToLogs';
-import { useEventCounts } from '../../hooks/useEventCounts';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import { useNotification } from '../../context/NotificationContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -57,42 +56,7 @@ import { orEmpty, stripedTableRowSx } from '../shared/tableTheme.jsx';
 import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';
 import './Users.css';
-
-/**
- * DeleteConfirmDialog Component
- * Confirmation dialog for deleting users
- */
-const DeleteConfirmDialog = ({ open, onClose, onConfirm, user, loading }) => {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Delete User</DialogTitle>
-      <DialogContent>
-        <Typography>
-          Are you sure you want to delete user{' '}
-          <strong>{user?.name}</strong>?
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          This action cannot be undone and will remove all user data.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          data-testid="confirm-delete-button"
-          onClick={onConfirm}
-          variant="contained"
-          color="error"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
+import CopyableEmail from '../common/CopyableEmail/CopyableEmail.jsx';
 
 /**
  * Users Component
@@ -144,8 +108,6 @@ const Users = () => {
     fetchUsers,
   } = useUsers();
 
-  const goToLogs = useNavigateToLogs();
-  const { counts: eventCounts } = useEventCounts('user');
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [liveDrawerOpen, setLiveDrawerOpen] = useState(false);
   // Live agent status for the chip strip (real-time; snapshot + refreshable)
@@ -442,7 +404,7 @@ const Users = () => {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {orEmpty(user.email)}
+                            <CopyableEmail email={user.email} fallback={orEmpty(user.email)} />
                           </Typography>
                         </TableCell>
                         <TableCell>
@@ -510,15 +472,6 @@ const Users = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title="View Logs">
-                              <IconButton
-                                size="small"
-                                onClick={() => goToLogs('user', user.uuid)}
-                                disabled={loading}
-                              >
-                                <EventsCountBadge count={eventCounts[user.uuid]} />
-                              </IconButton>
-                            </Tooltip>
                             {canWrite && (
                               <Tooltip title="Delete user">
                                 <IconButton
@@ -551,7 +504,7 @@ const Users = () => {
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={handleRowsPerPageChange}
               rowsPerPageOptions={[10, 25, 50, 100]}
-              sx={{ borderTop: '1px solid #e0e0e0' }}
+              sx={{ borderTop: '1px solid var(--mui-palette-divider)' }}
             />
           </Box>
         </Paper>
@@ -573,12 +526,15 @@ const Users = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteUser}
-        user={userToDelete}
         loading={dialogLoading}
+        title="Delete User"
+        message={<Typography>Are you sure you want to delete user{' '}
+          <strong>{(userToDelete)?.name}</strong>?</Typography>}
+        description="This action cannot be undone and will remove all user data."
       />
 
       {/* Duplicate User Dialog */}

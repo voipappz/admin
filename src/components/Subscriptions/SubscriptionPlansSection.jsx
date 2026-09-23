@@ -25,7 +25,7 @@ import {
 import { usePlans } from '../../hooks/usePlans';
 import { formatDate } from '../../utils/dateUtils';
 import PlanDialog from '../Plans/PlanDialog'; // Updated path
-import DeleteConfirmDialog from '../Plans/DeleteConfirmDialog'; // Updated path
+import { ConfirmDialog } from '../ui';
 
 /**
  * SubscriptionPlansSection Component
@@ -90,7 +90,7 @@ const SubscriptionPlansSection = ({ subscriptionId }) => { // Accept subscriptio
       {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
 
       {/* Plans Table */}
-      <TableContainer component={Paper} sx={{ boxShadow: 'none', border: '1px solid #e0e0e0' }}> {/* Added subtle border */}
+      <TableContainer component={Paper} sx={{ boxShadow: 'none', border: '1px solid var(--mui-palette-divider)' }}> {/* Added subtle border */}
         <Table size="small"> {/* Made table smaller */}
           <TableHead>
             <TableRow>
@@ -186,12 +186,13 @@ const SubscriptionPlansSection = ({ subscriptionId }) => { // Accept subscriptio
 
       {/* Delete Confirmation Dialog */}
       {deleteDialogOpen && (
-        <DeleteConfirmDialog
+        <ConfirmDialog
           open={deleteDialogOpen}
           onClose={handleCloseDeleteDialog}
           onConfirm={handleDeletePlan}
-          plan={selectedPlan}
           loading={loading}
+          title="Delete Plan"
+          message={<Typography>Are you sure you want to delete the plan: <strong>{selectedPlan?.name}</strong>?</Typography>}
         />
       )}
     </Box>

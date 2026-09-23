@@ -53,7 +53,7 @@ export const didsApi = {
     }
 
     const queryString = queryParts.join('&');
-    const url = `/api/dids${queryString ? `?${queryString}` : ''}`;
+    const url = `/api/routes${queryString ? `?${queryString}` : ''}`;
     console.log('DID API URL:', url);
     const response = await apiService.get(url, {}, 'fetching DIDs', false);
     // Normalize bridge types from legacy API
@@ -71,7 +71,7 @@ export const didsApi = {
    * @returns {Promise<Object>} - DID object
    */
   getDID: async (didId) => {
-    const url = `/api/dids/${didId}`;
+    const url = `/api/routes/${didId}`;
     const response = await apiService.get(url, {}, `fetching DID ${didId}`, false);
     return normalizeDID(response);
   },
@@ -82,7 +82,7 @@ export const didsApi = {
    * @returns {Promise<Object>} - Created DID object
    */
   createDID: async (didData) => {
-    const url = `/api/dids`;
+    const url = `/api/routes`;
     const headers = {
       'Content-Type': 'application/x-www-form-urlencoded'
     };
@@ -100,7 +100,7 @@ export const didsApi = {
    * @returns {Promise<Object>} - Updated DID object
    */
   updateDID: async (didId, didData) => {
-    const url = `/api/dids/${didId}`;
+    const url = `/api/routes/${didId}`;
     const headers = {
       'Content-Type': 'application/x-www-form-urlencoded'
     };
@@ -117,7 +117,7 @@ export const didsApi = {
    * @returns {Promise<Object>} - Deletion confirmation
    */
   deleteDID: async (didId) => {
-    const url = `/api/dids/${didId}`;
+    const url = `/api/routes/${didId}`;
     return apiService.delete(url, {}, `deleting DID ${didId}`, true);
   },
 
@@ -142,7 +142,7 @@ export const didsApi = {
         }
       }
       const queryString = queryParts.join('&');
-      const url = `/api/dids?${queryString}`;
+      const url = `/api/routes?${queryString}`;
       const response = await apiService.get(url, {}, 'checking DID number', false);
 
       // Check if any DIDs were returned with this exact number
@@ -163,7 +163,7 @@ export const didsApi = {
    * @returns {Promise<Object>} - Created DID object
    */
   duplicateDID: async (didId, newNumber, newName = null) => {
-    const url = `/api/dids`;
+    const url = `/api/routes`;
     const headers = {
       'Content-Type': 'application/x-www-form-urlencoded'
     };
@@ -192,7 +192,7 @@ export const didsApi = {
    * @returns {Promise<Array>} - Array of DID type strings
    */
   getTypes: async () => {
-    const url = `/api/dids?action=types`;
+    const url = `/api/routes?action=types`;
     return apiService.get(url, {}, 'fetching DID types', false);
   },
 
@@ -222,7 +222,7 @@ export const didsApi = {
    * @returns {Promise<Object>} - Updated DID object
    */
   updateRouting: async (didId, routingData) => {
-    const url = `/api/dids/${didId}/routing`;
+    const url = `/api/routes/${didId}/routing`;
     return apiService.patch(url, routingData, {}, `updating DID routing`, true);
   },
 
@@ -232,7 +232,7 @@ export const didsApi = {
    * @returns {Promise<Object>} - Bulk creation results
    */
   bulkCreateDIDs: async (didsData) => {
-    const url = `/api/dids/bulk`;
+    const url = `/api/routes/bulk`;
     return apiService.post(url, { dids: didsData }, {}, 'bulk creating DIDs', true);
   },
 
@@ -245,7 +245,7 @@ export const didsApi = {
   searchDIDs: async (query, filters = {}) => {
     const params = { q: query, ...filters };
     const queryString = new URLSearchParams(params).toString();
-    const url = `/api/dids/search?${queryString}`;
+    const url = `/api/routes/search?${queryString}`;
     return apiService.get(url, {}, 'searching DIDs', false);
   },
 
@@ -257,7 +257,7 @@ export const didsApi = {
    */
   getDIDStats: async (didId, timeRange = {}) => {
     const queryString = new URLSearchParams(timeRange).toString();
-    const url = `/api/dids/${didId}/stats${queryString ? `?${queryString}` : ''}`;
+    const url = `/api/routes/${didId}/stats${queryString ? `?${queryString}` : ''}`;
     return apiService.get(url, {}, `fetching DID statistics`, false);
   },
 
@@ -267,7 +267,7 @@ export const didsApi = {
    * @returns {Promise<Object>} - Connectivity test results
    */
   testDIDConnectivity: async (didId) => {
-    const url = `/api/dids/${didId}/test`;
+    const url = `/api/routes/${didId}/test`;
     return apiService.post(url, {}, {}, `testing DID connectivity`, true);
   },
 
@@ -278,7 +278,7 @@ export const didsApi = {
    * @returns {Promise<Object>} - Import result
    */
   importCSV: async (file, environmentUuid) => {
-    const url = `/api/dids/import`;
+    const url = `/api/routes/import`;
     const formData = new FormData();
     formData.append('file', file);
     formData.append('environment_uuid', environmentUuid);

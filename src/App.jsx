@@ -4,6 +4,7 @@ import { Suspense, lazy } from 'react';
 // Sentry is initialized in main.jsx
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { UserAuthProvider, useUserAuth } from './context/UserAuthContext';
+import { PortalPreferencesProvider } from './context/PortalPreferencesContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { CustomerEnvironmentProvider } from './context/CustomerEnvironmentContext';
 import { TourProvider } from './context/TourContext';
@@ -17,119 +18,10 @@ import { TourOverlay } from './components/Tour';
 import { usePermissions } from './hooks/usePermissions';
 import { canAccessScreen } from './utils/jwt';
 import { CircularProgress, Box, Typography, Button } from '@mui/material';
-import { createTheme, ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
-const muiTheme = createTheme({
-  // voipappz brand indigo — the exact color from the reports date selector,
-  // now the primary action color for buttons/toggles across the whole app.
-  palette: {
-    primary: {
-      main: '#5c6bc0',
-      dark: '#3f4fb5',
-      light: '#7986cb',
-      contrastText: '#ffffff',
-    },
-  },
-  typography: {
-    fontFamily: "'Rubik', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif",
-    fontSize: 15,
-    h1: { fontFamily: "'Rubik', sans-serif", fontWeight: 600 },
-    h2: { fontFamily: "'Rubik', sans-serif", fontWeight: 600 },
-    h3: { fontFamily: "'Rubik', sans-serif", fontWeight: 600 },
-    h4: { fontFamily: "'Rubik', sans-serif", fontWeight: 600 },
-    h5: { fontFamily: "'Rubik', sans-serif", fontWeight: 600 },
-    h6: { fontFamily: "'Rubik', sans-serif", fontWeight: 600 },
-    subtitle1: { fontFamily: "'Rubik', sans-serif", fontWeight: 500 },
-    subtitle2: { fontFamily: "'Rubik', sans-serif", fontWeight: 500 },
-    body1: { fontFamily: "'Rubik', sans-serif", fontSize: '0.9375rem' },
-    body2: { fontFamily: "'Rubik', sans-serif", fontSize: '0.875rem' },
-    button: { fontFamily: "'Rubik', sans-serif", fontWeight: 500, textTransform: 'none' },
-    caption: { fontFamily: "'Rubik', sans-serif" },
-    overline: { fontFamily: "'Rubik', sans-serif" },
-  },
-  components: {
-    MuiTableCell: {
-      styleOverrides: {
-        root: {
-          fontFamily: "'Rubik', sans-serif",
-          fontSize: '0.8rem',
-          padding: '8px 14px',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          maxWidth: 320,
-        },
-        head: {
-          fontWeight: 600,
-          fontSize: '0.72rem',
-          letterSpacing: '0.03em',
-          textTransform: 'uppercase',
-          position: 'sticky',
-          top: 0,
-          zIndex: 2,
-          backgroundColor: 'var(--theme-bg-primary, #fff)',
-          boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.08)',
-        },
-      },
-    },
-    MuiTableRow: {
-      styleOverrides: {
-        root: {
-          '&:hover': { backgroundColor: 'rgba(101, 117, 142, 0.04)' },
-        },
-      },
-    },
-    MuiSkeleton: {
-      defaultProps: { animation: 'wave' },
-      styleOverrides: {
-        root: { borderRadius: '6px' },
-      },
-    },
-    MuiInputBase: {
-      styleOverrides: {
-        root: { fontFamily: "'Rubik', sans-serif", fontSize: '0.9375rem' },
-      },
-    },
-    // Menu paper is capped so a long option (a customer name like "LAURUS
-    // AFRICA SECURITIES LTD") can't stretch the dropdown across the screen;
-    // the item then ellipsises inside it instead of overflowing.
-    MuiMenu: {
-      styleOverrides: {
-        paper: { maxWidth: 'min(480px, calc(100vw - 32px))' },
-      },
-    },
-    MuiMenuItem: {
-      styleOverrides: {
-        root: {
-          fontFamily: "'Rubik', sans-serif",
-          fontSize: '0.9rem',
-          overflow: 'hidden',
-          // MenuItem is a flex row: a label element only shrinks once its
-          // automatic min-width is cleared. ListItemIcon is left alone so its
-          // gutter survives.
-          '& > .MuiBox-root, & > .MuiTypography-root, & > span': {
-            minWidth: 0,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          },
-        },
-      },
-    },
-    MuiTooltip: {
-      styleOverrides: {
-        tooltip: { fontFamily: "'Rubik', sans-serif", fontSize: '0.8rem' },
-      },
-    },
-    MuiChip: {
-      styleOverrides: {
-        root: { fontFamily: "'Rubik', sans-serif", maxWidth: '100%' },
-        // Chip already ellipsises its label; the cap stops one long resource
-        // name from making a chip wider than the row that holds it.
-        label: { fontWeight: 500, maxWidth: 280 },
-      },
-    },
-  },
-});
+import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
+import { ConfirmProvider } from './components/ui';
+// ONE theme, light + dark, driven by src/theme/tokens.js — see theme.js.
+import muiTheme from './theme/theme';
 
 // Eager: Login and UserLogin are the entry points for unauthenticated users
 import Login from './components/Login/Login.jsx';
@@ -138,7 +30,7 @@ import UserLogin from './components/Login/UserLogin.jsx';
 // Lazy-load all other route components for code splitting
 const Reports = lazy(() => import('./components/Reports/Reports.jsx'));
 const LiveDashboard = lazy(() => import('./components/LiveDashboard/LiveDashboard.jsx'));
-const Dashboard = lazy(() => import('./components/Dashboard/Dashboard.jsx'));
+const Dashboard = lazy(() => import('./components/Dashboard/PortalDashboard.jsx'));
 const Phone = lazy(() => import('./components/Phone/PhoneScreen.jsx'));
 // The PORTAL's call history — deliberately not the admin Calls screen
 // (/calls), which is built around dynamic field configs and saved segments.
@@ -149,7 +41,6 @@ const Notifications = lazy(() => import('./components/Notifications/Notification
 const Users = lazy(() => import('./components/Users/Users.jsx'));
 const Account = lazy(() => import('./components/Account/Account.jsx'));
 const Accounts = lazy(() => import('./components/Accounts/Accounts.jsx'));
-const Acls = lazy(() => import('./components/Acls/Acls.jsx'));
 const Subscriptions = lazy(() => import('./components/Subscriptions/Subscriptions.jsx'));
 const Providers = lazy(() => import('./components/Providers/Providers.jsx'));
 const Environments = lazy(() => import('./components/Environments/Environments.jsx'));
@@ -187,7 +78,6 @@ const Bots = lazy(() => import('./components/Bots/Bots.jsx'));
 const CallsLog = lazy(() => import('./components/CallsLog/CallsLog.jsx'));
 const HealthMonitor = lazy(() => import('./components/HealthMonitor/HealthMonitor.jsx'));
 const Extensions = lazy(() => import('./components/Extensions/Extensions.jsx'));
-const AIChat = lazy(() => import('./components/AIChat/AIChat.jsx'));
 const Messages = lazy(() => import('./components/Messages/Messages.jsx'));
 const Monitoring = lazy(() => import('./components/Monitoring/Monitoring.jsx'));
 // The nodes list with its create/edit/delete/import (nodes API) — also a
@@ -201,6 +91,7 @@ const Schema = lazy(() => import('./components/Appz/Schema.jsx'));
 const Transactions = lazy(() => import('./components/Transactions/Transactions.jsx'));
 const Settings = lazy(() => import('./components/Settings/Settings.jsx'));
 const ApiDocs = lazy(() => import('./components/ApiDocs/ApiDocs.jsx'));
+const McpWorkspace = lazy(() => import('./components/ApiDocs/McpWorkspace.jsx'));
 
 const PageLoader = () => (
   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
@@ -316,17 +207,6 @@ function AppContent() {
     return <Navigate to="/" replace />;
   };
 
-  // The assistant serves either door. It carries no ACL of its own: the API
-  // scopes its tools to whichever session asks (Mediators::Mcp::Toolbox), so
-  // being signed in is the whole gate.
-  const AssistantRoute = ({ children }) => {
-    const admin = useAuth();
-    const user = useUserAuth();
-    if (admin.initializing || user.initializing) return null;
-    if (admin.isAuthenticated || user.isAuthenticated) return children;
-    return <Navigate to="/" replace />;
-  };
-
   return (
     <Router>
       <Suspense fallback={<Layout><PageLoader /></Layout>}>
@@ -346,20 +226,6 @@ function AppContent() {
           }
         />
         <Route path="/login" element={<Navigate to="/admin" replace />} />
-        {/* The portal's widget dashboard, in the account console. Same screen
-            as `/`; Dashboard.jsx scopes it to the console's customer/
-            environment selection for an admin session. Gated on `reports`
-            like Live, since the console's ACLs carry no dashboard key. */}
-        <Route
-          path="/admin/dashboard"
-          element={
-            <ProtectedRoute requiredAcl="reports">
-              <Layout>
-                <Dashboard />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
         {/* Live is the END USER's screen, not an admin one: it answers "what
             is my team doing right now" for the person working the queue.
             PortalRoute enforces that — an admin session is sent to Calls.
@@ -487,10 +353,6 @@ function AppContent() {
               </Layout>
             </ProtectedRoute>
           }
-        />
-        <Route
-          path="/acls"
-          element={<ProtectedRoute requiredAcl="acls"><Layout><Acls /></Layout></ProtectedRoute>}
         />
         <Route
           path="/subscriptions"
@@ -672,7 +534,7 @@ function AppContent() {
         <Route
           path="/nodes"
           element={
-            <ProtectedRoute requiredAcl="monitors">
+            <ProtectedRoute requiredAcl="nodes">
               <Layout>
                 <Box sx={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', p: { xs: 2, md: 3 } }}>
                   <MonitoringNodes />
@@ -731,6 +593,16 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/mcp"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <McpWorkspace />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
         <Route path="/api-docs" element={<Navigate to="/devzone" replace />} />
         <Route
           path="/workflow"
@@ -740,16 +612,6 @@ function AppContent() {
                 <Workflows />
               </Layout>
             </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/ai"
-          element={
-            <AssistantRoute>
-              <Layout>
-                <AIChat />
-              </Layout>
-            </AssistantRoute>
           }
         />
         {/* Catch-all 404 — auth-gated like every other route so a hard load of
@@ -777,11 +639,17 @@ function AppContent() {
 function App() {
   return (
     <ErrorBoundary>
-      <MuiThemeProvider theme={muiTheme}>
+      {/* modeStorageKey/defaultMode match ThemeContext, so MUI's own mode
+          state boots in step with the app's `data-theme` (ThemeContext keeps
+          them in step afterwards through useColorScheme). */}
+      <MuiThemeProvider theme={muiTheme} modeStorageKey="theme-preference" defaultMode="light" disableTransitionOnChange>
         <ThemeProvider>
+          {/* One confirmation dialog for the whole app (useConfirm). */}
+          <ConfirmProvider>
           <QueryProvider>
             <AuthProvider>
               <UserAuthProvider>
+              <PortalPreferencesProvider>
                 {/* Mounted above the Router (and above both auth providers, so
                     it can see either session) so SIP registration and any
                     active call survive page navigation — see SoftphoneContext.jsx. */}
@@ -797,9 +665,11 @@ function App() {
                     </CustomerEnvironmentProvider>
                   </NotificationProvider>
                 </SoftphoneProvider>
+              </PortalPreferencesProvider>
               </UserAuthProvider>
             </AuthProvider>
           </QueryProvider>
+          </ConfirmProvider>
         </ThemeProvider>
       </MuiThemeProvider>
     </ErrorBoundary>

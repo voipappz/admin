@@ -45,7 +45,7 @@ const cardNode = (id, x, y, label, sub, color) => ({
   ) },
   style: {
     width: 260, minHeight: 96, borderRadius: 18, border: `2px solid ${color}`,
-    padding: 18, background: '#fff', boxShadow: '0 1px 4px rgba(16,24,40,0.08)',
+    padding: 18, background: 'var(--mui-palette-background-paper)', boxShadow: '0 1px 4px rgba(16,24,40,0.08)',
   },
   sourcePosition: 'right',
   targetPosition: 'left',

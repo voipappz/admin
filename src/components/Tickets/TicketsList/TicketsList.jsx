@@ -1,7 +1,7 @@
 import {
   Box,
-  Typography,
   Button,
+  Typography,
   TextField,
   Select,
   MenuItem,
@@ -13,7 +13,6 @@ import {
   Chip,
 } from '@mui/material';
 import {
-  Add as AddIcon,
   FilterList as FilterListIcon,
   Clear as ClearIcon,
   ExpandMore as ExpandMoreIcon,
@@ -25,10 +24,8 @@ import { useState } from 'react';
  * Displays filters for tickets in the sidebar
  */
 const TicketsList = ({
-  loading,
   filters,
   onFiltersChange,
-  onAdd,
   onResetFilters,
 }) => {
   const [filtersExpanded, setFiltersExpanded] = useState(true);
@@ -72,22 +69,9 @@ const TicketsList = ({
   const hasActiveFilters = filters.status || filters.priority || filters.search;
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
-      {/* Add New Ticket Button */}
-      <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={onAdd}
-          fullWidth
-          disabled={loading}
-        >
-          New Ticket
-        </Button>
-      </Box>
-
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'var(--mui-palette-background-paper)' }}>
       {/* Filters Section */}
-      <Box sx={{ borderBottom: '1px solid #e0e0e0' }}>
+      <Box sx={{ borderBottom: '1px solid var(--mui-palette-divider)' }}>
         <Accordion
           expanded={filtersExpanded}
           onChange={() => setFiltersExpanded(!filtersExpanded)}

@@ -1,4 +1,4 @@
-import { didsApi } from '../../services/api/didsApi';
+import { didsApi } from '../../services/api/routesApi';
 import { queuesApi } from '../../services/api/queuesApi';
 import { ivrApi } from '../../services/api/ivrApi';
 import { getCallCondition } from '../../services/api/callConditionsApi';
