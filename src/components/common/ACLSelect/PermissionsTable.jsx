@@ -19,6 +19,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { CAPABILITY_ALIASES } from '../../../utils/jwt';
 
 /**
  * PermissionsTable — the ACL permissions editor inside ACLDialog.
@@ -37,6 +38,22 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
  */
 const MAIN = 'main';
 const BASE_PERMS = ['read', 'write'];
+
+// A renamed capability (routes <-> dids) under the key the catalogue uses. A
+// document written before the rename says `dids`; the catalogue says `routes`.
+// Without this the Routes row showed both switches OFF for an account that
+// plainly had the grant, and saving added a second `routes` entry beside the
+// `dids` one. Read through the alias, write the catalogue's key, drop the old.
+const canonical = (value, typeData) => {
+  if (!value || !typeData) return value || {};
+  const out = {};
+  Object.entries(value).forEach(([service, elements]) => {
+    const alias = CAPABILITY_ALIASES[service];
+    const key = typeData[service] ? service : (alias && typeData[alias] ? alias : service);
+    out[key] = out[key] ? { ...out[key], ...elements } : elements;
+  });
+  return out;
+};
 
 const label = (s) => String(s).replace(/[_.]/g, ' ');
 
@@ -63,6 +80,9 @@ const PermissionsTable = ({
   const services = useMemo(() => {
     const all = typeData ? Object.entries(typeData) : [];
     return all
+      // One row per capability: when the catalogue lists both spellings of a
+      // renamed one, the old spelling is hidden (its grant shows on the new row).
+      .filter(([service]) => !(CAPABILITY_ALIASES[service] && typeData[CAPABILITY_ALIASES[service]] && service === 'dids'))
       .map(([service, elements]) => {
         const extras = extrasOf(elements);
         if (!query || label(service).toLowerCase().includes(query)) return { service, elements, extras };
@@ -73,6 +93,8 @@ const PermissionsTable = ({
       .filter(Boolean);
   }, [typeData, query]);
 
+  const granted = useMemo(() => canonical(value, typeData), [value, typeData]);
+
   const counts = useMemo(() => {
     let total = 0;
     let selected = 0;
@@ -80,23 +102,23 @@ const PermissionsTable = ({
       Object.entries(elements).forEach(([element, perms]) => {
         if (!Array.isArray(perms)) return;
         total += perms.length;
-        selected += (value?.[service]?.[element] || []).filter((p) => perms.includes(p)).length;
+        selected += (granted?.[service]?.[element] || []).filter((p) => perms.includes(p)).length;
       });
     });
     return { total, selected };
-  }, [typeData, value]);
+  }, [typeData, granted]);
 
   const has = useCallback(
-    (service, element, perm) => Boolean(value?.[service]?.[element]?.includes(perm)),
-    [value]
+    (service, element, perm) => Boolean(granted?.[service]?.[element]?.includes(perm)),
+    [granted]
   );
 
   const toggle = useCallback((service, element, perm) => {
     if (disabled) return;
-    const perms = value?.[service]?.[element] || [];
+    const perms = granted?.[service]?.[element] || [];
     const next = perms.includes(perm) ? perms.filter((p) => p !== perm) : [...perms, perm];
-    onChange?.({ ...value, [service]: { ...(value?.[service] || {}), [element]: next } });
-  }, [value, onChange, disabled]);
+    onChange?.({ ...granted, [service]: { ...(granted?.[service] || {}), [element]: next } });
+  }, [granted, onChange, disabled]);
 
   const setAll = useCallback((on) => {
     if (disabled) return;

@@ -88,6 +88,16 @@ export const getAccountDataFromToken = (accessToken) => {
  * ACL Structure from API: { data: { dids: { main: ["read", "write"] }, users: { main: ["read"] } }, uuid: "..." }
  * Also supports: { screens: {...} } and direct { dids: {...}, users: {...} } formats
  */
+/**
+ * Capabilities that were renamed. `dids` became `routes` when /api/dids became
+ * /api/routes and the screen was renamed, but the key is DATA: every ACL
+ * document written before that says `dids`, and the API aliases the two
+ * (Acl::CAPABILITY_ALIASES) rather than migrating rows. Without the same alias
+ * here, an account whose ACL says `dids` failed canAccess('routes'), and the
+ * Routes screen bounced to /account ("Edit Account") for everyone.
+ */
+export const CAPABILITY_ALIASES = Object.freeze({ routes: 'dids', dids: 'routes' });
+
 export const hasPermission = (acl, screen, permission = 'read') => {
   // SECURITY: If no ACL is defined, deny all access
   if (!acl) {
@@ -137,6 +147,12 @@ export const hasPermission = (acl, screen, permission = 'read') => {
   // Match legacy admin logic: check exact screen name first
   if (aclData[screen]) {
     return checkScreenPerms(aclData[screen]);
+  }
+
+  // Then the renamed spelling of the same capability (routes <-> dids).
+  const alias = CAPABILITY_ALIASES[screen];
+  if (alias && aclData[alias]) {
+    return checkScreenPerms(aclData[alias]);
   }
 
   // Then check singular form (screen name minus last character)
