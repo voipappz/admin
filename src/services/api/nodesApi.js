@@ -1,9 +1,21 @@
-import apiService from '../apiService';
+import apiService, { toFormData } from '../apiService';
 
 // The API sends X-Total with both node lists, and apiService wraps an array
 // that has one as { data, total }. The Nodes screen wants the rows, so both
 // reads unwrap here; without it the screen showed "No nodes" over a full list.
 const rowsOf = (r) => (Array.isArray(r) ? r : (r?.data ?? r?.nodes ?? []));
+
+// Node writes are form-encoded, the API's convention (responses are JSON).
+// toFormData drops an empty array, and an empty list cannot be form-encoded
+// anyway, so a cleared interface list goes as a blank `sip_interfaces=`,
+// which the API reads as "no interfaces".
+const nodeForm = (data) => {
+  const form = toFormData(data);
+  if (Array.isArray(data?.sip_interfaces) && data.sip_interfaces.length === 0) {
+    form.append('sip_interfaces', '');
+  }
+  return form;
+};
 
 /**
  * Nodes & Organization API Service — centralized access to node and organization data.
@@ -74,7 +86,7 @@ export const nodesApi = {
    * @returns {Promise<Object>} - the created node
    */
   createNode: async (node) => {
-    return apiService.post('/api/nodes', node, {}, 'creating node');
+    return apiService.post('/api/nodes', nodeForm(node), {}, 'creating node');
   },
 
   /**
@@ -84,7 +96,7 @@ export const nodesApi = {
    * @returns {Promise<Object>} - the updated node
    */
   updateNode: async (uuid, changes) => {
-    return apiService.patch(`/api/nodes/${encodeURIComponent(uuid)}`, changes, {}, 'updating node');
+    return apiService.patch(`/api/nodes/${encodeURIComponent(uuid)}`, nodeForm(changes), {}, 'updating node');
   },
 
   /**
