@@ -32,15 +32,10 @@ import CallMobileView from '../Calls/CallMobileView/CallMobileView.jsx';
 import CallDetailPanel from '../Calls/CallDetailPanel/CallDetailPanel.jsx';
 import RecordingDialog from '../Calls/RecordingDialog/RecordingDialog.jsx';
 import CallStatCard from '../Calls/CallStatCard.jsx';
+import EnhancedDateRangePicker from '../Calls/EnhancedDateRangePicker/EnhancedDateRangePicker.jsx';
+import { format, isSameDay } from 'date-fns';
 import '../Calls/Calls.css';
 import '../Calls/CellWithHover/CellWithHover.css';
-
-const RANGES = [
-  { value: 1, label: 'Today' },
-  { value: 7, label: 'Last 7 days' },
-  { value: 30, label: 'Last 30 days' },
-  { value: 0, label: 'All time' }
-];
 
 // The admin column definitions (voipappz-api Call.columns) that make sense to
 // an end user, in the same shape the admin grid gets from ?action=columns —
@@ -57,15 +52,27 @@ const PORTAL_COLUMNS = [
 ];
 const PORTAL_COLUMN_KEYS = PORTAL_COLUMNS.map((column) => column.sub_prop ? `${column.prop}.${column.sub_prop}` : column.prop).concat('recording');
 
-// Same range format the admin Calls screen sends: unix seconds, local day
-// boundaries, "start - end". "All time" sends no range at all.
-const createdAtRange = (days) => {
+// The date range is the admin Calls screen's picker (presets and custom
+// dates), carried in the URL as from/to (yyyy-MM-dd) so a filtered view can be
+// shared or reloaded. No range in the URL means the preferred default window,
+// calls_days back to today. The query format is the admin's: unix seconds,
+// local day boundaries, "start - end".
+const dayKey = (date) => format(date, 'yyyy-MM-dd');
+const parseDay = (value) => {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+const defaultRange = (days) => {
   const end = new Date();
-  end.setHours(23, 59, 59, 999);
   const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - (days - 1));
-  return `${Math.floor(start.getTime() / 1000)} - ${Math.floor(end.getTime() / 1000)}`;
+  start.setDate(start.getDate() - (Math.max(1, days) - 1));
+  return [start, end];
+};
+const createdAtRange = ([start, end]) => {
+  const from = Math.floor(new Date(start).setHours(0, 0, 0, 0) / 1000);
+  const to = Math.floor(new Date(end).setHours(23, 59, 59, 999) / 1000);
+  return `${from} - ${to}`;
 };
 
 // The other party: whoever called in, or whoever was called.
@@ -96,7 +103,15 @@ export default function PortalCalls() {
   const search = url.get('q') || '';
   const direction = url.get('direction') || '';
   const cause = url.get('cause') || '';
-  const days = [0, 1, 7, 30].includes(Number(url.get('days') ?? preferences.calls_days)) ? Number(url.get('days') ?? preferences.calls_days) : 7;
+  const urlFrom = parseDay(url.get('from'));
+  const urlTo = parseDay(url.get('to'));
+  const fromParam = url.get('from');
+  const toParam = url.get('to');
+  const dateRange = useMemo(
+    () => (urlFrom && urlTo && urlFrom <= urlTo ? [urlFrom, urlTo] : defaultRange(Number(preferences.calls_days) || 7)),
+    [fromParam, toParam, preferences.calls_days, urlFrom, urlTo]
+  );
+  const singleDay = isSameDay(dateRange[0], dateRange[1]);
   const perPage = Number(preferences.calls_page_size);
   const sort = url.get('sort') === 'asc' ? 'asc' : url.get('sort') === 'desc' ? 'desc' : preferences.calls_sort;
   const sortModel = useMemo(() => [{ field: 'created_at', sort }], [sort]);
@@ -118,12 +133,12 @@ export default function PortalCalls() {
   const requestId = useRef(0);
   const filters = useMemo(() => {
     const params = {};
-    if (days > 0) params['search[created_at]'] = createdAtRange(days);
+    params['search[created_at]'] = createdAtRange(dateRange);
     if (search) params['search[inline]'] = search;
     if (direction) params['search[call.direction][IS]'] = direction;
     if (cause) params[cause === 'abandoned' ? 'search[call.disposition][IS]' : 'search[call.cause][IS]'] = cause;
     return params;
-  }, [days, search, direction, cause]);
+  }, [dateRange, search, direction, cause]);
 
   const {
     recordingDialogOpen,
@@ -183,7 +198,7 @@ export default function PortalCalls() {
     setBuckets([]);
     setSummaryError(false);
     setSummaryLoading(true);
-    const params = { ...filters, group_by: 'cause', interval: days === 1 ? 'hour' : 'day' };
+    const params = { ...filters, group_by: 'cause', interval: singleDay ? 'hour' : 'day' };
     callsApi.getAggregate(params)
       .then((data) => {
         if (!active) return;
@@ -198,7 +213,7 @@ export default function PortalCalls() {
       .catch(() => { if (active) setSummaryError(true); })
       .finally(() => { if (active) setSummaryLoading(false); });
     return () => { active = false; };
-  }, [ready, filters, days]);
+  }, [ready, filters, singleDay]);
 
   // Aggregate totals cover the full result; fall back if statistics failed.
   const hasNext = summary ? page * perPage < summary.total : calls.length === perPage;
@@ -338,12 +353,9 @@ export default function PortalCalls() {
         subtitle="Your call history"
         actions={
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-            <TextField
-              select size="small" value={days} disabled={!ready} onChange={(e) => { setFilters({ days: e.target.value }); save({ calls_days: String(e.target.value) }); }}
-              data-testid="portal-calls-range" sx={{ minWidth: { sm: 150 } }}
-            >
-              {RANGES.map((r) => <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>)}
-            </TextField>
+            <Box data-testid="portal-calls-range">
+              <EnhancedDateRangePicker dateRange={dateRange} setDateRange={([start, end]) => setFilters({ from: dayKey(start), to: dayKey(end) })} />
+            </Box>
           </Stack>
         }
       />
@@ -358,7 +370,6 @@ export default function PortalCalls() {
           {causeOptions.map((option) => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
         </TextField>
         <PortalColumnsSelector columns={gridColumns.filter((column) => !['recording', 'actions'].includes(column.field))} selected={selectedColumns} disabled={!ready} onChange={(keys) => save({ calls_columns: keys.join(',') })} />
-        <TextField select size="small" label="Density" disabled={!ready} value={preferences.calls_density} onChange={(event) => save({ calls_density: event.target.value })} sx={{ minWidth: 145 }}><MenuItem value="comfortable">Comfortable</MenuItem><MenuItem value="compact">Compact</MenuItem></TextField>
         <Button disabled={!ready} onClick={() => save({ calls_chart: preferences.calls_chart === 'true' ? 'false' : 'true' })}>{preferences.calls_chart === 'true' ? 'Hide chart' : 'Show chart'}</Button>
         {(direction || cause) && <Chip label="Clear filters" onDelete={() => setFilters({ direction: '', cause: '' })} />}
         {search && <Chip label={`Search: ${search}`} onDelete={() => setFilters({ q: '' })} />}
@@ -367,7 +378,7 @@ export default function PortalCalls() {
       {summaryError && <Typography role="alert" color="error" sx={{ mb: 2 }}>Call statistics are unavailable. Your call list is shown below.</Typography>}
       {preferences.calls_chart === 'true' && <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 3 }}>
         <Typography fontWeight={700}>Calls over time</Typography>
-        {summaryLoading ? <Box sx={{ p: 3, textAlign: 'center' }}><CircularProgress size={22} /></Box> : summaryError ? <Typography color="text.secondary">Chart could not be loaded.</Typography> : <TimeHistogram logs={[]} aggregateData={histogram} height={130} timeInterval={days === 1 ? 'hour' : 'day'} />}
+        {summaryLoading ? <Box sx={{ p: 3, textAlign: 'center' }}><CircularProgress size={22} /></Box> : summaryError ? <Typography color="text.secondary">Chart could not be loaded.</Typography> : <TimeHistogram logs={[]} aggregateData={histogram} height={130} timeInterval={singleDay ? 'hour' : 'day'} />}
       </Paper>}
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 1.25, flexWrap: { sm: 'wrap' } }}>
