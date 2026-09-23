@@ -3,19 +3,18 @@ import { useEffect, useRef, useState } from 'react';
 import { Avatar, Box, Button, IconButton, InputAdornment, Menu, MenuItem, Tooltip } from '@mui/material';
 import TextSearchFilter from '../shared/Filters/TextSearchFilter';
 import CloseIcon from '@mui/icons-material/Close';
+import MenuIcon from '@mui/icons-material/Menu';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useUserAuth } from '../../context/UserAuthContext';
 import { usePortalPreferences } from '../../context/PortalPreferencesContext';
-import { useAIChatSidebar } from '../../context/AIChatSidebarContext';
 import { useSoftphone } from '../../context/SoftphoneContext';
 import { canAccessScreen } from '../../utils/jwt';
 import { loadCustomerPortalData } from '../../services/customerPortalService';
 import { parseCustomerBrand } from '../../utils/customerBrand';
 
-export default function PortalHeader() {
+export default function PortalHeader({ phoneOpen = false, onTogglePhone }) {
   const { user, acl, logout } = useUserAuth();
   const { preferences, ready, save, reset } = usePortalPreferences();
-  const { openAIDrawer } = useAIChatSidebar();
   const { connected } = useSoftphone();
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -29,7 +28,10 @@ export default function PortalHeader() {
   // used to gate is an admin screen now, so here it gates Live only.
   const liveAllowed = canAccessScreen(acl, 'dashboard');
   const callsAllowed = canAccessScreen(acl, 'calls');
-  const { logo: brandIcon, color: brandColor } = parseCustomerBrand(portalData);
+  // Only the brand COLOUR is used now: the logo's slot at the start of the
+  // header belongs to the phone toggle, and the customer's mark already shows
+  // on the login screen and in the browser tab.
+  const { color: brandColor } = parseCustomerBrand(portalData);
   const language = portalData?.language || user?.profile?.language || user?.language
     || (typeof document !== 'undefined' ? document.documentElement.lang : 'en');
   const direction = /^(he|ar|fa|ur)(-|$)/i.test(language) ? 'rtl' : 'ltr';
@@ -60,13 +62,27 @@ export default function PortalHeader() {
   ];
   return (
     <Box component="header" dir={direction} sx={{ position: 'sticky', top: 0, zIndex: 1100, minHeight: 72, bgcolor: brandColor || '#141414', color: '#fff', px: { xs: 2, md: 4 }, py: 1.25, display: 'flex', alignItems: 'center', gap: { xs: 1, md: 2.5 }, flexWrap: { xs: 'wrap', lg: 'nowrap' }, boxShadow: '0 1px 0 rgba(255,255,255,0.08)' }}>
-      <Box component="img" src={brandIcon || '/images/VA_logo_white.png'} alt={portalData?.logo_title || portalData?.name || 'VoipAppz'} sx={{ order: 0, width: { xs: 88, md: 108 }, height: 36, objectFit: 'contain', flexShrink: 0 }} />
+      {/* The phone's toggle, where the logo used to be. It opens the dock on
+          this same side, so the control sits beside its own effect — and the
+          portal's one persistent action is in the corner a hamburger always
+          occupies, rather than floating over the last row of a table. */}
+      <Tooltip title={phoneOpen ? 'Close phone' : 'Phone'}>
+        <IconButton
+          aria-label={phoneOpen ? 'Close phone' : 'Phone'}
+          data-testid="portal-phone-toggle"
+          onClick={onTogglePhone}
+          sx={{ order: 0, flexShrink: 0, color: '#fff', width: 44, height: 44 }}
+        >
+          {phoneOpen ? <CloseIcon /> : <MenuIcon />}
+        </IconButton>
+      </Tooltip>
       <Box component="nav" aria-label="Portal navigation" sx={{ order: { xs: 2, lg: 0 }, width: { xs: '100%', lg: 'auto' }, display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0, overflowX: { xs: 'auto', lg: 'visible' }, scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } }}>
         {links.map(({ label, path }) => {
           const active = pathname === path;
           return <Button key={path} onClick={() => navigate(path)} aria-current={active ? 'page' : undefined} disableElevation sx={{ color: active ? '#fff' : 'rgba(255,255,255,0.72)', bgcolor: active ? 'rgba(255,255,255,0.16)' : 'transparent', borderRadius: '999px', px: 2.25, minHeight: 42, fontWeight: active ? 700 : 500, textTransform: 'none', whiteSpace: 'nowrap', '&:hover': { bgcolor: active ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.09)', color: '#fff' } }}>{label}</Button>;
         })}
-        <Button onClick={openAIDrawer} sx={{ color: 'rgba(255,255,255,0.72)', borderRadius: '999px', px: 2.25, minHeight: 42, fontWeight: 500, textTransform: 'none', whiteSpace: 'nowrap', '&:hover': { bgcolor: 'rgba(255,255,255,0.09)', color: '#fff' } }}>Assistant</Button>
+        {/* The assistant left the nav: it is the quick bot in the bottom-right
+            corner now (AssistantFab), not a page you navigate to. */}
       </Box>
       {callsAllowed && <Box component="form" onSubmit={(event) => { event.preventDefault(); search(draft); }} sx={{ flex: 1, minWidth: { xs: '100%', md: 260 }, maxWidth: { lg: 680 }, mx: { lg: 'auto' }, order: { xs: 3, lg: 0 } }}>
         <TextSearchFilter field="inline" inputRef={input} value={draft} onChange={(_field, value) => setDraft(value)} placeholder="Search calls, names or numbers…" inputProps={{ 'aria-label': 'Search calls', maxLength: 200 }}
@@ -80,6 +96,10 @@ export default function PortalHeader() {
       <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
         <MenuItem disabled>{user?.name || user?.email}</MenuItem>
         <MenuItem disabled={!ready} onClick={() => save({ theme: preferences.theme === 'dark' ? 'light' : 'dark' })}>{preferences.theme === 'dark' ? 'Light appearance' : 'Dark appearance'}</MenuItem>
+        {/* Row density lives with the other look-and-feel choices, not in the
+            Calls toolbar: it is a preference about the person, not a filter on
+            the list, and it applies to every table on this surface. */}
+        <MenuItem disabled={!ready} data-testid="portal-density" onClick={() => save({ calls_density: preferences.calls_density === 'compact' ? 'comfortable' : 'compact' })}>{preferences.calls_density === 'compact' ? 'Comfortable rows' : 'Compact rows'}</MenuItem>
         <MenuItem disabled={!ready} onClick={() => { reset(); setAnchor(null); }}>Reset my preferences</MenuItem>
         <MenuItem onClick={logout}>Sign out</MenuItem>
       </Menu>

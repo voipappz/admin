@@ -137,10 +137,10 @@ export default function UserRail() {
           onClick={openAIDrawer}
         />
       )}
-      {/* The phone's trigger moved to the bottom right (PhoneFab). It was the
-          only item here that did not navigate — it toggles a panel that opens
-          on the opposite side of the screen — so it now sits where the dock
-          actually appears. Its registration dot moved with it. */}
+      {/* The phone's trigger is the hamburger at the start of the portal
+          header (PortalHeader). It was the only item here that did not
+          navigate — it toggles a panel — so it sits beside the dock it opens,
+          and the header's own status dot reports registration. */}
 
       <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' } }} />
       <Divider flexItem sx={{ mb: 1, display: { xs: 'none', md: 'block' } }} />

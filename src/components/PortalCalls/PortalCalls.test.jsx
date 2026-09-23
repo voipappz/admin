@@ -113,17 +113,36 @@ describe('PortalCalls', () => {
     await waitFor(() => expect(screen.getByTestId('portal-calls-next')).toBeDisabled());
   });
 
-  it('drops the date filter for "All time"', async () => {
+  it('sends the picked date range in the admin created_at format, and keeps it in the URL', async () => {
+    mockGetCalls.mockResolvedValue([]);
+
+    render(<PortalCalls />, '/my-calls?from=2026-09-01&to=2026-09-03');
+    await screen.findByText('No calls in this period.');
+
+    const from = Math.floor(new Date('2026-09-01T00:00:00').getTime() / 1000);
+    const to = Math.floor(new Date('2026-09-03T23:59:59.999').getTime() / 1000);
+    expect(mockGetCalls.mock.calls[0][0]['search[created_at]']).toBe(`${from} - ${to}`);
+    // The admin picker, not a preset dropdown: the trigger shows the range.
+    expect(screen.getByTestId('portal-calls-range')).toHaveTextContent(/Sep 1/);
+  });
+
+  it('defaults to the preferred window when the URL carries no range', async () => {
     mockGetCalls.mockResolvedValue([]);
 
     render(<PortalCalls />);
     await screen.findByText('No calls in this period.');
 
-    fireEvent.mouseDown(screen.getByTestId('portal-calls-range').querySelector('[role="combobox"]'));
-    fireEvent.click(await screen.findByRole('option', { name: 'All time' }));
+    const [start, end] = mockGetCalls.mock.calls[0][0]['search[created_at]'].split(' - ').map(Number);
+    // calls_days defaults to 7: six days back through the end of today.
+    expect(Math.round((end - start) / 86400)).toBe(7);
+    expect(screen.getByTestId('portal-calls-range')).toHaveTextContent('Last 7 days');
+  });
 
-    await waitFor(() => expect(mockGetCalls).toHaveBeenCalledTimes(2));
-    expect(mockGetCalls.mock.calls[1][0]).not.toHaveProperty('search[created_at]');
+  it('has no density control of its own — that moved to the account menu', async () => {
+    mockGetCalls.mockResolvedValue([]);
+    render(<PortalCalls />);
+    await screen.findByText('No calls in this period.');
+    expect(screen.queryByLabelText('Density')).toBeNull();
   });
 
   it('says it could not load, never that there were no calls', async () => {
