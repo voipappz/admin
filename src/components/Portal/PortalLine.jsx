@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router';
 import { useUserAuth } from '../../context/UserAuthContext';
 import { usePortalPreferences } from '../../context/PortalPreferencesContext';
 import { useSoftphone } from '../../context/SoftphoneContext';
+import { usePortalPanels } from '../../context/PortalPanelsContext';
 import { canAccessScreen } from '../../utils/jwt';
 import { usePortalCommands } from './usePortalCommands';
 import { ON_SURFACE, ON_SURFACE_FAINT, ON_SURFACE_MUTED, SURFACE_BORDER, SURFACE_HOVER, FIELD_RADIUS } from '../../theme/portalSurface';
@@ -23,6 +24,7 @@ export default function PortalLine({ inputRef }) {
   const { acl, logout } = useUserAuth();
   const { preferences, save } = usePortalPreferences();
   const { dial } = useSoftphone();
+  const { open: openPanel } = usePortalPanels();
   const [open, setOpen] = useState(false);
   const wrap = useRef(null);
   const ownRef = useRef(null);
@@ -30,7 +32,11 @@ export default function PortalLine({ inputRef }) {
   const listId = useId();
 
   const go = useCallback((path) => navigate(path), [navigate]);
-  const callNumber = useCallback((n) => { navigate('/phone'); dial?.(n.replace(/[^\d+*#]/g, '')); }, [navigate, dial]);
+  const phone = useCallback(() => openPanel('phone'), [openPanel]);
+  const assistant = useCallback(() => openPanel('assistant'), [openPanel]);
+  // Dialling opens the phone panel and puts the number in it, rather than
+  // navigating away from whatever the person was reading.
+  const callNumber = useCallback((n) => { openPanel('phone'); dial?.(n.replace(/[^\d+*#]/g, '')); }, [openPanel, dial]);
   const searchCalls = useCallback((text) => navigate(`/my-calls?q=${encodeURIComponent(text)}`), [navigate]);
   const theme = useCallback(() => save({ theme: preferences.theme === 'dark' ? 'light' : 'dark' }), [save, preferences.theme]);
   const density = useCallback(() => save({ calls_density: preferences.calls_density === 'compact' ? 'comfortable' : 'compact' }), [save, preferences.calls_density]);
@@ -40,7 +46,7 @@ export default function PortalLine({ inputRef }) {
     callsAllowed: canAccessScreen(acl, 'calls'),
     dark: preferences.theme === 'dark',
     compact: preferences.calls_density === 'compact',
-    go, dial: callNumber, searchCalls, theme, density, logout,
+    go, phone, assistant, dial: callNumber, searchCalls, theme, density, logout,
   });
 
   const close = useCallback(() => { setOpen(false); cmd.reset(); input.current?.blur(); }, [cmd, input]);

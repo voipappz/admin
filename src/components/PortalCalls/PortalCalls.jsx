@@ -350,7 +350,11 @@ export default function PortalCalls() {
   };
 
   return (
-    <Box data-testid="portal-calls-page" sx={{ p: { xs: 2, md: 3 }, width: '100%', maxWidth: 1440, mx: 'auto' }}>
+    // Full width: the rail already takes its column on the left, and a call
+    // table with eight columns has nothing to gain from a centred 1440px
+    // measure — it just leaves the timestamps and the duration crowded while
+    // the screen has room to spare.
+    <Box data-testid="portal-calls-page" sx={{ p: { xs: 2, md: 3 }, width: '100%' }}>
       <PageHeader
         title="Calls"
         subtitle="Your call history"
