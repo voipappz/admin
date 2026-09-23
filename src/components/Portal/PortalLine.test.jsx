@@ -9,11 +9,13 @@ const mockLogout = vi.fn();
 vi.mock('../../context/UserAuthContext', () => ({ useUserAuth: () => ({ acl: { dashboard: ['read'], calls: ['read'] }, logout: mockLogout }) }));
 vi.mock('../../context/PortalPreferencesContext', () => ({ usePortalPreferences: () => ({ preferences: { theme: 'light', calls_density: 'comfortable' }, ready: true, save: mockSave }) }));
 vi.mock('../../context/SoftphoneContext', () => ({ useSoftphone: () => ({ dial: mockDial }) }));
+const mockOpenPanel = vi.fn();
+vi.mock('../../context/PortalPanelsContext', () => ({ usePortalPanels: () => ({ panel: null, open: mockOpenPanel, toggle: vi.fn(), close: vi.fn() }) }));
 function Where() { const l = useLocation(); return <output data-testid="where">{l.pathname}{l.search}</output>; }
 const mount = () => render(<MemoryRouter initialEntries={['/my-calls']}><PortalLine /><Where /></MemoryRouter>);
 
 describe('the line', () => {
-  beforeEach(() => { mockSave.mockClear(); mockDial.mockClear(); });
+  beforeEach(() => { mockSave.mockClear(); mockDial.mockClear(); mockOpenPanel.mockClear(); });
 
   it('is a combobox whose rows appear on focus and close on Escape', () => {
     mount();
@@ -35,14 +37,26 @@ describe('the line', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('/live');
   });
 
-  it('calls a typed number through the phone', () => {
+  it('calls a typed number in the phone panel, without leaving the screen', () => {
     mount();
     const line = screen.getByRole('combobox', { name: 'Search or go to' });
     fireEvent.focus(line);
     fireEvent.change(line, { target: { value: '0501234567' } });
     fireEvent.mouseDown(screen.getByRole('option', { name: /Call 0501234567/ }));
     expect(mockDial).toHaveBeenCalledWith('0501234567');
-    expect(screen.getByTestId('where')).toHaveTextContent('/phone');
+    expect(mockOpenPanel).toHaveBeenCalledWith('phone');
+    expect(screen.getByTestId('where')).toHaveTextContent('/my-calls');
+  });
+
+  it('opens the phone and the assistant panels from their rows', () => {
+    mount();
+    const line = screen.getByRole('combobox', { name: 'Search or go to' });
+    fireEvent.focus(line);
+    fireEvent.mouseDown(screen.getByRole('option', { name: /Assistant/ }));
+    expect(mockOpenPanel).toHaveBeenCalledWith('assistant');
+    fireEvent.focus(line);
+    fireEvent.mouseDown(screen.getByRole('option', { name: /Phone/ }));
+    expect(mockOpenPanel).toHaveBeenCalledWith('phone');
   });
 
   it('searches calls for typed text, keeping the text intact', () => {

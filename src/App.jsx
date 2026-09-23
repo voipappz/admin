@@ -32,7 +32,6 @@ const Reports = lazy(() => import('./components/Reports/Reports.jsx'));
 const LiveDashboard = lazy(() => import('./components/LiveDashboard/LiveDashboard.jsx'));
 const AdminDashboard = lazy(() => import('./components/Dashboard/AdminDashboard.jsx'));
 const Phone = lazy(() => import('./components/Phone/PhoneScreen.jsx'));
-const AssistantScreen = lazy(() => import('./components/Portal/AssistantScreen.jsx'));
 // The PORTAL's call history — deliberately not the admin Calls screen
 // (/calls), which is built around dynamic field configs and saved segments.
 const PortalCalls = lazy(() => import('./components/PortalCalls/PortalCalls.jsx'));
@@ -169,10 +168,11 @@ function AppContent() {
     if (admin.initializing || user.initializing) return null;
     if (admin.isAuthenticated) return <Navigate to="/calls" replace />;
     if (!user.isAuthenticated) return <Navigate to="/" replace />;
-    // Phone and Assistant are always available to a signed-in portal user,
-    // unconditional on ACL: they are two of the portal's softkeys, and a key
-    // that only sometimes works is a question nobody should have to ask.
-    if (aclKey === 'phone' || aclKey === 'assistant') return children;
+    // Phone is always available to a signed-in portal user, unconditional on
+    // ACL — it is a corner button on every screen, and a button that only
+    // sometimes works is a question nobody should have to ask. (The assistant
+    // is the other corner button; neither is a route any more.)
+    if (aclKey === 'phone') return children;
     return canAccessScreen(user.acl, aclKey) ? children : <Navigate to="/" replace />;
   };
 
@@ -249,16 +249,7 @@ function AppContent() {
             </PortalRoute>
           }
         />
-        <Route
-          path="/assistant"
-          element={
-            <PortalRoute aclKey="assistant">
-              <Layout>
-                <AssistantScreen />
-              </Layout>
-            </PortalRoute>
-          }
-        />
+
         <Route
           path="/reports"
           element={

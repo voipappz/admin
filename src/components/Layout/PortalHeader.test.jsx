@@ -11,18 +11,13 @@ function Where() { const l = useLocation(); return <output data-testid="where">{
 
 // The bar holds three things: the phone key, the line, you. No nav, no menu.
 describe('Portal header', () => {
-  it('has the phone key, the line and the avatar, and nothing else to click', () => {
+  it('holds the line and you, and nothing else to click', () => {
     render(<MemoryRouter><PortalHeader /><Where /></MemoryRouter>);
     expect(screen.getByRole('combobox', { name: 'Search or go to' })).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Portal navigation' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Your account and preferences' })).toBeNull();
-    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Phone', 'You']);
-  });
-
-  it('the phone key opens the phone screen', () => {
-    render(<MemoryRouter><PortalHeader /><Where /></MemoryRouter>);
-    fireEvent.click(screen.getByTestId('portal-phone-toggle'));
-    expect(screen.getByTestId('where')).toHaveTextContent('/phone');
+    // The phone is a corner button now, not a key in the bar.
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['You']);
   });
 
   it('the avatar puts the cursor on the line', () => {

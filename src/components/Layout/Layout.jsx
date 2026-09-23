@@ -8,7 +8,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useUserAuth } from '../../context/UserAuthContext';
 import PortalHeader from './PortalHeader.jsx';
 import { usePortalPreferences } from '../../context/PortalPreferencesContext';
-import PortalSoftkeys from '../Portal/PortalSoftkeys.jsx';
+import PortalSoftkeys, { RAIL_HEIGHT_MOBILE } from '../Portal/PortalSoftkeys.jsx';
+import PortalCorner, { CORNER_CLEARANCE } from '../Portal/PortalCorner.jsx';
+import { PortalPanelsProvider } from '../../context/PortalPanelsContext';
 import { GlobalSearchProvider } from '../../context/GlobalSearchContext';
 import { RecentPagesProvider } from '../../context/RecentPagesContext';
 import { loadCustomerData, applyCustomerBranding, getCustomerData } from '../../services/customerService';
@@ -121,18 +123,37 @@ const Layout = ({ children }) => {
         // Assistant or Phone. No dock, no floating buttons, no menus: the line
         // is the menu (PortalLine) and the softkeys are the only other way to
         // move. The admin sidebar/topbar are admin-console concepts.
+        <PortalPanelsProvider>
         <Box data-testid="user-layout" sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
           <PortalHeader />
-          <PortalSoftkeys />
-          {portalPreferences.error && <Box role="alert" sx={{ p: 1, color: 'error.main' }}>{portalPreferences.error}</Box>}
-          <Box component="main" sx={{ flex: 1, minWidth: 0 }}>
-            {/* A local Suspense boundary. Without it, any lazy chunk this
-                subtree pulls in suspends all the way up to App.jsx's boundary,
-                whose fallback is ANOTHER <Layout> — the shell was torn down
-                and rebuilt on every route's first load. */}
-            <Suspense fallback={null}>{children}</Suspense>
+          <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
+            <PortalSoftkeys />
+            <Box
+              component="main"
+              sx={{
+                flex: 1, minWidth: 0,
+                // The corner buttons float over the bottom right, and every
+                // screen here ends in a table. On a phone the rail is a bottom
+                // bar AND the buttons sit above it, so the last row has to
+                // clear both — clearing only the bar left it under the phone
+                // button, which is the row someone most wants to tap.
+                pb: {
+                  xs: `calc(${RAIL_HEIGHT_MOBILE + CORNER_CLEARANCE}px + env(safe-area-inset-bottom, 0px))`,
+                  md: `${CORNER_CLEARANCE}px`,
+                },
+              }}
+            >
+              {/* A local Suspense boundary. Without it, any lazy chunk this
+                  subtree pulls in suspends all the way up to App.jsx's
+                  boundary, whose fallback is ANOTHER <Layout> — the shell was
+                  torn down and rebuilt on every route's first load. */}
+              <Suspense fallback={null}>{children}</Suspense>
+            </Box>
           </Box>
+          {portalPreferences.error && <Box role="alert" sx={{ p: 1, color: 'error.main' }}>{portalPreferences.error}</Box>}
+          <PortalCorner />
         </Box>
+        </PortalPanelsProvider>
       ) : (
         // Authenticated layout: Sidebar + TopBar + Content
         <GlobalSearchProvider>

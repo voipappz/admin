@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { buildPortalCommands, looksLikeNumber } from './usePortalCommands';
 
-const on = () => ({ go: vi.fn(), dial: vi.fn(), searchCalls: vi.fn(), theme: vi.fn(), density: vi.fn(), logout: vi.fn() });
+const on = () => ({ go: vi.fn(), phone: vi.fn(), assistant: vi.fn(), dial: vi.fn(), searchCalls: vi.fn(), theme: vi.fn(), density: vi.fn(), logout: vi.fn() });
 const labels = (groups, name) => groups.find((g) => g.label === name)?.items.map((i) => i.label) ?? [];
 
 // The line's rows are the portal's whole menu, so what shows is a unit test.
@@ -9,13 +9,13 @@ describe('buildPortalCommands', () => {
   it('shows the places this user may go, then the settings, with nothing typed', () => {
     const groups = buildPortalCommands({ query: '', liveAllowed: true, callsAllowed: true, dark: false, compact: false, on: on() });
     expect(groups.map((g) => g.label)).toEqual(['Go to', 'Settings']);
-    expect(labels(groups, 'Go to')).toEqual(['Calls', 'Live', 'Assistant', 'Phone']);
+    expect(labels(groups, 'Go to')).toEqual(['Calls', 'Live', 'Phone', 'Assistant']);
     expect(labels(groups, 'Settings')).toEqual(['Dark appearance', 'Compact rows', 'Sign out']);
   });
 
   it('hides Live and Calls for a user without those permissions', () => {
     const groups = buildPortalCommands({ query: '', liveAllowed: false, callsAllowed: false, on: on() });
-    expect(labels(groups, 'Go to')).toEqual(['Assistant', 'Phone']);
+    expect(labels(groups, 'Go to')).toEqual(['Phone', 'Assistant']);
     expect(groups.find((g) => g.label === 'Calls')).toBeUndefined();
   });
 
@@ -31,6 +31,17 @@ describe('buildPortalCommands', () => {
     const groups = buildPortalCommands({ query: 'dana', callsAllowed: true, on: on() });
     expect(labels(groups, 'Calls')).toEqual(['Search calls for “dana”']);
     expect(labels(groups, 'Go to')).toEqual([]);
+  });
+
+  it('opens the panels rather than navigating for Phone and Assistant', () => {
+    const cb = on();
+    const groups = buildPortalCommands({ query: '', callsAllowed: true, on: cb });
+    const go = groups.find((g) => g.label === 'Go to').items;
+    go.find((i) => i.label === 'Phone').action();
+    go.find((i) => i.label === 'Assistant').action();
+    expect(cb.phone).toHaveBeenCalled();
+    expect(cb.assistant).toHaveBeenCalled();
+    expect(cb.go).not.toHaveBeenCalled();
   });
 
   it('filters places and settings by what is typed', () => {
