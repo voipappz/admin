@@ -43,6 +43,20 @@ import { profileParamsApi } from '../../../services/api/profileParamsApi';
  *   values stay in the column, since the API merges a partial profile update
  *   rather than replacing it.
  */
+// A field from profile.yml may carry `pattern` (a regex the value must match)
+// and `example` (shown as the placeholder and in the error). Blank is left to
+// the `empty` rule; only a filled-in value is checked. A pattern the browser
+// cannot compile is ignored rather than blocking the form.
+export const profileFieldError = (field, value) => {
+  if (!field?.pattern) return null;
+  const v = value === undefined || value === null ? '' : String(value).trim();
+  if (!v) return null;
+  let re;
+  try { re = new RegExp(field.pattern); } catch { return null; }
+  if (re.test(v)) return null;
+  return field.example ? `Expected like ${field.example}` : 'Invalid format';
+};
+
 const DynamicProfileEditor = ({
   type,
   profile = {},
@@ -58,6 +72,9 @@ const DynamicProfileEditor = ({
   // provider one (the reveal API route is provider-scoped and audited).
   onReveal = null,
   menuZIndex = null,
+  // (valid: boolean) => void — told whenever the pattern check of the visible
+  // fields changes, so a dialog can refuse to save a malformed value.
+  onValidityChange = null,
 }) => {
   // Encrypted fields shown as text after a successful reveal.
   const [shown, setShown] = useState({});
@@ -172,6 +189,12 @@ const DynamicProfileEditor = ({
     return Array.isArray(value) ? value.includes(values[key]) : values[key] === value;
   }, [values]);
 
+  // Report whether every visible field passes its pattern.
+  const allValid = fields.every((f) => !isFieldVisible(f) || !profileFieldError(f, values[f.key]));
+  useEffect(() => {
+    if (onValidityChange) onValidityChange(allValid);
+  }, [allValid, onValidityChange]);
+
   // Filter values to only include visible fields before notifying parent
   const getVisibleValues = useCallback((allValues) => {
     const visible = {};
@@ -268,6 +291,7 @@ const DynamicProfileEditor = ({
     const value = values[field.key];
     const isRequired = field.empty === false;
     const hasError = isRequired && (value === '' || value === undefined || value === null);
+    const formatError = profileFieldError(field, value);
 
     switch (field.input) {
       case 'string':
@@ -277,10 +301,12 @@ const DynamicProfileEditor = ({
             size="small"
             value={value || ''}
             onChange={(e) => handleFieldChange(field.key, e.target.value)}
-            placeholder={field.label || ''}
+            placeholder={field.example || field.label || ''}
             disabled={disabled}
-            error={hasError}
+            error={hasError || !!formatError}
+            helperText={formatError}
             required={isRequired}
+            inputProps={{ 'data-testid': `profile-field-${field.key}` }}
           />
         );
 

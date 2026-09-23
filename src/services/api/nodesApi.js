@@ -14,6 +14,12 @@ const nodeForm = (data) => {
   if (Array.isArray(data?.sip_interfaces) && data.sip_interfaces.length === 0) {
     form.append('sip_interfaces', '');
   }
+  // Same for roles: `roles[]=` (blank, dropped by the API) means none.
+  if (Array.isArray(data?.roles) && data.roles.length === 0) {
+    form.append('roles[]', '');
+  }
+  // toFormData skips a blank string, but a blank type is how it is cleared.
+  if (data && data.type === '') form.append('type', '');
   return form;
 };
 
@@ -59,6 +65,15 @@ export const nodesApi = {
       // Pre-nodes-table API: no /api/nodes, and no source/editable/profile either.
       return rowsOf(await apiService.get('/api/customers/nodes', {}, 'fetching fallback nodes', false, true));
     }
+  },
+
+  /**
+   * The choices a node's type and roles can take, from the API's own lists
+   * (Node::TYPES, Node::ROLES). The node dialog fills its selects from this.
+   * @returns {Promise<{types: string[], roles: string[]}>}
+   */
+  getNodeCatalog: async () => {
+    return apiService.get('/api/nodes?action=types', {}, 'fetching node types', false, true);
   },
 
   /**

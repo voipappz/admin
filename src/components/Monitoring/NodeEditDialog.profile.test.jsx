@@ -4,6 +4,9 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 vi.mock('../../services/api/profileParamsApi', () => ({
   profileParamsApi: { getProfileParams: vi.fn() },
 }));
+vi.mock('../../services/api/nodesApi', () => ({
+  nodesApi: { getNodeCatalog: vi.fn().mockResolvedValue({ types: ['voip'], roles: ['switch', 'app'] }) },
+}));
 
 import { profileParamsApi } from '../../services/api/profileParamsApi';
 import NodeEditDialog from './NodeEditDialog.jsx';
@@ -11,12 +14,14 @@ import NodeEditDialog from './NodeEditDialog.jsx';
 // The node profile is rendered from the API's `node` field list
 // (/api/assets/profile_params?type=node), the way the application dialog
 // renders `environment`. PATCH /api/nodes replaces the profile whole, so a
-// save must keep the keys the editor does not show, and it never sends roles.
+// save must keep the keys the editor does not show. A field's `example` is its
+// placeholder and its `pattern` blocks a malformed value.
 describe('NodeEditDialog profile', () => {
   const fields = [
     { key: 'domain', name: 'Domain', input: 'string', value: '' },
     { key: 'wss_server', name: 'WSS server', input: 'string', value: '' },
-    { key: 'ip_address_internal', name: 'Internal IP', input: 'string', value: '' },
+    { key: 'ip_address_internal', name: 'Internal IP', input: 'string', value: '',
+      example: '10.0.0.5', pattern: '^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)){3}$' },
   ];
 
   const node = {
@@ -66,13 +71,21 @@ describe('NodeEditDialog profile', () => {
     });
   });
 
-  it('has no roles field and does not send roles', async () => {
+  it('shows the example as placeholder and blocks a value that fails the pattern', async () => {
     const onSave = renderDialog();
-    await inputFor('WSS server');
-    expect(screen.queryByText('Roles')).toBeNull();
+    // By test id: "Internal IP" is also a column of the SIP interface table.
+    const input = await screen.findByTestId('profile-field-ip_address_internal');
+    expect(input).toHaveAttribute('placeholder', '10.0.0.5');
 
+    fireEvent.change(input, { target: { value: '423432' } });
+    expect(await screen.findByText('Expected like 10.0.0.5')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('node-save'));
+    expect(await screen.findByTestId('node-invalid')).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { value: '10.0.0.9' } });
     fireEvent.click(screen.getByTestId('node-save'));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    expect(onSave.mock.calls[0][0]).not.toHaveProperty('roles');
+    expect(onSave.mock.calls[0][0].profile.ip_address_internal).toBe('10.0.0.9');
   });
 });
