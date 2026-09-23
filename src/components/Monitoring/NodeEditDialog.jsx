@@ -8,26 +8,18 @@ import {
   IconButton,
   Grid,
   Alert,
-  FormControlLabel,
-  Switch,
   Box,
   Typography,
   Tooltip,
 } from '@mui/material';
 import { Close as CloseIcon, ContentCopy as ContentCopyIcon } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
-import ArrayField from '../common/ArrayField/ArrayField';
-
-// The node profile keys the platform reads (Profile::Node). Anything else a
-// deployment puts in the profile is preserved untouched on save — only these
-// are surfaced as fields.
-const KNOWN_PROFILE_KEYS = ['ip_address_internal', 'ip_address_external', 'domain'];
+import DynamicProfileEditor from '../common/DynamicProfileEditor/DynamicProfileEditor';
 
 const EMPTY = {
   name: '',
   type: '',
   notes: '',
-  roles: [],
   profile: {},
   uuid: '',
   source: 'database',
@@ -57,7 +49,6 @@ const NodeEditDialog = ({ open, onClose, onSave, nodeData, loading }) => {
     setFormData({
       ...EMPTY,
       ...src,
-      roles: Array.isArray(src.roles) ? src.roles : [],
       profile: src.profile && typeof src.profile === 'object' ? { ...src.profile } : {},
     });
     setErrors({});
@@ -70,8 +61,12 @@ const NodeEditDialog = ({ open, onClose, onSave, nodeData, loading }) => {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: null }));
   };
 
-  const handleProfileChange = (key, value) => {
-    setFormData((prev) => ({ ...prev, profile: { ...prev.profile, [key]: value } }));
+  // The profile is rendered from the API's `node` field list (profile.yml), the
+  // same way the application dialog renders `environment`. The editor reports
+  // only the fields it shows, so merge them over the stored profile: keys the
+  // schema does not declare must survive a save, since PATCH replaces it whole.
+  const handleProfileChange = (visible) => {
+    setFormData((prev) => ({ ...prev, profile: { ...prev.profile, ...visible } }));
   };
 
   const validate = () => {
@@ -96,7 +91,6 @@ const NodeEditDialog = ({ open, onClose, onSave, nodeData, loading }) => {
         name: formData.name.trim(),
         type: formData.type?.trim() || undefined,
         notes: formData.notes || undefined,
-        roles: formData.roles,
         profile,
       });
       setSuccessMessage(isCreate ? 'Node created' : 'Node updated');
@@ -107,9 +101,6 @@ const NodeEditDialog = ({ open, onClose, onSave, nodeData, loading }) => {
   };
 
   const handleClose = () => { if (!loading) onClose(); };
-
-  const extraProfileKeys = Object.keys(formData.profile || {})
-    .filter((k) => !KNOWN_PROFILE_KEYS.includes(k) && k !== 'vpc');
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth data-testid="node-edit-dialog">
@@ -170,52 +161,16 @@ const NodeEditDialog = ({ open, onClose, onSave, nodeData, loading }) => {
             />
           </Grid>
 
+
           <Grid item xs={12}>
-            <ArrayField
-              items={formData.roles}
-              onChange={(roles) => handleChange('roles', roles)}
-              label="Roles"
-              addButtonText="Add Role"
-              placeholder="app, switch, egress, db"
-              helperText="What runs on this node. Dialplan templates and health checks gate on these."
+            <DynamicProfileEditor
+              type="node"
+              profile={formData.profile}
+              onChange={handleProfileChange}
               disabled={loading}
+              title="Profile Properties"
             />
           </Grid>
-
-          {KNOWN_PROFILE_KEYS.map((key) => (
-            <Grid item xs={12} key={key}>
-              <TextField
-                label={key.replace(/_/g, ' ')}
-                value={formData.profile?.[key] ?? ''}
-                onChange={(e) => handleProfileChange(key, e.target.value)}
-                disabled={loading}
-                fullWidth
-                data-testid={`node-profile-${key}`}
-              />
-            </Grid>
-          ))}
-
-          <Grid item xs={12}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={String(formData.profile?.vpc) === 'true'}
-                  onChange={(e) => handleProfileChange('vpc', e.target.checked)}
-                  disabled={loading}
-                  data-testid="node-profile-vpc"
-                />
-              }
-              label="In VPC (originate from the internal address)"
-            />
-          </Grid>
-
-          {extraProfileKeys.length > 0 && (
-            <Grid item xs={12}>
-              <Typography variant="caption" color="text.secondary">
-                Other profile keys kept as-is: {extraProfileKeys.join(', ')}
-              </Typography>
-            </Grid>
-          )}
 
           <Grid item xs={12}>
             <TextField
