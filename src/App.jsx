@@ -30,7 +30,6 @@ import UserLogin from './components/Login/UserLogin.jsx';
 // Lazy-load all other route components for code splitting
 const Reports = lazy(() => import('./components/Reports/Reports.jsx'));
 const LiveDashboard = lazy(() => import('./components/LiveDashboard/LiveDashboard.jsx'));
-const Dashboard = lazy(() => import('./components/Dashboard/PortalDashboard.jsx'));
 const AdminDashboard = lazy(() => import('./components/Dashboard/AdminDashboard.jsx'));
 const Phone = lazy(() => import('./components/Phone/PhoneScreen.jsx'));
 // The PORTAL's call history — deliberately not the admin Calls screen
@@ -107,11 +106,9 @@ const PortalRoot = () => {
   const admin = useAuth();
   const user = useUserAuth();
   if (admin.initializing || user.initializing) return null;
-  if (user.isAuthenticated) {
-    return canAccessScreen(user.acl, 'dashboard')
-      ? <Layout><Dashboard /></Layout>
-      : <Layout><PortalCalls /></Layout>;
-  }
+  // The portal's landing screen is its call history. The widget dashboard it
+  // used to show now lives in the admin console only (/admin/dashboard).
+  if (user.isAuthenticated) return <Layout><PortalCalls /></Layout>;
   if (admin.isAuthenticated) return <Navigate to="/calls" replace />;
   return <Layout><UserLogin /></Layout>;
 };
@@ -189,7 +186,7 @@ function AppContent() {
       return canAccess(aclKey) ? children : <Navigate to="/account" replace />;
     }
     if (user.isAuthenticated) {
-      return canAccessScreen(user.acl, aclKey) ? children : <Navigate to="/dashboard" replace />;
+      return canAccessScreen(user.acl, aclKey) ? children : <Navigate to="/" replace />;
     }
     return <Navigate to="/" replace />;
   };
@@ -228,8 +225,8 @@ function AppContent() {
             </PortalRoute>
           }
         />
-        {/* The dashboard lives AT the portal's root, not beside it — see
-            PortalRoot. This path is kept so existing links still work. */}
+        {/* The portal dashboard is gone (it is an admin screen now); the path
+            is kept so an old link lands on the portal root. */}
         <Route path="/dashboard" element={<Navigate to="/" replace />} />
         <Route
           path="/my-calls"

@@ -1,9 +1,12 @@
-// The live-calls dashboard body, shared by the portal (PortalDashboard) and
-// the admin (AdminDashboard). Live aggregates come from va-crystal over Cable;
+// The live-calls dashboard body, used by the admin console (AdminDashboard).
+// It began as the portal's landing screen; the portal now lands on its call
+// history instead, and this screen is the console's.
+//
+// Live aggregates come from va-crystal over Cable;
 // recent call history comes from PostgreSQL through /api/calls. InfluxDB is
 // reserved for monitoring and logs and is intentionally absent here.
 //
-// The wrappers decide the scope: which environment the live channel follows
+// The wrapper decides the scope: which environment the live channel follows
 // and where "View call history" goes. /api/calls needs no parameters — the
 // server scopes it to the session (a portal user's environment, an admin's
 // selected environments).
