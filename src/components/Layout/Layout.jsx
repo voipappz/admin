@@ -1,6 +1,5 @@
-import { Box, Drawer, Dialog, Typography, Snackbar, Button, IconButton, useMediaQuery } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { Box, Drawer, Typography, Snackbar, Button, useMediaQuery } from '@mui/material';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useLayout } from './Layout';
 import { useLocation } from 'react-router';
 import Sidebar from '../Sidebar/Sidebar.jsx';
@@ -9,11 +8,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useUserAuth } from '../../context/UserAuthContext';
 import PortalHeader from './PortalHeader.jsx';
 import { usePortalPreferences } from '../../context/PortalPreferencesContext';
-import PhoneDock, { PHONE_DOCK_WIDTH, loadPhonePinned } from '../Phone/PhoneDock.jsx';
-import AssistantFab, { ASSISTANT_FAB_CLEARANCE } from '../AIChat/AssistantFab.jsx';
+import PortalSoftkeys from '../Portal/PortalSoftkeys.jsx';
 import { GlobalSearchProvider } from '../../context/GlobalSearchContext';
 import { RecentPagesProvider } from '../../context/RecentPagesContext';
-import { AIChatSidebarProvider, useAIChatSidebar } from '../../context/AIChatSidebarContext';
 import { loadCustomerData, applyCustomerBranding, getCustomerData } from '../../services/customerService';
 import { useVersionCheck } from '../../hooks/useVersionCheck';
 import useIdleTimeout from '../../hooks/useIdleTimeout';
@@ -22,93 +19,12 @@ import WebRTCPanel from '../Users/UserDialog/WebRTCPanel';
 import { useZendeskWidget } from '../../services/zendeskWidget';
 import './Layout.css';
 
-const PortalMcpAssistant = lazy(() => import('../AIChat/PortalMcpAssistant.jsx'));
 
 // Build version shown in the footer. Prefer the CI build stamp
 // (VITE_APP_VERSION = YYYY.MM.DD-<short-sha>, set by the build step in .github/workflows/ci.yml),
 // fall back to the package.json version, then "dev" for local `npm run dev`.
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || __APP_VERSION__ || 'dev';
 
-/**
- * The assistant as a QUICK BOT: a panel anchored above the AssistantFab in the
- * bottom-right corner, the way a chat bubble opens — not a centred dialog that
- * takes the page over. The page stays readable beside it, so "how many calls
- * did I have today?" can be asked while looking at the calls. Below `md` the
- * panel is the whole screen, as before: a 400px panel on a 360px phone is not
- * a panel. Same MCP assistant, same Cmd/Ctrl+Shift+A.
- */
-const AssistantCorner = () => {
-  const { aiDrawerOpen, toggleAIDrawer } = useAIChatSidebar();
-  return <AssistantFab open={aiDrawerOpen} onToggle={toggleAIDrawer} />;
-};
-
-const AIChatModal = () => {
-  const { aiDrawerOpen, closeAIDrawer, toggleAIDrawer } = useAIChatSidebar();
-  const isMobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
-
-  // Cmd/Ctrl+Shift+A to toggle AI chat
-  useEffect(() => {
-    const handler = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'a') {
-        e.preventDefault();
-        toggleAIDrawer();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [toggleAIDrawer]);
-
-  const body = (
-    <>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.5, py: 0.5, borderBottom: '1px solid var(--theme-border)' }}>
-        <Box component="span" sx={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--theme-text-primary)' }}>Assistant</Box>
-        <IconButton onClick={closeAIDrawer} size="small" aria-label="Close assistant">
-          <CloseIcon sx={{ fontSize: 20 }} />
-        </IconButton>
-      </Box>
-      <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-        <Suspense fallback={<Box sx={{ p: 3, textAlign: 'center', color: 'var(--theme-text-secondary)' }}>Loading...</Box>}>
-          <PortalMcpAssistant />
-        </Suspense>
-      </Box>
-    </>
-  );
-
-  if (isMobile) {
-    return (
-      <Dialog open={aiDrawerOpen} onClose={closeAIDrawer} fullScreen keepMounted
-        PaperProps={{ sx: { backgroundColor: 'var(--theme-bg-primary)', display: 'flex', flexDirection: 'column' } }}>
-        {body}
-      </Dialog>
-    );
-  }
-
-  return (
-    <Box
-      role="dialog"
-      aria-label="Assistant"
-      aria-hidden={!aiDrawerOpen}
-      data-testid="assistant-quick-bot"
-      sx={{
-        position: 'fixed',
-        right: 20,
-        bottom: 92,
-        width: 400,
-        height: 'min(560px, calc(100vh - 120px))',
-        display: aiDrawerOpen ? 'flex' : 'none',
-        flexDirection: 'column',
-        zIndex: (theme) => theme.zIndex.drawer + 1,
-        backgroundColor: 'var(--theme-bg-primary)',
-        border: '1px solid var(--theme-border)',
-        borderRadius: '12px',
-        boxShadow: '0 12px 32px rgba(0,0,0,0.22)',
-        overflow: 'hidden',
-      }}
-    >
-      {body}
-    </Box>
-  );
-};
 // Both served from this deployment's own public/images. The white one used to be
 // hardcoded to https://cloud.voipappz.io:9443 — so every install, MTN included,
 // fetched its logo from voipappz's cloud host, and lost its logo entirely if that
@@ -171,23 +87,6 @@ const Layout = ({ children }) => {
     }
   }, [isAuthenticated, isLoginPage]);
 
-  // Portal-user phone dock — open/closed plus a "stick it open" pin that
-  // survives reloads (the legacy portal's behaviour).
-  const [phoneOpen, setPhoneOpen] = useState(false);
-  const [phonePinned, setPhonePinned] = useState(loadPhonePinned);
-  const effectivePhonePinned = isUserOnlySession ? portalPreferences.preferences.phone_pinned === 'true' : phonePinned;
-  const handleTogglePhonePin = () => {
-    if (isUserOnlySession) {
-      portalPreferences.save({ phone_pinned: String(!effectivePhonePinned) });
-      return;
-    }
-    setPhonePinned((prev) => {
-      const next = !prev;
-      try { localStorage.setItem('sip-phone-pinned', next ? '1' : '0'); } catch { /* storage disabled */ }
-      return next;
-    });
-  };
-
   // Sidebar state — desktop collapse + mobile drawer (shared by the hamburger).
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -217,49 +116,23 @@ const Layout = ({ children }) => {
           {children}
         </Box>
       ) : isUserOnlySession ? (
-        // Portal user, not an admin: header + page content, with the phone
-        // docked on the LEFT (PhoneDock.jsx, opened by the header's hamburger)
-        // and the assistant quick bot in the bottom-right corner. No admin
-        // sidebar/topbar — the dashboard is the center of this surface.
-        // The assistant is here too: it used to exist only in the admin shell
-        // below, so a portal user had neither the modal nor its shortcut.
-        <AIChatSidebarProvider>
+        // Portal user, not an admin: a desk phone. The bar (hamburger, the
+        // line, you), the softkeys under it, and ONE screen — Calls, Live,
+        // Assistant or Phone. No dock, no floating buttons, no menus: the line
+        // is the menu (PortalLine) and the softkeys are the only other way to
+        // move. The admin sidebar/topbar are admin-console concepts.
         <Box data-testid="user-layout" sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-          <PortalHeader phoneOpen={phoneOpen} onTogglePhone={() => setPhoneOpen((open) => !open)} />
+          <PortalHeader />
+          <PortalSoftkeys />
           {portalPreferences.error && <Box role="alert" sx={{ p: 1, color: 'error.main' }}>{portalPreferences.error}</Box>}
-          <Box
-            component="main"
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              // A pinned dock is persistent (no backdrop), so the content has
-              // to actually make room for it instead of sliding underneath.
-              ml: { xs: 0, sm: phoneOpen && effectivePhonePinned ? `${PHONE_DOCK_WIDTH}px` : 0 },
-              // The assistant's bot floats over the bottom-right corner, and
-              // every screen on this surface ends in a table — without this
-              // the last row sits underneath it and cannot be clicked.
-              pb: `${ASSISTANT_FAB_CLEARANCE}px`,
-              transition: 'margin-left 0.2s ease'
-            }}
-          >
+          <Box component="main" sx={{ flex: 1, minWidth: 0 }}>
             {/* A local Suspense boundary. Without it, any lazy chunk this
-                subtree pulls in (the phone panel's, a route's) suspends all
-                the way up to App.jsx's boundary, whose fallback is ANOTHER
-                <Layout> — so the shell was torn down and rebuilt, and
-                `phoneOpen` went with it. Opening the dock closed it again
-                ~300ms later. */}
+                subtree pulls in suspends all the way up to App.jsx's boundary,
+                whose fallback is ANOTHER <Layout> — the shell was torn down
+                and rebuilt on every route's first load. */}
             <Suspense fallback={null}>{children}</Suspense>
           </Box>
-          <PhoneDock
-            open={phoneOpen}
-            onClose={() => setPhoneOpen(false)}
-            pinned={effectivePhonePinned}
-            onTogglePin={handleTogglePhonePin}
-          />
-          <AssistantCorner />
         </Box>
-        <AIChatModal />
-        </AIChatSidebarProvider>
       ) : (
         // Authenticated layout: Sidebar + TopBar + Content
         <GlobalSearchProvider>

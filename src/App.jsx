@@ -32,6 +32,7 @@ const Reports = lazy(() => import('./components/Reports/Reports.jsx'));
 const LiveDashboard = lazy(() => import('./components/LiveDashboard/LiveDashboard.jsx'));
 const AdminDashboard = lazy(() => import('./components/Dashboard/AdminDashboard.jsx'));
 const Phone = lazy(() => import('./components/Phone/PhoneScreen.jsx'));
+const AssistantScreen = lazy(() => import('./components/Portal/AssistantScreen.jsx'));
 // The PORTAL's call history — deliberately not the admin Calls screen
 // (/calls), which is built around dynamic field configs and saved segments.
 const PortalCalls = lazy(() => import('./components/PortalCalls/PortalCalls.jsx'));
@@ -168,10 +169,10 @@ function AppContent() {
     if (admin.initializing || user.initializing) return null;
     if (admin.isAuthenticated) return <Navigate to="/calls" replace />;
     if (!user.isAuthenticated) return <Navigate to="/" replace />;
-    // Phone is always available to a signed-in portal user, unconditional on
-    // ACL — mirrors app, where the phone icon was just always there, never
-    // gated. (It's also reachable via the persistent PhoneFab.)
-    if (aclKey === 'phone') return children;
+    // Phone and Assistant are always available to a signed-in portal user,
+    // unconditional on ACL: they are two of the portal's softkeys, and a key
+    // that only sometimes works is a question nobody should have to ask.
+    if (aclKey === 'phone' || aclKey === 'assistant') return children;
     return canAccessScreen(user.acl, aclKey) ? children : <Navigate to="/" replace />;
   };
 
@@ -244,6 +245,16 @@ function AppContent() {
             <PortalRoute aclKey="phone">
               <Layout>
                 <Phone />
+              </Layout>
+            </PortalRoute>
+          }
+        />
+        <Route
+          path="/assistant"
+          element={
+            <PortalRoute aclKey="assistant">
+              <Layout>
+                <AssistantScreen />
               </Layout>
             </PortalRoute>
           }
