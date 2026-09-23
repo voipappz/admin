@@ -44,11 +44,11 @@ const Accounts = lazy(() => import('./components/Accounts/Accounts.jsx'));
 const Subscriptions = lazy(() => import('./components/Subscriptions/Subscriptions.jsx'));
 const Providers = lazy(() => import('./components/Providers/Providers.jsx'));
 const Environments = lazy(() => import('./components/Environments/Environments.jsx'));
-const DIDs = lazy(() => import('./components/Routes/Routes.jsx'));
+const DIDs = lazy(() => import('./components/DIDs/DIDs.jsx'));
 const PBXRouting = lazy(() => import('./components/PBXRouting/PBXRoutingView.jsx'));
 // Routing lands on the DIDs LIST; the flow canvas opens only via a row's
 // Edit button (?did=...). Closing the canvas returns to the list.
-const DIDsList = lazy(() => import('./components/Routes/Routes.jsx'));
+const DIDsList = lazy(() => import('./components/DIDs/DIDs.jsx'));
 const RoutingScreen = () => {
   const [params, setParams] = useSearchParams();
   return params.get('did')
