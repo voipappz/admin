@@ -267,7 +267,7 @@ const DIDForm = forwardRef(({
           setErrors(prev => ({ ...prev, ...serverErrors }));
         }
       }
-      setApiError(error?.response?.data?.message || error?.message || 'Failed to save DID');
+      setApiError(error?.response?.data?.message || error?.message || 'Failed to save Route');
     }
   };
 
@@ -314,7 +314,7 @@ const DIDForm = forwardRef(({
               required
               fullWidth
               error={!!errors.name || (submitAttempted && !formData.name?.trim())}
-              helperText={errors.name || (submitAttempted && !formData.name?.trim() ? 'Name is required' : 'A friendly name to identify this DID')}
+              helperText={errors.name || (submitAttempted && !formData.name?.trim() ? 'Name is required' : 'A friendly name to identify this Route')}
               placeholder="e.g. Main Office Line"
             />
             <TextField
@@ -345,16 +345,16 @@ const DIDForm = forwardRef(({
             <FormHelperText>
               {errors.environment_uuid || (submitAttempted && !formData.environment_uuid)
                 ? (errors.environment_uuid || 'Application is required')
-                : 'The application this DID belongs to'}
+                : 'The application this Route belongs to'}
             </FormHelperText>
           </FormControl>
 
           {/* Type */}
           <FormControl fullWidth required error={!!errors.type || (submitAttempted && !formData.type)}>
-            <InputLabel required>DID Type</InputLabel>
+            <InputLabel required>Route Type</InputLabel>
             <Select
               value={formData.type || ''}
-              label="DID Type"
+              label="Route Type"
               onChange={(e) => handleChange('type', e.target.value)}
               MenuProps={menuProps(Z.L1)}
             >
@@ -549,7 +549,7 @@ const DIDForm = forwardRef(({
             fullWidth
             multiline
             rows={3}
-            placeholder="Optional notes about this DID"
+            placeholder="Optional notes about this Route"
           />
 
           {/* Enabled toggle */}
@@ -626,7 +626,7 @@ const DIDForm = forwardRef(({
                 startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
                 className="did-form-save-btn"
               >
-                {did ? 'Update DID' : 'Create DID'}
+                {did ? 'Update Route' : 'Create Route'}
               </Button>
             </Box>
           )}

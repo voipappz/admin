@@ -25,7 +25,9 @@ export default function PortalHeader() {
   const [anchor, setAnchor] = useState(null);
   const [portalData, setPortalData] = useState(null);
   const input = useRef(null);
-  const dashboardAllowed = canAccessScreen(acl, 'dashboard');
+  // `dashboard` is the portal's live-data permission; the widget dashboard it
+  // used to gate is an admin screen now, so here it gates Live only.
+  const liveAllowed = canAccessScreen(acl, 'dashboard');
   const callsAllowed = canAccessScreen(acl, 'calls');
   const { logo: brandIcon, color: brandColor } = parseCustomerBrand(portalData);
   const language = portalData?.language || user?.profile?.language || user?.language
@@ -53,7 +55,7 @@ export default function PortalHeader() {
     navigate(`/my-calls?${next}`);
   };
   const links = [
-    ...(dashboardAllowed ? [{ label: 'Dashboard', path: '/' }, { label: 'Live', path: '/live' }] : []),
+    ...(liveAllowed ? [{ label: 'Live', path: '/live' }] : []),
     ...(callsAllowed ? [{ label: 'Calls', path: '/my-calls' }] : []),
   ];
   return (

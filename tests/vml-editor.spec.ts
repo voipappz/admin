@@ -17,7 +17,7 @@ test.describe('VML Editor E2E', () => {
 
   // ─── Test 1: Open VML editor by clicking bridge in DIDs table ───
   test('Edit VML bridge from DIDs table', async ({ authenticatedPage: page }) => {
-    await page.goto('/dids', { waitUntil: 'networkidle', timeout: 20000 });
+    await page.goto('/routes/list', { waitUntil: 'networkidle', timeout: 20000 });
     await page.waitForTimeout(2000);
 
     // Bridge names in column 4 are clickable MuiTypography elements
@@ -56,7 +56,7 @@ test.describe('VML Editor E2E', () => {
 
   // ─── Test 2: Open DID wizard → select VML bridge → Create New VML ───
   test('Create New VML from DID wizard', async ({ authenticatedPage: page }) => {
-    await page.goto('/dids', { waitUntil: 'networkidle', timeout: 20000 });
+    await page.goto('/routes/list', { waitUntil: 'networkidle', timeout: 20000 });
     await page.waitForTimeout(2000);
 
     // Click Add DID button (+ icon in top right)
@@ -134,7 +134,7 @@ test.describe('VML Editor E2E', () => {
 
   // ─── Test 3: Templates dropdown inserts boilerplate ───
   test('Templates dropdown loads and inserts boilerplate', async ({ authenticatedPage: page }) => {
-    await page.goto('/dids', { waitUntil: 'networkidle', timeout: 20000 });
+    await page.goto('/routes/list', { waitUntil: 'networkidle', timeout: 20000 });
     await page.waitForTimeout(2000);
 
     const opened = await openVmlEditor(page);
@@ -187,7 +187,7 @@ test.describe('VML Editor E2E', () => {
 
   // ─── Test 4: Snippets dropdown with categories ───
   test('Snippets dropdown shows categories and inserts code', async ({ authenticatedPage: page }) => {
-    await page.goto('/dids', { waitUntil: 'networkidle', timeout: 20000 });
+    await page.goto('/routes/list', { waitUntil: 'networkidle', timeout: 20000 });
     await page.waitForTimeout(2000);
 
     const opened = await openVmlEditor(page);
@@ -234,7 +234,7 @@ test.describe('VML Editor E2E', () => {
 
   // ─── Test 5: Fullscreen toggle ───
   test('Fullscreen toggle expands and collapses editor', async ({ authenticatedPage: page }) => {
-    await page.goto('/dids', { waitUntil: 'networkidle', timeout: 20000 });
+    await page.goto('/routes/list', { waitUntil: 'networkidle', timeout: 20000 });
     await page.waitForTimeout(2000);
 
     const opened = await openVmlEditor(page);
@@ -275,7 +275,7 @@ test.describe('VML Editor E2E', () => {
 
   // ─── Test 6: Syntax checking — status bar shows errors ───
   test('Lua syntax checker shows errors in status bar', async ({ authenticatedPage: page }) => {
-    await page.goto('/dids', { waitUntil: 'networkidle', timeout: 20000 });
+    await page.goto('/routes/list', { waitUntil: 'networkidle', timeout: 20000 });
     await page.waitForTimeout(2000);
 
     const opened = await openVmlEditor(page);

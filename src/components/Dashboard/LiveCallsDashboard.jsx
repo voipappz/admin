@@ -1,19 +1,26 @@
-// Portal-only dashboard. Live aggregates come from va-crystal over Cable;
+// The live-calls dashboard body, used by the admin console (AdminDashboard).
+// It began as the portal's landing screen; the portal now lands on its call
+// history instead, and this screen is the console's.
+//
+// Live aggregates come from va-crystal over Cable;
 // recent call history comes from PostgreSQL through /api/calls. InfluxDB is
 // reserved for monitoring and logs and is intentionally absent here.
+//
+// The wrapper decides the scope: which environment the live channel follows,
+// where "View call history" goes, and any extra panel it renders as children. /api/calls needs no parameters — the
+// server scopes it to the session (a portal user's environment, an admin's
+// selected environments).
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box, Button, Chip, CircularProgress, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router';
-import { canAccessScreen } from '../../utils/jwt';
 import CallReceivedIcon from '@mui/icons-material/CallReceived';
 import CallMadeIcon from '@mui/icons-material/CallMade';
 import PhoneInTalkIcon from '@mui/icons-material/PhoneInTalk';
 import PageHeader from '../common/PageHeader.jsx';
 import StatCard from '../common/StatCard.jsx';
 import StatusChip from '../common/StatusChip.jsx';
-import { useUserAuth } from '../../context/UserAuthContext.jsx';
 import { callsApi } from '../../services/api/callsApi';
 import useLiveEntities from '../../hooks/useLiveEntities';
 
@@ -31,11 +38,16 @@ const displayTime = (value) => {
   return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString();
 };
 
-export default function PortalDashboard() {
-  const { user, acl } = useUserAuth();
+export default function LiveCallsDashboard({
+  environmentUuid = null,
+  title = 'Dashboard',
+  subtitle = 'Your live activity and recent conversations',
+  callsAllowed = true,
+  historyPath = '/my-calls',
+  testId = 'dashboard-page',
+  children = null,
+}) {
   const navigate = useNavigate();
-  const callsAllowed = canAccessScreen(acl, 'calls');
-  const environmentUuid = user?.environment?.uuid || user?.environment_uuid || null;
   const live = useLiveEntities(environmentUuid);
   const [recentCalls, setRecentCalls] = useState([]);
   const [callsError, setCallsError] = useState(false);
@@ -75,8 +87,8 @@ export default function PortalDashboard() {
   }, [live.rows]);
 
   return (
-    <Box data-testid="dashboard-page" sx={{ p: { xs: 2, md: 3 }, width: '100%', maxWidth: 1440, mx: 'auto' }}>
-      <PageHeader title={user?.name ? `Hello, ${user.name}` : 'Dashboard'} subtitle="Your live activity and recent conversations" actions={callsAllowed ? <Button variant="outlined" onClick={() => navigate('/my-calls')}>View call history</Button> : null} />
+    <Box data-testid={testId} sx={{ p: { xs: 2, md: 3 }, width: '100%', maxWidth: 1440, mx: 'auto' }}>
+      <PageHeader title={title} subtitle={subtitle} actions={callsAllowed ? <Button variant="outlined" onClick={() => navigate(historyPath)}>View call history</Button> : null} />
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <Chip
@@ -96,6 +108,11 @@ export default function PortalDashboard() {
         <Box><StatCard label="Incoming" value={live.connected ? aggregate.incoming : '—'} icon={CallReceivedIcon} color="info.main" /></Box>
         <Box><StatCard label="Outgoing" value={live.connected ? aggregate.outgoing : '—'} icon={CallMadeIcon} color="primary.main" /></Box>
       </Box>
+
+      {/* A wrapper's own panels (the admin's calls chart) sit between the live
+          tiles and the recent-calls list: live now, then the period, then the
+          detail. */}
+      {children}
 
       {callsAllowed && <Paper elevation={0} sx={{ p: { xs: 1.5, md: 2 }, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
         <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>Recent calls</Typography>

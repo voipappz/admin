@@ -37,6 +37,17 @@ export const monitoringApi = {
       `/api/monitoring/charts?${chartParams('live_registrations', environmentUuid, customerUuid, minutes, bucket)}`,
       {}, 'fetching live registrations chart', false, true),
 
+  /**
+   * Finished calls per bucket from the InfluxDB `cdr` series — what telegraf
+   * already receives for every call, counted per customer. `groupBy` splits
+   * the bars: direction | cause | disposition | hangup_disposition.
+   */
+  getCallsVolumeChart: async (environmentUuid, minutes = 1440, bucket = '1h', customerUuid = null, groupBy = 'direction') => {
+    const params = chartParams('calls_volume', environmentUuid, customerUuid, minutes, bucket);
+    if (groupBy) params.set('group_by', groupBy);
+    return apiService.get(`/api/monitoring/charts?${params}`, {}, 'fetching calls volume chart', false, true);
+  },
+
   // Influx/Influxer is Monitoring-only. Schema browser + Influxer-built metric query.
   getInfluxSchema: async () => apiService.get('/api/monitoring/influxdb/schema', {}, 'fetching influx schema', false, true),
 

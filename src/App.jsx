@@ -30,7 +30,7 @@ import UserLogin from './components/Login/UserLogin.jsx';
 // Lazy-load all other route components for code splitting
 const Reports = lazy(() => import('./components/Reports/Reports.jsx'));
 const LiveDashboard = lazy(() => import('./components/LiveDashboard/LiveDashboard.jsx'));
-const Dashboard = lazy(() => import('./components/Dashboard/PortalDashboard.jsx'));
+const AdminDashboard = lazy(() => import('./components/Dashboard/AdminDashboard.jsx'));
 const Phone = lazy(() => import('./components/Phone/PhoneScreen.jsx'));
 // The PORTAL's call history — deliberately not the admin Calls screen
 // (/calls), which is built around dynamic field configs and saved segments.
@@ -58,7 +58,7 @@ const RoutingScreen = () => {
 // /dids/:id deep link — per-DID edit is the visual routing flow.
 const DIDEditRedirect = () => {
   const { id } = useParams();
-  return <Navigate to={`/routing?did=${id}`} replace />;
+  return <Navigate to={`/routes?did=${id}`} replace />;
 };
 const CommsLog = lazy(() => import('./components/CommsLog/CommsLog.jsx'));
 const Services = lazy(() => import('./components/Studio/ServicesStudio.jsx'));
@@ -106,11 +106,9 @@ const PortalRoot = () => {
   const admin = useAuth();
   const user = useUserAuth();
   if (admin.initializing || user.initializing) return null;
-  if (user.isAuthenticated) {
-    return canAccessScreen(user.acl, 'dashboard')
-      ? <Layout><Dashboard /></Layout>
-      : <Layout><PortalCalls /></Layout>;
-  }
+  // The portal's landing screen is its call history. The widget dashboard it
+  // used to show now lives in the admin console only (/admin/dashboard).
+  if (user.isAuthenticated) return <Layout><PortalCalls /></Layout>;
   if (admin.isAuthenticated) return <Navigate to="/calls" replace />;
   return <Layout><UserLogin /></Layout>;
 };
@@ -160,9 +158,10 @@ function AppContent() {
   // the screen itself reads useAuth()/useUserAuth() to pick its data scoping
   // (selected environment vs. the user's own environment_uuid).
   // Portal-only screens. The widget dashboard is the END USER's landing
-  // screen; the account console answers the same questions with Calls,
-  // Reports and Monitoring, so an admin session has no business here and is
-  // sent to its own landing screen rather than shown a second dashboard.
+  // screen, so an admin session is sent to its own landing screen rather than
+  // shown it here. The console has its own copy of the same dashboard at
+  // /admin/dashboard (AdminDashboard, a pilot), scoped to the selected
+  // customer/environment.
   const PortalRoute = ({ children, aclKey }) => {
     const admin = useAuth();
     const user = useUserAuth();
@@ -187,7 +186,7 @@ function AppContent() {
       return canAccess(aclKey) ? children : <Navigate to="/account" replace />;
     }
     if (user.isAuthenticated) {
-      return canAccessScreen(user.acl, aclKey) ? children : <Navigate to="/dashboard" replace />;
+      return canAccessScreen(user.acl, aclKey) ? children : <Navigate to="/" replace />;
     }
     return <Navigate to="/" replace />;
   };
@@ -226,8 +225,8 @@ function AppContent() {
             </PortalRoute>
           }
         />
-        {/* The dashboard lives AT the portal's root, not beside it — see
-            PortalRoot. This path is kept so existing links still work. */}
+        {/* The portal dashboard is gone (it is an admin screen now); the path
+            is kept so an old link lands on the portal root. */}
         <Route path="/dashboard" element={<Navigate to="/" replace />} />
         <Route
           path="/my-calls"
@@ -265,6 +264,19 @@ function AppContent() {
             <ProtectedRoute requiredAcl="calls">
               <Layout>
                 <Calls />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        {/* The live-calls dashboard in the account console (pilot): the same
+            body as the portal's landing screen, scoped to the selected
+            customer/environment. Gated on calls, the data it shows. */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute requiredAcl="calls">
+              <Layout>
+                <AdminDashboard />
               </Layout>
             </ProtectedRoute>
           }
@@ -442,22 +454,23 @@ function AppContent() {
           }
         />
         <Route
-          path="/dids"
+          path="/routes/list"
           element={
-            <ProtectedRoute requiredAcl="dids">
+            <ProtectedRoute requiredAcl="routes">
               <Layout>
                 <DIDs />
               </Layout>
             </ProtectedRoute>
           }
         />
-        {/* Per-DID edit deep link — editing a DID happens on the visual
-            routing flow (React Flow canvas), so forward to it. */}
-        <Route path="/dids/:id" element={<DIDEditRedirect />} />
+        {/* Per-route edit deep link — editing happens on the visual routing
+            flow (React Flow canvas), so forward to it. The old /dids and
+            /routing paths are gone, not redirected: the screen is Routes. */}
+        <Route path="/routes/:id" element={<DIDEditRedirect />} />
         <Route
-          path="/routing"
+          path="/routes"
           element={
-            <ProtectedRoute requiredAcl="dids">
+            <ProtectedRoute requiredAcl="routes">
               <Layout>
                 <RoutingScreen />
               </Layout>

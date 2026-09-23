@@ -19,7 +19,7 @@ import {
 
 export const TYPE_CONFIG = {
   // Entry
-  did:            { icon: PhoneIcon, color: '#1976d2', label: 'DID', shape: 'entry' },
+  did:            { icon: PhoneIcon, color: '#1976d2', label: 'Route', shape: 'entry' },
   // Routing / decision
   queue:          { icon: HeadsetIcon, color: '#2e7d32', label: 'Queue', shape: 'routing' },
   call_condition: { icon: ClockIcon, color: '#ed6c02', label: 'Call Condition', shape: 'routing' },

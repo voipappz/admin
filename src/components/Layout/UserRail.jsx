@@ -9,7 +9,6 @@ import { useState } from 'react';
 import {
   Avatar, Box, Divider, ListItemIcon, ListItemText, Menu, MenuItem, Tooltip, Typography
 } from '@mui/material';
-import DashboardIcon from '@mui/icons-material/Dashboard';
 import PhoneIcon from '@mui/icons-material/Phone';
 import HistoryIcon from '@mui/icons-material/History';
 import SensorsIcon from '@mui/icons-material/Sensors';
@@ -84,7 +83,8 @@ export default function UserRail() {
 
   const name = user?.name || user?.fullname || user?.email || 'Account';
   const initial = (String(name).trim()[0] || 'U').toUpperCase();
-  const dashboardAllowed = canAccessScreen(acl, 'dashboard');
+  // See PortalHeader: this permission now gates Live only.
+  const liveAllowed = canAccessScreen(acl, 'dashboard');
 
   return (
     <Box
@@ -110,17 +110,9 @@ export default function UserRail() {
         boxShadow: { xs: '0 -6px 18px rgba(15, 23, 42, 0.08)', md: 'none' },
       }}
     >
-      {dashboardAllowed && <RailItem
-        testId="rail-dashboard"
-        icon={<DashboardIcon />}
-        label="Dashboard"
-        active={location.pathname === '/'}
-        onClick={() => navigate('/')}
-      />}
-      {/* Live sits between the board and the history: the board is what you
-          configure, Calls is what already happened, and this is what is
-          happening right now. */}
-      {dashboardAllowed && <RailItem
+      {/* Live is what is happening right now; Calls is what already
+          happened and is the portal's landing screen. */}
+      {liveAllowed && <RailItem
         testId="rail-live"
         icon={<SensorsIcon />}
         label="Live"
@@ -131,7 +123,7 @@ export default function UserRail() {
         testId="rail-calls"
         icon={<HistoryIcon />}
         label="Calls"
-        active={location.pathname === '/my-calls' || (!dashboardAllowed && location.pathname === '/')}
+        active={location.pathname === '/my-calls' || location.pathname === '/'}
         onClick={() => navigate('/my-calls')}
       />
       {/* Opens the assistant over the current screen rather than navigating,

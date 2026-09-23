@@ -46,7 +46,7 @@ import Papa from 'papaparse';
  * @param {Function} props.onClose - Close handler
  * @param {Function} props.onImport - Import handler (receives: file, environmentUuid) => Promise
  * @param {string} props.title - Dialog title
- * @param {string} props.entityName - Entity name for messages (e.g., "DIDs", "Extensions")
+ * @param {string} props.entityName - Entity name for messages (e.g., "Routes", "Extensions")
  * @param {Array} props.environments - Optional list of environments for selection
  * @param {string} props.selectedEnvironment - Pre-selected environment UUID
  * @param {boolean} props.requireEnvironment - Whether environment selection is required

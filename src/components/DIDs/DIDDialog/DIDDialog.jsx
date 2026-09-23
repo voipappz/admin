@@ -78,7 +78,7 @@ const DIDDialog = ({
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <PhoneIcon />
-          {did ? 'Edit DID' : 'Create New DID'}
+          {did ? 'Edit Route' : 'Create New Route'}
         </Box>
         <Typography className="did-dialog-subtitle">
           Configure routing and properties for this phone number
@@ -109,7 +109,7 @@ const DIDDialog = ({
           startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
           onClick={() => formRef.current?.submit()}
         >
-          {did ? 'Update DID' : 'Create DID'}
+          {did ? 'Update Route' : 'Create Route'}
         </Button>
       </DialogActions>
 

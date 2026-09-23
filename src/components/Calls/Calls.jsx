@@ -53,7 +53,7 @@ const GROUP_BY_OPTIONS = [
   { key: 'disposition', label: 'Disposition' },
   { key: 'hangup_disposition', label: 'Hangup' },
   { key: 'queue', label: 'Queue' },
-  { key: 'did', label: 'DID' },
+  { key: 'did', label: 'Route' },
   { key: 'environment', label: 'Application' },
   { key: 'user', label: 'User' },
 ];

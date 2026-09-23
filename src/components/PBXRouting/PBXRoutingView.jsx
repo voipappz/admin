@@ -285,7 +285,7 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { selectedEnvironments } = useCustomerEnvironment();
   const { can } = usePermissions();
-  const canWrite = can('dids', 'write');
+  const canWrite = can('routes', 'write');
   const [activeDid, setActiveDid] = useState(initialDidUuid || null);
 
   // --- DID data (drives the top-bar DID label; the browse list panel was removed) ---
@@ -346,7 +346,7 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
       const list = Array.isArray(response) ? response : (response?.data || []);
       setAllDids(list);
     } catch (err) {
-      console.error('PBX Routing: Failed to fetch DIDs:', err);
+      console.error('PBX Routing: Failed to fetch Routes:', err);
       setAllDids([]);
     } finally {
       setDidsLoading(false);
@@ -402,7 +402,7 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
       const types = Array.isArray(response) ? response : (response?.data || []);
       setDidTypes(types);
     } catch (err) {
-      console.error('Error fetching DID types:', err);
+      console.error('Error fetching Route types:', err);
     }
   }, [didTypes.length]);
 
@@ -472,7 +472,7 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
       type: 'did',
       mode: 'create',
       data: null,
-      label: 'DID: (new)',
+      label: 'Route: (new)',
       environmentUuid: selectedEnvironments?.[0]?.uuid || '',
     });
   }, [fetchBridgeTypes, fetchDIDTypes, wizardState, selectedEnvironments]);
@@ -501,7 +501,7 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
         environmentUuid: fullDID.environment_uuid || selectedEnvironments?.[0]?.uuid || '',
       });
     } catch (err) {
-      console.error('Error loading full DID:', err);
+      console.error('Error loading full Route:', err);
     }
   }, [fetchBridgeTypes, fetchDIDTypes, wizardState, selectedEnvironments]);
 
@@ -518,10 +518,10 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
     try {
       if (didUuid) {
         await didsApi.updateDID(didUuid, didDataWithEnv);
-        showSuccess('DID updated');
+        showSuccess('Route updated');
       } else {
         await didsApi.createDID(didDataWithEnv);
-        showSuccess('DID created');
+        showSuccess('Route created');
       }
 
       refreshDids();
@@ -560,7 +560,7 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
       const itemId = item.uuid || item.id;
       if (type === 'did') {
         await didsApi.deleteDID(itemId);
-        showSuccess('DID deleted');
+        showSuccess('Route deleted');
         refreshDids();
         if (itemId === activeDid) {
           setActiveDid(null);
@@ -671,10 +671,10 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
     try {
       if (didUuid) {
         await didsApi.updateDID(didUuid, didDataWithEnv);
-        showSuccess('DID updated');
+        showSuccess('Route updated');
       } else {
         await didsApi.createDID(didDataWithEnv);
-        showSuccess('DID created');
+        showSuccess('Route created');
       }
       setSelectedNode(null);
       refreshDids();
@@ -726,7 +726,7 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
             noWrap
             sx={{ fontSize: '0.85rem', flexShrink: 1, minWidth: 0, ml: 0.5 }}
           >
-            {selectedDidObj?.number || selectedDidObj?.name || 'DID'}
+            {selectedDidObj?.number || selectedDidObj?.name || 'Route'}
           </Typography>
         ) : (
         <Autocomplete
@@ -739,7 +739,7 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
             const parts = [];
             if (option.number) parts.push(option.number);
             if (option.name) parts.push(option.name);
-            return parts.join(' - ') || 'Unnamed DID';
+            return parts.join(' - ') || 'Unnamed Route';
           }}
           isOptionEqualToValue={(option, value) =>
             (option.uuid || option.id) === (value.uuid || value.id)
@@ -778,7 +778,7 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
           renderInput={(params) => (
             <TextField
               {...params}
-              placeholder="Select a DID..."
+              placeholder="Select a Route..."
               InputProps={{
                 ...params.InputProps,
                 startAdornment: (
@@ -796,14 +796,14 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
             minWidth: 160,
             '& .MuiInputBase-root': { fontSize: '0.8rem', height: 36 },
           }}
-          noOptionsText="No DIDs found"
-          loadingText="Loading DIDs..."
+          noOptionsText="No Routes found"
+          loadingText="Loading Routes..."
         />
         )}
 
         {/* Add DID button */}
         {canWrite && (
-          <Tooltip title="Add DID">
+          <Tooltip title="Add Route">
             <IconButton size="small" onClick={openDIDWizardForCreate} sx={{ flexShrink: 0 }}>
               <AddIcon fontSize="small" />
             </IconButton>
@@ -812,7 +812,7 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
 
         {/* Edit active DID button */}
         {selectedDidObj && canWrite && (
-          <Tooltip title="Edit DID">
+          <Tooltip title="Edit Route">
             <IconButton size="small" onClick={() => openDIDWizardForEdit(selectedDidObj)} sx={{ flexShrink: 0 }}>
               <EditIcon fontSize="small" />
             </IconButton>
@@ -821,7 +821,7 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
 
         {/* Delete active DID button */}
         {selectedDidObj && canWrite && (
-          <Tooltip title="Delete DID">
+          <Tooltip title="Delete Route">
             <IconButton size="small" onClick={() => openDeleteDIDDialog(selectedDidObj)} sx={{ flexShrink: 0 }}>
               <DeleteIcon fontSize="small" sx={{ color: 'text.secondary' }} />
             </IconButton>
@@ -1013,7 +1013,7 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
         {/* Empty routing */}
         {activeDid && !loading && !error && nodes.length === 0 && (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-            <Typography color="text.secondary">No routing data found for this DID.</Typography>
+            <Typography color="text.secondary">No routing data found for this Route.</Typography>
           </Box>
         )}
 
@@ -1139,11 +1139,11 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
         onClose={handleCloseDeleteDialog}
         onConfirm={handleConfirmDelete}
         loading={deleteLoading}
-        title={<>Delete {(deleteDialog.type) === 'provider' ? 'Provider' : 'DID'}</>}
-        message={<Typography>Are you sure you want to delete {(deleteDialog.type) === 'provider' ? 'provider' : 'DID'}{' '}
+        title={<>Delete {(deleteDialog.type) === 'provider' ? 'Provider' : 'Route'}</>}
+        message={<Typography>Are you sure you want to delete {(deleteDialog.type) === 'provider' ? 'provider' : 'Route'}{' '}
         <strong>{(deleteDialog.type) === 'provider' ? (deleteDialog.item)?.name : (deleteDialog.item)?.number}</strong>?</Typography>}
         description={<>{(deleteDialog.type) === 'provider'
-          ? 'This will remove the provider and may affect DIDs using it.'
+          ? 'This will remove the provider and may affect Routes using it.'
           : 'This action cannot be undone and will affect call routing.'}</>}
       />
     </Box>
@@ -1155,7 +1155,7 @@ const PBXRoutingViewInner = ({ didUuid: initialDidUuid, didInfo: _didInfo, dids:
  */
 const PBXRoutingView = (props) => {
   // When opened as the /routing route, accept ?did=<uuid> so the DIDs list
-  // "Edit DID" action can deep-link straight into that DID's routing flow.
+  // "Edit Route" action can deep-link straight into that DID's routing flow.
   const [searchParams] = useSearchParams();
   const didUuid = props.didUuid || searchParams.get('did') || null;
   return (

@@ -65,8 +65,8 @@ const DIDSelectorPopover = ({ open, anchorEl, onClose, selectedEnvironments, onD
       setDids(list);
       if (list.length >= 9999) setTruncated(true);
     } catch (err) {
-      console.error('Failed to fetch DIDs:', err);
-      setFetchError(err.message || 'Failed to load DIDs');
+      console.error('Failed to fetch Routes:', err);
+      setFetchError(err.message || 'Failed to load Routes');
       setDids([]);
     } finally {
       setLoading(false);
@@ -173,7 +173,7 @@ const DIDSelectorPopover = ({ open, anchorEl, onClose, selectedEnvironments, onD
 
   const handleActionGoToDIDSettings = useCallback(() => {
     if (actionMenuDID && onNavigate) {
-      onNavigate(`/dids?highlight=${actionMenuDID.uuid}`);
+      onNavigate(`/routes/list?highlight=${actionMenuDID.uuid}`);
     }
     handleActionMenuClose();
     handleClose();
@@ -432,7 +432,7 @@ const DIDSelectorPopover = ({ open, anchorEl, onClose, selectedEnvironments, onD
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <PhoneIcon sx={{ fontSize: 36, color: 'var(--theme-text-secondary)', opacity: 0.4, mb: 1 }} />
             <Typography variant="body2" sx={{ color: 'var(--theme-text-secondary)', fontSize: '0.8rem' }}>
-              {selectedEnvironments.length === 0 ? 'Select a application first' : 'No DIDs found'}
+              {selectedEnvironments.length === 0 ? 'Select a application first' : 'No Routes found'}
             </Typography>
           </Box>
         )}
@@ -465,7 +465,7 @@ const DIDSelectorPopover = ({ open, anchorEl, onClose, selectedEnvironments, onD
         </MenuItem>
         <MenuItem onClick={handleActionGoToDIDSettings} sx={{ fontSize: '0.85rem' }}>
           <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>DID Settings</ListItemText>
+          <ListItemText>Route Settings</ListItemText>
         </MenuItem>
       </Menu>
     </Popover>
