@@ -31,6 +31,7 @@ import UserLogin from './components/Login/UserLogin.jsx';
 const Reports = lazy(() => import('./components/Reports/Reports.jsx'));
 const LiveDashboard = lazy(() => import('./components/LiveDashboard/LiveDashboard.jsx'));
 const Dashboard = lazy(() => import('./components/Dashboard/PortalDashboard.jsx'));
+const AdminDashboard = lazy(() => import('./components/Dashboard/AdminDashboard.jsx'));
 const Phone = lazy(() => import('./components/Phone/PhoneScreen.jsx'));
 // The PORTAL's call history — deliberately not the admin Calls screen
 // (/calls), which is built around dynamic field configs and saved segments.
@@ -160,9 +161,10 @@ function AppContent() {
   // the screen itself reads useAuth()/useUserAuth() to pick its data scoping
   // (selected environment vs. the user's own environment_uuid).
   // Portal-only screens. The widget dashboard is the END USER's landing
-  // screen; the account console answers the same questions with Calls,
-  // Reports and Monitoring, so an admin session has no business here and is
-  // sent to its own landing screen rather than shown a second dashboard.
+  // screen, so an admin session is sent to its own landing screen rather than
+  // shown it here. The console has its own copy of the same dashboard at
+  // /admin/dashboard (AdminDashboard, a pilot), scoped to the selected
+  // customer/environment.
   const PortalRoute = ({ children, aclKey }) => {
     const admin = useAuth();
     const user = useUserAuth();
@@ -265,6 +267,19 @@ function AppContent() {
             <ProtectedRoute requiredAcl="calls">
               <Layout>
                 <Calls />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        {/* The live-calls dashboard in the account console (pilot): the same
+            body as the portal's landing screen, scoped to the selected
+            customer/environment. Gated on calls, the data it shows. */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute requiredAcl="calls">
+              <Layout>
+                <AdminDashboard />
               </Layout>
             </ProtectedRoute>
           }
