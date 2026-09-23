@@ -435,7 +435,7 @@ const TestPanel = ({ workflow }) => {
             <MenuItem value="outbound">outbound</MenuItem>
           </Select>
         </FormControl>
-        <TextField size="small" label="DID" value={didNumber} onChange={(e) => setDidNumber(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
+        <TextField size="small" label="Route" value={didNumber} onChange={(e) => setDidNumber(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
         <TextField size="small" label="Queue" value={queueName} onChange={(e) => setQueueName(e.target.value)} sx={{ width: 100 }} />
         <Button variant="contained" color="success" size="small" onClick={runTest}
           disabled={!workflow?.uuid || running} sx={{ minWidth: 80 }}

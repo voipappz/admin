@@ -46,8 +46,8 @@ export const TOURS = {
       {
         id: 'dids-menu',
         selector: '[data-tour="dids-menu"]',
-        title: 'Manage DIDs',
-        description: 'Configure phone numbers (DIDs) and set up call routing to IVRs, queues, or devices.',
+        title: 'Manage Routes',
+        description: 'Configure phone numbers (Routes) and set up call routing to IVRs, queues, or devices.',
         position: 'right',
         optional: true,
       },
@@ -72,21 +72,21 @@ export const TOURS = {
 
   'dids-guide': {
     id: 'dids-guide',
-    name: 'DID Management Guide',
+    name: 'Route Management Guide',
     autoStart: false,
     steps: [
       {
         id: 'did-list',
         selector: '[data-tour="did-list"]',
-        title: 'DID List',
-        description: 'This table shows all your DIDs. Use the filters on the left to narrow down the list.',
+        title: 'Route List',
+        description: 'This table shows all your Routes. Use the filters on the left to narrow down the list.',
         position: 'left',
         optional: true,
       },
       {
         id: 'did-create',
         selector: '[data-tour="did-create"]',
-        title: 'Create New DID',
+        title: 'Create New Route',
         description: 'Click here to add a new phone number to your system.',
         position: 'bottom',
         optional: true,

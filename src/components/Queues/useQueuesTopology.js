@@ -109,7 +109,7 @@ export const useQueuesTopology = () => {
     for (const did of dids) {
       const didId = `did-${did.uuid}`;
       addNode(didId, 'did', did, {
-        label: did.name || did.number || 'DID',
+        label: did.name || did.number || 'Route',
         sublabel: did.number || '',
       });
 

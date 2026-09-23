@@ -121,7 +121,7 @@ const DIDs = () => {
         type: 'did',
         mode: did ? 'edit' : 'create',
         data: did,
-        label: did ? `DID: ${did.name || did.number}` : 'DID: (new)',
+        label: did ? `DID: ${did.name || did.number}` : 'Route: (new)',
         environmentUuid: did?.environment_uuid || '',
       });
       handleCloseDialog(); // Clear hook state; wizard manages its own open/close
@@ -179,7 +179,7 @@ const DIDs = () => {
   ], [bridgeTypes, environments, providers]);
 
   useEffect(() => {
-    registerScreen('DIDs', didSegments, {
+    registerScreen('Routes', didSegments, {
       onSearch: (params) => {
         const newFilters = {};
         Object.entries(params).forEach(([key, value]) => {
@@ -337,7 +337,7 @@ const DIDs = () => {
           </Tooltip>
         )}
         {canWrite && (
-          <Tooltip title="Add DID">
+          <Tooltip title="Add Route">
             <IconButton
               size="small"
               onClick={() => handleOpenDialog()}
@@ -585,7 +585,7 @@ const DIDs = () => {
                         <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
                             {canWrite && (
-                              <Tooltip title="Edit DID — opens its visual routing flow">
+                              <Tooltip title="Edit Route — opens its visual routing flow">
                                 <IconButton
                                   size="small"
                                   onClick={() => navigate(`/routing?did=${did.uuid || did.id}`)}
@@ -596,7 +596,7 @@ const DIDs = () => {
                               </Tooltip>
                             )}
                             {canWrite && (
-                              <Tooltip title="Duplicate DID">
+                              <Tooltip title="Duplicate Route">
                                 <IconButton
                                   data-testid="duplicate-did-button"
                                   size="small"
@@ -662,7 +662,7 @@ const DIDs = () => {
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteDID}
         loading={loading}
-        title="Delete DID"
+        title="Delete Route"
         message={<Typography>Are you sure you want to delete DID{' '}
           <strong>{(didToDelete)?.number}</strong>?</Typography>}
         description="This action cannot be undone and will affect call routing."
@@ -691,8 +691,8 @@ const DIDs = () => {
         open={importDialogOpen}
         onClose={handleCloseImportDialog}
         onImport={handleImportCSV}
-        title="Import DIDs from CSV"
-        entityName="DIDs"
+        title="Import Routes from CSV"
+        entityName="Routes"
         environments={environments}
         requireEnvironment={true}
         onSuccess={handleImportSuccess}

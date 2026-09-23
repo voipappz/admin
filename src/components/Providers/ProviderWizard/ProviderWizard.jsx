@@ -20,7 +20,7 @@ const TARIFF_TYPES = ['sip', 'did'];
 
 const STEP_HELP = {
   0: { title: 'Pick a provider type', body: 'The type decides what the provider does and which fields you’ll configure next. It comes from the server and can’t be changed after creation.' },
-  1: { title: 'Name your provider', body: 'Give it a clear, unique name. A tariff is only offered for types that carry billable traffic (SIP, DID). Notes are optional.' },
+  1: { title: 'Name your provider', body: 'Give it a clear, unique name. A tariff is only offered for types that carry billable traffic (SIP, Route). Notes are optional.' },
   2: { title: 'Type-specific settings', body: 'These fields come from the server for the chosen type — an SMTP provider needs a host and credentials, an LLM provider needs an API key. Secrets are encrypted at rest and come back masked; reveal is only available after the provider exists.' },
   3: { title: 'Review & create', body: 'Check everything below. Click any “Edit” to jump back. Create sends it to the server, which validates it one more time.' },
 };

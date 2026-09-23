@@ -444,7 +444,7 @@ function AppContent() {
         <Route
           path="/dids"
           element={
-            <ProtectedRoute requiredAcl="dids">
+            <ProtectedRoute requiredAcl="routes">
               <Layout>
                 <DIDs />
               </Layout>
@@ -457,7 +457,7 @@ function AppContent() {
         <Route
           path="/routing"
           element={
-            <ProtectedRoute requiredAcl="dids">
+            <ProtectedRoute requiredAcl="routes">
               <Layout>
                 <RoutingScreen />
               </Layout>

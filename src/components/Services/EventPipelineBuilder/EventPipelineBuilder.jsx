@@ -56,9 +56,9 @@ const TRIGGER_CATEGORIES = {
     { value: 'queue.end', description: 'Caller left queue' },
   ],
   'Number Events': [
-    { value: 'number.ringing', description: 'DID number ringing' },
-    { value: 'number.answer', description: 'DID call answered' },
-    { value: 'number.hangup', description: 'DID call ended' },
+    { value: 'number.ringing', description: 'Route number ringing' },
+    { value: 'number.answer', description: 'Route call answered' },
+    { value: 'number.hangup', description: 'Route call ended' },
   ],
   'Campaign Events': [
     { value: 'campaign.number_processed', description: 'Campaign processed a number' },

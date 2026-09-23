@@ -110,7 +110,7 @@ const DIDPanel = () => {
         type: 'did',
         mode: did ? 'edit' : 'create',
         data: did,
-        label: did ? `DID: ${did.name || did.number}` : 'DID: (new)',
+        label: did ? `DID: ${did.name || did.number}` : 'Route: (new)',
         environmentUuid: did?.environment_uuid || '',
       });
       handleCloseDialog();
@@ -255,7 +255,7 @@ const DIDPanel = () => {
             <TextField
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
-              placeholder="Search DIDs..."
+              placeholder="Search Routes..."
               variant="outlined"
               size="small"
               fullWidth
@@ -276,7 +276,7 @@ const DIDPanel = () => {
               }}
             />
             {canWrite && (
-              <Tooltip title="Add DID">
+              <Tooltip title="Add Route">
                 <IconButton size="small" onClick={() => handleOpenDialog()} disabled={loading} sx={{ p: 0.5, color: 'primary.main' }}>
                   <AddIcon sx={{ fontSize: 16 }} />
                 </IconButton>
@@ -333,7 +333,7 @@ const DIDPanel = () => {
           ) : filteredDIDs.length === 0 ? (
             <Box sx={{ px: 1.5, py: 2, textAlign: 'center' }}>
               <Typography variant="body2" sx={{ color: 'var(--theme-text-secondary)', fontSize: '0.72rem' }}>
-                {dids.length === 0 ? 'No DIDs in selected applications' : 'No matching DIDs'}
+                {dids.length === 0 ? 'No Routes in selected applications' : 'No matching Routes'}
               </Typography>
             </Box>
           ) : (
@@ -375,7 +375,7 @@ const DIDPanel = () => {
                   />
                 )}
                 {canWrite && (
-                  <Tooltip title="Edit DID">
+                  <Tooltip title="Edit Route">
                     <IconButton
                       size="small"
                       onClick={() => handleOpenDialog(did)}
@@ -455,7 +455,7 @@ const DIDPanel = () => {
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDeleteDID}
         loading={loading}
-        title="Delete DID"
+        title="Delete Route"
         message={<Typography>Are you sure you want to delete DID{' '}
         <strong>{(didToDelete)?.number}</strong>?</Typography>}
         description="This action cannot be undone and will affect call routing."
@@ -502,8 +502,8 @@ const DIDPanel = () => {
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
         onImport={handleImportCSV}
-        title="Import DIDs from CSV"
-        entityName="DIDs"
+        title="Import Routes from CSV"
+        entityName="Routes"
         environments={environments}
         requireEnvironment={true}
         onSuccess={handleImportSuccess}
