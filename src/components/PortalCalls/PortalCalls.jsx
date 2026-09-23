@@ -103,14 +103,17 @@ export default function PortalCalls() {
   const search = url.get('q') || '';
   const direction = url.get('direction') || '';
   const cause = url.get('cause') || '';
-  const urlFrom = parseDay(url.get('from'));
-  const urlTo = parseDay(url.get('to'));
+  // The memo's deps are the URL STRINGS, never parsed Dates: parseDay builds a
+  // new Date on every render, so a Date in the dep list makes the memo miss
+  // every time — new range, new filters, another fetch, another render. That
+  // is an infinite loop, and it hung the test file rather than failing it.
   const fromParam = url.get('from');
   const toParam = url.get('to');
-  const dateRange = useMemo(
-    () => (urlFrom && urlTo && urlFrom <= urlTo ? [urlFrom, urlTo] : defaultRange(Number(preferences.calls_days) || 7)),
-    [fromParam, toParam, preferences.calls_days, urlFrom, urlTo]
-  );
+  const dateRange = useMemo(() => {
+    const from = parseDay(fromParam);
+    const to = parseDay(toParam);
+    return from && to && from <= to ? [from, to] : defaultRange(Number(preferences.calls_days) || 7);
+  }, [fromParam, toParam, preferences.calls_days]);
   const singleDay = isSameDay(dateRange[0], dateRange[1]);
   const perPage = Number(preferences.calls_page_size);
   const sort = url.get('sort') === 'asc' ? 'asc' : url.get('sort') === 'desc' ? 'desc' : preferences.calls_sort;
