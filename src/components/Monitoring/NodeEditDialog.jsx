@@ -15,12 +15,14 @@ import {
 import { Close as CloseIcon, ContentCopy as ContentCopyIcon } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import DynamicProfileEditor from '../common/DynamicProfileEditor/DynamicProfileEditor';
+import SipInterfacesEditor, { editableInterface } from './SipInterfacesEditor.jsx';
 
 const EMPTY = {
   name: '',
   type: '',
   notes: '',
   profile: {},
+  sip_interfaces: [],
   uuid: '',
   source: 'database',
   created_at: '',
@@ -50,6 +52,7 @@ const NodeEditDialog = ({ open, onClose, onSave, nodeData, loading }) => {
       ...EMPTY,
       ...src,
       profile: src.profile && typeof src.profile === 'object' ? { ...src.profile } : {},
+      sip_interfaces: Array.isArray(src.sip_interfaces) ? src.sip_interfaces.map(editableInterface) : [],
     });
     setErrors({});
     setApiError('');
@@ -92,6 +95,11 @@ const NodeEditDialog = ({ open, onClose, onSave, nodeData, loading }) => {
         type: formData.type?.trim() || undefined,
         notes: formData.notes || undefined,
         profile,
+        // The whole list: the API replaces a node's interfaces on every write.
+        // Blank fields are dropped so a cleared port falls back to its default.
+        sip_interfaces: (formData.sip_interfaces || []).map((iface) =>
+          Object.fromEntries(Object.entries(iface).filter(([, v]) => v !== '' && v !== null && v !== undefined))
+        ),
       });
       setSuccessMessage(isCreate ? 'Node created' : 'Node updated');
       setTimeout(() => onClose(), 1200);
@@ -169,6 +177,14 @@ const NodeEditDialog = ({ open, onClose, onSave, nodeData, loading }) => {
               onChange={handleProfileChange}
               disabled={loading}
               title="Profile Properties"
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <SipInterfacesEditor
+              value={formData.sip_interfaces}
+              onChange={(list) => handleChange('sip_interfaces', list)}
+              disabled={loading}
             />
           </Grid>
 
