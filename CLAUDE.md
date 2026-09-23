@@ -1074,12 +1074,21 @@ is up.
 - **Data.** `src/hooks/useLiveEntities.js` subscribes `LiveChannel` with the
   environment (a portal user's `user.environment.uuid`, or the admin's selected
   environment) and keeps one whole document per entity; renders are coalesced
-  every 250ms. `LiveDashboard.jsx` prefers cable rows and falls back to polling
-  `/api/users?action=agents` every 5s.
-- **Names.** The switch never publishes a name or extension, and a status only
-  when it changes, so those three are merged in from the polled agent list by
-  uuid. On a portal-user login nimbus returns only that user, so names are only
-  complete for an admin session.
+  every 250ms. That is the screen's ONLY source: it never calls the API, and
+  when the cable is not delivering it shows nothing and says so. The polled
+  fallback (`/api/users?action=agents`, `/api/calls`) was removed on
+  2026-09-23 — the API ignores `action=agents` for a portal token and holds a
+  call only after it ends, so it could not answer for this screen.
+- **Identity.** The switch never publishes a name or extension, and a status
+  type only when it changes. The node fills `user_name`, `extension_username`,
+  `status` and `status_name` (the tenant's own name for it, from the API's
+  `Status` model) into the user document from the mothership
+  (`crystal.request.user.extension`) when it first sees the agent and again at
+  each roll-over. The status chip shows `status_name`, coloured by `status`.
+- **Midnight.** The node resets the daily fields (counters, `first_call_at`,
+  `last_call_*`) at midnight in the ENVIRONMENT's timezone
+  (`environments.profile.timezone`), the way the old Redis cron did. Status,
+  state and identity survive it.
 - **Rendering.** Column render modes come from `DEFAULT_COLUMNS` in
   `src/services/liveSettings.js` on every load (a saved column list keeps only
   order and visibility). `elapsed` is a running duration; `time` is a clock
