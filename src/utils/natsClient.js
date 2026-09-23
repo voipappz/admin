@@ -1,6 +1,6 @@
 // Browser NATS client over WebSocket (nats.ws).
 //
-// Counterpart of utils/actionCable.js: instead of subscribing to the cable
+// Counterpart of services/cable.js: instead of subscribing to the cable
 // bridge (StateChannel), consumers subscribe straight to the NATS subjects the
 // node publishes — `state.<scope>.<uuid>` (see va-crystal
 // node/realtime/state_channel.cr). Browsers cannot open raw TCP to NATS, so
