@@ -328,7 +328,7 @@ function computeLayout(nodes, edges) {
 
 function formatColHeader(type) {
   const map = {
-    did: 'DIDs',
+    did: 'Routes',
     call_condition: 'Conditions',
     queue: 'Queues',
     ivr: 'IVRs',
@@ -444,7 +444,7 @@ const QueuesTopology = ({ onEditDID, canWrite = true } = {}) => {
       {/* Empty */}
       {!loading && isEmpty && (
         <Box sx={{ textAlign: 'center', py: 8 }}>
-          <Typography color="text.secondary">No DIDs found in this application.</Typography>
+          <Typography color="text.secondary">No Routes found in this application.</Typography>
           {canWrite && (
             <Button variant="outlined" size="small" startIcon={<AddIcon />} sx={{ mt: 2 }} onClick={() => setCreateOpen(true)}>
               Create Queue

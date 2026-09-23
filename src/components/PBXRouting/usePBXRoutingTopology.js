@@ -34,7 +34,7 @@ export const usePBXRoutingTopology = (didUuid) => {
       const ctx = createTopologyContext();
       const did = await buildDidTopology(didUuid, ctx);
       if (!did) {
-        setError('DID not found');
+        setError('Route not found');
         setLoading(false);
         return;
       }

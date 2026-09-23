@@ -158,7 +158,7 @@ export const hasPermission = (acl, screen, permission = 'read') => {
  * Used by route guards and nav filtering.
  *
  * @param {Object} acl - ACL object from JWT token
- * @param {string} screen - Screen name (e.g., 'users', 'dids')
+ * @param {string} screen - Screen name (e.g., 'users', 'routes')
  * @returns {boolean}
  */
 export const canAccessScreen = (acl, screen) =>

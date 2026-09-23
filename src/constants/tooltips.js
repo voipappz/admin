@@ -38,13 +38,13 @@ export const TOOLTIPS = {
   // DID Fields
   DIDS: {
     NUMBER: 'Phone number in E.164 format (e.g., +1234567890)',
-    NAME: 'Descriptive name for this DID',
+    NAME: 'Descriptive name for this Route',
     BRIDGE_TYPE: 'Where to route incoming calls (IVR, Queue, Device, etc.)',
     BRIDGE: 'Select the specific destination for calls',
-    ENVIRONMENT: 'Environment this DID belongs to',
-    ENABLED: 'Enable or disable this DID',
-    TYPE: 'DID type (inbound, outbound, toll-free, etc.)',
-    META: 'Additional metadata for this DID',
+    ENVIRONMENT: 'Environment this Route belongs to',
+    ENABLED: 'Enable or disable this Route',
+    TYPE: 'Route type (inbound, outbound, toll-free, etc.)',
+    META: 'Additional metadata for this Route',
   },
 
   // Environment Fields

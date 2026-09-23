@@ -114,7 +114,7 @@ const DuplicateDIDDialog = ({
       onClose();
     } catch (err) {
       // Extract error message from various response formats (including 406)
-      let errorMessage = 'Failed to duplicate DID';
+      let errorMessage = 'Failed to duplicate Route';
       if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       } else if (err.response?.data?.error) {
@@ -151,7 +151,7 @@ const DuplicateDIDDialog = ({
     if (validating) return 'Checking number availability...';
     if (numberExists) return 'This number is already in use';
     if (numberValidated && !numberExists) return 'Number is available';
-    return 'The new DID will be created with this number (must be unique)';
+    return 'The new Route will be created with this number (must be unique)';
   };
 
   const getNumberAdornment = () => {
@@ -221,7 +221,7 @@ const DuplicateDIDDialog = ({
           label="New Number"
           value={number}
           onChange={handleNumberChange}
-          placeholder="Enter unique number for the new DID"
+          placeholder="Enter unique number for the new Route"
           helperText={getNumberHelperText()}
           margin="normal"
           disabled={loading}
@@ -240,7 +240,7 @@ const DuplicateDIDDialog = ({
           label="New Name (optional)"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Enter name for the new DID"
+          placeholder="Enter name for the new Route"
           helperText="Leave empty to use default: Copy of {original name}"
           margin="normal"
           disabled={loading}

@@ -178,7 +178,7 @@ const ProvidersList = ({
                 >
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="sip">SIP</MenuItem>
-                  <MenuItem value="did">DID</MenuItem>
+                  <MenuItem value="did">Route</MenuItem>
                   <MenuItem value="sms">SMS</MenuItem>
                   <MenuItem value="gateway">Gateway</MenuItem>
                   <MenuItem value="webhook">Webhook</MenuItem>

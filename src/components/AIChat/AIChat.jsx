@@ -617,7 +617,7 @@ const AIChat = () => {
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center', maxWidth: 560 }}>
                   {[
                     { label: 'Show me users with no active calls', prompt: 'List users who have no active calls right now' },
-                    { label: 'Explain DID bridge types', prompt: 'Explain the different DID bridge types and when to use each' },
+                    { label: 'Explain Route bridge types', prompt: 'Explain the different Route bridge types and when to use each' },
                     { label: 'How do I set up a queue?', prompt: 'How do I set up a call queue with agents?' },
                     { label: 'Troubleshoot a failing device', prompt: 'Walk me through troubleshooting a failing device' },
                     { label: 'Summarise recent call activity', prompt: 'Summarise the recent call activity and any anomalies' },

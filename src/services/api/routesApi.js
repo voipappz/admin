@@ -54,8 +54,8 @@ export const didsApi = {
 
     const queryString = queryParts.join('&');
     const url = `/api/routes${queryString ? `?${queryString}` : ''}`;
-    console.log('DID API URL:', url);
-    const response = await apiService.get(url, {}, 'fetching DIDs', false);
+    console.log('Route API URL:', url);
+    const response = await apiService.get(url, {}, 'fetching Routes', false);
     // Normalize bridge types from legacy API
     if (Array.isArray(response)) {
       return normalizeDIDs(response);
@@ -90,7 +90,7 @@ export const didsApi = {
     // Use centralized toFormData helper for proper nested object encoding
     const formData = toFormData(didData);
 
-    return apiService.post(url, formData, headers, 'creating DID', true);
+    return apiService.post(url, formData, headers, 'creating Route', true);
   },
 
   /**
@@ -143,13 +143,13 @@ export const didsApi = {
       }
       const queryString = queryParts.join('&');
       const url = `/api/routes?${queryString}`;
-      const response = await apiService.get(url, {}, 'checking DID number', false);
+      const response = await apiService.get(url, {}, 'checking Route number', false);
 
       // Check if any DIDs were returned with this exact number
       const dids = Array.isArray(response) ? response : (response?.data || []);
       return dids.some(did => did.number === number);
     } catch (error) {
-      console.error('Error checking DID number:', error);
+      console.error('Error checking Route number:', error);
       return false; // On error, proceed with duplicate attempt (let server validate)
     }
   },
@@ -175,7 +175,7 @@ export const didsApi = {
       formData.append('name', newName);
     }
     // showMessages = false to let component handle success/error display consistently
-    return apiService.post(url, formData, headers, 'duplicating DID', false);
+    return apiService.post(url, formData, headers, 'duplicating Route', false);
   },
 
   /**
@@ -184,7 +184,7 @@ export const didsApi = {
    */
   getProviders: async () => {
     const url = `/api/did-providers`;
-    return apiService.get(url, {}, 'fetching DID providers', false);
+    return apiService.get(url, {}, 'fetching Route providers', false);
   },
 
   /**
@@ -193,7 +193,7 @@ export const didsApi = {
    */
   getTypes: async () => {
     const url = `/api/routes?action=types`;
-    return apiService.get(url, {}, 'fetching DID types', false);
+    return apiService.get(url, {}, 'fetching Route types', false);
   },
 
   /**
@@ -202,7 +202,7 @@ export const didsApi = {
    */
   getStatuses: async () => {
     const url = `/api/did-statuses`;
-    return apiService.get(url, {}, 'fetching DID statuses', false);
+    return apiService.get(url, {}, 'fetching Route statuses', false);
   },
 
   /**
@@ -233,7 +233,7 @@ export const didsApi = {
    */
   bulkCreateDIDs: async (didsData) => {
     const url = `/api/routes/bulk`;
-    return apiService.post(url, { dids: didsData }, {}, 'bulk creating DIDs', true);
+    return apiService.post(url, { dids: didsData }, {}, 'bulk creating Routes', true);
   },
 
   /**
@@ -246,7 +246,7 @@ export const didsApi = {
     const params = { q: query, ...filters };
     const queryString = new URLSearchParams(params).toString();
     const url = `/api/routes/search?${queryString}`;
-    return apiService.get(url, {}, 'searching DIDs', false);
+    return apiService.get(url, {}, 'searching Routes', false);
   },
 
   /**
@@ -287,7 +287,7 @@ export const didsApi = {
     return apiService.fetch(url, {
       method: 'POST',
       body: formData
-    }, 'importing DIDs from CSV', false);
+    }, 'importing Routes from CSV', false);
   }
 };
 

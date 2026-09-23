@@ -128,9 +128,9 @@ const screenTests = [
     },
   },
   {
-    name: 'DIDs',
+    name: 'Routes',
     route: '/dids',
-    aclKey: 'dids',
+    aclKey: 'routes',
     writeSelectors: {
       addButton: 'button:has-text("Add New")',
       importButton: 'button:has-text("Import CSV")',
