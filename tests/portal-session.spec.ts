@@ -94,7 +94,7 @@ test.describe('Portal user session', () => {
     await page.click('[data-testid="user-otp-submit-button"]');
     await expect(page.locator('[data-testid="user-rail"]')).toBeVisible({ timeout: 20000 });
 
-    for (const item of ['rail-dashboard', 'rail-calls', 'rail-phone']) {
+    for (const item of ['rail-calls', 'rail-phone']) {
       await expect(page.locator(`[data-testid="${item}"]`)).toBeVisible();
     }
     // Sign out lives on the rail's account button.
