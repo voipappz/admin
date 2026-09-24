@@ -118,6 +118,23 @@ describe('nodesApi writes', () => {
     ]);
   });
 
+  it('reads the type and role catalog', async () => {
+    apiService.get.mockResolvedValue({ types: ['voip'], roles: ['switch'] });
+    const catalog = await nodesApi.getNodeCatalog();
+    expect(apiService.get).toHaveBeenCalledWith('/api/nodes?action=types', {}, 'fetching node types', false, true);
+    expect(catalog).toEqual({ types: ['voip'], roles: ['switch'] });
+  });
+
+  it('sends roles as roles[], a blank roles[] and type when clearing them', async () => {
+    apiService.patch.mockResolvedValue({ uuid: 'n2' });
+
+    await nodesApi.updateNode('n2', { type: 'voip', roles: ['switch', 'app'] });
+    expect(apiService.patch.mock.calls[0][1].toString()).toBe('type=voip&roles%5B%5D=switch&roles%5B%5D=app');
+
+    await nodesApi.updateNode('n2', { type: '', roles: [] });
+    expect(apiService.patch.mock.calls[1][1].toString()).toBe('roles%5B%5D=&type=');
+  });
+
   it('clears SIP interfaces with a blank sip_interfaces', async () => {
     apiService.patch.mockResolvedValue({ uuid: 'n2' });
 

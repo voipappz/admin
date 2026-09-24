@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router';
 import { useUserAuth } from '../../context/UserAuthContext';
 import { usePortalPreferences } from '../../context/PortalPreferencesContext';
 import { useSoftphone } from '../../context/SoftphoneContext';
-import { usePortalPanels } from '../../context/PortalPanelsContext';
+import { usePortalSidebar } from '../../context/PortalSidebarContext';
 import { canAccessScreen } from '../../utils/jwt';
 import { usePortalCommands } from './usePortalCommands';
 import { ON_SURFACE, ON_SURFACE_FAINT, ON_SURFACE_MUTED, SURFACE_BORDER, SURFACE_HOVER, FIELD_RADIUS } from '../../theme/portalSurface';
@@ -24,7 +24,7 @@ export default function PortalLine({ inputRef }) {
   const { acl, logout } = useUserAuth();
   const { preferences, save } = usePortalPreferences();
   const { dial } = useSoftphone();
-  const { open: openPanel } = usePortalPanels();
+  const { open: openSidebar } = usePortalSidebar();
   const [open, setOpen] = useState(false);
   const wrap = useRef(null);
   const ownRef = useRef(null);
@@ -32,11 +32,11 @@ export default function PortalLine({ inputRef }) {
   const listId = useId();
 
   const go = useCallback((path) => navigate(path), [navigate]);
-  const phone = useCallback(() => openPanel('phone'), [openPanel]);
-  const assistant = useCallback(() => openPanel('assistant'), [openPanel]);
-  // Dialling opens the phone panel and puts the number in it, rather than
-  // navigating away from whatever the person was reading.
-  const callNumber = useCallback((n) => { openPanel('phone'); dial?.(n.replace(/[^\d+*#]/g, '')); }, [openPanel, dial]);
+  const phone = useCallback(() => openSidebar('phone', { tab: 'dialpad' }), [openSidebar]);
+  const assistant = useCallback(() => openSidebar('phone', { tab: 'assistant' }), [openSidebar]);
+  // Dialling opens the phone in the sidebar and puts the number in it, rather
+  // than navigating away from whatever the person was reading.
+  const callNumber = useCallback((n) => { openSidebar('phone', { tab: 'dialpad' }); dial?.(n.replace(/[^\d+*#]/g, '')); }, [openSidebar, dial]);
   const searchCalls = useCallback((text) => navigate(`/my-calls?q=${encodeURIComponent(text)}`), [navigate]);
   const theme = useCallback(() => save({ theme: preferences.theme === 'dark' ? 'light' : 'dark' }), [save, preferences.theme]);
   const density = useCallback(() => save({ calls_density: preferences.calls_density === 'compact' ? 'comfortable' : 'compact' }), [save, preferences.calls_density]);

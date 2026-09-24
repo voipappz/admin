@@ -20,6 +20,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PhoneForwardedIcon from '@mui/icons-material/PhoneForwarded';
 import DialpadIcon from '@mui/icons-material/Dialpad';
 import SettingsIcon from '@mui/icons-material/Settings';
+import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import TerminalIcon from '@mui/icons-material/Terminal';
 import HistoryIcon from '@mui/icons-material/History';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -31,6 +32,15 @@ import TransferControls from './TransferControls.jsx';
 import PhoneCallsTab from './PhoneCallsTab.jsx';
 import PhonePresence from './PhonePresence.jsx';
 import { ACCENT, GREEN, MUTED, PANEL, PANEL_HEADER } from './panelTheme.js';
+import { Suspense, lazy } from 'react';
+
+const PortalMcpAssistant = lazy(() => import('../AIChat/PortalMcpAssistant.jsx'));
+
+// Calls · Dialpad · Assistant along the bottom; Settings is the gear in the
+// header. The assistant took Settings' slot because it is something you DO
+// with the phone — ask it about your calls — while settings is something you
+// set once, which is what a gear is for.
+const TABS = ['calls', 'dialpad', 'assistant'];
 import { requestIncomingCallNotifications, useIncomingCallAlerts } from '../../lib/sip/useIncomingCallAlerts.js';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
@@ -53,7 +63,7 @@ function useCallTimer(connectedAt) {
 // page. The page wants a centred, padded card; the dock wants the panel to
 // fill the drawer edge to edge, so the tabs sit on the bottom of the panel
 // instead of floating above a band of empty white.
-export default function PhoneScreen({ embedded = false }) {
+export default function PhoneScreen({ embedded = false, initialTab }) {
   const {
     status, connected, call, muted, held, doNotDisturb, networkAvailable, lastError,
     dial, answer, hangup, sendDtmf, setMuted, setHeld, setDoNotDisturb,
@@ -65,7 +75,14 @@ export default function PhoneScreen({ embedded = false }) {
   // /phone signs out through the admin console's own account menu.
   const isPortalUser = userAuth.isAuthenticated;
 
-  const [tab, setTab] = useState(1); // 0 = Calls, 1 = Dialpad (default), 2 = Settings
+  const [tab, setTab] = useState(() => Math.max(TABS.indexOf(initialTab || 'dialpad'), 0));
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Opening the phone at a particular tab (the line's Phone / Assistant rows).
+  useEffect(() => {
+    if (!initialTab) return;
+    const index = TABS.indexOf(initialTab);
+    if (index >= 0) { setTab(index); setSettingsOpen(false); }
+  }, [initialTab]);
   const [number, setNumber] = useState('');
   const [logsOpen, setLogsOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
@@ -164,6 +181,12 @@ export default function PhoneScreen({ embedded = false }) {
               </Typography>
             )}
           </Box>
+          <Tooltip title={settingsOpen ? 'Back' : 'Settings'}>
+            <IconButton size="small" data-testid="phone-settings" aria-label={settingsOpen ? 'Close settings' : 'Settings'}
+              sx={{ color: settingsOpen ? ACCENT : MUTED }} onClick={() => setSettingsOpen((v) => !v)}>
+              <SettingsIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Logs">
             <IconButton size="small" sx={{ color: logsOpen ? ACCENT : MUTED }} onClick={() => setLogsOpen((v) => !v)}><TerminalIcon fontSize="small" /></IconButton>
           </Tooltip>
@@ -171,7 +194,25 @@ export default function PhoneScreen({ embedded = false }) {
 
         {/* Body */}
         <Box sx={{ display: 'flex', flexDirection: 'column', ...(embedded ? { flex: 1, minHeight: 0, overflowY: 'auto' } : { minHeight: 360 }) }}>
-          {logsOpen ? (
+          {settingsOpen ? (
+            <Box sx={{ p: 1, '& .MuiInputBase-root': { bgcolor: 'var(--mui-palette-background-paper)', borderRadius: 1 }, '& label, & .MuiFormControlLabel-label, & .MuiTypography-root': { color: '#e5e7eb' } }}>
+              <SipSettingsForm />
+              {/* The portal has no other sign-out affordance, so this is it.
+                  useUserAuth().logout() also tears the softphone down: see
+                  SoftphoneContext's authenticated -> false effect. */}
+              {isPortalUser && (
+                <Box sx={{ px: 1.5, pb: 1.5, pt: 0.5 }}>
+                  <Button
+                    fullWidth variant="outlined" color="inherit" startIcon={<LogoutIcon />}
+                    onClick={() => userAuth.logout()} data-testid="phone-logout"
+                    sx={{ borderColor: 'rgba(255,255,255,0.3)', color: '#e5e7eb' }}
+                  >
+                    Logout
+                  </Button>
+                </Box>
+              )}
+            </Box>
+          ) : logsOpen ? (
             <Box sx={{ p: 1, flex: 1, display: 'flex', flexDirection: 'column' }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
                 <Typography variant="caption" sx={{ color: MUTED }}>SIP.js logs ({logs.length})</Typography>
@@ -277,29 +318,18 @@ export default function PhoneScreen({ embedded = false }) {
               {!connected && <Typography variant="caption" sx={{ display: 'block', mt: 1, textAlign: 'center', color: MUTED }}>Not connected — see Settings</Typography>}
             </Box>
           ) : (
-            <Box sx={{ p: 1, '& .MuiInputBase-root': { bgcolor: 'var(--mui-palette-background-paper)', borderRadius: 1 }, '& label, & .MuiFormControlLabel-label, & .MuiTypography-root': { color: '#e5e7eb' } }}>
-              <SipSettingsForm />
-              {/* The portal has no other sign-out affordance (the rail is just
-                  Dashboard + Phone), so this is it — as in the legacy panel.
-                  useUserAuth().logout() also tears the softphone down: see
-                  SoftphoneContext's authenticated -> false effect. */}
-              {isPortalUser && (
-                <Box sx={{ px: 1.5, pb: 1.5, pt: 0.5 }}>
-                  <Button
-                    fullWidth variant="outlined" color="inherit" startIcon={<LogoutIcon />}
-                    onClick={() => userAuth.logout()} data-testid="phone-logout"
-                    sx={{ borderColor: 'rgba(255,255,255,0.3)', color: '#e5e7eb' }}
-                  >
-                    Logout
-                  </Button>
-                </Box>
-              )}
+            // The assistant, inside the phone: ask about the calls you just
+            // made without leaving the panel you made them in.
+            <Box data-testid="phone-assistant" sx={{ flex: 1, minHeight: 240, display: 'flex', bgcolor: 'var(--mui-palette-background-default)' }}>
+              <Suspense fallback={<Box sx={{ p: 3, textAlign: 'center', color: MUTED, width: '100%' }}>Loading…</Box>}>
+                <PortalMcpAssistant />
+              </Suspense>
             </Box>
           )}
         </Box>
 
-        {/* Bottom tabs — Dialpad / Settings */}
-        {!logsOpen && !inCall && (
+        {/* Bottom tabs — Calls / Dialpad / Assistant (Settings is the gear) */}
+        {!logsOpen && !settingsOpen && !inCall && (
           <Tabs
             value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth"
             sx={{
@@ -311,7 +341,7 @@ export default function PhoneScreen({ embedded = false }) {
           >
             <Tab icon={<HistoryIcon fontSize="small" />} iconPosition="top" label="Calls" />
             <Tab icon={<DialpadIcon fontSize="small" />} iconPosition="top" label="Dialpad" />
-            <Tab icon={<SettingsIcon fontSize="small" />} iconPosition="top" label="Settings" />
+            <Tab icon={<SmartToyOutlinedIcon fontSize="small" />} iconPosition="top" label="Assistant" />
           </Tabs>
         )}
       </Paper>

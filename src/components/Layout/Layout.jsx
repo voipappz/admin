@@ -9,8 +9,8 @@ import { useUserAuth } from '../../context/UserAuthContext';
 import PortalHeader from './PortalHeader.jsx';
 import { usePortalPreferences } from '../../context/PortalPreferencesContext';
 import PortalSoftkeys, { RAIL_HEIGHT_MOBILE } from '../Portal/PortalSoftkeys.jsx';
-import PortalCorner, { CORNER_CLEARANCE } from '../Portal/PortalCorner.jsx';
-import { PortalPanelsProvider } from '../../context/PortalPanelsContext';
+import PortalSidebar from '../Portal/PortalSidebar.jsx';
+import { PortalSidebarProvider } from '../../context/PortalSidebarContext';
 import { GlobalSearchProvider } from '../../context/GlobalSearchContext';
 import { RecentPagesProvider } from '../../context/RecentPagesContext';
 import { loadCustomerData, applyCustomerBranding, getCustomerData } from '../../services/customerService';
@@ -128,7 +128,7 @@ const Layout = ({ children }) => {
         // console (DIDs, the portal's Numbers) register their filter segments
         // through it, and useGlobalSearch() THROWS without a provider.
         <GlobalSearchProvider>
-        <PortalPanelsProvider>
+        <PortalSidebarProvider>
         <Box data-testid="user-layout" sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
           <PortalHeader />
           <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -137,15 +137,10 @@ const Layout = ({ children }) => {
               component="main"
               sx={{
                 flex: 1, minWidth: 0,
-                // The corner buttons float over the bottom right, and every
-                // screen here ends in a table. On a phone the rail is a bottom
-                // bar AND the buttons sit above it, so the last row has to
-                // clear both — clearing only the bar left it under the phone
-                // button, which is the row someone most wants to tap.
-                pb: {
-                  xs: `calc(${RAIL_HEIGHT_MOBILE + CORNER_CLEARANCE}px + env(safe-area-inset-bottom, 0px))`,
-                  md: `${CORNER_CLEARANCE}px`,
-                },
+                // Nothing floats over the screen any more — the phone and the
+                // assistant are buttons in the bar. Only the rail, which is a
+                // bottom bar on a phone, needs clearing.
+                pb: { xs: `calc(${RAIL_HEIGHT_MOBILE}px + env(safe-area-inset-bottom, 0px))`, md: 0 },
               }}
             >
               {/* A local Suspense boundary. Without it, any lazy chunk this
@@ -156,9 +151,9 @@ const Layout = ({ children }) => {
             </Box>
           </Box>
           {portalPreferences.error && <Box role="alert" sx={{ p: 1, color: 'error.main' }}>{portalPreferences.error}</Box>}
-          <PortalCorner />
+          <PortalSidebar />
         </Box>
-        </PortalPanelsProvider>
+        </PortalSidebarProvider>
         </GlobalSearchProvider>
       ) : (
         // Authenticated layout: Sidebar + TopBar + Content
