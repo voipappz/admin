@@ -9,7 +9,7 @@ vi.mock('../../../context/CustomerEnvironmentContext', () => ({
 }));
 vi.mock('../../Bridges/NumberBridge/NumberSelector.jsx', () => ({ NumberSelector: () => null }));
 vi.mock('./RoutingChain.jsx', () => ({ default: () => null }));
-vi.mock('../../../services/api/routesApi', () => ({ didsApi: {} }));
+vi.mock('../../../services/api/routesApi', () => ({ didsApi: { getProviders: vi.fn(async () => []) } }));
 vi.mock('../../../services/api/providersApi', () => ({ providersApi: { getProviders: vi.fn(async () => []) } }));
 
 const did = { uuid: 'd-1', name: 'Main', number: '0501234567', type: 'sip', bridge_type: 'number', environment_uuid: 'env-1', environment: { uuid: 'env-1', name: 'Sales' } };
