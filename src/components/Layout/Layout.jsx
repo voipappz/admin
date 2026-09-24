@@ -39,13 +39,11 @@ const Layout = ({ children }) => {
   const userAuth = useUserAuth();
   const portalPreferences = usePortalPreferences();
   const { isDarkMode } = useThemeMode();
-  // `/login` still matches for a moment while it redirects to `/admin`.
-  // `/` is BOTH the portal's login and, once signed in, the portal itself
-  // (App.jsx's PortalRoot). Only treat it as a login page while there is no
-  // portal session — otherwise the dashboard renders bare, with no rail and
-  // no phone dock.
-  const isLoginPage = ['/admin', '/login'].includes(location.pathname)
-    || (location.pathname === '/' && !userAuth.isAuthenticated);
+  // `/` is BOTH the sign-in page (user or account, toggled) and, once signed
+  // in, the portal itself (App.jsx's PortalRoot). Only treat it as a login
+  // page while there is no session — otherwise the portal renders bare, with
+  // no bar and no phone.
+  const isLoginPage = location.pathname === '/' && !userAuth.isAuthenticated && !isAuthenticated;
   // A signed-in portal user (not an admin) gets a minimal shell below — the
   // admin sidebar/topbar are admin-console concepts a portal user has no
   // business seeing.

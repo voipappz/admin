@@ -12,7 +12,8 @@ import {
 import { useLogin } from './Login';
 import './Login.css';
 
-const Login = () => {
+// `switcher`: the User / Account toggle (SignIn), shown on the credentials step.
+const Login = ({ switcher = null }) => {
   const {
     email,
     password,
@@ -461,6 +462,7 @@ const Login = () => {
           className="form-panel-logo"
         />
         <Paper elevation={0} className="login-paper">
+          {!showForgetForm && !otpStep && switcher}
           {showForgetForm
             ? renderForgotForm()
             : otpStep
