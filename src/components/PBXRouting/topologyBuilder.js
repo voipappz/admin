@@ -27,7 +27,10 @@ export function createTopologyContext() {
   };
 }
 
-const normType = (t) => (t === 'que' ? 'queue' : t);
+// `sip_provider` is a trunk route's bridge (API Did::TRUNK_BRIDGE): the same
+// Provider row the billing context draws, so it shares the `provider` node.
+const TYPE_ALIASES = { que: 'queue', sip_provider: 'provider' };
+const normType = (t) => TYPE_ALIASES[t] || t;
 
 /**
  * Build the topology for a single DID into the shared context.
@@ -78,6 +81,11 @@ export async function buildDidTopology(didUuid, ctx, opts = {}) {
         }
         case 'call_condition': {
           const r = await getCallCondition(uuid);
+          result = r?.data || r;
+          break;
+        }
+        case 'provider': {
+          const r = await providersApi.getProvider(uuid);
           result = r?.data || r;
           break;
         }
@@ -252,7 +260,7 @@ export async function buildDidTopology(didUuid, ctx, opts = {}) {
   const billingPromise = includeBilling ? fetchBillingContext(did, didNodeId) : Promise.resolve();
   const bt = normType(did.bridge_type);
   const routingPromise = (bt && did.bridge_uuid)
-    ? resolve(bt, did.bridge_uuid, didNodeId, 'default', bt, 'did-bridge', new Set([didNodeId]), 1)
+    ? resolve(bt, did.bridge_uuid, didNodeId, 'default', bt === 'provider' ? 'Trunk' : bt, 'did-bridge', new Set([didNodeId]), 1)
     : Promise.resolve();
 
   await Promise.all([billingPromise, routingPromise]);
