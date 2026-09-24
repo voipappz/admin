@@ -4,9 +4,8 @@ import { useGlobalSearchResults } from './useGlobalSearchResults';
 import SearchResults from './SearchResults';
 import './CommandPalette.css';
 
-// Global search as a centered dialog — the mobile / event-triggered surface.
-// On desktop the same search lives inline in the topbar (see TopBar.jsx);
-// both render through useGlobalSearchResults + SearchResults.
+// Global search as a centered dialog, on every viewport (⌘K, or the
+// openResourceFinder event). Renders useGlobalSearchResults + SearchResults.
 const CommandPalette = ({ open, onClose, initialQuery = '' }) => {
   const search = useGlobalSearchResults({ open, initialQuery, onClose });
 
@@ -23,7 +22,7 @@ const CommandPalette = ({ open, onClose, initialQuery = '' }) => {
           value={search.query}
           onChange={(e) => search.setQuery(e.target.value)}
           onKeyDown={search.handleKeyDown}
-          placeholder="Search pages, resources, actions..."
+          placeholder="Search, ask, or call a number…"
           variant="outlined"
           size="small"
           fullWidth
