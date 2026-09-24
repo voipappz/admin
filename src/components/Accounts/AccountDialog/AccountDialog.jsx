@@ -39,6 +39,7 @@ import { FixedSizeList } from 'react-window';
 import { ACLSelect } from '../../common/ACLSelect';
 import { accountsApi } from '../../../services/api/accountsApi';
 import { parseServerErrors, is406Error } from '../../../utils/formValidation';
+import SecretField from '../../common/SecretField.jsx';
 
 const icon = <CheckBoxOutlineBlank fontSize="small" />;
 const checkedIcon = <CheckBoxIcon fontSize="small" />;
@@ -520,11 +521,11 @@ const AccountDialog = ({
             {/* Password field - only for create mode */}
             {!isEditMode && (
               <Grid item xs={12}>
-                <TextField
+                <SecretField
                   fullWidth
                   label="Password"
                   variant="outlined"
-                  type={showPassword ? 'text' : 'password'}
+                  revealed={showPassword}
                   value={formData.password}
                   onChange={(e) => handleChange('password', e.target.value)}
                   error={!!errors.password || (submitAttempted && !formData.password?.trim())}

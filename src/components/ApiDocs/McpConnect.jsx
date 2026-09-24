@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import SecretField from '../common/SecretField.jsx';
 
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
 const MUTED_SX = { color: 'var(--theme-text-secondary)' };
@@ -127,8 +128,8 @@ export default function McpConnect({ endpointUrl, copyText }) {
           onChange={(e) => { setEmail(e.target.value); setResult(null); }}
           inputProps={{ 'data-testid': 'mcp-connect-email' }} sx={{ flex: 1 }}
         />
-        <TextField
-          size="small" label="Password" type="password" value={password} autoComplete="new-password"
+        <SecretField
+          size="small" label="Password" value={password}
           onChange={(e) => { setPassword(e.target.value); setResult(null); }}
           inputProps={{ 'data-testid': 'mcp-connect-password' }} sx={{ flex: 1 }}
         />

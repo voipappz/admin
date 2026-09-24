@@ -33,6 +33,7 @@ import {
 } from '@mui/icons-material';
 import { useCustomerEnvironment } from '../../../context/CustomerEnvironmentContext';
 import { apiService } from '../../../services/apiService';
+import SecretField from '../../common/SecretField.jsx';
 
 /**
  * Bridge Edit Modal Component
@@ -400,17 +401,15 @@ const BridgeEditModal = ({
                   />
                   
                   {bridgeType === 'extension' && (
-                    <TextField
+                    <SecretField
                       label="Password"
                       value={formData.password || ''}
                       onChange={(e) => handleChange('password', e.target.value)}
                       required
                       fullWidth
-                      type="password"
                       error={!!errors.password}
                       helperText={errors.password}
                       placeholder="Enter device password"
-                      autoComplete="new-password"
                     />
                   )}
                   

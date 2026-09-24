@@ -36,6 +36,7 @@ import ResourcesManager from '../ResourcesManager/ResourcesManager';
 import { useOpenPhoneAs } from '../../../hooks/useCallNumber';
 import { liveApi } from '../../../services/api/liveApi';
 import { queuesApi } from '../../../services/api/queuesApi';
+import SecretField from '../../common/SecretField.jsx';
 
 /**
  * UserDialog Component
@@ -540,17 +541,15 @@ const UserDialog = ({ open, onClose, onSave, onResetPassword, user, loading, env
                   {/* Password - create only */}
                   {!isEdit && (
                     <Grid item {...half}>
-                      <TextField
+                      <SecretField
                         label="Password"
                         fullWidth
                         required
-                        type="password"
                         value={formData.password}
                         onChange={(e) => handleChange('password', e.target.value)}
                         error={!!errors.password || (submitAttempted && !formData.password)}
                         helperText={errors.password || (submitAttempted && !formData.password ? 'Password is required for new users' : 'Must have at least 4 characters')}
                         disabled={loading}
-                        autoComplete="new-password"
                         InputProps={{
                           endAdornment: (
                             <InputAdornment position="end">
@@ -568,7 +567,7 @@ const UserDialog = ({ open, onClose, onSave, onResetPassword, user, loading, env
                             </InputAdornment>
                           )
                         }}
-                        inputProps={{ 'data-testid': 'password-input', autoComplete: 'new-password' }}
+                        inputProps={{ 'data-testid': 'password-input' }}
                       />
                     </Grid>
                   )}
@@ -746,11 +745,11 @@ const UserDialog = ({ open, onClose, onSave, onResetPassword, user, loading, env
                           <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
                             Generated Password
                           </Typography>
-                          <TextField
+                          <SecretField
                             fullWidth
                             size="small"
                             value={generatedPassword}
-                            type={showGeneratedPassword ? 'text' : 'password'}
+                            revealed={showGeneratedPassword}
                             InputProps={{
                               readOnly: true,
                               sx: { fontFamily: 'monospace', fontSize: '0.9rem' },

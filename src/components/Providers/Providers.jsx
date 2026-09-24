@@ -53,6 +53,7 @@ import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
 import HelpButton from '../common/HelpButton';
 import { GUIDE_URLS } from '../../utils/guides';
 import './Providers.css';
+import SecretField from '../common/SecretField.jsx';
 
 /**
  * ProviderDialog Component
@@ -244,16 +245,14 @@ const ProviderDialog = ({ open, onClose, onSave, provider, loading, allTariffs, 
                   placeholder={llmServices.find(s => s.service === (formData.profile?.service || 'openai'))?.default_model || ''}
                   helperText={`Leave empty for default: ${llmServices.find(s => s.service === (formData.profile?.service || 'openai'))?.default_model || ''}`}
                 />
-                <TextField
+                <SecretField
                   label="API Key"
-                  type="password"
                   value={formData.profile?.api_key || ''}
                   onChange={(e) => handleChange('profile', { ...formData.profile, api_key: e.target.value })}
                   fullWidth
                   required
                   placeholder="sk-..."
                   helperText="Your API key for the selected service"
-                  autoComplete="new-password"
                   InputProps={{ sx: { fontFamily: 'monospace', fontSize: '0.85rem' } }}
                 />
                 <TextField

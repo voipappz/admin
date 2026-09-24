@@ -23,6 +23,7 @@ import { Close as CloseIcon, ContentCopy as ContentCopyIcon } from '@mui/icons-m
 import { useState, useEffect } from 'react';
 import { formatDate } from '../../../utils/dateUtils';
 import { parseServerErrors, is406Error } from '../../../utils/formValidation';
+import SecretField from '../../common/SecretField.jsx';
 
 /**
  * Provider types supported by the API
@@ -574,17 +575,15 @@ const ProviderDialog = ({
               </Grid>
 
               <Grid item xs={12}>
-                <TextField
+                <SecretField
                   fullWidth
                   label="Password"
-                  type="password"
                   variant="outlined"
                   value={formData.password || ''}
                   onChange={(e) => handleChange('password', e.target.value)}
                   error={!!errors.password || (submitAttempted && !formData.password?.trim())}
                   helperText={errors.password || (submitAttempted && !formData.password?.trim() ? 'Password is required' : '')}
                   disabled={loading}
-                  autoComplete="new-password"
                   data-testid="password-input"
                   required
                 />
@@ -773,17 +772,15 @@ const ProviderDialog = ({
               </Grid>
 
               <Grid item xs={12}>
-                <TextField
+                <SecretField
                   fullWidth
                   label="API Key"
-                  type="password"
                   variant="outlined"
                   value={formData.profile?.api_key || ''}
                   onChange={(e) => handleProfileChange('api_key', e.target.value)}
                   error={!!errors['profile.api_key']}
                   helperText={errors['profile.api_key'] || 'Your API key for the selected service'}
                   disabled={loading}
-                  autoComplete="new-password"
                   data-testid="llm-api-key-input"
                   required
                   placeholder="sk-..."
@@ -844,17 +841,15 @@ const ProviderDialog = ({
               </Grid>
 
               <Grid item xs={12}>
-                <TextField
+                <SecretField
                   fullWidth
                   label="Password/Secret"
-                  type="password"
                   variant="outlined"
                   value={formData.password || ''}
                   onChange={(e) => handleChange('password', e.target.value)}
                   error={!!errors.password}
                   helperText={errors.password || 'Authentication password or secret (optional)'}
                   disabled={loading}
-                  autoComplete="new-password"
                   data-testid="password-input"
                 />
               </Grid>
