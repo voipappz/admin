@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { ASSISTANT_CAN_ANSWER } from '../../services/portalAssistant';
+
 /**
  * Everything the portal can do, as rows under the line.
  *
  * The portal has no menus. One line to type into; the places, the settings,
- * "call this number" and "search calls for this" are all rows in its results,
- * and Enter does the highlighted one. That is the whole navigation model — a
+ * "ask this question", "call this number" and "search calls for this" are all
+ * rows in its results, and Enter does the highlighted one. That is the whole navigation model — a
  * desk phone's: one screen, one line, a few keys.
  *
  * `buildPortalCommands` is pure, so what shows for a given ACL, query and
@@ -40,7 +42,7 @@ const match = (query) => {
  * @param {boolean} p.callsAllowed the `calls` ACL
  * @param {boolean} p.dark         current appearance
  * @param {boolean} p.compact      current row density
- * @param {object}  p.on           { go(path), phone(), assistant(), dial(number), searchCalls(text), theme(), density(), logout() }
+ * @param {object}  p.on           { go(path), phone(), ask(text), dial(number), searchCalls(text), theme(), density(), logout() }
  */
 export function buildPortalCommands({ query = '', liveAllowed, callsAllowed, dark, compact, on }) {
   const q = query.trim();
@@ -51,9 +53,15 @@ export function buildPortalCommands({ query = '', liveAllowed, callsAllowed, dar
     callsAllowed && { id: 'go-calls', label: 'Calls', hint: 'Your call history', action: () => on.go('/my-calls') },
     liveAllowed && { id: 'go-live', label: 'Live', hint: 'What is happening right now', action: () => on.go('/live') },
     { id: 'open-phone', label: 'Phone', hint: 'Dial a number', action: () => on.phone() },
-    { id: 'open-assistant', label: 'Assistant', hint: 'Ask about your calls', action: () => on.assistant() },
   ].filter(Boolean).filter((item) => fits(item.label));
   if (places.length) groups.push({ label: 'Go to', items: places });
+
+  // Anything typed can be a QUESTION. It comes first because it is the only
+  // row that reads the words rather than matching them: "how many calls today"
+  // is a question, and every other row would have shrugged at it.
+  if (q) {
+    groups.push({ label: 'Ask', items: [{ id: 'ask', label: `Ask: “${q}”`, hint: `About ${ASSISTANT_CAN_ANSWER}`, action: () => on.ask(q) }] });
+  }
 
   // Typed text is about calls before it is about anything else.
   if (q && callsAllowed) {
@@ -78,11 +86,11 @@ export function buildPortalCommands({ query = '', liveAllowed, callsAllowed, dar
  * callback is taken individually and memoised here, so a caller passing fresh
  * arrow functions each render does not rebuild the rows each render.
  */
-export function usePortalCommands({ liveAllowed, callsAllowed, dark, compact, go, phone, assistant, dial, searchCalls, theme, density, logout }) {
+export function usePortalCommands({ liveAllowed, callsAllowed, dark, compact, go, phone, ask, dial, searchCalls, theme, density, logout }) {
   const [query, setQuery] = useState('');
   const [highlight, setHighlight] = useState(0);
 
-  const on = useMemo(() => ({ go, phone, assistant, dial, searchCalls, theme, density, logout }), [go, phone, assistant, dial, searchCalls, theme, density, logout]);
+  const on = useMemo(() => ({ go, phone, ask, dial, searchCalls, theme, density, logout }), [go, phone, ask, dial, searchCalls, theme, density, logout]);
   const groups = useMemo(() => buildPortalCommands({ query, liveAllowed, callsAllowed, dark, compact, on }), [query, liveAllowed, callsAllowed, dark, compact, on]);
   const rows = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 

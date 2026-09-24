@@ -8,7 +8,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useUserAuth } from '../../context/UserAuthContext';
 import PortalHeader from './PortalHeader.jsx';
 import { usePortalPreferences } from '../../context/PortalPreferencesContext';
-import PortalSoftkeys, { RAIL_HEIGHT_MOBILE } from '../Portal/PortalSoftkeys.jsx';
 import PortalSidebar from '../Portal/PortalSidebar.jsx';
 import { PortalSidebarProvider } from '../../context/PortalSidebarContext';
 import { GlobalSearchProvider } from '../../context/GlobalSearchContext';
@@ -118,11 +117,12 @@ const Layout = ({ children }) => {
           {children}
         </Box>
       ) : isUserOnlySession ? (
-        // Portal user, not an admin: a desk phone. The bar (hamburger, the
-        // line, you), the softkeys under it, and ONE screen — Calls, Live,
-        // Assistant or Phone. No dock, no floating buttons, no menus: the line
-        // is the menu (PortalLine) and the softkeys are the only other way to
-        // move. The admin sidebar/topbar are admin-console concepts.
+        // Portal user, not an admin: one bar over one screen. The bar holds
+        // the places (Calls, Live), the line — a combobox that is the portal's
+        // only menu, and where a question is asked — and the phone button at
+        // its right end. The phone and a call's details open in ONE sidebar
+        // from that same edge. The admin sidebar/topbar are admin-console
+        // concepts a portal user never sees.
         //
         // GlobalSearchProvider wraps it because screens shared with the admin
         // console (DIDs, the portal's Numbers) register their filter segments
@@ -132,17 +132,7 @@ const Layout = ({ children }) => {
         <Box data-testid="user-layout" sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
           <PortalHeader />
           <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
-            <PortalSoftkeys />
-            <Box
-              component="main"
-              sx={{
-                flex: 1, minWidth: 0,
-                // Nothing floats over the screen any more — the phone and the
-                // assistant are buttons in the bar. Only the rail, which is a
-                // bottom bar on a phone, needs clearing.
-                pb: { xs: `calc(${RAIL_HEIGHT_MOBILE}px + env(safe-area-inset-bottom, 0px))`, md: 0 },
-              }}
-            >
+            <Box component="main" sx={{ flex: 1, minWidth: 0 }}>
               {/* A local Suspense boundary. Without it, any lazy chunk this
                   subtree pulls in suspends all the way up to App.jsx's
                   boundary, whose fallback is ANOTHER <Layout> — the shell was

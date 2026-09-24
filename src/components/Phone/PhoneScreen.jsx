@@ -20,7 +20,6 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PhoneForwardedIcon from '@mui/icons-material/PhoneForwarded';
 import DialpadIcon from '@mui/icons-material/Dialpad';
 import SettingsIcon from '@mui/icons-material/Settings';
-import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import TerminalIcon from '@mui/icons-material/Terminal';
 import HistoryIcon from '@mui/icons-material/History';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -32,15 +31,11 @@ import TransferControls from './TransferControls.jsx';
 import PhoneCallsTab from './PhoneCallsTab.jsx';
 import PhonePresence from './PhonePresence.jsx';
 import { ACCENT, GREEN, MUTED, PANEL, PANEL_HEADER } from './panelTheme.js';
-import { Suspense, lazy } from 'react';
-
-const PortalMcpAssistant = lazy(() => import('../AIChat/PortalMcpAssistant.jsx'));
-
-// Calls · Dialpad · Assistant along the bottom; Settings is the gear in the
-// header. The assistant took Settings' slot because it is something you DO
-// with the phone — ask it about your calls — while settings is something you
-// set once, which is what a gear is for.
-const TABS = ['calls', 'dialpad', 'assistant'];
+// Calls · Dialpad along the bottom; Settings is the gear in the header —
+// something set once, rather than a third of the tab bar. Asking about your
+// calls is not here at all: it is a row in the portal's line (PortalLine),
+// which is where a question gets typed.
+const TABS = ['calls', 'dialpad'];
 import { requestIncomingCallNotifications, useIncomingCallAlerts } from '../../lib/sip/useIncomingCallAlerts.js';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
@@ -317,15 +312,7 @@ export default function PhoneScreen({ embedded = false, initialTab }) {
               )}
               {!connected && <Typography variant="caption" sx={{ display: 'block', mt: 1, textAlign: 'center', color: MUTED }}>Not connected — see Settings</Typography>}
             </Box>
-          ) : (
-            // The assistant, inside the phone: ask about the calls you just
-            // made without leaving the panel you made them in.
-            <Box data-testid="phone-assistant" sx={{ flex: 1, minHeight: 240, display: 'flex', bgcolor: 'var(--mui-palette-background-default)' }}>
-              <Suspense fallback={<Box sx={{ p: 3, textAlign: 'center', color: MUTED, width: '100%' }}>Loading…</Box>}>
-                <PortalMcpAssistant />
-              </Suspense>
-            </Box>
-          )}
+          ) : null}
         </Box>
 
         {/* Bottom tabs — Calls / Dialpad / Assistant (Settings is the gear) */}
@@ -341,7 +328,6 @@ export default function PhoneScreen({ embedded = false, initialTab }) {
           >
             <Tab icon={<HistoryIcon fontSize="small" />} iconPosition="top" label="Calls" />
             <Tab icon={<DialpadIcon fontSize="small" />} iconPosition="top" label="Dialpad" />
-            <Tab icon={<SmartToyOutlinedIcon fontSize="small" />} iconPosition="top" label="Assistant" />
           </Tabs>
         )}
       </Paper>

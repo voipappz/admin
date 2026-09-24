@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { Box, InputBase } from '@mui/material';
+import { Box, CircularProgress, InputBase } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate } from 'react-router';
 import { useUserAuth } from '../../context/UserAuthContext';
@@ -8,24 +8,31 @@ import { useSoftphone } from '../../context/SoftphoneContext';
 import { usePortalSidebar } from '../../context/PortalSidebarContext';
 import { canAccessScreen } from '../../utils/jwt';
 import { usePortalCommands } from './usePortalCommands';
-import { ON_SURFACE, ON_SURFACE_FAINT, ON_SURFACE_MUTED, SURFACE_BORDER, SURFACE_HOVER, FIELD_RADIUS } from '../../theme/portalSurface';
+import { askPortal } from '../../services/portalAssistant';
+import { ON_SURFACE, ON_SURFACE_FAINT, ON_SURFACE_MUTED, SURFACE_BORDER, FIELD_RADIUS } from '../../theme/portalSurface';
 
 /**
  * The line: the portal's one control. A search box that is also the menu.
  *
  * Focus it (click, or ctrl+/) and the rows appear beneath — places, settings,
- * and, once you type, "Call <number>" and "Search calls for <text>". Arrow
- * keys move, Enter does, Escape closes. It is a combobox in the ARIA sense and
- * is marked up as one, so a screen reader hears "Calls, 1 of 6" rather than
- * a text field with a mystery list under it.
+ * and, once you type, "Ask", "Call <number>" and "Search calls for <text>".
+ * Arrow keys move, Enter does, Escape closes. It is a combobox in the ARIA
+ * sense and is marked up as one, so a screen reader hears "Calls, 1 of 6"
+ * rather than a text field with a mystery list under it.
+ *
+ * ASKING HAPPENS HERE, not in a chat window: the answer appears in place of
+ * the rows, so a question costs one line of typing and no navigation. It is
+ * announced (role="status") because it arrives after the keystroke that asked
+ * for it. No LLM runs — see services/portalAssistant.
  */
 export default function PortalLine({ inputRef }) {
   const navigate = useNavigate();
-  const { acl, logout } = useUserAuth();
+  const { acl, logout, token } = useUserAuth();
   const { preferences, save } = usePortalPreferences();
   const { dial } = useSoftphone();
   const { open: openSidebar } = usePortalSidebar();
   const [open, setOpen] = useState(false);
+  const [answer, setAnswer] = useState(null); // { question, text } | { question, pending: true }
   const wrap = useRef(null);
   const ownRef = useRef(null);
   const input = inputRef || ownRef;
@@ -33,7 +40,12 @@ export default function PortalLine({ inputRef }) {
 
   const go = useCallback((path) => navigate(path), [navigate]);
   const phone = useCallback(() => openSidebar('phone', { tab: 'dialpad' }), [openSidebar]);
-  const assistant = useCallback(() => openSidebar('phone', { tab: 'assistant' }), [openSidebar]);
+  const ask = useCallback(async (question) => {
+    setAnswer({ question, pending: true });
+    const { text } = await askPortal(token, question);
+    // A second question asked while this one was in flight wins.
+    setAnswer((current) => (current?.question === question ? { question, text } : current));
+  }, [token]);
   // Dialling opens the phone in the sidebar and puts the number in it, rather
   // than navigating away from whatever the person was reading.
   const callNumber = useCallback((n) => { openSidebar('phone', { tab: 'dialpad' }); dial?.(n.replace(/[^\d+*#]/g, '')); }, [openSidebar, dial]);
@@ -46,11 +58,17 @@ export default function PortalLine({ inputRef }) {
     callsAllowed: canAccessScreen(acl, 'calls'),
     dark: preferences.theme === 'dark',
     compact: preferences.calls_density === 'compact',
-    go, phone, assistant, dial: callNumber, searchCalls, theme, density, logout,
+    go, phone, ask, dial: callNumber, searchCalls, theme, density, logout,
   });
 
-  const close = useCallback(() => { setOpen(false); cmd.reset(); input.current?.blur(); }, [cmd, input]);
-  const run = useCallback((row) => { close(); row.action(); }, [close]);
+  const close = useCallback(() => { setOpen(false); setAnswer(null); cmd.reset(); input.current?.blur(); }, [cmd, input]);
+  // Asking KEEPS the rows open: the answer is the result, and closing the list
+  // to show it somewhere else is the chat window this replaced.
+  const run = useCallback((row) => {
+    if (row.id === 'ask') { row.action(); return; }
+    close();
+    row.action();
+  }, [close]);
 
   // ctrl+/ (or cmd+/) from anywhere puts the cursor on the line.
   useEffect(() => {
@@ -82,7 +100,7 @@ export default function PortalLine({ inputRef }) {
       <InputBase
         inputRef={input}
         value={cmd.query}
-        onChange={(e) => { cmd.setQuery(e.target.value); setOpen(true); }}
+        onChange={(e) => { cmd.setQuery(e.target.value); setAnswer(null); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
         placeholder="Name, number, or where to go"
@@ -108,6 +126,14 @@ export default function PortalLine({ inputRef }) {
           boxShadow: '0 16px 40px rgba(0,0,0,0.22)', overflow: 'hidden', maxHeight: 'min(60vh, 480px)', overflowY: 'auto',
         }}
       >
+        {answer && (
+          <Box sx={{ px: 1.75, py: 1.5, borderBottom: 1, borderColor: 'divider' }} data-testid="portal-answer">
+            <Box sx={{ fontSize: 12, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'text.secondary', mb: 0.75 }}>{answer.question}</Box>
+            {answer.pending
+              ? <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}><CircularProgress size={14} /> Asking…</Box>
+              : <Box role="status">{answer.text}</Box>}
+          </Box>
+        )}
         {cmd.groups.map((group) => (
           <Box key={group.label}>
             <Box sx={{ px: 1.75, pt: 1.25, pb: 0.5, fontSize: 11, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'text.secondary' }}>{group.label}</Box>
