@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import SignIn from './SignIn.jsx';
+import SignIn, { rememberSignInAs } from './SignIn.jsx';
 
 // The two logins keep their own forms, OTP and reset flows (and endpoints):
 // here they are stand-ins that show which one is on screen and the toggle.
@@ -19,8 +19,11 @@ describe('the one sign-in page', () => {
     expect(screen.queryByTestId('account-login')).toBeNull();
   });
 
-  it('opens on the account login when the link asks for it', () => {
-    at('/?as=account');
+  // An old /admin link, or an account page visited signed out, remembers the
+  // account side and lands on plain `/`: nothing in the URL.
+  it('opens on the account login once the account side is remembered', () => {
+    rememberSignInAs('account');
+    at('/');
     expect(screen.getByTestId('account-login')).toBeInTheDocument();
   });
 

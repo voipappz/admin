@@ -107,7 +107,7 @@ The admin console (`AuthContext`, storage `auth`) and the end-user portal
 coexist, and then the portal dashboard at `/` sent every request with the
 ADMIN token. Both sign in on ONE page at `/` (`SignIn.jsx`), toggled User /
 Account; there is no /admin page (`/admin` and `/login` redirect to
-`/?as=account`). Now signing in on either door ends the other session first
+`/`, opened on Account; nothing in the URL). Now signing in on either door ends the other session first
 (`src/services/sessionIsolation.js`: revoke, clear its keys, tell its context).
 A browser that still holds both keeps the admin session. Pinned by
 `src/services/sessionIsolation.test.jsx`, which runs in CI.

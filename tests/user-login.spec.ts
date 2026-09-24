@@ -88,7 +88,7 @@ test.describe('One sign-in page, user or account', () => {
     await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.route('**/auth/user_login**', (route) =>
       route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ id: 'unauthorized', message: 'Invalid email or password' }) }));
-    await page.goto('/?as=user', { waitUntil: 'domcontentloaded' });
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.fill('[data-testid="user-email-input"] input', 'nir@voipappz.com');
     await page.fill('[data-testid="user-password-input"] input', 'wrong');
     await page.click('[data-testid="user-login-button"]');
@@ -96,10 +96,10 @@ test.describe('One sign-in page, user or account', () => {
   });
 
   for (const old of ['/admin', '/login']) {
-    test(`${old} lands on the sign-in with Account selected`, async ({ page }) => {
+    test(`${old} lands on / with Account selected`, async ({ page }) => {
       await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); });
       await page.goto(old, { waitUntil: 'domcontentloaded' });
-      await expect(page).toHaveURL(/\/\?as=account$/, { timeout: 15000 });
+      await expect(page).toHaveURL(/\/$/, { timeout: 15000 });
       await expect(page.locator('[data-testid="login-form"]')).toBeVisible({ timeout: 15000 });
     });
   }
