@@ -106,6 +106,14 @@ export function sipSettingsFromUser(user, loginPassword, base) {
   return { ...cur, username, password, domain, wssUrl, displayName, autoConnect: true };
 }
 
+// Register AS a device an account picked: the device object from
+// GET /api/devices/:uuid carries its own SIP secret and its environment's
+// domain and wss server — the same fields a user's login response nests under
+// `user.extension` and `user.environment`.
+export function sipSettingsFromDevice(device, base) {
+  return sipSettingsFromUser({ name: device?.name, extension: device, environment: device?.environment }, '', base);
+}
+
 /** Enough config present to attempt a registration. */
 export function sipSettingsReady(s) {
   return Boolean(s.wssUrl && s.domain && s.username && s.password);

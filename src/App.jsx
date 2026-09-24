@@ -9,7 +9,6 @@ import { NotificationProvider } from './context/NotificationContext';
 import { CustomerEnvironmentProvider } from './context/CustomerEnvironmentContext';
 import { TourProvider } from './context/TourContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { PhoneProvider } from './context/PhoneContext';
 import { SoftphoneProvider } from './context/SoftphoneContext.jsx';
 import { QueryProvider } from './providers/QueryProvider';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary.jsx';
@@ -690,12 +689,10 @@ function App() {
                 <SoftphoneProvider>
                   <NotificationProvider>
                     <CustomerEnvironmentProvider>
-                      <PhoneProvider>
                       <TourProvider>
                         <AppContent />
                         <TourOverlay />
                       </TourProvider>
-                      </PhoneProvider>
                     </CustomerEnvironmentProvider>
                   </NotificationProvider>
                 </SoftphoneProvider>

@@ -21,7 +21,7 @@ import {
   ContentCopy,
   History
 } from '@mui/icons-material';
-import { usePhoneContext } from '../../../context/PhoneContext';
+import { useCallNumber } from '../../../hooks/useCallNumber';
 import { useNotification } from '../../../context/NotificationContext';
 
 const CallActions = ({ call, onAddNote }) => {
@@ -29,7 +29,7 @@ const CallActions = ({ call, onAddNote }) => {
   const [noteDialog, setNoteDialog] = useState(false);
   const [noteText, setNoteText] = useState('');
   
-  const { showPhone } = usePhoneContext();
+  const callNumber = useCallNumber();
   const { showNotification } = useNotification();
   
   const handleMenuOpen = (event) => {
@@ -44,14 +44,8 @@ const CallActions = ({ call, onAddNote }) => {
     if (call.caller_number || call.destination_number) {
       const numberToCall = call.direction === 'inbound' ? call.caller_number : call.destination_number;
       
-      // Show the phone widget
-      showPhone();
-      
-      // Set the number in the phone (this would need to be implemented in the phone context)
-      // For now, we'll just show a notification
-      showNotification(`Calling back ${numberToCall}...`, 'info');
-      
-      console.log('📞 Callback initiated for:', numberToCall);
+      // The phone opens on the right with the number in its dialpad.
+      callNumber(numberToCall);
     }
     handleMenuClose();
   };
