@@ -12,6 +12,7 @@ import DnsIcon from '@mui/icons-material/Dns';
 import SchemaIcon from '@mui/icons-material/Schema';
 import CallIcon from '@mui/icons-material/Call';
 import HomeIcon from '@mui/icons-material/Home';
+import SensorsIcon from '@mui/icons-material/Sensors';
 import ChatIcon from '@mui/icons-material/Chat';
 import BoltIcon from '@mui/icons-material/Bolt';
 import CodeIcon from '@mui/icons-material/Code';
@@ -31,12 +32,14 @@ export const NAV_ITEMS = [
   // bill against, and were previously only reachable through the picker
   // embedded in other dialogs.
   { text: 'Tariffs',       path: '/tariffs',        iconComponent: RequestQuoteIcon,          aclKey: 'tariffs',                        group: 'MANAGE'   },
-  // Live and Phone are not in this rail: they are user-portal screens only
-  // (UserRail.jsx), and App.jsx sends an admin session away from both.
   // The live-calls dashboard (pilot): the portal's landing screen, in the
   // console, scoped to the selected customer/environment. Gated on `calls`,
   // the data it shows.
   { text: 'Dashboard',     path: '/admin/dashboard', iconComponent: HomeIcon,                 aclKey: 'calls',                          group: 'MONITOR'  },
+  // Live answers "what is happening right now"; Calls is the history of the
+  // same thing, so Live sits above it. Reachable from both surfaces: LiveRoute
+  // in App.jsx checks each session against its own ACL vocabulary.
+  { text: 'Live',          path: '/live',           iconComponent: SensorsIcon,               aclKey: 'reports',                        group: 'MONITOR'  },
   { text: 'Calls',         path: '/calls',          iconComponent: CallIcon,                  aclKey: 'calls',                          group: 'MONITOR'  },
   { text: 'Messages',      path: '/messages',       iconComponent: ChatIcon,                  aclKey: 'calls',                          group: 'MONITOR'  },
   // Logs: the app log stream from the InfluxDB `syslog` measurement, served

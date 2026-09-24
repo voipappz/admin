@@ -19,3 +19,20 @@ describe('navConfig Nodes entry', () => {
     expect(paths).not.toContain('/nodes');
   });
 });
+
+// Live is back in the account console (it was portal-only from 8cc1555). Gated
+// on `reports`: the console's ACLs carry no `dashboard` key.
+describe('navConfig Live entry', () => {
+  it('lists Live at /live, above Calls, for an account with reports access', () => {
+    const acl = { data: { reports: { main: ['read'] }, calls: { main: ['read'] } } };
+    const paths = getPermittedNavItems(acl).map((item) => item.path);
+    expect(paths).toContain('/live');
+    expect(paths.indexOf('/live')).toBeLessThan(paths.indexOf('/calls'));
+    expect(findNavItemByPath('/live')).toMatchObject({ text: 'Live', aclKey: 'reports' });
+  });
+
+  it('hides Live from an account without reports access', () => {
+    const acl = { data: { calls: { main: ['read'] } } };
+    expect(getPermittedNavItems(acl).map((item) => item.path)).not.toContain('/live');
+  });
+});
