@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { apiService } from '../services/apiService';
+import { notificationsApi } from '../services/api/notificationsApi';
 
 /**
  * useNavBadges — live counts for the sidebar nav (module-level singleton, one
  * poll loop shared by all consumers, same pattern as useApiHealth):
  *   liveCalls      — active calls on the switch (Calls nav badge)
  *   criticalEvents — critical events in the last 24h (Events nav badge)
- *   openAlerts     — unread monitoring alerts (Monitoring nav badge), with
+ *   openAlerts     — unread alert notifications (Monitoring nav badge), with
  *   criticalAlerts   how many of them are critical (the badge turns red)
  * Polls every 30s; silent on errors (badges just hide). refreshNavBadges()
  * re-polls at once, e.g. after alerts are marked read.
@@ -32,9 +33,10 @@ const poll = async () => {
     state.criticalEvents = 0;
   }
   try {
-    const stats = await apiService.get('/api/monitoring/alerts/stats', {}, 'alerts badge', false, true);
-    state.openAlerts = Number(stats?.total) || 0;
-    state.criticalAlerts = Number(stats?.by_level?.critical) || 0;
+    // Unread alert notifications — the same list the Monitoring rail reads.
+    [state.openAlerts, state.criticalAlerts] = await Promise.all([
+      notificationsApi.countUnreadAlerts(), notificationsApi.countUnreadAlerts('critical'),
+    ]);
   } catch {
     state.openAlerts = 0;
     state.criticalAlerts = 0;
