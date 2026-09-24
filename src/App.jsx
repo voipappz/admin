@@ -178,8 +178,9 @@ function AppContent() {
     if (admin.isAuthenticated) return <Navigate to="/calls" replace />;
     if (!user.isAuthenticated) return <Navigate to="/" replace />;
     // Phone is always available to a signed-in portal user, unconditional on
-    // ACL — mirrors app, where the phone icon was just always there, never
-    // gated. (It's also reachable via the persistent PhoneFab.)
+    // ACL — it is a corner button on every screen, and a button that only
+    // sometimes works is a question nobody should have to ask. (The assistant
+    // is the other corner button; neither is a route any more.)
     if (aclKey === 'phone') return children;
     return canAccessScreen(user.acl, aclKey) ? children : <Navigate to="/" replace />;
   };
@@ -273,6 +274,7 @@ function AppContent() {
             </PortalRoute>
           }
         />
+
         <Route
           path="/reports"
           element={
