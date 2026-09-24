@@ -1,6 +1,6 @@
 // The portal's bar: the phone key, the line, you. Nothing else.
 import { useEffect, useRef, useState } from 'react';
-import { Avatar, Box, IconButton, Tooltip } from '@mui/material';
+import { Box } from '@mui/material';
 import { useUserAuth } from '../../context/UserAuthContext';
 import { loadCustomerPortalData } from '../../services/customerPortalService';
 import { parseCustomerBrand } from '../../utils/customerBrand';

@@ -270,17 +270,31 @@ export default function PortalCalls() {
     ['recording', 'actions'].includes(column.field) || selectedColumns.includes(column.field)]));
 
   const selectedNumber = counterparty(selectedCall);
-  // Hand the selected call to the sidebar, and clear the selection when the
-  // sidebar moves on to something else (the phone) or closes.
+  const { open: openSidebar, close: closeSidebar, view: sidebarView } = sidebar;
+  // The sidebar shows whatever is selected — including nothing. Re-running on
+  // every referenced value keeps the row's actions live: a call-back handed
+  // over while the phone was disconnected stayed disabled in the panel even
+  // after it registered.
   useEffect(() => {
     if (!selectedCall) return;
-    sidebar.open('call', {
+    openSidebar('call', {
       call: selectedCall,
       onOpenRecording: handleOpenRecording,
       onCallBack: selectedNumber && connected ? () => callBack(selectedNumber) : undefined,
     });
-  }, [selectedCall]);
-  useEffect(() => { if (sidebar.view !== 'call' && selectedCall) setSelectedCall(null); }, [sidebar.view, selectedCall]);
+  }, [selectedCall, selectedNumber, connected, openSidebar, handleOpenRecording, callBack]);
+
+  // Filtering or paging clears the selection; the sidebar was left showing the
+  // call that is no longer in the list.
+  useEffect(() => {
+    if (!selectedCall && sidebarView === 'call') closeSidebar();
+  }, [selectedCall, sidebarView, closeSidebar]);
+
+  // And the other direction: the sidebar moving on (to the phone) or closing
+  // drops the selection, so the row stops looking chosen.
+  useEffect(() => {
+    if (sidebarView !== 'call' && selectedCall) setSelectedCall(null);
+  }, [sidebarView, selectedCall]);
 
   const emptyText = calls.length === 0 ? 'No calls in this period.' : 'No calls match that search.';
 

@@ -8,7 +8,7 @@ import { useSoftphone } from '../../context/SoftphoneContext';
 import { usePortalSidebar } from '../../context/PortalSidebarContext';
 import { canAccessScreen } from '../../utils/jwt';
 import { usePortalCommands } from './usePortalCommands';
-import { ON_SURFACE, ON_SURFACE_FAINT, ON_SURFACE_MUTED, SURFACE_BORDER, SURFACE_HOVER, FIELD_RADIUS } from '../../theme/portalSurface';
+import { ON_SURFACE, ON_SURFACE_FAINT, ON_SURFACE_MUTED, SURFACE_BORDER, FIELD_RADIUS } from '../../theme/portalSurface';
 
 /**
  * The line: the portal's one control. A search box that is also the menu.

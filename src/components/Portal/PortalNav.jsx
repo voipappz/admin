@@ -39,6 +39,9 @@ export default function PortalNav() {
         return (
           <Button
             key={key} onClick={() => navigate(path)} aria-current={active ? 'page' : undefined}
+            // The label is display:none below sm, which would leave the button
+            // nameless to a screen reader — the icon is not a name.
+            aria-label={label}
             data-testid={`nav-${key}`} disableElevation startIcon={<Icon sx={{ fontSize: 19 }} />}
             sx={{
               color: active ? ON_SURFACE : ON_SURFACE_MUTED,
