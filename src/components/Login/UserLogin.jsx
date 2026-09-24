@@ -20,7 +20,8 @@ import './Login.css';
 
 // The `/` entry point — a compact, tenant-branded customer login that remains
 // easy to use on a phone and keeps admin credentials visually distinct.
-const UserLogin = () => {
+// `switcher`: the User / Account toggle (SignIn), shown on the credentials step.
+const UserLogin = ({ switcher = null }) => {
   const {
     email,
     password,
@@ -71,8 +72,8 @@ const UserLogin = () => {
   const brandName = portalData?.logo_title || 'VoipAppz';
 
   // Favicon/title only while THIS screen is mounted — the admin console (and
-  // its own login at /admin) must keep its own tab identity, not inherit a
-  // tenant's portal branding just because a browser also visited /.
+  // the account side of the sign-in toggle) must keep its own tab identity, not
+  // inherit a tenant's portal branding just because this was on screen.
   useEffect(() => {
     if (!portalData) return;
     const favicon = document.querySelector('link[rel="icon"]');
@@ -120,8 +121,8 @@ const UserLogin = () => {
 
       {/* Distinct field names (portal_email / portal_password) and form id
           from the admin form's plain email/password. Chrome keys saved
-          credentials by ORIGIN, so `/` and `/admin` on one host share a
-          store no matter what — but its form-signature heuristics weight
+          credentials by ORIGIN, so the user and account forms on one host
+          share a store no matter what — but its form-signature heuristics weight
           field names heavily, and identical names on both screens is what
           made it offer the admin password on the portal (and overwrite one
           with the other). This separates them as far as a single origin
@@ -521,6 +522,7 @@ const UserLogin = () => {
         <Box className="portal-login-brand">
           <img src={brandLogo} alt={brandName} className="portal-login-logo" />
         </Box>
+        {!showForgetForm && !otpStep && switcher}
         {showForgetForm
           ? renderForgotForm()
           : otpStep

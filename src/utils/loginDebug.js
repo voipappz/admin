@@ -6,8 +6,8 @@ import { jwtDecode } from 'jwt-decode';
  * Both surfaces call this so the two session kinds print the same shape and can
  * be told apart at a glance:
  *
- *   'account' — the admin console at /admin  (useLogin      -> AuthContext)
- *   'user'    — the end-user portal at /     (useUserLogin  -> UserAuthContext)
+ *   'account' — the admin console  (Account on the sign-in at /; useLogin     -> AuthContext)
+ *   'user'    — the end-user portal (User on the sign-in at /;    useUserLogin -> UserAuthContext)
  *
  * The two are genuinely different objects, not two views of one thing: an
  * account's identity lives ONLY inside the signed access token (the
@@ -20,8 +20,8 @@ import { jwtDecode } from 'jwt-decode';
  */
 
 const KINDS = {
-  account: { label: 'ACCOUNT — admin console (/admin)', color: '#5c6bc0' },
-  user: { label: 'USER — end-user portal (/)', color: '#26a69a' },
+  account: { label: 'ACCOUNT — admin console', color: '#5c6bc0' },
+  user: { label: 'USER — end-user portal', color: '#26a69a' },
 };
 
 export const logLoginDebug = (kind, { token, response, authData, parsed } = {}) => {
