@@ -185,6 +185,25 @@ function AppContent() {
     return canAccessScreen(user.acl, aclKey) ? children : <Navigate to="/" replace />;
   };
 
+  // Live is reachable from both surfaces, and DualProtectedRoute can't serve
+  // it: it checks ONE aclKey against whichever session is active, and the
+  // vocabularies differ (admin ACLs are plural — `reports`; portal ACLs are
+  // singular — `dashboard`). So each surface is checked against its own key.
+  const LiveRoute = ({ children }) => {
+    const admin = useAuth();
+    const user = useUserAuth();
+    const { canAccess } = usePermissions();
+
+    if (admin.initializing || user.initializing) return null;
+    if (admin.isAuthenticated) {
+      return canAccess('reports') ? children : <Navigate to="/account" replace />;
+    }
+    if (user.isAuthenticated) {
+      return canAccessScreen(user.acl, 'dashboard') ? children : <Navigate to="/" replace />;
+    }
+    return <Navigate to="/" replace />;
+  };
+
   const DualProtectedRoute = ({ children, aclKey }) => {
     const admin = useAuth();
     const user = useUserAuth();
@@ -226,19 +245,17 @@ function AppContent() {
           }
         />
         <Route path="/login" element={<Navigate to="/admin" replace />} />
-        {/* Live is the END USER's screen, not an admin one: it answers "what
-            is my team doing right now" for the person working the queue.
-            PortalRoute enforces that — an admin session is sent to Calls.
-            `dashboard` is the portal ACL key (portal ACLs are singular:
-            call/report/dashboard, not the admin's plural). */}
+        {/* Live answers "what is my team doing right now", for the person
+            working the queue and for the account watching it. The admin sees
+            its selected environment; see LiveRoute for the two ACL keys. */}
         <Route
           path="/live"
           element={
-            <PortalRoute aclKey="dashboard">
+            <LiveRoute>
               <Layout>
                 <LiveDashboard />
               </Layout>
-            </PortalRoute>
+            </LiveRoute>
           }
         />
         {/* The portal dashboard is gone (it is an admin screen now); the path

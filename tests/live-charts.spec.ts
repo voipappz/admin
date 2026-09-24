@@ -43,8 +43,8 @@ const mockLiveRegistrationsResponse = [
   },
 ];
 
-// Live is a user-portal screen only: an admin session is redirected to /calls,
-// and auth-fixture has no portal login. Re-enable with a portal-user fixture.
+// Stale: these charts ("Live Calls Over Time", /tasks/metrics/*) belonged to
+// the tabbed Live screen, which the ActionCable Live dashboard replaced.
 test.describe.skip('Live Charts with mocked API', () => {
   test.setTimeout(60000);
 
