@@ -47,6 +47,11 @@ vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({ access: null }),
 }));
 
+const mockOpenSidebar = vi.fn();
+vi.mock('../../context/PortalSidebarContext', () => ({
+  usePortalSidebar: () => ({ view: 'call', params: null, open: mockOpenSidebar, toggle: vi.fn(), close: vi.fn() }),
+}));
+
 // The API's :portal_list shape (voipappz-api lib/serializers/call.rb): the
 // call's facts live under `profile`, not at the top level. Reading them from
 // the top level is what rendered every row as "–" / 00:00.
@@ -164,13 +169,15 @@ describe('PortalCalls', () => {
     expect(screen.getByText('Answer')).toBeInTheDocument();
   });
 
-  it('opens the shared call detail panel when a row is clicked', async () => {
+  it('hands a clicked call to the portal sidebar, where the phone opens too', async () => {
     mockGetCalls.mockResolvedValue([row(4)]);
 
     render(<PortalCalls />);
 
     fireEvent.click(await screen.findByText('0500000004'));
-    expect(await screen.findByText('Transcription')).toBeInTheDocument();
+    await waitFor(() => expect(mockOpenSidebar).toHaveBeenCalledWith('call', expect.objectContaining({ call: expect.objectContaining({ uuid: 'call-4' }) })));
+    // The screen no longer draws a detail column of its own.
+    expect(screen.queryByText('Transcription')).toBeNull();
   });
 
   it('calls an inbound caller back from the row', async () => {

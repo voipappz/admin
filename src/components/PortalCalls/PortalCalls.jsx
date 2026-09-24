@@ -29,7 +29,7 @@ import useColumnHandlers from '../Calls/ColumnHandlers/useColumnHandlers.jsx';
 import useRecordingHandlers from '../Calls/RecordingHandlers/useRecordingHandlers.js';
 import { DirectionIcon, CauseIcon, RecordingControls } from '../Calls/CallIcons.jsx';
 import CallMobileView from '../Calls/CallMobileView/CallMobileView.jsx';
-import CallDetailPanel from '../Calls/CallDetailPanel/CallDetailPanel.jsx';
+import { usePortalSidebar } from '../../context/PortalSidebarContext';
 import RecordingDialog from '../Calls/RecordingDialog/RecordingDialog.jsx';
 import CallStatCard from '../Calls/CallStatCard.jsx';
 import EnhancedDateRangePicker from '../Calls/EnhancedDateRangePicker/EnhancedDateRangePicker.jsx';
@@ -99,6 +99,10 @@ export default function PortalCalls() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { preferences, ready, save } = usePortalPreferences();
+  // A call's details open in the portal's one sidebar, beside the phone —
+  // not in a column of their own on the right, which fought the table for
+  // width and sat under whatever floated over that corner.
+  const sidebar = usePortalSidebar();
   const [url, setUrl] = useSearchParams();
   const search = url.get('q') || '';
   const direction = url.get('direction') || '';
@@ -266,16 +270,17 @@ export default function PortalCalls() {
     ['recording', 'actions'].includes(column.field) || selectedColumns.includes(column.field)]));
 
   const selectedNumber = counterparty(selectedCall);
-  const closeDetail = () => setSelectedCall(null);
-  const detailPanel = selectedCall && (
-    <CallDetailPanel
-      call={selectedCall}
-      onClose={closeDetail}
-      onOpenRecording={handleOpenRecording}
-      onCallBack={selectedNumber && connected ? () => callBack(selectedNumber) : undefined}
-      isMobile={isMobile}
-    />
-  );
+  // Hand the selected call to the sidebar, and clear the selection when the
+  // sidebar moves on to something else (the phone) or closes.
+  useEffect(() => {
+    if (!selectedCall) return;
+    sidebar.open('call', {
+      call: selectedCall,
+      onOpenRecording: handleOpenRecording,
+      onCallBack: selectedNumber && connected ? () => callBack(selectedNumber) : undefined,
+    });
+  }, [selectedCall]);
+  useEffect(() => { if (sidebar.view !== 'call' && selectedCall) setSelectedCall(null); }, [sidebar.view, selectedCall]);
 
   const emptyText = calls.length === 0 ? 'No calls in this period.' : 'No calls match that search.';
 
@@ -344,7 +349,6 @@ export default function PortalCalls() {
             }}
           />
         </Box>
-        {detailPanel && <Box sx={{ flex: '0 0 360px', width: 360, '& .call-detail-panel': { width: '100%' } }}>{detailPanel}</Box>}
       </Box>
     );
   };
@@ -395,7 +399,7 @@ export default function PortalCalls() {
       </Stack>
 
       {/* On a phone the detail panel takes the whole screen, as on admin Calls. */}
-      {isMobile && detailPanel ? detailPanel : (
+      {(
         <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
           {renderList()}
 
