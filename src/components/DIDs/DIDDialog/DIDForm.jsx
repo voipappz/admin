@@ -22,6 +22,7 @@ import {
   Edit as EditIcon,
 } from '@mui/icons-material';
 import { useCustomerEnvironment } from '../../../context/CustomerEnvironmentContext';
+import { useIsUserSession } from '../../../hooks/useIsUserSession';
 import { NumberSelector } from '../../Bridges/NumberBridge/NumberSelector.jsx';
 import RoutingChain from './RoutingChain.jsx';
 import { didsApi } from '../../../services/api/routesApi';
@@ -65,6 +66,8 @@ const DIDForm = forwardRef(({
   showActions = true,
 }, ref) => {
   const { selectedEnvironments } = useCustomerEnvironment();
+  // A portal user has one environment, their own: it is set, never a field.
+  const userSession = useIsUserSession();
   const [formData, setFormData] = useState({});
   const [errors, setErrors] = useState({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -382,7 +385,8 @@ const DIDForm = forwardRef(({
             )}
           </div>
 
-          {/* Environment */}
+          {/* Environment — an account's choice; a portal user's is their own */}
+          {!userSession && (
           <FormControl fullWidth required error={!!errors.environment_uuid || (submitAttempted && !formData.environment_uuid)}>
             <InputLabel required>Application</InputLabel>
             <Select
@@ -401,6 +405,7 @@ const DIDForm = forwardRef(({
                 : 'The application this Route belongs to'}
             </FormHelperText>
           </FormControl>
+          )}
 
           {/* Type */}
           <FormControl fullWidth required error={!!errors.type || (submitAttempted && !formData.type)}>

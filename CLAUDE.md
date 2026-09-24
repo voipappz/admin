@@ -110,6 +110,13 @@ ADMIN token. Now signing in on either door ends the other session first
 A browser that still holds both keeps the admin session. Pinned by
 `src/services/sessionIsolation.test.jsx`, which runs in CI.
 
+Ending a session on either side also forgets the person (`forgetPerson`):
+`apiService` drops every cached and in-flight response (they are keyed by the
+signed-in token too, so one identity is never served another's), and the
+personal keys go (chat session ids, recent pages/objects, customer branding and
+selection). A portal user sees only their own environment: gate every
+customer/environment control on `useIsUserSession()` / `portalMode`.
+
 ## Running Tests
 
 **CRITICAL: ALWAYS RUN TESTS ON CI, NOT LOCALLY**
