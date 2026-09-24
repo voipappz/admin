@@ -290,10 +290,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
   const [resourceSearchInitialQuery, setResourceSearchInitialQuery] = useState('');
 
 
-  // Open the global search (mobile dialog surface). The desktop inline input
-  // lives in TopBarGlobalSearch and handles Ctrl+K / openResourceFinder itself.
-  // The visible top-bar search is gone; ⌘K now opens the CommandPalette on every
-  // viewport (desktop included).
+  // Open the global search: ⌘K opens the CommandPalette on every viewport.
   const openResourceFinder = useCallback((query = '') => {
     setResourceSearchInitialQuery(query || '');
     setResourceSearchOpen(true);

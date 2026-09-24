@@ -46,15 +46,15 @@ test.describe('Responsive layout smoke', () => {
     });
   }
 
-  test('desktop (1280) — search input, breadcrumb, sidebar + account present', async ({ authenticatedPage: page }) => {
+  test('desktop (1280) — ⌘K search, breadcrumb, sidebar + account present', async ({ authenticatedPage: page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto('/live', { waitUntil: 'domcontentloaded', timeout: 20000 });
     await page.waitForTimeout(1000);
 
-    // Inline global search input (Algolia-style) is visible and focusable
-    const search = page.locator('.topbar-global-search input');
-    await expect(search).toBeVisible();
-    await search.focus();
+    // There is no inline top-bar search: Ctrl+K opens the palette.
+    await page.keyboard.press('Control+k');
+    await expect(page.getByPlaceholder('Search, ask, or call a number…')).toBeVisible();
+    await page.keyboard.press('Escape');
 
     // Customer/env breadcrumb visible on desktop
     await expect(page.locator('.topbar-breadcrumb')).toBeVisible();
@@ -72,9 +72,8 @@ test.describe('Responsive layout smoke', () => {
     await page.goto('/live', { waitUntil: 'domcontentloaded', timeout: 20000 });
     await page.waitForTimeout(1000);
 
-    // Breadcrumb and inline search input are hidden on phones
+    // Breadcrumb is hidden on phones
     await expect(page.locator('.topbar-breadcrumb')).toBeHidden();
-    await expect(page.locator('.topbar-global-search')).toHaveCount(0);
 
     // Hamburger opens the nav drawer; the drawer carries the sidebar with the
     // bottom tools + account avatar

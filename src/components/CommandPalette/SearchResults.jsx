@@ -17,8 +17,7 @@ const Highlight = ({ text, query }) => {
   );
 };
 
-// Shared renderer for the global search results — used by both the topbar's
-// inline anchored panel (desktop) and the CommandPalette dialog (mobile).
+// Renderer for the global search results, in the CommandPalette dialog.
 // All state/behavior comes from useGlobalSearchResults.
 const SearchResults = ({ search }) => {
   const {
@@ -28,6 +27,7 @@ const SearchResults = ({ search }) => {
     resourceLoading,
     resourceType, setResourceType,
     showAllChips, setShowAllChips,
+    answer,
   } = search;
   const resultsRef = useRef(null);
 
@@ -65,6 +65,16 @@ const SearchResults = ({ search }) => {
       )}
 
       <Box className="command-palette-results" ref={resultsRef}>
+        {/* Ask's answer, in place of a chat window: announced, because it
+            arrives after the keystroke that asked for it. */}
+        {answer && (
+          <Box sx={{ px: 1.75, py: 1.5, borderBottom: 1, borderColor: 'divider' }} data-testid="palette-answer">
+            <Box className="command-palette-section-header" sx={{ px: 0 }}>{answer.question}</Box>
+            {answer.pending
+              ? <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}><CircularProgress size={14} /> Asking…</Box>
+              : <Box role="status">{answer.text}</Box>}
+          </Box>
+        )}
         {groups.map((group) => (
           <Box key={group.label}>
             <Box className="command-palette-section-header">

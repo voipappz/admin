@@ -23,14 +23,17 @@ import { useThemeMode } from '../../context/ThemeContext';
 import { apiService } from '../../services/apiService';
 import { readRecentObjects } from '../../utils/recentObjects';
 import { timeAgo, splitMatch } from '../../utils/searchText';
+import { usePortalSidebar } from '../../context/PortalSidebarContext';
+import { useCallNumber } from '../../hooks/useCallNumber';
+import { askPortal } from '../../services/portalAssistant';
+import { buildQuickActions } from './quickActions';
 
 export { timeAgo, splitMatch };
 
 // The "brain" of the global search (Algolia-Autocomplete-style): one hook that
-// builds the grouped results (Recent · Navigation · Resources · Actions),
-// handles debounced async resource search, and keyboard navigation. Rendered by
-// two surfaces: the topbar's inline anchored panel (desktop) and the
-// CommandPalette dialog (mobile / openResourceFinder event).
+// builds the grouped results (Quick actions · Recent · Navigation · Resources ·
+// Actions), handles debounced async resource search, Ask's answer, and keyboard
+// navigation. Rendered by the CommandPalette dialog (⌘K / openResourceFinder).
 
 export const RESOURCE_TYPES = [
   { key: 'calls',         label: 'Call',         endpoint: '/api/calls',         route: '/calls',      nameField: 'caller_id', subtitleField: 'destination', icon: PhoneInTalkIcon, searchParam: 'search[caller_id]' },
@@ -73,6 +76,10 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
   const [showAllChips, setShowAllChips] = useState(false);
   const [recentObjects, setRecentObjects] = useState([]);
   const debounceRef = useRef(null);
+  // Ask's answer, shown in the results in place: { question, pending } | { question, text }.
+  const [answer, setAnswer] = useState(null);
+  const { open: openSidebar } = usePortalSidebar();
+  const callNumber = useCallNumber();
 
   // Reset state when opened; seed from initialQuery (e.g. escalated text).
   useEffect(() => {
@@ -84,8 +91,19 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
       setResourceLoading(false);
       setShowAllChips(false);
       setRecentObjects(readRecentObjects());
+      setAnswer(null);
     }
   }, [open, initialQuery]);
+
+  // A new question starts from the typed text; the old answer is for other words.
+  useEffect(() => { setAnswer(null); }, [query]);
+
+  const ask = useCallback(async (question) => {
+    setAnswer({ question, pending: true });
+    const { text } = await askPortal(apiService.getToken(), question);
+    // A second question asked while this one was in flight wins.
+    setAnswer((current) => (current?.question === question ? { question, text } : current));
+  }, []);
 
   // Debounced resource search
   const searchResources = useCallback(async (searchQuery, typeFilter) => {
@@ -144,6 +162,17 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
   const groups = useMemo(() => {
     const lowerQuery = query.toLowerCase().trim();
     const result = [];
+
+    // Quick actions — ask, call, the phone — ahead of everything else.
+    const quick = buildQuickActions({
+      query,
+      on: {
+        ask,
+        call: (n) => { callNumber(n); onClose(); },
+        openPhone: () => { openSidebar('phone', { tab: 'dialpad' }); onClose(); },
+      },
+    });
+    if (quick.length > 0) result.push({ label: 'Quick actions', items: quick });
 
     // Recent — screens you visited AND objects you edited, merged, newest
     // first, each with a visible "time ago" (browser-history style).
@@ -259,7 +288,7 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
     }
 
     return result;
-  }, [query, acl, recentPages, recentObjects, isDarkMode, resourceResults, navigate, onClose, logout, toggleTheme]);
+  }, [query, acl, recentPages, recentObjects, isDarkMode, resourceResults, navigate, onClose, logout, toggleTheme, ask, callNumber, openSidebar]);
 
   // Flat list for keyboard navigation
   const flatItems = useMemo(() => groups.flatMap(g => g.items), [groups]);
@@ -293,5 +322,6 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
     showAllChips, setShowAllChips,
     groups, flatItems,
     handleKeyDown,
+    answer,
   };
 }
