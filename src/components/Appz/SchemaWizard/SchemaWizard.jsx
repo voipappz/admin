@@ -14,6 +14,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useCustomerEnvironment } from '../../../context/CustomerEnvironmentContext';
 import { apiService } from '../../../services/apiService';
+import SecretField from '../../common/SecretField.jsx';
 
 const STEPS = ['Type', 'Application', 'Details', 'Review'];
 
@@ -236,7 +237,7 @@ const SchemaWizard = ({ open, onClose, catalog, onCreated, canWrite = true, init
           label={fieldLabel(f.key)} />
       );
     }
-    if (f.type === 'password') return <TextField {...common} type="password" autoComplete="new-password" />;
+    if (f.type === 'password') return <SecretField {...common} />;
     if (f.type === 'number') return <TextField {...common} type="number" />;
     if (f.type === 'text') return <TextField {...common} multiline rows={3} />;
     return <TextField {...common} />;

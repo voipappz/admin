@@ -162,7 +162,7 @@ const Monitoring = () => {
     loading,
     logSummary, appBreakdown, syslogSeries,
     currentValue, chartRows, thresholds, alertConfig,
-    alerts, alertStats, fetchData,
+    alerts, fetchData,
   } = useMonitoring();
   const apiHealth = useApiHealth();
   const health = apiHealth.response;
@@ -418,7 +418,7 @@ const Monitoring = () => {
               border: '1px solid var(--theme-border)', borderRadius: '12px',
               backgroundColor: 'var(--theme-bg-primary)',
             }}>
-              <MonitoringSidebar alerts={alerts} alertStats={alertStats} loading={loading} />
+              <MonitoringSidebar alerts={alerts} loading={loading} onChanged={fetchData} />
             </Paper>
         </>
       </Box>
@@ -429,7 +429,7 @@ const Monitoring = () => {
         display: { xs: 'none', lg: 'flex' }, flexDirection: 'column',
         borderLeft: '1px solid var(--theme-border)',
       }}>
-        <MonitoringSidebar alerts={alerts} alertStats={alertStats} loading={loading} />
+        <MonitoringSidebar alerts={alerts} loading={loading} onChanged={fetchData} />
       </Box>
     </Box>
   );

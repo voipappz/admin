@@ -6,9 +6,12 @@ import { apiService } from '../services/apiService';
  * poll loop shared by all consumers, same pattern as useApiHealth):
  *   liveCalls      — active calls on the switch (Calls nav badge)
  *   criticalEvents — critical events in the last 24h (Events nav badge)
- * Polls every 30s; silent on errors (badges just hide).
+ *   openAlerts     — unread monitoring alerts (Monitoring nav badge), with
+ *   criticalAlerts   how many of them are critical (the badge turns red)
+ * Polls every 30s; silent on errors (badges just hide). refreshNavBadges()
+ * re-polls at once, e.g. after alerts are marked read.
  */
-const state = { liveCalls: 0, criticalEvents: 0 };
+const state = { liveCalls: 0, criticalEvents: 0, openAlerts: 0, criticalAlerts: 0 };
 const subscribers = new Set();
 let intervalId = null;
 let started = false;
@@ -28,8 +31,18 @@ const poll = async () => {
   } catch {
     state.criticalEvents = 0;
   }
+  try {
+    const stats = await apiService.get('/api/monitoring/alerts/stats', {}, 'alerts badge', false, true);
+    state.openAlerts = Number(stats?.total) || 0;
+    state.criticalAlerts = Number(stats?.by_level?.critical) || 0;
+  } catch {
+    state.openAlerts = 0;
+    state.criticalAlerts = 0;
+  }
   notify();
 };
+
+export const refreshNavBadges = () => poll();
 
 export const useNavBadges = () => {
   const [snapshot, setSnapshot] = useState({ ...state });

@@ -25,6 +25,7 @@ import {
 import { Close as CloseIcon, Visibility, VisibilityOff, CloudQueue as CloudIcon, CheckBoxOutlineBlank, CheckBox as CheckBoxIcon } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useCustomerEnvironment } from '../../../context/CustomerEnvironmentContext';
+import SecretField from '../../common/SecretField.jsx';
 
 const icon = <CheckBoxOutlineBlank fontSize="small" />;
 const checkedIcon = <CheckBoxIcon fontSize="small" />;
@@ -277,11 +278,11 @@ const AccountCreateDialog = ({
           </Grid>
 
           <Grid item xs={12}>
-            <TextField
+            <SecretField
               fullWidth
               label="Password"
               variant="outlined"
-              type={showPassword ? 'text' : 'password'}
+              revealed={showPassword}
               value={formData.password}
               onChange={(e) => handleChange('password', e.target.value)}
               error={!!errors.password}

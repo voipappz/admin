@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Info as InfoIcon, LockOpen as LockOpenIcon } from '@mui/icons-material';
 import { profileParamsApi } from '../../../services/api/profileParamsApi';
+import SecretField from '../SecretField.jsx';
 
 /**
  * DynamicProfileEditor Component
@@ -321,10 +322,10 @@ const DynamicProfileEditor = ({
       // from "leave it alone" without needing a separate checkbox.
       case 'encrypted':
         return (
-          <TextField
+          <SecretField
             fullWidth
             size="small"
-            type={shown[field.key] ? 'text' : 'password'}
+            revealed={!!shown[field.key]}
             value={value || ''}
             onFocus={() => { if (isMasked(value)) handleFieldChange(field.key, ''); }}
             onChange={(e) => handleFieldChange(field.key, e.target.value)}
@@ -333,7 +334,6 @@ const DynamicProfileEditor = ({
             disabled={disabled}
             error={hasError}
             required={isRequired}
-            autoComplete="new-password"
             InputProps={{
               // Reveal only when the parent supplies onReveal — it hits the
               // audited action=reveal route, so it is a deliberate capability,

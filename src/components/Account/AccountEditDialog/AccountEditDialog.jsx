@@ -17,6 +17,7 @@ import { Close as CloseIcon, LockReset, Visibility, VisibilityOff, ContentCopy, 
 import { useState, useEffect } from 'react';
 import DynamicProfileEditor from '../../common/DynamicProfileEditor/DynamicProfileEditor';
 import { accountsApi } from '../../../services/api/accountsApi';
+import SecretField from '../../common/SecretField.jsx';
 
 /**
  * AccountEditDialog Component
@@ -309,11 +310,11 @@ const AccountEditDialog = ({
                   <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
                     Generated Password
                   </Typography>
-                  <TextField
+                  <SecretField
                     fullWidth
                     size="small"
                     value={generatedPassword}
-                    type={showGeneratedPassword ? 'text' : 'password'}
+                    revealed={showGeneratedPassword}
                     InputProps={{
                       readOnly: true,
                       sx: { fontFamily: 'monospace', fontSize: '0.9rem' },

@@ -1,6 +1,7 @@
 import { Alert, Box, Button, ButtonBase, CircularProgress, Tab, Tabs, TextField, Typography } from '@mui/material';
 import { usePhoneSignIn } from './PhoneSignIn.js';
 import { ACCENT, MUTED } from './panelTheme.js';
+import SecretField from '../common/SecretField.jsx';
 
 const FIELD_SX = {
   '& .MuiOutlinedInput-root': { bgcolor: 'var(--mui-palette-background-paper)', borderRadius: '8px' },
@@ -15,10 +16,16 @@ function Field({ id, label, type = 'text', value, onChange, autoComplete, inputM
       <Typography component="label" htmlFor={id} sx={{ display: 'block', fontSize: 11, fontWeight: 600, letterSpacing: '0.02em', color: 'rgba(255,255,255,0.55)', mb: 0.5 }}>
         {label}
       </Typography>
-      <TextField
-        id={id} size="small" fullWidth type={type} value={value} onChange={(e) => onChange(e.target.value)}
-        autoComplete={autoComplete} inputProps={{ inputMode }} sx={FIELD_SX}
-      />
+      {type === 'password' ? (
+        <SecretField
+          id={id} size="small" fullWidth value={value} onChange={(e) => onChange(e.target.value)} sx={FIELD_SX}
+        />
+      ) : (
+        <TextField
+          id={id} size="small" fullWidth type={type} value={value} onChange={(e) => onChange(e.target.value)}
+          autoComplete={autoComplete} inputProps={{ inputMode }} sx={FIELD_SX}
+        />
+      )}
     </Box>
   );
 }

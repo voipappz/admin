@@ -33,6 +33,7 @@ import { extensionsApi } from '../../../services/api/extensionsApi';
 import DynamicProfileEditor from '../../common/DynamicProfileEditor/DynamicProfileEditor';
 import { Z } from '../../../utils/zIndex.js';
 import { useIsUserSession } from '../../../hooks/useIsUserSession';
+import SecretField from '../../common/SecretField.jsx';
 
 /**
  * ExtensionBridge Component
@@ -369,13 +370,13 @@ export const ExtensionBridge = ({
 
         {/* Password (SIP Password) */}
         <Grid item xs={12}>
-          <TextField
+          <SecretField
             label="SIP Password"
             value={formData.password}
             onChange={(e) => handleChange('password', e.target.value)}
             fullWidth
             required={!isEditMode}
-            type={showPassword ? 'text' : 'password'}
+            revealed={showPassword}
             error={!!formErrors.password}
             helperText={formErrors.password || (isEditMode ? 'Leave empty to keep current password' : 'Required for new devices')}
             placeholder={isEditMode ? 'Leave empty to keep current' : 'Enter SIP password'}
