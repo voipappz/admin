@@ -4,8 +4,11 @@ import DIDForm from './DIDForm.jsx';
 
 let userSession = false;
 vi.mock('../../../hooks/useIsUserSession', () => ({ useIsUserSession: () => userSession }));
+// ONE array for every render: the form's effects depend on it, and a fresh
+// array each call re-ran them forever (the unit job hung to its timeout).
+const mockSelected = [{ uuid: 'env-1', name: 'Sales' }];
 vi.mock('../../../context/CustomerEnvironmentContext', () => ({
-  useCustomerEnvironment: () => ({ selectedEnvironments: [{ uuid: 'env-1', name: 'Sales' }] }),
+  useCustomerEnvironment: () => ({ selectedEnvironments: mockSelected }),
 }));
 vi.mock('../../Bridges/NumberBridge/NumberSelector.jsx', () => ({ NumberSelector: () => null }));
 vi.mock('./RoutingChain.jsx', () => ({ default: () => null }));
