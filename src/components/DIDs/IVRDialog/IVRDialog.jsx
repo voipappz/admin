@@ -24,6 +24,7 @@ import {
 import { useCustomerEnvironment } from '../../../context/CustomerEnvironmentContext';
 import IVREntriesSection from './IVREntriesSection';
 import { parseServerErrors, is406Error } from '../../../utils/formValidation';
+import { useIsUserSession } from '../../../hooks/useIsUserSession';
 
 /**
  * IVR Dialog Component
@@ -40,6 +41,7 @@ const IVRDialog = ({
   bridgeResources = {},
   onFetchBridgeResources 
 }) => {
+  const userSession = useIsUserSession();
   const { selectedEnvironments } = useCustomerEnvironment();
   const [formData, setFormData] = useState({});
   const [errors, setErrors] = useState({});
@@ -264,6 +266,8 @@ const IVRDialog = ({
             placeholder="Enter IVR name"
           />
 
+          {/* A portal user has one environment, their own: never a choice. */}
+          {!userSession && (
           <FormControl fullWidth required error={!!errors.environment_uuid || (submitAttempted && !formData.environment_uuid)}>
             <InputLabel required>Application</InputLabel>
             <Select
@@ -284,6 +288,7 @@ const IVRDialog = ({
               <FormHelperText>{errors.environment_uuid || 'Application is required'}</FormHelperText>
             )}
           </FormControl>
+          )}
 
           <FormControl fullWidth required error={!!errors.announcement_uuid || (submitAttempted && !formData.announcement_uuid)}>
             <InputLabel required>Announcement</InputLabel>

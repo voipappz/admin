@@ -42,6 +42,7 @@ import { extensionsApi } from '../../../services/api/extensionsApi';
 import { usersApi } from '../../../services/api/usersApi';
 import { AnnouncementBridge } from '../AnnouncementBridge/AnnouncementBridge.jsx';
 import { Z, menuProps } from '../../../utils/zIndex.js';
+import { useIsUserSession } from '../../../hooks/useIsUserSession';
 
 /**
  * Pull a user's SIP extension username out of a user DETAIL response
@@ -74,6 +75,7 @@ export const QueueBridge = ({
   zLayer = null,             // Optional z-index layer override (e.g. Z.L3 when nested)
   onDrillDown                // Optional drill-down handler for nested creation
 }) => {
+  const userSession = useIsUserSession();
   const layer = zLayer || Z.L2;
   const { selectedEnvironments } = useCustomerEnvironment();
 
@@ -834,6 +836,8 @@ export const QueueBridge = ({
         {/* Environment */}
         {!hideEnvironment && (
           <Grid item xs={12}>
+            {/* A portal user has one environment, their own: never a choice. */}
+            {!userSession && (
             <FormControl fullWidth required error={!!formErrors.environment_uuid} disabled={loading}>
               <InputLabel required>Application</InputLabel>
               <Select
@@ -848,6 +852,7 @@ export const QueueBridge = ({
                 ))}
               </Select>
             </FormControl>
+            )}
           </Grid>
         )}
 
