@@ -39,6 +39,7 @@ import { FileUploadZone } from './FileUploadZone.jsx';
 import { TTSGenerator } from './TTSGenerator.jsx';
 import { bridgeApi } from '../../../services/api/bridgeApi';
 import { Z } from '../../../utils/zIndex.js';
+import { useIsUserSession } from '../../../hooks/useIsUserSession';
 
 /**
  * AnnouncementBridge Component
@@ -69,6 +70,7 @@ export const AnnouncementBridge = ({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onDrillDown                // Optional — reserved for wizard navigation (unused here, leaf component)
 }) => {
+  const userSession = useIsUserSession();
   const layer = zLayer || Z.L2;
   const { selectedEnvironments } = useCustomerEnvironment();
 
@@ -494,7 +496,8 @@ export const AnnouncementBridge = ({
           />
 
           {/* Environment - Hidden when inherited from parent (DID/IVR) */}
-          {!hideEnvironment && (
+          {/* A portal user has one environment, their own: never a choice. */}
+          {!hideEnvironment && !userSession && (
             <FormControl fullWidth required error={!!formErrors.environment_uuid} disabled={loading}>
               <InputLabel>Application</InputLabel>
               <Select

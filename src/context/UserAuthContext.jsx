@@ -1,11 +1,11 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react';
 import { apiService } from '../services/apiService';
 import { isTokenValid, getTokenExpiry } from '../utils/jwt';
-import { endAdminSession, endUserSession, hasAdminSession, SESSION_ENDED_EVENT } from '../services/sessionIsolation';
+import { endAdminSession, endUserSession, forgetPerson, hasAdminSession, SESSION_ENDED_EVENT } from '../services/sessionIsolation';
 
 // Auth context for the end-user (customer-facing) portal — the `/` surface.
-// This is deliberately separate from AuthContext (the account/admin surface
-// mounted at `/admin`): the two JWTs carry unrelated shapes (a user token is
+// This is deliberately separate from AuthContext (the account/admin console;
+// both sign in on the one page at `/`, toggled): the two JWTs carry unrelated shapes (a user token is
 // just { user_uuid, exp } — no refresh, no accountUuid/isRoot/acl claims —
 // with all profile/ACL/extension data living in the login response body
 // instead of the token), so merging them would mean every admin screen's
@@ -133,6 +133,7 @@ export const UserAuthProvider = ({ children }) => {
     } catch { /* ignore */ }
 
     localStorage.removeItem(STORAGE_KEY);
+    forgetPerson();
     dispatch({ type: 'LOGOUT' });
   }, []);
 

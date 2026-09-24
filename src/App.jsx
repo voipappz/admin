@@ -22,9 +22,9 @@ import { ConfirmProvider } from './components/ui';
 // ONE theme, light + dark, driven by src/theme/tokens.js — see theme.js.
 import muiTheme from './theme/theme';
 
-// Eager: Login and UserLogin are the entry points for unauthenticated users
-import Login from './components/Login/Login.jsx';
-import UserLogin from './components/Login/UserLogin.jsx';
+// Eager: the sign-in page (user or account, toggled) is the entry point for
+// unauthenticated visitors.
+import SignIn from './components/Login/SignIn.jsx';
 
 // Lazy-load all other route components for code splitting
 const Reports = lazy(() => import('./components/Reports/Reports.jsx'));
@@ -108,8 +108,8 @@ const PageLoader = () => (
 // so the dashboard sits at the root rather than one hop inside it — there
 // is nothing for a "home" that isn't the dashboard to be.
 //
-// An admin session gets sent to its own console instead; the account
-// surface's front door is /admin.
+// Signed out, `/` is the ONE sign-in page: user or account, toggled (SignIn).
+// An account session is sent to its console.
 const PortalRoot = () => {
   const admin = useAuth();
   const user = useUserAuth();
@@ -118,7 +118,7 @@ const PortalRoot = () => {
   // used to show now lives in the admin console only (/admin/dashboard).
   if (user.isAuthenticated) return <Layout><PortalCalls /></Layout>;
   if (admin.isAuthenticated) return <Navigate to="/calls" replace />;
-  return <Layout><UserLogin /></Layout>;
+  return <Layout><SignIn /></Layout>;
 };
 
 function AppContent() {
@@ -135,7 +135,7 @@ function AppContent() {
 
     // After initialization is complete, check if user is authenticated
     // AuthContext handles all token validation using JWT exp claim
-    if (!isAuthenticated) return <Navigate to="/admin" replace />;
+    if (!isAuthenticated) return <Navigate to="/?as=account" replace />;
 
     // ACL route protection: block access if user lacks read/index/list permission.
     // Bounce to /account, which carries no requiredAcl — sending a denial to an
@@ -146,18 +146,6 @@ function AppContent() {
     }
 
     return children;
-  };
-
-  const PublicRoute = ({ children }) => {
-    const { isAuthenticated, initializing } = useAuth();
-
-    // Wait for AuthContext to finish initializing
-    if (initializing) {
-      return null;
-    }
-
-    // Already signed in and sitting on /admin → straight to the landing screen (Calls).
-    return !isAuthenticated ? children : <Navigate to="/calls" replace />;
   };
 
   // Dashboard and Phone are shared, ACL-gated screens usable from EITHER
@@ -229,21 +217,12 @@ function AppContent() {
     <Router>
       <Suspense fallback={<Layout><PageLoader /></Layout>}>
       <Routes>
-        {/* `/` is the end-user (customer) front door; `/admin` is the account
-            surface this Login has always been. `/login` is kept as a bare
-            redirect so old admin bookmarks still land somewhere. */}
+        {/* `/` is the one sign-in page (user or account, toggled) and, signed
+            in, the portal. There is no /admin page: old /admin and /login
+            links land on the sign-in with Account selected. */}
         <Route path="/" element={<PortalRoot />} />
-        <Route
-          path="/admin"
-          element={
-            <PublicRoute>
-              <Layout>
-                <Login />
-              </Layout>
-            </PublicRoute>
-          }
-        />
-        <Route path="/login" element={<Navigate to="/admin" replace />} />
+        <Route path="/admin" element={<Navigate to="/?as=account" replace />} />
+        <Route path="/login" element={<Navigate to="/?as=account" replace />} />
         {/* Live answers "what is my team doing right now", for the person
             working the queue and for the account watching it. The admin sees
             its selected environment; see LiveRoute for the two ACL keys. */}
