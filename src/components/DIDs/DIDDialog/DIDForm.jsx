@@ -25,6 +25,7 @@ import { useCustomerEnvironment } from '../../../context/CustomerEnvironmentCont
 import { NumberSelector } from '../../Bridges/NumberBridge/NumberSelector.jsx';
 import RoutingChain from './RoutingChain.jsx';
 import { didsApi } from '../../../services/api/routesApi';
+import { providersApi } from '../../../services/api/providersApi';
 import { parseServerErrors, is406Error } from '../../../utils/formValidation';
 import { Z, menuProps } from '../../../utils/zIndex.js';
 import './DIDForm.css';
@@ -35,6 +36,17 @@ const FormSection = ({ label }) => (
     <span className="did-form-section-text">{label}</span>
   </div>
 );
+
+// A PBX trunk rule (API Did::TRUNK): `number` is a dial prefix, matched
+// longest-first like a rate; the prefix is stripped and the optional digits in
+// `replace` put in its place (8 + '' turns 81002 into 1002, 0 + 972 turns
+// 0501234567 into 972501234567). The bridge is a sip Provider. The API keeps
+// `sip_provider` out of /api/assets/bridge_types on purpose (IVRs share that
+// list), so the form supplies it here for this one type.
+const TRUNK = 'feature:trunk';
+const TRUNK_BRIDGE = 'sip_provider';
+const TRUNK_PREFIX = /^\+?\d+$/;
+const TRUNK_REPLACE = /^\+?\d*$/;
 
 /**
  * DIDForm Component
@@ -62,6 +74,14 @@ const DIDForm = forwardRef(({
   const [environments, setEnvironments] = useState([]);
   const [metaFields, setMetaFields] = useState([]);
   const [providers, setProviders] = useState([]);
+  const [sipProviders, setSipProviders] = useState([]);
+
+  const isTrunk = formData.type === TRUNK;
+  // Other feature:* routes are matched with regexp_replace(dst, number, replace).
+  const isFeature = (formData.type || '').startsWith('feature:');
+  const numberHint = isTrunk ? 'Dial prefix, e.g. 8 (digits, optional leading +)'
+    : isFeature ? 'Regex over the dialed digits, e.g. ^8(\\d{4})$' : 'E.164 format, e.g. +14155551234';
+  const numberPlaceholder = isTrunk ? '8' : isFeature ? '^8(\\d{4})$' : '+14155551234';
 
   // Initialize form data
   useEffect(() => {
@@ -72,6 +92,7 @@ const DIDForm = forwardRef(({
       setFormData({
         name: did.name || '',
         number: did.number || '',
+        replace: did.replace || '',
         environment_uuid: environmentUuid,
         type: did.type || '',
         provider_uuid: did.provider_uuid || '',
@@ -99,6 +120,7 @@ const DIDForm = forwardRef(({
       setFormData({
         name: '',
         number: '',
+        replace: '',
         environment_uuid: selectedEnvironments?.[0]?.uuid || '',
         type: '',
         provider_uuid: '',
@@ -142,11 +164,19 @@ const DIDForm = forwardRef(({
       .catch(() => setProviders([]));
   }, []);
 
+  // A trunk bridges to one of the customer's sip providers
+  useEffect(() => {
+    if (!isTrunk) return;
+    providersApi.getProviders({ per_page: 100, 'search[type]': 'sip' })
+      .then((data) => setSipProviders(Array.isArray(data) ? data : (data?.data || [])))
+      .catch(() => setSipProviders([]));
+  }, [isTrunk]);
+
   // Fetch bridge resources when DID has existing bridge_type
   useEffect(() => {
     if (onFetchBridgeResources) {
       const environmentUuid = did?.environment_uuid || did?.environment?.uuid;
-      if (did?.bridge_type && did.bridge_type !== 'number' && environmentUuid) {
+      if (did?.bridge_type && !['number', TRUNK_BRIDGE].includes(did.bridge_type) && environmentUuid) {
         onFetchBridgeResources(did.bridge_type, environmentUuid);
       }
     }
@@ -170,8 +200,22 @@ const DIDForm = forwardRef(({
     }
   };
 
+  const handleTypeChange = (type) => {
+    setFormData(prev => {
+      if (type === TRUNK) return { ...prev, type, bridge_type: TRUNK_BRIDGE, bridge_uuid: '' };
+      if (prev.bridge_type === TRUNK_BRIDGE) return { ...prev, type, bridge_type: '', bridge_uuid: '' };
+      return { ...prev, type };
+    });
+    if (errors.type) setErrors(prev => ({ ...prev, type: null }));
+  };
+
   const handleEnvironmentChange = (envUuid) => {
-    setFormData(prev => ({ ...prev, environment_uuid: envUuid, bridge_type: '', bridge_uuid: '' }));
+    setFormData(prev => ({
+      ...prev,
+      environment_uuid: envUuid,
+      bridge_type: prev.type === TRUNK ? TRUNK_BRIDGE : '',
+      bridge_uuid: '',
+    }));
   };
 
   // Meta field management
@@ -220,6 +264,12 @@ const DIDForm = forwardRef(({
     if (!formData.environment_uuid) newErrors.environment_uuid = 'Application is required';
     if (!formData.type) newErrors.type = 'Type is required';
     if (!formData.bridge_type) newErrors.bridge_type = 'Bridge type is required';
+    if (isTrunk && formData.number?.trim() && !TRUNK_PREFIX.test(formData.number.trim())) {
+      newErrors.number = 'A trunk number is a dial prefix: digits, optional leading +';
+    }
+    if (isTrunk && !TRUNK_REPLACE.test(formData.replace?.trim() || '')) {
+      newErrors.replace = 'Digits only (what replaces the prefix)';
+    }
     if (formData.bridge_type && !formData.bridge_uuid) {
       newErrors.bridge_uuid = formData.bridge_type === 'number'
         ? 'Destination number is required'
@@ -324,9 +374,22 @@ const DIDForm = forwardRef(({
               required
               fullWidth
               error={!!errors.number || (submitAttempted && !formData.number?.trim())}
-              helperText={errors.number || (submitAttempted && !formData.number?.trim() ? 'Number is required' : 'E.164 format, e.g. +14155551234')}
-              placeholder="+14155551234"
+              helperText={errors.number || (submitAttempted && !formData.number?.trim() ? 'Number is required' : numberHint)}
+              placeholder={numberPlaceholder}
             />
+            {isFeature && (
+              <TextField
+                label="Replace"
+                value={formData.replace || ''}
+                onChange={(e) => handleChange('replace', e.target.value)}
+                fullWidth
+                error={!!errors.replace}
+                helperText={errors.replace || (isTrunk
+                  ? 'Digits put in place of the prefix, e.g. 972 (empty strips it)'
+                  : 'Rewrite of the matched digits, e.g. \\1')}
+                placeholder={isTrunk ? '972' : '\\1'}
+              />
+            )}
           </div>
 
           {/* Environment */}
@@ -355,7 +418,7 @@ const DIDForm = forwardRef(({
             <Select
               value={formData.type || ''}
               label="Route Type"
-              onChange={(e) => handleChange('type', e.target.value)}
+              onChange={(e) => handleTypeChange(e.target.value)}
               MenuProps={menuProps(Z.L1)}
             >
               {didTypes.map(type => (
@@ -404,9 +467,10 @@ const DIDForm = forwardRef(({
               value={formData.bridge_type || ''}
               label="Bridge Type"
               onChange={(e) => handleBridgeTypeChange(e.target.value)}
+              disabled={isTrunk}
               MenuProps={menuProps(Z.L1)}
             >
-              {bridgeTypes.map(type => (
+              {(isTrunk ? [TRUNK_BRIDGE] : bridgeTypes).map(type => (
                 <MenuItem key={type} value={type}>{type.replace('_', ' ').toUpperCase()}</MenuItem>
               ))}
             </Select>
@@ -418,7 +482,25 @@ const DIDForm = forwardRef(({
           </FormControl>
 
           {/* Destination */}
-          {formData.bridge_type === 'number' ? (
+          {isTrunk ? (
+            <FormControl fullWidth required error={!!errors.bridge_uuid}>
+              <InputLabel>SIP Provider</InputLabel>
+              <Select
+                value={formData.bridge_uuid || ''}
+                label="SIP Provider"
+                onChange={(e) => handleChange('bridge_uuid', e.target.value)}
+                MenuProps={menuProps(Z.L1)}
+              >
+                {sipProviders.length === 0 && <MenuItem disabled>No sip providers available</MenuItem>}
+                {sipProviders.map(p => (
+                  <MenuItem key={p.uuid} value={p.uuid}>{p.name}</MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>
+                {errors.bridge_uuid || 'The peer the rewritten number is sent to, through the node\'s SBC'}
+              </FormHelperText>
+            </FormControl>
+          ) : formData.bridge_type === 'number' ? (
             <NumberSelector
               value={formData.bridge_uuid || ''}
               onChange={(uuid) => handleChange('bridge_uuid', uuid || '')}
@@ -515,7 +597,7 @@ const DIDForm = forwardRef(({
           ) : null}
 
           {/* Routing Chain — below destination select */}
-          {formData.bridge_type && formData.bridge_uuid && formData.bridge_type !== 'number' && (
+          {formData.bridge_type && formData.bridge_uuid && !['number', TRUNK_BRIDGE].includes(formData.bridge_type) && (
             <div className="did-form-routing-container">
               <RoutingChain
                 bridgeType={formData.bridge_type}
