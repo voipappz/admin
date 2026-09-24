@@ -4,9 +4,8 @@
 // the persisted Settings; the Phone UI consumes this via useSoftphone().
 //
 // Ported from app's SipPhoneContext.jsx/SipPhoneProvider — renamed to avoid
-// colliding with this codebase's existing PhoneContext (an unrelated feature:
-// an admin-only iframe embed for peeking at another user's extension, see
-// WebRTCPanel.jsx). This is the real, in-process softphone; that stays as-is.
+// colliding with the PhoneContext this codebase used to have (an iframe embed
+// of /tasks/webrtc, since removed: the admin console uses this phone too).
 //
 // RESILIENCE: the SIP/WebRTC layer (sip.js + RTCPeerConnection) must NEVER take
 // the whole app down. The live phone runs inside SoftphoneLive, isolated behind
@@ -98,9 +97,15 @@ function SoftphoneLive({ settings, setSettings, updateSettings, children }) {
   // shared screen (see App.jsx's DualProtectedRoute), reachable from both surfaces.
   const isAuthenticated = admin.isAuthenticated || user.isAuthenticated;
 
-  const connect = useCallback(async (next) => {
+  // `persist: false` registers without writing the creds to localStorage (and
+  // drops any that were): an account signing the phone in as someone else's
+  // device holds that device's SIP secret for this page only.
+  const connect = useCallback(async (next, { persist = true } = {}) => {
     const s = next ?? settings;
-    if (next) { setSettings(next); saveSipSettings(next); }
+    if (next) {
+      setSettings(next);
+      if (persist) saveSipSettings(next); else clearSipSettings();
+    }
     if (!sipSettingsReady(s)) return;
     await phone.register(
       { username: s.username, password: s.password, domain: s.domain, displayName: s.displayName || s.username },

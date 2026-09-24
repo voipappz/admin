@@ -12,6 +12,7 @@ import {
   IconButton,
   Chip,
   Tooltip,
+  ButtonBase,
   Typography,
   Dialog,
   DialogTitle,
@@ -40,6 +41,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import CentralizedSearch from '../shared/CentralizedSearch/CentralizedSearch.jsx';
 import useCentralizedSearch from '../../hooks/useCentralizedSearch';
+import { useCallNumber } from '../../hooks/useCallNumber';
 import { orEmpty, stripedTableRowSx } from '../shared/tableTheme.jsx';
 import DIDWizard, { useWizard } from './DIDWizard/DIDWizard.jsx';
 import ImportCSVDialog from '../common/ImportCSVDialog/ImportCSVDialog';
@@ -75,6 +77,7 @@ const DIDs = ({ portalMode = false }) => {
   // (DualProtectedRoute in App.jsx); the API still enforces its own rules on
   // every request. The console keeps the real ACL check.
   const canWrite = portalMode ? true : can('dids', 'write');
+  const callNumber = useCallNumber();
 
   // Import dialog state
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -549,12 +552,19 @@ const DIDs = ({ portalMode = false }) => {
                           />
                         </TableCell>
                         <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <PhoneIcon fontSize="small" color="primary" />
-                            <Typography variant="body2" fontWeight={600}>
-                              {did.number}
-                            </Typography>
-                          </Box>
+                          {/* The number opens the phone with it (right-hand sidebar). */}
+                          <Tooltip title={`Call ${did.number}`}>
+                            <ButtonBase
+                              onClick={(e) => { e.stopPropagation(); callNumber(did.number); }}
+                              aria-label={`Call ${did.number}`}
+                              sx={{ display: 'flex', alignItems: 'center', gap: 1, borderRadius: 1, px: 0.5, mx: -0.5, '&:hover': { bgcolor: 'action.hover' } }}
+                            >
+                              <PhoneIcon fontSize="small" color="primary" />
+                              <Typography variant="body2" fontWeight={600}>
+                                {did.number}
+                              </Typography>
+                            </ButtonBase>
+                          </Tooltip>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           {did.bridge && did.bridge_type && did.bridge_type !== 'number' ? (

@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CallIcon from '@mui/icons-material/Call';
 import './CellWithHover.css';
 
 const CellWithHover = ({
@@ -9,6 +10,7 @@ const CellWithHover = ({
   value,
   onSearch,
   onCopy,
+  onCall,
   field,
   searchable = true,
   copyable = true
@@ -28,13 +30,37 @@ const CellWithHover = ({
     }
   };
 
+  // A number cell: open the phone with this number (useCallNumber).
+  const handleCall = (e) => {
+    e.stopPropagation();
+    if (value && onCall) onCall(value);
+  };
+
   return (
     <Box className="cell-with-hover">
       <Box className="cell-content">
         {children}
       </Box>
-      {((searchable && onSearch) || copyable) && (
+      {((searchable && onSearch) || copyable || onCall) && (
         <Box className="hover-actions">
+          {onCall && (
+            <Tooltip title={`Call ${value}`}>
+              <IconButton
+                size="small"
+                onClick={handleCall}
+                aria-label={`Call ${value}`}
+                sx={{
+                  p: 0.25,
+                  minWidth: 'auto',
+                  '&:hover': {
+                    backgroundColor: 'var(--accent-primary-alpha-10)',
+                  },
+                }}
+              >
+                <CallIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </Tooltip>
+          )}
           {/* No handler means the server has no filter for this field — offering
               a magnifier that leaves the list unchanged is worse than none. */}
           {searchable && onSearch && (

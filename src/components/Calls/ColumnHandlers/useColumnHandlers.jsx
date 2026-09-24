@@ -17,6 +17,7 @@ import BuildIcon from '@mui/icons-material/Build';
 import PublicIcon from '@mui/icons-material/Public';
 import ReactCountryFlag from 'react-country-flag';
 import CellWithHover from '../CellWithHover/CellWithHover.jsx';
+import { useCallNumber } from '../../../hooks/useCallNumber';
 
 // Column header icon mapping (matched by logical name)
 const COLUMN_ICONS = {
@@ -221,6 +222,9 @@ const useColumnHandlers = (handleOpenRecording, onSearch, currentSearchParams = 
   const handleCopy = useCallback((value, field) => {
     console.log(`Copied ${field}: ${value}`);
   }, []);
+
+  // A caller or callee number opens the phone with it (right-hand sidebar).
+  const callNumber = useCallNumber();
 
   const [columnSelectorAnchorEl, setColumnSelectorAnchorEl] = useState(null);
 
@@ -445,6 +449,7 @@ const useColumnHandlers = (handleOpenRecording, onSearch, currentSearchParams = 
               field="caller"
               onSearch={cellSearchFor("caller")}
               onCopy={handleCopy}
+              onCall={callNumber}
             >
               {value}
             </CellWithHover>
@@ -461,6 +466,7 @@ const useColumnHandlers = (handleOpenRecording, onSearch, currentSearchParams = 
               field="callee"
               onSearch={cellSearchFor("callee")}
               onCopy={handleCopy}
+              onCall={callNumber}
             >
               {formattedCallee}
             </CellWithHover>
@@ -741,7 +747,7 @@ const useColumnHandlers = (handleOpenRecording, onSearch, currentSearchParams = 
         }
       };
     }).filter(Boolean);
-  }, [availableColumns, currentSearchParams, cellSearchFor, handleCopy, handleOpenRecording]);
+  }, [availableColumns, currentSearchParams, cellSearchFor, handleCopy, callNumber, handleOpenRecording]);
 
   return {
     visibleColumns,

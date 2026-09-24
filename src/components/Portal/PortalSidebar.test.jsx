@@ -4,7 +4,9 @@ import PortalSidebar from './PortalSidebar.jsx';
 
 let sidebar = { view: null, params: null, close: vi.fn() };
 vi.mock('../../context/PortalSidebarContext', () => ({ usePortalSidebar: () => sidebar }));
-vi.mock('../Phone/PhoneScreen.jsx', () => ({ default: () => <div data-testid="phone-screen" /> }));
+vi.mock('../Phone/PhoneScreen.jsx', () => ({
+  default: ({ initialNumber, device }) => <div data-testid="phone-screen" data-number={initialNumber || ''} data-device={device?.uuid || ''} />,
+}));
 vi.mock('../Calls/CallDetailPanel/CallDetailPanel.jsx', () => ({ default: ({ call }) => <div data-testid="call-detail">{call?.uuid}</div> }));
 
 describe('the portal sidebar', () => {
@@ -23,5 +25,14 @@ describe('the portal sidebar', () => {
     render(<PortalSidebar />);
     expect(screen.getByTestId('call-detail')).toHaveTextContent('call-9');
     expect(screen.getByTestId('phone-screen')).toBeInTheDocument();
+  });
+
+  // A clicked number, or a device an account opened the phone for, reaches the
+  // phone through the sidebar's params (useCallNumber / useOpenPhoneAs).
+  it('hands the phone the number and the device it was opened with', () => {
+    sidebar = { view: 'phone', params: { tab: 'dialpad', number: '0501234567', device: { uuid: 'dev-1' } }, close: vi.fn() };
+    render(<PortalSidebar />);
+    expect(screen.getByTestId('phone-screen')).toHaveAttribute('data-number', '0501234567');
+    expect(screen.getByTestId('phone-screen')).toHaveAttribute('data-device', 'dev-1');
   });
 });

@@ -16,7 +16,6 @@ import { loadCustomerData, applyCustomerBranding, getCustomerData } from '../../
 import { useVersionCheck } from '../../hooks/useVersionCheck';
 import useIdleTimeout from '../../hooks/useIdleTimeout';
 import { useThemeMode } from '../../context/ThemeContext';
-import WebRTCPanel from '../Users/UserDialog/WebRTCPanel';
 import { useZendeskWidget } from '../../services/zendeskWidget';
 import './Layout.css';
 
@@ -48,8 +47,8 @@ const Layout = ({ children }) => {
   const isLoginPage = ['/admin', '/login'].includes(location.pathname)
     || (location.pathname === '/' && !userAuth.isAuthenticated);
   // A signed-in portal user (not an admin) gets a minimal shell below — the
-  // admin sidebar/topbar/WebRTCPanel are all admin-console concepts a portal
-  // user has no business seeing.
+  // admin sidebar/topbar are admin-console concepts a portal user has no
+  // business seeing.
   const isUserOnlySession = userAuth.isAuthenticated && !isAuthenticated;
   // Zendesk support widget (answer bot + "Get in touch" tickets) — admin
   // console only; the portal's corner belongs to the phone FAB.
@@ -146,8 +145,11 @@ const Layout = ({ children }) => {
         </PortalSidebarProvider>
         </GlobalSearchProvider>
       ) : (
-        // Authenticated layout: Sidebar + TopBar + Content
+        // Authenticated layout: Sidebar + TopBar + Content, and the same
+        // right-hand sidebar as the portal, where the phone opens (the top
+        // bar's phone button, a clicked number, a device's "Open phone").
         <GlobalSearchProvider>
+          <PortalSidebarProvider>
           <RecentPagesProvider>
           <Box data-testid="authenticated-layout" data-tour="welcome">
             {/* Fixed sidebar — hidden on mobile, shown via the drawer */}
@@ -196,8 +198,9 @@ const Layout = ({ children }) => {
               />
             </Box>
           </Box>
-          <WebRTCPanel />
+          <PortalSidebar />
           </RecentPagesProvider>
+          </PortalSidebarProvider>
         </GlobalSearchProvider>
       )}
 

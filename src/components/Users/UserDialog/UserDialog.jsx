@@ -23,7 +23,7 @@ import {
   Tab,
   Snackbar
 } from '@mui/material';
-import { Close as CloseIcon, QrCode2, OpenInNew, LockReset, Visibility, VisibilityOff, Download, ContentCopy, Refresh as RefreshIcon } from '@mui/icons-material';
+import { Close as CloseIcon, QrCode2, Phone as PhoneIcon, LockReset, Visibility, VisibilityOff, Download, ContentCopy, Refresh as RefreshIcon } from '@mui/icons-material';
 import { useState, useEffect, useCallback } from 'react';
 import DynamicProfileEditor from '../../common/DynamicProfileEditor/DynamicProfileEditor';
 import { ACLSelect } from '../../common/ACLSelect';
@@ -33,7 +33,7 @@ import { parseServerErrors, is406Error } from '../../../utils/formValidation';
 import { customersApi } from '../../../services/api/customersApi';
 import { extensionsApi } from '../../../services/api/extensionsApi';
 import ResourcesManager from '../ResourcesManager/ResourcesManager';
-import { usePhoneContext } from '../../../context/PhoneContext';
+import { useOpenPhoneAs } from '../../../hooks/useCallNumber';
 import { liveApi } from '../../../services/api/liveApi';
 import { queuesApi } from '../../../services/api/queuesApi';
 
@@ -42,7 +42,7 @@ import { queuesApi } from '../../../services/api/queuesApi';
  * Dialog for creating and editing users — tabbed layout
  */
 const UserDialog = ({ open, onClose, onSave, onResetPassword, user, loading, environments, acls, statuses, embedded = false, onDirty, canWrite = true }) => {
-  const { openWebRTC } = usePhoneContext();
+  const openPhoneAs = useOpenPhoneAs();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -273,8 +273,12 @@ const UserDialog = ({ open, onClose, onSave, onResetPassword, user, loading, env
     }
   };
 
-  const handleOpenWebRTC = () => {
-    if (user) openWebRTC(user);
+  // The phone opens in the right-hand sidebar, signed in as this user's
+  // device. The dialog closes first: it is modal, and would sit over it.
+  const handleOpenPhone = () => {
+    if (!user?.extension?.uuid) return;
+    onClose?.();
+    openPhoneAs({ ...user.extension, name: user.extension.name || user.name });
   };
 
   const handleDownloadQRCode = async () => {
@@ -707,15 +711,15 @@ const UserDialog = ({ open, onClose, onSave, onResetPassword, user, loading, env
                           </Button>
                         </Tooltip>
                         {user?.extension && (
-                          <Tooltip title="Open WebRTC phone in a new window">
+                          <Tooltip title="Open the phone as this user's device">
                             <Button
                               variant="outlined"
-                              startIcon={<OpenInNew />}
-                              onClick={handleOpenWebRTC}
-                              disabled={!getLoginUrl()}
+                              startIcon={<PhoneIcon />}
+                              onClick={handleOpenPhone}
+                              disabled={!hasExtension}
                               sx={{ textTransform: 'none', minWidth: 150 }}
                             >
-                              Open WebRTC
+                              Open phone
                             </Button>
                           </Tooltip>
                         )}
