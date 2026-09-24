@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { buildPortalCommands, looksLikeNumber } from './usePortalCommands';
 
-const on = () => ({ go: vi.fn(), phone: vi.fn(), assistant: vi.fn(), dial: vi.fn(), searchCalls: vi.fn(), theme: vi.fn(), density: vi.fn(), logout: vi.fn() });
+const on = () => ({ go: vi.fn(), phone: vi.fn(), ask: vi.fn(), dial: vi.fn(), searchCalls: vi.fn(), theme: vi.fn(), density: vi.fn(), logout: vi.fn() });
 const labels = (groups, name) => groups.find((g) => g.label === name)?.items.map((i) => i.label) ?? [];
 
 // The line's rows are the portal's whole menu, so what shows is a unit test.
@@ -9,13 +9,13 @@ describe('buildPortalCommands', () => {
   it('shows the places this user may go, then the settings, with nothing typed', () => {
     const groups = buildPortalCommands({ query: '', liveAllowed: true, callsAllowed: true, dark: false, compact: false, on: on() });
     expect(groups.map((g) => g.label)).toEqual(['Go to', 'Settings']);
-    expect(labels(groups, 'Go to')).toEqual(['Calls', 'Live', 'Phone', 'Assistant']);
+    expect(labels(groups, 'Go to')).toEqual(['Calls', 'Live', 'Phone']);
     expect(labels(groups, 'Settings')).toEqual(['Dark appearance', 'Compact rows', 'Sign out']);
   });
 
   it('hides Live and Calls for a user without those permissions', () => {
     const groups = buildPortalCommands({ query: '', liveAllowed: false, callsAllowed: false, on: on() });
-    expect(labels(groups, 'Go to')).toEqual(['Phone', 'Assistant']);
+    expect(labels(groups, 'Go to')).toEqual(['Phone']);
     expect(groups.find((g) => g.label === 'Calls')).toBeUndefined();
   });
 
@@ -33,15 +33,29 @@ describe('buildPortalCommands', () => {
     expect(labels(groups, 'Go to')).toEqual([]);
   });
 
-  it('opens the panels rather than navigating for Phone and Assistant', () => {
+  it('opens the phone rather than navigating to it', () => {
     const cb = on();
     const groups = buildPortalCommands({ query: '', callsAllowed: true, on: cb });
-    const go = groups.find((g) => g.label === 'Go to').items;
-    go.find((i) => i.label === 'Phone').action();
-    go.find((i) => i.label === 'Assistant').action();
+    groups.find((g) => g.label === 'Go to').items.find((i) => i.label === 'Phone').action();
     expect(cb.phone).toHaveBeenCalled();
-    expect(cb.assistant).toHaveBeenCalled();
     expect(cb.go).not.toHaveBeenCalled();
+  });
+
+  // Anything typed can be a question — it is the only row that reads the words
+  // rather than matching them, so it comes first.
+  it('offers to ask whatever was typed, above the other rows', () => {
+    const cb = on();
+    const groups = buildPortalCommands({ query: 'how many calls today', callsAllowed: true, on: cb });
+    expect(groups[0].label).toBe('Ask');
+    expect(groups[0].items[0].label).toBe('Ask: “how many calls today”');
+    groups[0].items[0].action();
+    expect(cb.ask).toHaveBeenCalledWith('how many calls today');
+  });
+
+  it('offers to ask even where there is no Calls permission', () => {
+    const groups = buildPortalCommands({ query: 'devices', callsAllowed: false, on: on() });
+    expect(groups.find((g) => g.label === 'Ask')).toBeTruthy();
+    expect(groups.find((g) => g.label === 'Calls')).toBeUndefined();
   });
 
   it('filters places and settings by what is typed', () => {
