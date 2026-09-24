@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { getAccountUuidFromToken, getAccountDataFromToken, getTokenExpiry } from '../../utils/jwt';
+import { logLoginDebug } from '../../utils/loginDebug';
 
 export const useLogin = () => {
   const [email, setEmail] = useState('');
@@ -260,20 +261,6 @@ export const useLogin = () => {
     const accessExpiry = getTokenExpiry(accessToken);
     const refreshExpiry = refreshToken ? getTokenExpiry(refreshToken) : null;
 
-    // DEBUG: inspect the account object hidden inside the login token.
-    // The /auth/otp/verify response body omits the account; it only lives in the
-    // signed JWT. Decode and dump it so we can see exactly what we logged in as.
-    try {
-      const rawJwtPayload = JSON.parse(atob(accessToken.split('.')[1]));
-      console.log('[LOGIN DEBUG] raw response body:', data);
-      console.log('[LOGIN DEBUG] decoded access-token payload:', rawJwtPayload);
-      console.log('[LOGIN DEBUG] account object from token:', rawJwtPayload.account || '(no `account` claim)');
-      console.log('[LOGIN DEBUG] parsed accountData:', accountData);
-      console.log('[LOGIN DEBUG] acl:', accountData?.acl, '| isRoot:', accountData?.isRoot);
-    } catch (e) {
-      console.warn('[LOGIN DEBUG] failed to decode access token:', e);
-    }
-
     const authData = {
       user: {
         email: email,
@@ -293,6 +280,9 @@ export const useLogin = () => {
       isRoot: accountData?.isRoot || false,
       acl: accountData?.acl || null
     };
+
+    // DEBUG: what did we just log in as? See utils/loginDebug.js.
+    logLoginDebug('account', { token: accessToken, response: data, authData, parsed: accountData });
 
     // Clear all cached data before login to ensure fresh session
     localStorage.removeItem('selectedCustomer');

@@ -28,7 +28,8 @@ import {
   Upload as UploadIcon,
   Add as AddIcon,
   ContentCopy as DuplicateIcon,
-  EventNote as EventsIcon
+  EventNote as EventsIcon,
+  AccountTree as RoutingIcon
 } from '@mui/icons-material';
 import { ConfirmDialog } from '../ui';
 import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
@@ -58,11 +59,22 @@ import './DIDs.css';
 /**
  * DIDs Component
  * Main component for DIDs management with sidebar list and wide table
+ *
+ * @param {boolean} portalMode - Render for the end-user portal (`/my-dids`)
+ *   rather than the account console. Same screen, same CRUD, same wizard: the
+ *   flag only drops the affordances that deep-link into admin-only routes
+ *   (/logs, /providers, the environments editor) or admin-only bulk paths (CSV
+ *   import). Everything a customer manages about their own numbers stays.
  */
-const DIDs = () => {
+const DIDs = ({ portalMode = false }) => {
   const navigate = useNavigate();
   const { can } = usePermissions();
-  const canWrite = can('dids', 'write');
+  // Portal users' ACLs carry no dids entry, so can('dids','write') is false for
+  // all of them — the screen would render as a read-only table with no Add,
+  // Edit, Duplicate or Delete. Portal access is granted at the route instead
+  // (DualProtectedRoute in App.jsx); the API still enforces its own rules on
+  // every request. The console keeps the real ACL check.
+  const canWrite = portalMode ? true : can('dids', 'write');
 
   // Import dialog state
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -154,10 +166,14 @@ const DIDs = () => {
   // Fetch providers for filter dropdown
   const [providers, setProviders] = useState([]);
   useEffect(() => {
+    // Providers are an account-console concept; a portal user has no ACL for
+    // them, so this would be a guaranteed 403 on every load. The Provider
+    // filter segment simply carries no options there.
+    if (portalMode) return;
     providersApi.getProviders({ per_page: 200 })
       .then(data => setProviders(Array.isArray(data) ? data : data?.data || []))
       .catch(() => setProviders([]));
-  }, []);
+  }, [portalMode]);
 
   // CentralizedSearch state and handlers
   const centralizedSearch = useCentralizedSearch({
@@ -174,12 +190,19 @@ const DIDs = () => {
     { name: 'bridge_type', label: 'Bridge Type', type: 'select', data: (bridgeTypes || []).map(bt => ({ uuid: bt, name: bt })) },
     { name: 'enabled', label: 'Status', type: 'select', data: [{ uuid: 'true', name: 'Enabled' }, { uuid: 'false', name: 'Disabled' }] },
     { name: 'environment_uuid', label: 'Application', type: 'select', data: (environments || []).map(e => ({ uuid: e.uuid, name: e.name })) },
-    { name: 'provider_uuid', label: 'Provider', type: 'select', data: (providers || []).map(p => ({ uuid: p.uuid, name: p.name })) },
+    // Provider options never load in the portal (no ACL), and a select with no
+    // options degrades to a free-text box — a filter that can't be filled.
+    ...(portalMode ? [] : [{ name: 'provider_uuid', label: 'Provider', type: 'select', data: (providers || []).map(p => ({ uuid: p.uuid, name: p.name })) }]),
     { name: 'meta', label: 'Tag', type: 'tag', url: '/api/routes?action=meta_keys' },
-  ], [bridgeTypes, environments, providers]);
+  ], [bridgeTypes, environments, providers, portalMode]);
 
   useEffect(() => {
-    registerScreen('Routes', didSegments, {
+    // Each surface registers under its own name. It is the search box's
+    // heading AND the key GlobalSearchContext persists filters under, so the
+    // two must differ: they show different segments, and a provider filter
+    // restored on the portal can't be cleared there. The words match what each
+    // surface calls the screen — the admin's Routes, the portal's Numbers.
+    registerScreen(portalMode ? 'Numbers' : 'Routes', didSegments, {
       onSearch: (params) => {
         const newFilters = {};
         Object.entries(params).forEach(([key, value]) => {
@@ -197,7 +220,7 @@ const DIDs = () => {
       },
     });
     return () => unregisterScreen();
-  }, [didSegments, registerScreen, unregisterScreen, handleFiltersChange]);
+  }, [didSegments, registerScreen, unregisterScreen, handleFiltersChange, portalMode]);
 
   // Listen for environment change events to refresh data
   useEffect(() => {
@@ -326,7 +349,7 @@ const DIDs = () => {
             placeholder="Search by name, or use field:value (e.g. enabled:true)"
           />
         </Box>
-        {canWrite && (
+        {canWrite && !portalMode && (
           <Tooltip title="Import CSV">
             <IconButton
               size="small"
@@ -499,7 +522,7 @@ const DIDs = () => {
                             <Typography variant="body2">
                               {orEmpty(did.environment?.name || did.environment_name)}
                             </Typography>
-                            {(did.environment?.uuid || did.environment_uuid) && canWrite && (
+                            {(did.environment?.uuid || did.environment_uuid) && canWrite && !portalMode && (
                               <Tooltip title="Edit Application">
                                 <IconButton
                                   size="small"
@@ -572,8 +595,12 @@ const DIDs = () => {
                               label={did.provider.name}
                               size="small"
                               variant="outlined"
-                              onClick={(e) => { e.stopPropagation(); navigate(`/providers?id=${did.provider.uuid}`); }}
-                              sx={{ cursor: 'pointer', maxWidth: 120, '&:hover': { borderColor: 'primary.main' } }}
+                              // The portal has no /providers screen to land on,
+                              // so the chip is just a label there.
+                              onClick={portalMode ? undefined : (e) => { e.stopPropagation(); navigate(`/providers?id=${did.provider.uuid}`); }}
+                              sx={portalMode
+                                ? { maxWidth: 120 }
+                                : { cursor: 'pointer', maxWidth: 120, '&:hover': { borderColor: 'primary.main' } }}
                             />
                           ) : (
                             <Typography variant="body2" color="text.secondary">-</Typography>
@@ -585,13 +612,33 @@ const DIDs = () => {
                         <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
                             {canWrite && (
-                              <Tooltip title="Edit Route — opens its visual routing flow">
+                              // Admin edits a Route on the routing canvas. The
+                              // portal opens the wizard instead — a customer
+                              // editing their own number wants the fields, and
+                              // reaches the canvas through the Routing action
+                              // beside this one when they want the flow.
+                              <Tooltip title={portalMode ? 'Edit Number' : 'Edit Route — opens its visual routing flow'}>
                                 <IconButton
+                                  data-testid="edit-did-button"
+                                  size="small"
+                                  onClick={() => portalMode
+                                    ? handleOpenDialog(did)
+                                    : navigate(`/routes?did=${did.uuid || did.id}`)}
+                                  disabled={loading}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {canWrite && portalMode && (
+                              <Tooltip title="Call routing — visual flow">
+                                <IconButton
+                                  data-testid="routing-did-button"
                                   size="small"
                                   onClick={() => navigate(`/routes?did=${did.uuid || did.id}`)}
                                   disabled={loading}
                                 >
-                                  <EditIcon fontSize="small" />
+                                  <RoutingIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                             )}
@@ -677,26 +724,32 @@ const DIDs = () => {
         loading={loading}
       />
 
-      {/* Environment Edit Dialog (shared hook) */}
-      <EnvironmentDialog
-        open={envDialogOpen}
-        onClose={handleEnvClose}
-        onSave={handleEnvSave}
-        environment={envDialogEnvironment}
-        loading={envDialogLoading}
-      />
+      {/* Environment Edit Dialog (shared hook) — console only: a portal user
+          edits numbers, not the application they live in. */}
+      {!portalMode && (
+        <EnvironmentDialog
+          open={envDialogOpen}
+          onClose={handleEnvClose}
+          onSave={handleEnvSave}
+          environment={envDialogEnvironment}
+          loading={envDialogLoading}
+        />
+      )}
 
       {/* Import CSV Dialog */}
-      <ImportCSVDialog
-        open={importDialogOpen}
-        onClose={handleCloseImportDialog}
-        onImport={handleImportCSV}
-        title="Import Routes from CSV"
-        entityName="Routes"
-        environments={environments}
-        requireEnvironment={true}
-        onSuccess={handleImportSuccess}
-      />
+      {/* Admin-only: bulk import is not a portal affordance. */}
+      {!portalMode && (
+        <ImportCSVDialog
+          open={importDialogOpen}
+          onClose={handleCloseImportDialog}
+          onImport={handleImportCSV}
+          title="Import Routes from CSV"
+          entityName="Routes"
+          environments={environments}
+          requireEnvironment={true}
+          onSuccess={handleImportSuccess}
+        />
+      )}
 
     </Box>
   );

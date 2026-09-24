@@ -123,6 +123,11 @@ const Layout = ({ children }) => {
         // Assistant or Phone. No dock, no floating buttons, no menus: the line
         // is the menu (PortalLine) and the softkeys are the only other way to
         // move. The admin sidebar/topbar are admin-console concepts.
+        //
+        // GlobalSearchProvider wraps it because screens shared with the admin
+        // console (DIDs, the portal's Numbers) register their filter segments
+        // through it, and useGlobalSearch() THROWS without a provider.
+        <GlobalSearchProvider>
         <PortalSidebarProvider>
         <Box data-testid="user-layout" sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
           <PortalHeader />
@@ -149,6 +154,7 @@ const Layout = ({ children }) => {
           <PortalSidebar />
         </Box>
         </PortalSidebarProvider>
+        </GlobalSearchProvider>
       ) : (
         // Authenticated layout: Sidebar + TopBar + Content
         <GlobalSearchProvider>

@@ -1,8 +1,14 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import * as Sentry from "@sentry/react";
+import { installHttpDebug } from './utils/httpDebug';
 import './index.css'
 import App from './App.jsx'
+
+// Print the REAL upstream URL of every request. Installed first, before any
+// module gets a chance to fire one, so nothing escapes unlogged. Dev only —
+// see utils/httpDebug.js.
+installHttpDebug();
 
 // Only initialize Sentry in production to avoid noisy development errors.
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN || (import.meta.env.PROD
