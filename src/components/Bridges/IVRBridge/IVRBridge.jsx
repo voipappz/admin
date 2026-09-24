@@ -40,6 +40,7 @@ import { QueueBridge } from '../QueueBridge/QueueBridge.jsx';
 import { VMLBridge } from '../VMLBridge/VMLBridge.jsx';
 import { CallConditionBridge } from '../CallConditionBridge/CallConditionBridge.jsx';
 import { BotBridge } from '../BotBridge/BotBridge.jsx';
+import { useIsUserSession } from '../../../hooks/useIsUserSession';
 
 /**
  * IVRBridge Component
@@ -67,6 +68,7 @@ export const IVRBridge = ({
   zLayer = null,           // Optional z-index layer override (e.g. Z.L3 when nested)
   onDrillDown = null        // optional drilldown handler for panel mode
 }) => {
+  const userSession = useIsUserSession();
   const layer = zLayer || Z.L2;
   const { selectedEnvironments } = useCustomerEnvironment();
 
@@ -985,7 +987,8 @@ export const IVRBridge = ({
       />
 
       {/* Environment - Hidden when inherited from DID */}
-      {!hideEnvironment && (
+      {/* A portal user has one environment, their own: never a choice. */}
+      {!hideEnvironment && !userSession && (
         <FormControl fullWidth required size="small" error={!!formErrors.environment_uuid} disabled={loading}>
           <InputLabel>Application</InputLabel>
           <Select
