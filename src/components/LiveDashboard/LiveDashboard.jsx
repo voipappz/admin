@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Box, Paper, Typography, Chip,
+  Box, Paper, Typography, Chip, TextField, MenuItem,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
 import PeopleIcon from '@mui/icons-material/People';
@@ -9,11 +9,10 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
 import { summarize } from '../../services/api/liveDashboardApi';
-import { useUserAuth } from '../../context/UserAuthContext';
 import { useCable } from '../../services/cable';
 import CableStatus from './CableStatus';
 import useLiveEntities from '../../hooks/useLiveEntities';
-import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
+import { useLiveEnvironment } from './useLiveEnvironment';
 import {
   getLiveSettings, setLiveSettingsScope, statusColor, stateColor,
 } from '../../services/liveSettings';
@@ -89,13 +88,10 @@ const CALL_LISTS = [
 const NOT_LIVE = 'Not live — the cable is not delivering; see Realtime cable above.';
 
 const LiveDashboard = () => {
-  const { user } = useUserAuth();
-  const { selectedEnvironments } = useCustomerEnvironment();
-  // The console selector is multi-select; this screen is one environment at a
-  // time, so it follows the first of the selection.
-  const adminEnv = Array.isArray(selectedEnvironments) ? selectedEnvironments[0] : null;
-  const environmentUuid = user?.environment?.uuid || adminEnv?.uuid || '';
-  const environmentName = user?.environment?.name || adminEnv?.name || '';
+  // One environment at a time: a portal user's own, or the one an account
+  // picks here (useLiveEnvironment).
+  const liveEnvironment = useLiveEnvironment();
+  const { uuid: environmentUuid, name: environmentName } = liveEnvironment;
   const [settings, setSettings] = useState(() => getLiveSettings());
   // Durations are relative to the clock, so the table re-renders on a tick of
   // its own rather than only when data arrives.
@@ -166,7 +162,18 @@ const LiveDashboard = () => {
     <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
         <Typography variant="h4" sx={{ fontWeight: 700 }}>Live Dashboard</Typography>
-        {environmentName && (
+        {liveEnvironment.pickable ? (
+          <TextField
+            select size="small" label="Environment" value={environmentUuid}
+            onChange={(e) => liveEnvironment.pick(e.target.value)}
+            sx={{ minWidth: 240 }}
+            SelectProps={{ displayEmpty: true, inputProps: { 'data-testid': 'live-environment' } }}
+            InputLabelProps={{ shrink: true }}
+          >
+            <MenuItem value="" disabled>Pick an environment to monitor</MenuItem>
+            {liveEnvironment.choices.map((e) => <MenuItem key={e.uuid} value={e.uuid}>{e.name || e.uuid}</MenuItem>)}
+          </TextField>
+        ) : environmentName && (
           <Chip label={environmentName} variant="outlined" sx={{ fontWeight: 600 }} />
         )}
       </Box>
