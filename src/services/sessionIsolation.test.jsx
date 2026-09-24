@@ -150,3 +150,45 @@ describe('one session at a time', () => {
     expect(localStorage.getItem('auth')).not.toBeNull();
   });
 });
+
+// Ending a session also forgets what belonged to the person: cached API
+// responses, their chat sessions, what they recently opened or edited, their
+// customer's branding and selection. The next person on this browser must not
+// inherit any of it.
+describe('ending a session forgets the person', () => {
+  const personal = {
+    ai_chat_session_id: 'chat-1',
+    vml_chat_session_id: 'vml-1',
+    nimbus_recent_objects: '[{"uuid":"u-9","name":"Dana"}]',
+    nimbus_recent_pages: '[{"path":"/users"}]',
+    customerData: '{"logo_title":"Acme"}',
+    selectedCustomer: 'cust-1',
+  };
+
+  it('when an account session is ended', () => {
+    localStorage.setItem('auth', JSON.stringify(adminSession));
+    Object.entries(personal).forEach(([k, v]) => localStorage.setItem(k, v));
+    const reset = vi.spyOn(apiService, 'resetSession');
+    endAdminSession();
+    Object.keys(personal).forEach((k) => expect(localStorage.getItem(k)).toBeNull());
+    expect(reset).toHaveBeenCalled();
+  });
+
+  it('when a portal user signs out', async () => {
+    localStorage.setItem('user_auth', JSON.stringify(userSession()));
+    const hook = await renderBoth();
+    Object.entries(personal).forEach(([k, v]) => localStorage.setItem(k, v));
+    const reset = vi.spyOn(apiService, 'resetSession');
+    act(() => hook.result.current.user.logout());
+    Object.keys(personal).forEach((k) => expect(localStorage.getItem(k)).toBeNull());
+    expect(reset).toHaveBeenCalled();
+  });
+
+  it('when an account signs out', async () => {
+    localStorage.setItem('auth', JSON.stringify(adminSession));
+    const hook = await renderBoth();
+    Object.entries(personal).forEach(([k, v]) => localStorage.setItem(k, v));
+    act(() => hook.result.current.admin.logout());
+    Object.keys(personal).forEach((k) => expect(localStorage.getItem(k)).toBeNull());
+  });
+});

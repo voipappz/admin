@@ -25,6 +25,27 @@ export const ADMIN_SESSION_KEYS = [
 ];
 export const USER_SESSION_KEYS = ['user_auth'];
 
+// What belongs to the PERSON, not the token: their chat sessions, what they
+// recently opened or edited, their customer's branding and selection. The next
+// person on this browser must not inherit any of it.
+export const PERSONAL_KEYS = [
+  'ai_chat_session_id',
+  'vml_chat_session_id',
+  'nimbus_recent_objects',
+  'nimbus_recent_pages',
+  'customerData',
+  'selectedCustomer',
+];
+
+// Called whenever a session ends (sign-out on either side, or one side ended
+// by a sign-in on the other): cached API responses and personal keys go.
+export const forgetPerson = () => {
+  apiService.resetSession();
+  PERSONAL_KEYS.forEach((k) => {
+    try { localStorage.removeItem(k); } catch { /* storage unavailable */ }
+  });
+};
+
 const readJson = (key) => {
   try {
     return JSON.parse(localStorage.getItem(key) || 'null');
@@ -54,6 +75,7 @@ const endSession = (surface, token, keys) => {
     }
   }
   keys.forEach((k) => localStorage.removeItem(k));
+  forgetPerson();
   window.dispatchEvent(new CustomEvent(SESSION_ENDED_EVENT, { detail: { surface } }));
   return true;
 };

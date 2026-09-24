@@ -1,7 +1,7 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react';
 import { apiService } from '../services/apiService';
 import { isTokenValid, getTokenExpiry } from '../utils/jwt';
-import { endAdminSession, endUserSession, hasAdminSession, SESSION_ENDED_EVENT } from '../services/sessionIsolation';
+import { endAdminSession, endUserSession, forgetPerson, hasAdminSession, SESSION_ENDED_EVENT } from '../services/sessionIsolation';
 
 // Auth context for the end-user (customer-facing) portal — the `/` surface.
 // This is deliberately separate from AuthContext (the account/admin console;
@@ -133,6 +133,7 @@ export const UserAuthProvider = ({ children }) => {
     } catch { /* ignore */ }
 
     localStorage.removeItem(STORAGE_KEY);
+    forgetPerson();
     dispatch({ type: 'LOGOUT' });
   }, []);
 

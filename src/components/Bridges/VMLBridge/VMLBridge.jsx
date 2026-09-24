@@ -54,6 +54,7 @@ import { templatesApi } from '../../../services/api/templatesApi';
 import { snippetCategories, scriptTemplates } from './luaFreeSwitchCompletions.js';
 import { Z } from '../../../utils/zIndex.js';
 import { useConfirm } from '../../ui';
+import { useIsUserSession } from '../../../hooks/useIsUserSession';
 
 /**
  * VMLBridge Component — FreeSWitch Lua IDE
@@ -76,6 +77,7 @@ export const VMLBridge = ({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onDrillDown
 }) => {
+  const userSession = useIsUserSession();
   const confirm = useConfirm();
   const layer = zLayer || Z.L2;
   const { selectedEnvironments } = useCustomerEnvironment();
@@ -372,7 +374,8 @@ export const VMLBridge = ({
           </Select>
         </FormControl>
 
-        {!hideEnvironment && (
+        {/* A portal user has one environment, their own: never a choice. */}
+        {!hideEnvironment && !userSession && (
           <FormControl
             required
             error={!!formErrors.environment_uuid}

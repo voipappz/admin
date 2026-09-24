@@ -225,3 +225,38 @@ describe('apiService.fetch — 401 recovery', () => {
     expect(logout).not.toHaveBeenCalled();
   });
 });
+
+// Cached GETs used to be keyed by URL alone and survive sign-out: a portal user
+// signing in on a tab an account had used was served the ACCOUNT's responses
+// for the same URL until they expired (5 minutes for /api/acls).
+describe('apiService response cache — one identity never reads another\'s', () => {
+  const url = 'https://cloud.voipappz.io/api/acls';
+  beforeEach(() => {
+    localStorage.clear();
+    apiService.resetSession();
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+  afterEach(() => { localStorage.clear(); vi.restoreAllMocks(); });
+
+  it('serves a cached response to the identity that fetched it', () => {
+    localStorage.setItem('auth', JSON.stringify({ access: 'account-token' }));
+    apiService.setCache(url, { who: 'account' });
+    expect(apiService.getFromCache(url)).toEqual({ who: 'account' });
+  });
+
+  it('does not serve it to a different identity', () => {
+    localStorage.setItem('auth', JSON.stringify({ access: 'account-token' }));
+    apiService.setCache(url, { who: 'account' });
+    localStorage.removeItem('auth');
+    localStorage.setItem('user_auth', JSON.stringify({ token: 'user-token' }));
+    expect(apiService.getFromCache(url)).toBeNull();
+  });
+
+  it('resetSession forgets every cached and in-flight response', () => {
+    localStorage.setItem('auth', JSON.stringify({ access: 'account-token' }));
+    apiService.setCache(url, { who: 'account' });
+    apiService.resetSession();
+    expect(apiService.responseCache.size).toBe(0);
+    expect(apiService.pendingRequests.size).toBe(0);
+  });
+});

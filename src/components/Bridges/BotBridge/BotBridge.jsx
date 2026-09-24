@@ -28,6 +28,7 @@ import { botsApi } from '../../../services/api/botsApi';
 import { bridgeApi } from '../../../services/api/bridgeApi';
 import { AnnouncementBridge } from '../AnnouncementBridge/AnnouncementBridge.jsx';
 import { Z } from '../../../utils/zIndex.js';
+import { useIsUserSession } from '../../../hooks/useIsUserSession';
 
 /**
  * BotBridge Component
@@ -55,6 +56,7 @@ export const BotBridge = ({
   zLayer = null,           // Optional z-index layer override (e.g. Z.L3 when nested)
   onDrillDown = null       // Optional drill-down handler for nested resource creation
 }) => {
+  const userSession = useIsUserSession();
   const layer = zLayer || Z.L2;
   const { selectedEnvironments } = useCustomerEnvironment();
 
@@ -302,6 +304,8 @@ export const BotBridge = ({
 
           {!hideEnvironment && (
             <Grid item xs={12} md={6}>
+              {/* A portal user has one environment, their own: never a choice. */}
+              {!userSession && (
               <FormControl fullWidth required error={!!formErrors.environment_uuid} disabled={loading}>
                 <InputLabel>Application</InputLabel>
                 <Select
@@ -314,6 +318,7 @@ export const BotBridge = ({
                   ))}
                 </Select>
               </FormControl>
+              )}
             </Grid>
           )}
 

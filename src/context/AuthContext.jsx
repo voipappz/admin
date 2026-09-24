@@ -2,7 +2,7 @@ import { createContext, useContext, useReducer, useEffect, useRef, useCallback, 
 import { getStoredRefreshToken, refreshToken as refreshTokenService } from '../services/authService';
 import { apiService } from '../services/apiService';
 import { isTokenValid, getTokenExpiry, getAccountDataFromToken } from '../utils/jwt';
-import { endUserSession, SESSION_ENDED_EVENT } from '../services/sessionIsolation';
+import { endUserSession, forgetPerson, SESSION_ENDED_EVENT } from '../services/sessionIsolation';
 
 const AuthContext = createContext();
 
@@ -327,6 +327,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('access_expires_at');
     localStorage.removeItem('refresh_expires_at');
     localStorage.removeItem('user_authenticated');
+    forgetPerson();
     dispatch({ type: 'LOGOUT' });
   }, []);
 
