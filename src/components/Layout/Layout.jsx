@@ -8,7 +8,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useUserAuth } from '../../context/UserAuthContext';
 import PortalHeader from './PortalHeader.jsx';
 import { usePortalPreferences } from '../../context/PortalPreferencesContext';
-import PortalSoftkeys, { RAIL_HEIGHT_MOBILE } from '../Portal/PortalSoftkeys.jsx';
 import PortalSidebar from '../Portal/PortalSidebar.jsx';
 import { PortalSidebarProvider } from '../../context/PortalSidebarContext';
 import { GlobalSearchProvider } from '../../context/GlobalSearchContext';
@@ -132,17 +131,7 @@ const Layout = ({ children }) => {
         <Box data-testid="user-layout" sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
           <PortalHeader />
           <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
-            <PortalSoftkeys />
-            <Box
-              component="main"
-              sx={{
-                flex: 1, minWidth: 0,
-                // Nothing floats over the screen any more — the phone and the
-                // assistant are buttons in the bar. Only the rail, which is a
-                // bottom bar on a phone, needs clearing.
-                pb: { xs: `calc(${RAIL_HEIGHT_MOBILE}px + env(safe-area-inset-bottom, 0px))`, md: 0 },
-              }}
-            >
+            <Box component="main" sx={{ flex: 1, minWidth: 0 }}>
               {/* A local Suspense boundary. Without it, any lazy chunk this
                   subtree pulls in suspends all the way up to App.jsx's
                   boundary, whose fallback is ANOTHER <Layout> — the shell was

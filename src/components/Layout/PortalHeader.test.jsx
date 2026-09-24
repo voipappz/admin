@@ -12,20 +12,17 @@ function Where() { const l = useLocation(); return <output data-testid="where">{
 
 // The bar holds three things: the phone key, the line, you. No nav, no menu.
 describe('Portal header', () => {
-  it('holds the phone, the line and you, and nothing else to click', () => {
+  it('holds the places, the line and the phone — no avatar, no account menu', () => {
     render(<MemoryRouter><PortalHeader /><Where /></MemoryRouter>);
     expect(screen.getByRole('combobox', { name: 'Search or go to' })).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Portal navigation' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Your account and preferences' })).toBeNull();
-    // The phone is the one action in the bar; the assistant is a tab inside it.
-    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label')))
-      .toEqual([expect.stringMatching(/^Phone —/), 'You']);
+    // Places at the left end, the phone at the right, and no account menu:
+    // signing out and the settings are rows in the line.
+    expect(screen.getByTestId('nav-calls')).toBeInTheDocument();
+    expect(screen.getByTestId('phone-button')).toHaveAccessibleName(/^Phone —/);
+    expect(screen.queryByTestId('portal-avatar')).toBeNull();
     expect(screen.queryByTestId('assistant-button')).toBeNull();
   });
 
-  it('the avatar puts the cursor on the line', () => {
-    render(<MemoryRouter><PortalHeader /></MemoryRouter>);
-    fireEvent.click(screen.getByTestId('portal-avatar'));
-    expect(screen.getByRole('combobox', { name: 'Search or go to' })).toHaveFocus();
-  });
 });

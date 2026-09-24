@@ -6,12 +6,12 @@ import PhoneScreen from '../Phone/PhoneScreen.jsx';
 import CallDetailPanel from '../Calls/CallDetailPanel/CallDetailPanel.jsx';
 
 /**
- * The portal's one sidebar, open on the left.
+ * The portal's one sidebar, open on the right.
  *
  * The phone opens here, and so does a call's details — same drawer, same edge,
- * so there is one place on the screen where things appear. It replaces the
- * phone dock, the two floating panels and the call detail column that used to
- * sit on the right and get covered by the corner buttons.
+ * so there is one place on the screen where things appear. Right, because the
+ * phone's button is at the right end of the bar: a drawer opens from the side
+ * its control lives on.
  *
  * Full width below `sm`: 380px beside a 360px screen leaves a useless sliver.
  */
@@ -28,7 +28,7 @@ export default function PortalSidebar() {
 
   return (
     <Drawer
-      anchor="left" open={Boolean(view)} onClose={close} data-testid="portal-sidebar"
+      anchor="right" open={Boolean(view)} onClose={close} data-testid="portal-sidebar"
       PaperProps={{ sx: { width: { xs: '100vw', sm: SIDEBAR_WIDTH }, maxWidth: '100vw', border: 'none', display: 'flex', flexDirection: 'column' } }}
     >
       {/* The phone draws its own header (avatar, extension, registration), so
