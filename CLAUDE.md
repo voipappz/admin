@@ -1072,8 +1072,9 @@ is up.
   the browser closes it before `welcome`, which looks exactly like a refused
   token (`useWebSocket.js`, `useCableHealth.js`).
 - **Data.** `src/hooks/useLiveEntities.js` subscribes `LiveChannel` with the
-  environment (a portal user's `user.environment.uuid`, or the admin's selected
-  environment) and keeps one whole document per entity; renders are coalesced
+  environment (a portal user's `user.environment.uuid`, or the one an account
+  picks in the screen's Environment picker — `useLiveEnvironment.js`, remembered
+  per customer; until then the first environment selected in the top bar) and keeps one whole document per entity; renders are coalesced
   every 250ms. That is the screen's ONLY source: it never calls the API, and
   when the cable is not delivering it shows nothing and says so. The polled
   fallback (`/api/users?action=agents`, `/api/calls`) was removed on
