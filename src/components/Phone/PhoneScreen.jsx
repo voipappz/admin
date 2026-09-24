@@ -1,6 +1,5 @@
-// PhoneScreen — the /phone route (see App.jsx's DualProtectedRoute): a
-// full-page softphone, reachable from either the admin console or the user
-// portal. Adapted from app's PhoneWidget.jsx (a header-triggered docked
+// PhoneScreen — the softphone: the /phone route, and the right-hand sidebar
+// of both the admin console and the user portal (PortalSidebar). Adapted from app's PhoneWidget.jsx (a header-triggered docked
 // drawer) into a page layout, since here it's a dedicated route rather than
 // an overlay. Core calling (dialpad, mute/hold/hangup/DTMF, transfer,
 // settings) is ported; the presence/agent-status picker and the "Calls"
@@ -25,7 +24,10 @@ import HistoryIcon from '@mui/icons-material/History';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useSoftphone } from '../../context/SoftphoneContext';
 import { useUserAuth } from '../../context/UserAuthContext';
+import { usePortalSidebar } from '../../context/PortalSidebarContext';
+import { defaultSipSettings, sipSettingsReady } from '../../lib/sip/sipSettings';
 import SipSettingsForm from './SipSettingsForm.jsx';
+import PhoneSignIn from './PhoneSignIn.jsx';
 import CallToast from './CallToast.jsx';
 import TransferControls from './TransferControls.jsx';
 import PhoneCallsTab from './PhoneCallsTab.jsx';
@@ -58,17 +60,25 @@ function useCallTimer(connectedAt) {
 // page. The page wants a centred, padded card; the dock wants the panel to
 // fill the drawer edge to edge, so the tabs sit on the bottom of the panel
 // instead of floating above a band of empty white.
-export default function PhoneScreen({ embedded = false, initialTab }) {
+// `device` (an account session only): sign the phone in as this device.
+// `initialNumber`: put a clicked number in the dialpad (useCallNumber).
+export default function PhoneScreen({ embedded = false, initialTab, device, initialNumber }) {
   const {
     status, connected, call, muted, held, doNotDisturb, networkAvailable, lastError,
     dial, answer, hangup, sendDtmf, setMuted, setHeld, setDoNotDisturb,
-    transfer, consult, settings, logs = [], clearLogs
+    transfer, consult, settings, logs = [], clearLogs, disconnect, updateSettings
   } = useSoftphone();
+  const sidebar = usePortalSidebar();
 
   const userAuth = useUserAuth();
   // Logout belongs to the portal user's session only — an admin viewing
   // /phone signs out through the admin console's own account menu.
   const isPortalUser = userAuth.isAuthenticated;
+  // An account has no extension of its own: until it signs the phone in (as a
+  // device, or through a user login) the panel is that sign-in. Opened for a
+  // device other than the one registered, it signs in as that device.
+  const openedForOtherDevice = Boolean(device?.uuid) && String(device.username ?? '') !== String(settings?.username ?? '');
+  const needsSignIn = !isPortalUser && (!sipSettingsReady(settings || {}) || openedForOtherDevice);
 
   const [tab, setTab] = useState(() => Math.max(TABS.indexOf(initialTab || 'dialpad'), 0));
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -79,6 +89,11 @@ export default function PhoneScreen({ embedded = false, initialTab }) {
     if (index >= 0) { setTab(index); setSettingsOpen(false); }
   }, [initialTab]);
   const [number, setNumber] = useState('');
+  useEffect(() => {
+    if (!initialNumber) return;
+    setNumber(initialNumber);
+    setTab(TABS.indexOf('dialpad'));
+  }, [initialNumber]);
   const [logsOpen, setLogsOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [holdPending, setHoldPending] = useState(false);
@@ -195,6 +210,26 @@ export default function PhoneScreen({ embedded = false, initialTab }) {
               {/* The portal has no other sign-out affordance, so this is it.
                   useUserAuth().logout() also tears the softphone down: see
                   SoftphoneContext's authenticated -> false effect. */}
+              {/* An account signs the phone OUT of the device or user it
+                  borrowed, and is back at the sign-in. Re-opening the sidebar
+                  without params drops the device it was opened for, which
+                  would otherwise sign it straight back in. */}
+              {!isPortalUser && (
+                <Box sx={{ px: 1.5, pb: 1.5, pt: 0.5 }}>
+                  <Button
+                    fullWidth variant="outlined" color="inherit" startIcon={<LogoutIcon />} data-testid="phone-sign-out"
+                    onClick={async () => {
+                      try { await disconnect?.(); } catch { /* status shows it */ }
+                      updateSettings?.(defaultSipSettings());
+                      setSettingsOpen(false);
+                      sidebar.open('phone', { tab: 'dialpad' });
+                    }}
+                    sx={{ borderColor: 'rgba(255,255,255,0.3)', color: '#e5e7eb' }}
+                  >
+                    Sign the phone out
+                  </Button>
+                </Box>
+              )}
               {isPortalUser && (
                 <Box sx={{ px: 1.5, pb: 1.5, pt: 0.5 }}>
                   <Button
@@ -225,6 +260,8 @@ export default function PhoneScreen({ embedded = false, initialTab }) {
                 <div ref={logEndRef} />
               </Box>
             </Box>
+          ) : needsSignIn && !inCall ? (
+            <PhoneSignIn device={openedForOtherDevice ? device : undefined} />
           ) : inCall ? (
             <Box sx={{ p: 2, textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <Typography variant="overline" sx={{ color: MUTED }}>
@@ -316,7 +353,7 @@ export default function PhoneScreen({ embedded = false, initialTab }) {
         </Box>
 
         {/* Bottom tabs — Calls / Dialpad / Assistant (Settings is the gear) */}
-        {!logsOpen && !settingsOpen && !inCall && (
+        {!logsOpen && !settingsOpen && !inCall && !needsSignIn && (
           <Tabs
             value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth"
             sx={{

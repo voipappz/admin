@@ -5,7 +5,7 @@ import PhoneScreen from '../Phone/PhoneScreen.jsx';
 import CallDetailPanel from '../Calls/CallDetailPanel/CallDetailPanel.jsx';
 
 /**
- * The portal's one sidebar, open on the right.
+ * The one sidebar, open on the right — in the portal and the account console.
  *
  * The phone opens here, and so does a call's details — same drawer, same edge,
  * so there is one place on the screen where things appear. Right, because the
@@ -44,7 +44,7 @@ export default function PortalSidebar() {
           </Tooltip>
         </Box>
         <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
-          <PhoneScreen embedded initialTab={params?.tab} />
+          <PhoneScreen embedded initialTab={params?.tab} initialNumber={params?.number} device={params?.device} />
         </Box>
       </Box>
 

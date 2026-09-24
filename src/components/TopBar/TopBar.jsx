@@ -119,6 +119,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, useSortable, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import './TopBar.css';
+import TopBarPhoneButton from './TopBarPhoneButton.jsx';
 import { ConfirmDialog } from '../ui';
 
 const ITEM_HEIGHT = 68; // application rows: name + type, status/date/id, meta chips
@@ -964,6 +965,8 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
 
           {/* Divider between admin and utility icons */}
           <Box sx={{ width: '1px', height: 24, backgroundColor: 'var(--border-light, #e5e7eb)', mx: 0.5, flexShrink: 0 }} />
+
+          <TopBarPhoneButton />
 
           <Tooltip title="Notifications">
             <IconButton

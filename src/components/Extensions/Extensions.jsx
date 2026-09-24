@@ -57,7 +57,7 @@ import { orEmpty, stripedTableRowSx } from '../shared/tableTheme.jsx';
 import MetaTagChips from '../common/MetaTagChips/MetaTagChips';
 import { formatDate } from '../../utils/dateUtils';
 import { getEnabledChipProps } from '../../utils/chipStyles';
-import { usePhoneContext } from '../../context/PhoneContext';
+import { useOpenPhoneAs } from '../../hooks/useCallNumber';
 import useEnvironmentEdit from '../../hooks/useEnvironmentEdit';
 import EnvironmentDialog from '../Environments/EnvironmentDialog/EnvironmentDialog';
 import EventsCountBadge from '../common/EventsCountBadge/EventsCountBadge.jsx';
@@ -77,7 +77,7 @@ const Extensions = () => {
 
   const { showSuccess, showError } = useNotification();
   const { registerScreen, unregisterScreen } = useGlobalSearch();
-  const { openWebRTC } = usePhoneContext();
+  const openPhoneAs = useOpenPhoneAs();
   // Inline application edit — the application name in the table links here.
   const {
     envDialogOpen, envDialogEnvironment, envDialogLoading,
@@ -151,12 +151,8 @@ const Extensions = () => {
   const [c2cToken, setC2cToken] = useState('');
   const [c2cResponse, setC2cResponse] = useState(null);
 
-  // Open WebRTC as a floating chat widget
-  const handleOpenWebRTC = (extension) => {
-    if (extension) {
-      openWebRTC({ name: extension.name || 'WebRTC Phone', extension });
-    }
-  };
+  // The phone opens in the right-hand sidebar, signed in as this device.
+  const handleOpenPhone = (extension) => openPhoneAs(extension);
 
   // Click-to-Call: ring this extension, then bridge it to the entered number,
   // via /custom/click2call. The token comes from the extension's environment
@@ -605,11 +601,11 @@ const Extensions = () => {
                         </TableCell>
                         <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
-                            <Tooltip title="Open WebRTC">
+                            <Tooltip title="Open phone as this device">
                               <IconButton
-                                data-testid="webrtc-extension-button"
+                                data-testid="phone-extension-button"
                                 size="small"
-                                onClick={() => handleOpenWebRTC(extension)}
+                                onClick={() => handleOpenPhone(extension)}
                                 disabled={loading}
                                 color="primary"
                               >
