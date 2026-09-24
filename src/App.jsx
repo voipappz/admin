@@ -24,7 +24,14 @@ import muiTheme from './theme/theme';
 
 // Eager: the sign-in page (user or account, toggled) is the entry point for
 // unauthenticated visitors.
-import SignIn from './components/Login/SignIn.jsx';
+import SignIn, { rememberSignInAs } from './components/Login/SignIn.jsx';
+
+// To the sign-in at `/`, opened on the account login. Nothing in the URL: the
+// choice is remembered the way the page's own toggle remembers it.
+const ToAccountSignIn = () => {
+  rememberSignInAs('account');
+  return <Navigate to="/" replace />;
+};
 
 // Lazy-load all other route components for code splitting
 const Reports = lazy(() => import('./components/Reports/Reports.jsx'));
@@ -135,7 +142,7 @@ function AppContent() {
 
     // After initialization is complete, check if user is authenticated
     // AuthContext handles all token validation using JWT exp claim
-    if (!isAuthenticated) return <Navigate to="/?as=account" replace />;
+    if (!isAuthenticated) return <ToAccountSignIn />;
 
     // ACL route protection: block access if user lacks read/index/list permission.
     // Bounce to /account, which carries no requiredAcl — sending a denial to an
@@ -221,8 +228,8 @@ function AppContent() {
             in, the portal. There is no /admin page: old /admin and /login
             links land on the sign-in with Account selected. */}
         <Route path="/" element={<PortalRoot />} />
-        <Route path="/admin" element={<Navigate to="/?as=account" replace />} />
-        <Route path="/login" element={<Navigate to="/?as=account" replace />} />
+        <Route path="/admin" element={<ToAccountSignIn />} />
+        <Route path="/login" element={<ToAccountSignIn />} />
         {/* Live answers "what is my team doing right now", for the person
             working the queue and for the account watching it. The admin sees
             its selected environment; see LiveRoute for the two ACL keys. */}

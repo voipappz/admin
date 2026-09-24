@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
 import { ToggleButton, ToggleButtonGroup } from '@mui/material';
 import Login from './Login.jsx';
 import UserLogin from './UserLogin.jsx';
 
 const KEY = 'sign_in_as';
+
+/** Which login the sign-in page opens on next time: 'user' | 'account'. */
+export const rememberSignInAs = (as) => {
+  try { localStorage.setItem(KEY, as); } catch { /* storage unavailable */ }
+};
 const readLast = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
 
 /**
@@ -16,18 +20,17 @@ const readLast = () => { try { return localStorage.getItem(KEY); } catch { retur
  * The choice is explicit — never "try one endpoint, then the other", which
  * would send a password to the wrong door and blur the error.
  *
- * `?as=account` opens on the account login (the old /admin links); otherwise
- * the last choice made in this browser, then the user login.
+ * It opens on the last choice made in this browser (the account side is also
+ * remembered by an old /admin link and by an account page visited signed
+ * out), otherwise on the user login. Nothing in the URL.
  */
 export default function SignIn() {
-  const [params] = useSearchParams();
-  const asked = params.get('as');
-  const [as, setAs] = useState(() => (asked === 'account' || asked === 'user' ? asked : readLast() === 'account' ? 'account' : 'user'));
+  const [as, setAs] = useState(() => (readLast() === 'account' ? 'account' : 'user'));
 
   const choose = (_, next) => {
     if (!next) return;
     setAs(next);
-    try { localStorage.setItem(KEY, next); } catch { /* storage unavailable */ }
+    rememberSignInAs(next);
   };
 
   const switcher = (
