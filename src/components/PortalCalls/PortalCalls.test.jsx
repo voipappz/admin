@@ -113,7 +113,9 @@ describe('PortalCalls', () => {
     await waitFor(() => expect(next).not.toBeDisabled());
     fireEvent.click(next);
 
-    expect(await screen.findByText('0500000099')).toBeInTheDocument();
+    // The grid redraws for page 2; on a loaded CI runner that took over the
+    // default 1s and failed main once (run 36029432539) with the code unchanged.
+    expect(await screen.findByText('0500000099', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(mockGetCalls.mock.calls[1][0].page).toBe(2);
     await waitFor(() => expect(screen.getByTestId('portal-calls-next')).toBeDisabled());
   });
