@@ -396,9 +396,10 @@ class ApiService {
 
   // Generate unique request signature for deduplication
   getRequestSignature(url, method = 'GET', body = null) {
-    // Create a unique key based on method, URL, and body
+    // Create a unique key based on identity, method, URL, and body: a request
+    // in flight for one session must never be handed to another.
     const urlStr = typeof url === 'string' ? url : String(url);
-    let signature = `${method}:${urlStr}`;
+    let signature = `${this.identityKey()}:${method}:${urlStr}`;
 
     // Include body in signature for POST/PATCH/PUT requests
     if (body && (method === 'POST' || method === 'PATCH' || method === 'PUT')) {
@@ -433,9 +434,26 @@ class ApiService {
     return this.cacheTTLs.default;
   }
 
+  // Whose request this is. Every cached or shared response is keyed by it, so
+  // one identity is never served another's: the cache used to be keyed by URL
+  // alone and outlive sign-out, and a portal user signing in on a tab an
+  // account had used got the ACCOUNT's responses (see resetSession).
+  identityKey() {
+    return this.getToken() || 'anonymous';
+  }
+
+  // Forget every cached and in-flight response. Called whenever a session
+  // starts or ends (services/sessionIsolation.js forgetPerson).
+  resetSession() {
+    this.responseCache.clear();
+    this.pendingRequests.clear();
+    this.postRefreshRejections.clear();
+    ApiService._inflightGets.clear();
+  }
+
   // Generate cache signature (only for GET requests)
   getCacheSignature(url) {
-    return `CACHE:${url}`;
+    return `CACHE:${this.identityKey()}:${url}`;
   }
 
   // Get data from cache if valid
@@ -906,13 +924,14 @@ class ApiService {
   // the duplicate fetches screens suffer from (StrictMode double effects, sort
   // handlers firing alongside their useEffect) without touching screen code.
   async get(url, options = {}, context = '', showMessages = true, skipCircuitBreaker = false) {
-    const inflight = ApiService._inflightGets.get(url);
+    const key = `${this.identityKey()}:${url}`;
+    const inflight = ApiService._inflightGets.get(key);
     if (inflight) return inflight;
     const promise = this.fetch(url, { method: 'GET', ...options }, context, showMessages, 0, skipCircuitBreaker)
       .finally(() => {
-        if (ApiService._inflightGets.get(url) === promise) ApiService._inflightGets.delete(url);
+        if (ApiService._inflightGets.get(key) === promise) ApiService._inflightGets.delete(key);
       });
-    ApiService._inflightGets.set(url, promise);
+    ApiService._inflightGets.set(key, promise);
     return promise;
   }
 

@@ -30,6 +30,7 @@ import { ResourceList } from './ResourceList.jsx';
 import { BridgeTypeSelector } from '../shared/BridgeTypeSelector.jsx';
 import { AnnouncementBridge } from '../AnnouncementBridge/AnnouncementBridge.jsx';
 import { Z, menuProps } from '../../../utils/zIndex.js';
+import { useIsUserSession } from '../../../hooks/useIsUserSession';
 
 /**
  * CallConditionBridge Component
@@ -61,6 +62,7 @@ export const CallConditionBridge = ({
   zLayer = null,           // Optional z-index layer override (e.g. Z.L3 when nested inside another L2 bridge)
   onDrillDown              // Optional — call instead of opening nested dialogs
 }) => {
+  const userSession = useIsUserSession();
   const layer = zLayer || Z.L2;
   const { selectedEnvironments } = useCustomerEnvironment();
 
@@ -387,7 +389,8 @@ export const CallConditionBridge = ({
             disabled={loading}
           />
 
-          {!hideEnvironment && (
+          {/* A portal user has one environment, their own: never a choice. */}
+          {!hideEnvironment && !userSession && (
             <FormControl fullWidth required error={!!formErrors.environment_uuid} disabled={loading}>
               <InputLabel>Application</InputLabel>
               <Select

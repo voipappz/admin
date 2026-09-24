@@ -192,7 +192,8 @@ const DIDs = ({ portalMode = false }) => {
     { name: 'type', label: 'Type', type: 'select', data: [{ uuid: 'sip', name: 'SIP' }, { uuid: 'pstn', name: 'PSTN' }, { uuid: 'toll_free', name: 'Toll Free' }] },
     { name: 'bridge_type', label: 'Bridge Type', type: 'select', data: (bridgeTypes || []).map(bt => ({ uuid: bt, name: bt })) },
     { name: 'enabled', label: 'Status', type: 'select', data: [{ uuid: 'true', name: 'Enabled' }, { uuid: 'false', name: 'Disabled' }] },
-    { name: 'environment_uuid', label: 'Application', type: 'select', data: (environments || []).map(e => ({ uuid: e.uuid, name: e.name })) },
+    // A portal user has one environment, their own: nothing to filter by.
+    ...(portalMode ? [] : [{ name: 'environment_uuid', label: 'Application', type: 'select', data: (environments || []).map(e => ({ uuid: e.uuid, name: e.name })) }]),
     // Provider options never load in the portal (no ACL), and a select with no
     // options degrades to a free-text box — a filter that can't be filled.
     ...(portalMode ? [] : [{ name: 'provider_uuid', label: 'Provider', type: 'select', data: (providers || []).map(p => ({ uuid: p.uuid, name: p.name })) }]),
@@ -431,6 +432,8 @@ const DIDs = ({ portalMode = false }) => {
                       Name
                     </TableSortLabel>
                   </TableCell>
+                  {/* A portal user sees only their own environment: no column. */}
+                  {!portalMode && (
                   <TableCell>
                     <TableSortLabel
                       active={sortBy === 'environment_name'}
@@ -440,6 +443,7 @@ const DIDs = ({ portalMode = false }) => {
                       Application
                     </TableSortLabel>
                   </TableCell>
+                  )}
                   <TableCell>
                     <TableSortLabel
                       active={sortBy === 'type'}
@@ -470,14 +474,14 @@ const DIDs = ({ portalMode = false }) => {
                 {loading && dids.length === 0 ? (
                   Array.from({ length: 8 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 11 }).map((__, j) => (
+                      {Array.from({ length: portalMode ? 10 : 11 }).map((__, j) => (
                         <TableCell key={j}><Skeleton height={20} /></TableCell>
                       ))}
                     </TableRow>
                   ))
                 ) : dids.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={portalMode ? 10 : 11} align="center" sx={{ py: 4 }}>
                       <Typography variant="body2" color="text.secondary">
                         No DIDs found
                       </Typography>
@@ -520,6 +524,7 @@ const DIDs = ({ portalMode = false }) => {
                             {orEmpty(did.name)}
                           </Typography>
                         </TableCell>
+                        {!portalMode && (
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <Typography variant="body2">
@@ -544,6 +549,7 @@ const DIDs = ({ portalMode = false }) => {
                             )}
                           </Box>
                         </TableCell>
+                        )}
                         <TableCell>
                           <Chip
                             label={did.type?.toUpperCase() || 'SIP'}

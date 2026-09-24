@@ -22,6 +22,7 @@ import {
   Edit as EditIcon,
 } from '@mui/icons-material';
 import { useCustomerEnvironment } from '../../../context/CustomerEnvironmentContext';
+import { useIsUserSession } from '../../../hooks/useIsUserSession';
 import { NumberSelector } from '../../Bridges/NumberBridge/NumberSelector.jsx';
 import RoutingChain from './RoutingChain.jsx';
 import SipProviderQuickCreate from './SipProviderQuickCreate.jsx';
@@ -111,6 +112,8 @@ const DIDForm = forwardRef(({
   showActions = true,
 }, ref) => {
   const { selectedEnvironments } = useCustomerEnvironment();
+  // A portal user has one environment, their own: it is set, never a field.
+  const userSession = useIsUserSession();
   const [formData, setFormData] = useState({});
   const [errors, setErrors] = useState({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -440,6 +443,8 @@ const DIDForm = forwardRef(({
               helperText={errors.name || (submitAttempted && !formData.name?.trim() ? 'Name is required' : 'A friendly name to identify this Route')}
               placeholder={isTrunk ? 'e.g. Israel mobiles' : 'e.g. Main Office Line'}
             />
+            {/* An account's choice; a portal user's is their own. */}
+            {!userSession && (
             <FormControl fullWidth required error={!!errors.environment_uuid || (submitAttempted && !formData.environment_uuid)}>
               <InputLabel required>Application</InputLabel>
               <Select
@@ -458,6 +463,7 @@ const DIDForm = forwardRef(({
                   : 'The application this Route belongs to'}
               </FormHelperText>
             </FormControl>
+            )}
           </div>
 
           {isFeature ? (

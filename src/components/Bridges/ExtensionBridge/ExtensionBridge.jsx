@@ -32,6 +32,7 @@ import {
 import { extensionsApi } from '../../../services/api/extensionsApi';
 import DynamicProfileEditor from '../../common/DynamicProfileEditor/DynamicProfileEditor';
 import { Z } from '../../../utils/zIndex.js';
+import { useIsUserSession } from '../../../hooks/useIsUserSession';
 
 /**
  * ExtensionBridge Component
@@ -71,6 +72,7 @@ export const ExtensionBridge = ({
   zLayer = null,           // Optional z-index layer override (e.g. Z.L3 when nested)
   onDrillDown // eslint-disable-line @typescript-eslint/no-unused-vars
 }) => {
+  const userSession = useIsUserSession();
   const layer = zLayer || Z.L2;
   // Determine if we're in create or edit mode
   const isEditMode = mode === 'edit' && extension !== null;
@@ -308,6 +310,8 @@ export const ExtensionBridge = ({
         {/* Environment - shown when hideEnvironment is false */}
         {!hideEnvironment && environments.length > 0 && (
           <Grid item xs={12}>
+            {/* A portal user has one environment, their own: never a choice. */}
+            {!userSession && (
             <FormControl fullWidth required error={!!formErrors.environment_uuid}>
               <InputLabel>Application</InputLabel>
               <Select
@@ -329,6 +333,7 @@ export const ExtensionBridge = ({
                 </Typography>
               )}
             </FormControl>
+            )}
           </Grid>
         )}
 

@@ -18,6 +18,8 @@ vi.mock('../../../services/api/providersApi', () => ({
 }));
 vi.mock('./RoutingChain.jsx', () => ({ default: () => null }));
 vi.mock('../../Bridges/NumberBridge/NumberSelector.jsx', () => ({ NumberSelector: () => null }));
+let mockUserSession = false;
+vi.mock('../../../hooks/useIsUserSession', () => ({ useIsUserSession: () => mockUserSession }));
 
 import DIDForm from './DIDForm.jsx';
 import { providersApi } from '../../../services/api/providersApi';
@@ -51,7 +53,7 @@ const pick = (label, option) => {
   fireEvent.click(screen.getByRole('option', { name: option }));
 };
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => { vi.clearAllMocks(); mockUserSession = false; });
 
 describe('DIDForm', () => {
   it('asks for the type first, in words', () => {
@@ -163,5 +165,21 @@ describe('DIDForm', () => {
     expect(onSave.mock.calls[0][0]).toMatchObject({
       type: 'feature:trunk', name: 'Israel', number: '0', replace: '972', environment_uuid: 'env-1', bridge_type: null,
     });
+  });
+});
+
+// A portal user sees only their own environment: the environment
+// ("Application") is not a field for them. An account picks it.
+describe('DIDForm — the application', () => {
+  it('asks an account which application the route belongs to', () => {
+    renderForm({ did: route('dst') });
+    expect(screen.getByText('Application', { selector: 'label' })).toBeInTheDocument();
+  });
+
+  it('does not show a portal user the application at all', () => {
+    mockUserSession = true;
+    renderForm({ did: route('dst') });
+    expect(screen.queryByText('Application', { selector: 'label' })).toBeNull();
+    expect(screen.queryByText('The application this Route belongs to')).toBeNull();
   });
 });
