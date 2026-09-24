@@ -37,16 +37,14 @@ const FormSection = ({ label }) => (
   </div>
 );
 
-// A PBX trunk rule (API Did::TRUNK): `number` is a dial prefix, matched
-// longest-first like a rate; the prefix is stripped and the optional digits in
-// `replace` put in its place (8 + '' turns 81002 into 1002, 0 + 972 turns
-// 0501234567 into 972501234567). The bridge is a sip Provider. The API keeps
-// `sip_provider` out of /api/assets/bridge_types on purpose (IVRs share that
-// list), so the form supplies it here for this one type.
+// A PBX trunk rule (API Did::TRUNK): `number` is a regex over the dialed
+// digits and `replace` (required) rewrites them with regexp_replace, e.g.
+// ^8(\d{4})$ + \1 turns 81002 into 1002. The API compiles the regex on save.
+// The bridge is a sip Provider; the API keeps `sip_provider` out of
+// /api/assets/bridge_types on purpose (IVRs share that list), so the form
+// supplies it here for this one type.
 const TRUNK = 'feature:trunk';
 const TRUNK_BRIDGE = 'sip_provider';
-const TRUNK_PREFIX = /^\+?\d+$/;
-const TRUNK_REPLACE = /^\+?\d*$/;
 
 /**
  * DIDForm Component
@@ -77,11 +75,8 @@ const DIDForm = forwardRef(({
   const [sipProviders, setSipProviders] = useState([]);
 
   const isTrunk = formData.type === TRUNK;
-  // Other feature:* routes are matched with regexp_replace(dst, number, replace).
+  // Every feature:* route is matched with regexp_replace(dst, number, replace).
   const isFeature = (formData.type || '').startsWith('feature:');
-  const numberHint = isTrunk ? 'Dial prefix, e.g. 8 (digits, optional leading +)'
-    : isFeature ? 'Regex over the dialed digits, e.g. ^8(\\d{4})$' : 'E.164 format, e.g. +14155551234';
-  const numberPlaceholder = isTrunk ? '8' : isFeature ? '^8(\\d{4})$' : '+14155551234';
 
   // Initialize form data
   useEffect(() => {
@@ -264,12 +259,7 @@ const DIDForm = forwardRef(({
     if (!formData.environment_uuid) newErrors.environment_uuid = 'Application is required';
     if (!formData.type) newErrors.type = 'Type is required';
     if (!formData.bridge_type) newErrors.bridge_type = 'Bridge type is required';
-    if (isTrunk && formData.number?.trim() && !TRUNK_PREFIX.test(formData.number.trim())) {
-      newErrors.number = 'A trunk number is a dial prefix: digits, optional leading +';
-    }
-    if (isTrunk && !TRUNK_REPLACE.test(formData.replace?.trim() || '')) {
-      newErrors.replace = 'Digits only (what replaces the prefix)';
-    }
+    if (isTrunk && !formData.replace?.trim()) newErrors.replace = 'Replace is required for a trunk rule';
     if (formData.bridge_type && !formData.bridge_uuid) {
       newErrors.bridge_uuid = formData.bridge_type === 'number'
         ? 'Destination number is required'
@@ -374,20 +364,20 @@ const DIDForm = forwardRef(({
               required
               fullWidth
               error={!!errors.number || (submitAttempted && !formData.number?.trim())}
-              helperText={errors.number || (submitAttempted && !formData.number?.trim() ? 'Number is required' : numberHint)}
-              placeholder={numberPlaceholder}
+              helperText={errors.number || (submitAttempted && !formData.number?.trim() ? 'Number is required'
+                : isFeature ? 'Regex over the dialed digits, e.g. ^8(\\d{4})$' : 'E.164 format, e.g. +14155551234')}
+              placeholder={isFeature ? '^8(\\d{4})$' : '+14155551234'}
             />
             {isFeature && (
               <TextField
                 label="Replace"
                 value={formData.replace || ''}
                 onChange={(e) => handleChange('replace', e.target.value)}
+                required={isTrunk}
                 fullWidth
                 error={!!errors.replace}
-                helperText={errors.replace || (isTrunk
-                  ? 'Digits put in place of the prefix, e.g. 972 (empty strips it)'
-                  : 'Rewrite of the matched digits, e.g. \\1')}
-                placeholder={isTrunk ? '972' : '\\1'}
+                helperText={errors.replace || 'Rewrite of the matched digits, e.g. \\1'}
+                placeholder={'\\1'}
               />
             )}
           </div>
