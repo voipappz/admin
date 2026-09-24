@@ -117,10 +117,14 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
   };
 
   // Live count badge per nav item — the sidebar doubles as a status board:
-  // Calls shows active calls (purple), Events shows criticals last 24h (red).
+  // Calls shows active calls (purple), Events shows criticals last 24h (red),
+  // Monitoring shows unread alerts (red with a critical among them, else amber).
   const navBadge = (path) => {
     if (path === '/calls' && badges.liveCalls > 0) return { count: badges.liveCalls, color: '#8b5cf6' };
     if (path === '/events' && badges.criticalEvents > 0) return { count: badges.criticalEvents, color: '#ef4444' };
+    if (path === '/monitoring' && badges.openAlerts > 0) {
+      return { count: badges.openAlerts, color: badges.criticalAlerts > 0 ? '#ef4444' : '#f59e0b' };
+    }
     return null;
   };
 

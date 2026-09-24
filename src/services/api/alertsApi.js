@@ -27,8 +27,10 @@ export const alertsApi = {
   getConfig: () =>
     apiService.get(`${BASE}/config`, {}, 'fetching alert config', false, true),
 
+  // Silent: the rail removes the alert itself, and "Mark all read" would
+  // otherwise raise one toast per alert.
   acknowledge: (id) =>
-    apiService.put(`${BASE}/${encodeURIComponent(id)}/acknowledge`, {}, {}, `acknowledging alert ${id}`, true),
+    apiService.put(`${BASE}/${encodeURIComponent(id)}/acknowledge`, {}, {}, `acknowledging alert ${id}`, false),
 
   dismiss: (id) =>
     apiService.delete(`${BASE}/${encodeURIComponent(id)}`, {}, `dismissing alert ${id}`, true),
