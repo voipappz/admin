@@ -299,6 +299,7 @@ export const AuthProvider = ({ children }) => {
     // One session at a time: an admin sign-in ends any portal-user session
     // first (services/sessionIsolation.js), so the two logins never merge.
     endUserSession();
+    try { sessionStorage.setItem('nimbus_login_path', '/admin'); } catch { /* storage unavailable */ }
     dispatch({
       type: 'LOGIN_SUCCESS',
       payload: authData

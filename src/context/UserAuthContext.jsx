@@ -120,6 +120,7 @@ export const UserAuthProvider = ({ children }) => {
   const login = useCallback((authData) => {
     // One session at a time: a portal sign-in ends any admin session first.
     endAdminSession();
+    try { sessionStorage.setItem('nimbus_login_path', '/'); } catch { /* storage unavailable */ }
     dispatch({ type: 'LOGIN_SUCCESS', payload: authData });
   }, []);
 

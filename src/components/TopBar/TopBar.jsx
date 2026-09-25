@@ -1870,7 +1870,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         open={accountDialogOpen}
         onClose={() => setAccountDialogOpen(false)}
         onSave={handleAccountSave}
-        onSignOut={() => { setAccountDialogOpen(false); logout(); }}
+        onSignOut={() => { setAccountDialogOpen(false); logout(); navigate('/admin'); }}
         account={detailedAccountData || user || null}
         loading={accountLoading || accountSaving}
         environments={accountEnvironments}

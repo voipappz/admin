@@ -8,7 +8,7 @@ const KEY = 'sign_in_as';
 const readLast = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
 
 /**
- * The one sign-in page, at `/`: a user or an account, toggled.
+ * Separate sign-in entries: `/` is for users and `/admin` is for accounts.
  *
  * Two logins, not one: the user login (/auth/user_login -> UserAuthContext)
  * and the account login (/auth/login -> AuthContext) are different JWTs with
@@ -16,13 +16,13 @@ const readLast = () => { try { return localStorage.getItem(KEY); } catch { retur
  * The choice is explicit — never "try one endpoint, then the other", which
  * would send a password to the wrong door and blur the error.
  *
- * `?as=account` opens on the account login (the old /admin links); otherwise
- * the last choice made in this browser, then the user login.
+ * The route supplies `mode`, keeping credentials on their intended endpoint.
  */
-export default function SignIn() {
+export default function SignIn({ mode = null }) {
   const [params] = useSearchParams();
   const asked = params.get('as');
-  const [as, setAs] = useState(() => (asked === 'account' || asked === 'user' ? asked : readLast() === 'account' ? 'account' : 'user'));
+  const [as, setAs] = useState(() => mode || (asked === 'account' || asked === 'user' ? asked : readLast() === 'account' ? 'account' : 'user'));
+  const effectiveMode = mode || as;
 
   const choose = (_, next) => {
     if (!next) return;
@@ -30,7 +30,7 @@ export default function SignIn() {
     try { localStorage.setItem(KEY, next); } catch { /* storage unavailable */ }
   };
 
-  const switcher = (
+  const switcher = mode ? null : (
     <ToggleButtonGroup
       value={as} exclusive onChange={choose} fullWidth size="small" aria-label="Sign in as"
       data-testid="sign-in-as" sx={{ mb: 2, '& .MuiToggleButton-root': { textTransform: 'none', fontWeight: 600 } }}
@@ -40,5 +40,5 @@ export default function SignIn() {
     </ToggleButtonGroup>
   );
 
-  return as === 'account' ? <Login switcher={switcher} /> : <UserLogin switcher={switcher} />;
+  return effectiveMode === 'account' ? <Login switcher={switcher} /> : <UserLogin switcher={switcher} />;
 }

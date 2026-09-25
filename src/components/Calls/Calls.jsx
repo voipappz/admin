@@ -188,7 +188,7 @@ const Calls = () => {
     handleDeselectAllColumns,
     handleResetColumns,
     createGridColumns
-  } = useColumnHandlers(handleOpenRecording, handleSearch, currentSearchParams, apiColumns, segments);
+  } = useColumnHandlers(handleOpenRecording, handleSearch, currentSearchParams, apiColumns, segments, setSelectedCall);
 
   // Row handlers with infinite scroll
   const {

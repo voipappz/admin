@@ -63,7 +63,7 @@ const formatTime = (seconds) => {
 // Global ref: only one recording plays at a time
 let _currentlyPlayingAudio = null;
 
-export const RecordingControls = ({ recordingUrl, onOpenDialog }) => {
+export const RecordingControls = ({ recordingUrl, onOpenCall }) => {
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(0);
   const [duration, setDuration] = React.useState(0);
@@ -191,10 +191,10 @@ export const RecordingControls = ({ recordingUrl, onOpenDialog }) => {
         {isPlaying || currentTime > 0 ? formatTime(currentTime) : formatTime(duration)}
       </Typography>
 
-      <Tooltip title="Details">
+      <Tooltip title="Open call details">
         <IconButton
           size="small"
-          onClick={(e) => { e.stopPropagation(); onOpenDialog(); }}
+          onClick={(e) => { e.stopPropagation(); onOpenCall?.(); }}
           sx={{ p: 0.25, color: 'var(--accent-primary)', '&:hover': { backgroundColor: 'var(--accent-primary-alpha-10)' } }}
         >
           <Analytics sx={{ fontSize: 16 }} />
