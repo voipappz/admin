@@ -20,6 +20,7 @@ import {
   DialogContent,
   DialogActions,
   Chip,
+  Checkbox,
   CircularProgress,
   TextField,
   Menu,
@@ -107,7 +108,6 @@ import StorageIcon from '@mui/icons-material/Storage';
 import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import CheckIcon from '@mui/icons-material/Check';
 import InfoPopover from './InfoPopover';
 import EnvironmentDialog from '../Environments/EnvironmentDialog/EnvironmentDialog';
 import { environmentsApi } from '../../services/api/environmentsApi';
@@ -623,10 +623,14 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           borderBottom: '1px solid var(--border-light, #e0e0e0)',
         }}
       >
-        {/* Enabled indicator dot */}
-        <Tooltip title={env.enabled ? 'Enabled' : 'Disabled'} placement="left">
-          <Box sx={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, mr: 1, bgcolor: env.enabled ? '#4caf50' : '#bdbdbd' }} />
-        </Tooltip>
+        <Checkbox
+          size="small"
+          checked={selected}
+          onClick={(event) => event.stopPropagation()}
+          onChange={() => handleToggleEnvironment(env)}
+          inputProps={{ 'aria-label': `${selected ? 'Deselect' : 'Select'} ${env.name}` }}
+          sx={{ p: 0.25, mr: 0.75, flexShrink: 0 }}
+        />
 
         <Box sx={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
           {/* Name + type/production badge */}
@@ -676,8 +680,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           </IconButton>
         </Tooltip>
 
-        {/* Checkmark for selected state */}
-        {selected && <CheckIcon sx={{ fontSize: 14, color: 'primary.main', flexShrink: 0 }} />}
       </Box>
     );
   }, [searchFilteredEnvironments, isEnvSelected, handleToggleEnvironment, openEnvEdit]);
@@ -1139,9 +1141,11 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
                     key={c.uuid}
                     onClick={async () => {
                       if (active) return;
-                      setCustomerEnvDialogOpen(false);
-                      setCustomerEnvAnchorEl(null);
                       setEnvironmentSearchValue('');
+                      setTagFilters([]);
+                      // Keep the picker open. The right pane reacts to the
+                      // context change and fetches this customer's applications
+                      // in place, so selecting a customer is one step.
                       await selectCustomer(c);
                     }}
                     sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.75, cursor: 'pointer', borderLeft: active ? '3px solid var(--accent-primary)' : '3px solid transparent', backgroundColor: active ? 'var(--theme-hover)' : 'transparent', '&:hover': { backgroundColor: 'var(--theme-hover)', '& .cust-actions': { opacity: 1 } } }}
@@ -1259,22 +1263,30 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           </Menu>
         </Box>
 
-        {/* Selected-first: the current selection shown as chips at the top,
-            visible before scrolling the list. Drag the grip to reorder (order
-            persists on Apply); × removes via the same toggle. */}
+        {/* Keep the active scope visible without letting a long multi-selection
+            consume the picker. The chips stay on one scrollable line; the
+            complete, clickable result list remains directly below. */}
         {uncommittedEnvironments.length > 0 && (
-          <Box sx={{ px: 1.5, pb: 0.75, display: 'flex', flexWrap: 'wrap', gap: 0.5, maxHeight: 88, overflowY: 'auto' }}>
+          <Box sx={{ px: 1.5, pb: 0.75, display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+            <Typography
+              variant="caption"
+              sx={{ flexShrink: 0, color: 'var(--theme-text-secondary)', fontSize: '0.65rem', fontWeight: 600 }}
+            >
+              Selected ({uncommittedEnvironments.length})
+            </Typography>
             <DndContext sensors={envDragSensors} collisionDetection={closestCenter} onDragEnd={handleEnvDragEnd}>
-              <SortableContext items={uncommittedEnvironments.map((e) => e.uuid)} strategy={horizontalListSortingStrategy}>
-                {uncommittedEnvironments.map((env) => (
-                  <SortableEnvChip
-                    key={env.uuid}
-                    env={env}
-                    onDelete={handleToggleEnvironment}
-                    canDelete={canSelectEnvironment}
-                  />
-                ))}
-              </SortableContext>
+              <Box sx={{ display: 'flex', gap: 0.5, minWidth: 0, overflowX: 'auto', py: 0.15, pr: 0.25, '&::-webkit-scrollbar': { height: 4 } }}>
+                <SortableContext items={uncommittedEnvironments.map((e) => e.uuid)} strategy={horizontalListSortingStrategy}>
+                  {uncommittedEnvironments.map((env) => (
+                    <SortableEnvChip
+                      key={env.uuid}
+                      env={env}
+                      onDelete={handleToggleEnvironment}
+                      canDelete={canSelectEnvironment}
+                    />
+                  ))}
+                </SortableContext>
+              </Box>
             </DndContext>
           </Box>
         )}
