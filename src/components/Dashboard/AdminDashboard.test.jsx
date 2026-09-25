@@ -38,11 +38,11 @@ describe('AdminDashboard', () => {
     expect(screen.queryByText('3')).not.toBeInTheDocument();
   });
 
-  it('charts every application in the selected customer, grouped by customer', async () => {
+  it('charts every application in the selected customer, grouped by direction', async () => {
     scope.mockReturnValue({ selectedCustomer: { uuid: 'c-1', name: 'acme' }, selectedEnvironments: [{ uuid: 'env-1', name: 'main' }] });
     render(<AdminDashboard />);
     await vi.waitFor(() => expect(monitoringApi.getCallsVolumeChart)
-      .toHaveBeenCalledWith(null, 1440, '1h', 'c-1', 'customer_uuid'));
+      .toHaveBeenCalledWith(null, 1440, '1h', 'c-1', 'direction'));
   });
 
   // The bird's-eye view: a root admin with nothing selected sees every
@@ -52,7 +52,7 @@ describe('AdminDashboard', () => {
     scope.mockReturnValue({ selectedCustomer: null, selectedEnvironments: [] });
     render(<AdminDashboard />);
     await vi.waitFor(() => expect(monitoringApi.getCallsVolumeChart)
-      .toHaveBeenCalledWith(null, 1440, '1h', null, 'customer_uuid'));
+      .toHaveBeenCalledWith(null, 1440, '1h', null, 'direction'));
     expect(await screen.findByRole('heading', { name: /every customer/i })).toBeInTheDocument();
   });
 
