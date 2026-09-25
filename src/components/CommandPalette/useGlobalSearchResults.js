@@ -279,7 +279,7 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
         id: 'action-logout',
         label: 'Sign Out',
         iconComponent: LogoutIcon,
-        action: () => { logout(); onClose(); },
+        action: () => { logout(); navigate(userSession ? '/' : '/admin'); onClose(); },
       },
     ];
     const filteredActions = lowerQuery

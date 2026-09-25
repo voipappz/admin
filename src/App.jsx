@@ -91,15 +91,19 @@ const PageLoader = () => (
   </Box>
 );
 
+const lastLoginPath = () => {
+  try { return sessionStorage.getItem('nimbus_login_path') === '/' ? '/' : '/admin'; }
+  catch { return '/admin'; }
+};
+
 // MODULE SCOPE ON PURPOSE. Defined inside AppContent it was a new component
 // identity on every render, so React remounted the whole subtree — including
 // Layout, which owns the phone dock's open state. The dock opened and shut
 // itself within ~300ms.
 //
-// Signed out, `/` is the ONE sign-in page: user or account, toggled (SignIn).
-// Signed in, both land in the same console: an account on Calls, a portal user
-// on the first screen their ACL grants (the sidebar's order).
-const Root = () => {
+// Signed out, `/` is the user sign-in page and `/admin` is the account
+// sign-in page. Signed in, both use the same ACL-filtered console.
+const Root = ({ loginMode = 'user' }) => {
   const admin = useAuth();
   const user = useUserAuth();
   if (admin.initializing || user.initializing) return null;
@@ -108,7 +112,7 @@ const Root = () => {
     const first = getPermittedNavItems(user.acl, { strict: true })[0];
     return first ? <Navigate to={first.path} replace /> : <Layout><NoAccess /></Layout>;
   }
-  return <Layout><SignIn /></Layout>;
+  return <Layout><SignIn mode={loginMode} /></Layout>;
 };
 
 // A portal user on a screen their ACL does not grant (or an account-only
@@ -143,7 +147,7 @@ function AppContent() {
 
     // After initialization is complete, check if user is authenticated
     // AuthContext handles all token validation using JWT exp claim
-    if (!isAuthenticated) return <Navigate to="/?as=account" replace />;
+    if (!isAuthenticated) return <Navigate to={lastLoginPath()} replace />;
 
     // ACL route protection: block access if user lacks read/index/list permission.
     // Bounce to /account, which carries no requiredAcl — sending a denial to an
@@ -160,12 +164,10 @@ function AppContent() {
     <Router>
       <Suspense fallback={<Layout><PageLoader /></Layout>}>
       <Routes>
-        {/* `/` is the one sign-in page (user or account, toggled) and, signed
-            in, the portal. There is no /admin page: old /admin and /login
-            links land on the sign-in with Account selected. */}
-        <Route path="/" element={<Root />} />
-        <Route path="/admin" element={<Navigate to="/?as=account" replace />} />
-        <Route path="/login" element={<Navigate to="/?as=account" replace />} />
+        {/* Separate sign-in doors; authenticated sessions use one console. */}
+        <Route path="/" element={<Root loginMode="user" />} />
+        <Route path="/admin" element={<Root loginMode="account" />} />
+        <Route path="/login" element={<Navigate to="/admin" replace />} />
         {/* Live answers "what is my team doing right now". An account watches
             the environment it picks; a user their own. Same key as its
             sidebar item, for both sessions. */}

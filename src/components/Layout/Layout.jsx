@@ -1,7 +1,7 @@
 import { Box, Drawer, Typography, Snackbar, Button, useMediaQuery } from '@mui/material';
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useLayout } from './Layout';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import Sidebar from '../Sidebar/Sidebar.jsx';
 import TopBar from '../TopBar/TopBar.jsx';
 import { useAuth } from '../../context/AuthContext';
@@ -33,14 +33,14 @@ const LOGO_WHITE = '/images/VA_logo_white.png';
 const Layout = ({ children }) => {
   useLayout();
   const location = useLocation();
+  const navigate = useNavigate();
   const { isAuthenticated, logout, user, customerUuid } = useAuth();
   const userAuth = useUserAuth();
   const { isDarkMode } = useThemeMode();
-  // `/` is BOTH the sign-in page (user or account, toggled) and, once signed
-  // in, the portal itself (App.jsx's PortalRoot). Only treat it as a login
-  // page while there is no session — otherwise the portal renders bare, with
-  // no bar and no phone.
-  const isLoginPage = location.pathname === '/' && !userAuth.isAuthenticated && !isAuthenticated;
+  // `/` is user sign-in and `/admin` is account sign-in. Both are bare only
+  // while no session exists.
+  const isLoginPage = ['/', '/admin'].includes(location.pathname)
+    && !userAuth.isAuthenticated && !isAuthenticated;
   // Zendesk support widget (answer bot + "Get in touch" tickets) — admin
   // console only; the portal's corner belongs to the phone FAB.
   useZendeskWidget(isAuthenticated && !isLoginPage, user, customerUuid);
@@ -51,7 +51,7 @@ const Layout = ({ children }) => {
   // Warns 1 minute before logging out; any activity keeps the session alive.
   const { warningOpen: idleWarningOpen, staySignedIn } = useIdleTimeout({
     enabled: isAuthenticated && !isLoginPage,
-    onTimeout: logout,
+    onTimeout: () => { logout(); navigate('/admin'); },
   });
 
   // Load and apply customer branding when authenticated (once)

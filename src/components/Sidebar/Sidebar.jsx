@@ -371,7 +371,7 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
         <MenuItem onClick={() => { toggleTheme(); setUserMenuAnchor(null); }} data-testid="user-menu-theme">
           {isDarkMode ? 'Light mode' : 'Dark mode'}
         </MenuItem>
-        <MenuItem onClick={() => { setUserMenuAnchor(null); userAuth.logout(); }} data-testid="user-menu-sign-out">
+        <MenuItem onClick={() => { setUserMenuAnchor(null); userAuth.logout(); navigate('/'); }} data-testid="user-menu-sign-out">
           Sign out
         </MenuItem>
       </Menu>
