@@ -6,8 +6,6 @@ import Sidebar from '../Sidebar/Sidebar.jsx';
 import TopBar from '../TopBar/TopBar.jsx';
 import { useAuth } from '../../context/AuthContext';
 import { useUserAuth } from '../../context/UserAuthContext';
-import PortalHeader from './PortalHeader.jsx';
-import { usePortalPreferences } from '../../context/PortalPreferencesContext';
 import PortalSidebar from '../Portal/PortalSidebar.jsx';
 import { PortalSidebarProvider } from '../../context/PortalSidebarContext';
 import { GlobalSearchProvider } from '../../context/GlobalSearchContext';
@@ -37,17 +35,12 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const { isAuthenticated, logout, user, customerUuid } = useAuth();
   const userAuth = useUserAuth();
-  const portalPreferences = usePortalPreferences();
   const { isDarkMode } = useThemeMode();
   // `/` is BOTH the sign-in page (user or account, toggled) and, once signed
   // in, the portal itself (App.jsx's PortalRoot). Only treat it as a login
   // page while there is no session — otherwise the portal renders bare, with
   // no bar and no phone.
   const isLoginPage = location.pathname === '/' && !userAuth.isAuthenticated && !isAuthenticated;
-  // A signed-in portal user (not an admin) gets a minimal shell below — the
-  // admin sidebar/topbar are admin-console concepts a portal user has no
-  // business seeing.
-  const isUserOnlySession = userAuth.isAuthenticated && !isAuthenticated;
   // Zendesk support widget (answer bot + "Get in touch" tickets) — admin
   // console only; the portal's corner belongs to the phone FAB.
   useZendeskWidget(isAuthenticated && !isLoginPage, user, customerUuid);
@@ -113,39 +106,12 @@ const Layout = ({ children }) => {
         <Box data-testid="login-layout">
           {children}
         </Box>
-      ) : isUserOnlySession ? (
-        // Portal user, not an admin: one bar over one screen. The bar holds
-        // the places (Calls, Live), the line — a combobox that is the portal's
-        // only menu, and where a question is asked — and the phone button at
-        // its right end. The phone and a call's details open in ONE sidebar
-        // from that same edge. The admin sidebar/topbar are admin-console
-        // concepts a portal user never sees.
-        //
-        // GlobalSearchProvider wraps it because screens shared with the admin
-        // console (DIDs, the portal's Numbers) register their filter segments
-        // through it, and useGlobalSearch() THROWS without a provider.
-        <GlobalSearchProvider>
-        <PortalSidebarProvider>
-        <Box data-testid="user-layout" sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-          <PortalHeader />
-          <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
-            <Box component="main" sx={{ flex: 1, minWidth: 0 }}>
-              {/* A local Suspense boundary. Without it, any lazy chunk this
-                  subtree pulls in suspends all the way up to App.jsx's
-                  boundary, whose fallback is ANOTHER <Layout> — the shell was
-                  torn down and rebuilt on every route's first load. */}
-              <Suspense fallback={null}>{children}</Suspense>
-            </Box>
-          </Box>
-          {portalPreferences.error && <Box role="alert" sx={{ p: 1, color: 'error.main' }}>{portalPreferences.error}</Box>}
-          <PortalSidebar />
-        </Box>
-        </PortalSidebarProvider>
-        </GlobalSearchProvider>
       ) : (
-        // Authenticated layout: Sidebar + TopBar + Content, and the same
-        // right-hand sidebar as the portal, where the phone opens (the top
-        // bar's phone button, a clicked number, a device's "Open phone").
+        // Signed in — an account or a portal user, the same console: Sidebar +
+        // TopBar + Content, and the right-hand sidebar where the phone opens
+        // (the top bar's phone button, a clicked number, a device's "Open
+        // phone"). What a user sees in it is filtered by their ACL (Sidebar,
+        // TopBar, App.jsx's ProtectedRoute).
         <GlobalSearchProvider>
           <PortalSidebarProvider>
           <RecentPagesProvider>

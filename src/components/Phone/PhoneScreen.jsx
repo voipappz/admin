@@ -1,7 +1,5 @@
-// PhoneScreen — the softphone: the /phone route, and the right-hand sidebar
-// of both the admin console and the user portal (PortalSidebar). Adapted from app's PhoneWidget.jsx (a header-triggered docked
-// drawer) into a page layout, since here it's a dedicated route rather than
-// an overlay. Core calling (dialpad, mute/hold/hangup/DTMF, transfer,
+// PhoneScreen — the softphone in the shared right-hand drawer. Adapted from
+// the app's PhoneWidget.jsx. Core calling (dialpad, mute/hold/hangup/DTMF, transfer,
 // settings) is ported; the presence/agent-status picker and the "Calls"
 // history tab are not (they're admin-console-specific integrations, not part
 // of the core WebRTC migration) — follow-up if wanted.
@@ -23,7 +21,6 @@ import TerminalIcon from '@mui/icons-material/Terminal';
 import HistoryIcon from '@mui/icons-material/History';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useSoftphone } from '../../context/SoftphoneContext';
-import { useUserAuth } from '../../context/UserAuthContext';
 import { usePortalSidebar } from '../../context/PortalSidebarContext';
 import { defaultSipSettings, sipSettingsReady } from '../../lib/sip/sipSettings';
 import SipSettingsForm from './SipSettingsForm.jsx';
@@ -33,10 +30,8 @@ import TransferControls from './TransferControls.jsx';
 import PhoneCallsTab from './PhoneCallsTab.jsx';
 import PhonePresence from './PhonePresence.jsx';
 import { ACCENT, GREEN, MUTED, PANEL, PANEL_HEADER } from './panelTheme.js';
-// Calls · Dialpad along the bottom; Settings is the gear in the header —
-// something set once, rather than a third of the tab bar. Asking about your
-// calls is not here at all: it is a row in the portal's line (PortalLine),
-// which is where a question gets typed.
+// Calls · Dialpad along the bottom; Settings is the gear in the header.
+// Calls remain in the shared Calls screen; the phone lives in the drawer.
 const TABS = ['calls', 'dialpad'];
 import { requestIncomingCallNotifications, useIncomingCallAlerts } from '../../lib/sip/useIncomingCallAlerts.js';
 
@@ -56,10 +51,7 @@ function useCallTimer(connectedAt) {
   return `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
 }
 
-// `embedded` = rendered inside PhoneDock's drawer rather than as the /phone
-// page. The page wants a centred, padded card; the dock wants the panel to
-// fill the drawer edge to edge, so the tabs sit on the bottom of the panel
-// instead of floating above a band of empty white.
+// `embedded` renders inside PhoneDock's drawer, filling the panel edge to edge.
 // `device` (an account session only): sign the phone in as this device.
 // `initialNumber`: put a clicked number in the dialpad (useCallNumber).
 export default function PhoneScreen({ embedded = false, initialTab, device, initialNumber }) {
@@ -70,19 +62,15 @@ export default function PhoneScreen({ embedded = false, initialTab, device, init
   } = useSoftphone();
   const sidebar = usePortalSidebar();
 
-  const userAuth = useUserAuth();
-  // Logout belongs to the portal user's session only — an admin viewing
-  // /phone signs out through the admin console's own account menu.
-  const isPortalUser = userAuth.isAuthenticated;
   // An account has no extension of its own: until it signs the phone in (as a
   // device, or through a user login) the panel is that sign-in. Opened for a
   // device other than the one registered, it signs in as that device.
   const openedForOtherDevice = Boolean(device?.uuid) && String(device.username ?? '') !== String(settings?.username ?? '');
-  const needsSignIn = !isPortalUser && (!sipSettingsReady(settings || {}) || openedForOtherDevice);
+  const needsSignIn = !sipSettingsReady(settings || {}) || openedForOtherDevice;
 
   const [tab, setTab] = useState(() => Math.max(TABS.indexOf(initialTab || 'dialpad'), 0));
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // Opening the phone at a particular tab (the line's Phone / Assistant rows).
+  // Opening the drawer at a particular tab.
   useEffect(() => {
     if (!initialTab) return;
     const index = TABS.indexOf(initialTab);
@@ -170,7 +158,7 @@ export default function PhoneScreen({ embedded = false, initialTab, device, init
               {name} <Box component="span" sx={{ color: MUTED, fontWeight: 400 }}>• {ext}</Box>
             </Typography>
             <PhonePresence
-              userUuid={userAuth.user?.uuid}
+              userUuid={device?.user_uuid || device?.userUuid}
               doNotDisturb={doNotDisturb}
               onDoNotDisturbChange={setDoNotDisturb}
             />
@@ -207,40 +195,24 @@ export default function PhoneScreen({ embedded = false, initialTab, device, init
           {settingsOpen ? (
             <Box sx={{ p: 1, '& .MuiInputBase-root': { bgcolor: 'var(--mui-palette-background-paper)', borderRadius: 1 }, '& label, & .MuiFormControlLabel-label, & .MuiTypography-root': { color: '#e5e7eb' } }}>
               <SipSettingsForm />
-              {/* The portal has no other sign-out affordance, so this is it.
-                  useUserAuth().logout() also tears the softphone down: see
-                  SoftphoneContext's authenticated -> false effect. */}
               {/* An account signs the phone OUT of the device or user it
                   borrowed, and is back at the sign-in. Re-opening the sidebar
                   without params drops the device it was opened for, which
                   would otherwise sign it straight back in. */}
-              {!isPortalUser && (
-                <Box sx={{ px: 1.5, pb: 1.5, pt: 0.5 }}>
-                  <Button
-                    fullWidth variant="outlined" color="inherit" startIcon={<LogoutIcon />} data-testid="phone-sign-out"
-                    onClick={async () => {
-                      try { await disconnect?.(); } catch { /* status shows it */ }
-                      updateSettings?.(defaultSipSettings());
-                      setSettingsOpen(false);
-                      sidebar.open('phone', { tab: 'dialpad' });
-                    }}
-                    sx={{ borderColor: 'rgba(255,255,255,0.3)', color: '#e5e7eb' }}
-                  >
-                    Sign the phone out
-                  </Button>
-                </Box>
-              )}
-              {isPortalUser && (
-                <Box sx={{ px: 1.5, pb: 1.5, pt: 0.5 }}>
-                  <Button
-                    fullWidth variant="outlined" color="inherit" startIcon={<LogoutIcon />}
-                    onClick={() => userAuth.logout()} data-testid="phone-logout"
-                    sx={{ borderColor: 'rgba(255,255,255,0.3)', color: '#e5e7eb' }}
-                  >
-                    Logout
-                  </Button>
-                </Box>
-              )}
+              <Box sx={{ px: 1.5, pb: 1.5, pt: 0.5 }}>
+                <Button
+                  fullWidth variant="outlined" color="inherit" startIcon={<LogoutIcon />} data-testid="phone-sign-out"
+                  onClick={async () => {
+                    try { await disconnect?.(); } catch { /* status shows it */ }
+                    updateSettings?.(defaultSipSettings());
+                    setSettingsOpen(false);
+                    sidebar.open('phone', { tab: 'dialpad' });
+                  }}
+                  sx={{ borderColor: 'rgba(255,255,255,0.3)', color: '#e5e7eb' }}
+                >
+                  Sign the phone out
+                </Button>
+              </Box>
             </Box>
           ) : logsOpen ? (
             <Box sx={{ p: 1, flex: 1, display: 'flex', flexDirection: 'column' }}>

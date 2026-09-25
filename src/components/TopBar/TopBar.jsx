@@ -120,6 +120,9 @@ import { SortableContext, useSortable, arrayMove, horizontalListSortingStrategy 
 import { CSS } from '@dnd-kit/utilities';
 import './TopBar.css';
 import TopBarPhoneButton from './TopBarPhoneButton.jsx';
+import { useIsUserSession } from '../../hooks/useIsUserSession';
+import { usePermissions } from '../../hooks/usePermissions';
+import { useUserAuth } from '../../context/UserAuthContext';
 import { ConfirmDialog } from '../ui';
 
 const ITEM_HEIGHT = 68; // application rows: name + type, status/date/id, meta chips
@@ -163,6 +166,13 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
   const { isAuthenticated, user, logout, accountCustomer } = useAuth();
   const { isDarkMode, toggleTheme } = useThemeMode();
   useTour();
+  // A portal USER signs in to this same console, with the account's ACL model:
+  // a tool shows for them only when their ACL grants its key; one without a
+  // key is an account tool. One environment, their own: a label, not a picker.
+  const userSession = useIsUserSession();
+  const { canAccess } = usePermissions();
+  const allow = (aclKey) => !userSession || Boolean(aclKey && canAccess(aclKey));
+  const userEnvironmentName = useUserAuth().user?.environment?.name || '';
 
   // Responsive: below md the fixed sidebar is hidden (hamburger drives the drawer);
   // on phones the secondary top-right tools collapse into a single ⋮ overflow menu.
@@ -278,7 +288,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     handleRefresh: handleTicketRefresh,
     filters: ticketFilters,
     handleFiltersChange: handleTicketFiltersChange,
-  } = useTickets();
+  } = useTickets({ enabled: !userSession });
 
   // Ref for org breadcrumb button (used to programmatically open popover)
   const orgBreadcrumbRef = useRef(null);
@@ -813,19 +823,23 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     if (fresh) { await selectCustomer(fresh); }
   };
 
-  if (!isAuthenticated) return null;
+  // The shared shell serves either active session. Account-only controls below
+  // are individually gated; a user still needs the environment label, ⌘K,
+  // phone button, ACL-granted actions, and profile menu.
+  if (!isAuthenticated && !userSession) return null;
 
   // Secondary top-right tools. Shown inline on desktop; on phones they collapse
   // into the ⋮ overflow menu (Tickets, Health, Notifications, Account stay inline).
   const overflowTools = [
     { key: 'wizard', label: 'Wizard', icon: <AutoFixHighIcon fontSize="small" />, onClick: () => window.dispatchEvent(new Event('openWizardModal')) },
-    { key: 'events', label: 'Events', icon: <EventNoteIcon fontSize="small" />, onClick: () => window.dispatchEvent(new CustomEvent('openEventsModal', { detail: '' })) },
-    { key: 'syslog', label: 'Syslog', icon: <ArticleIcon fontSize="small" />, onClick: () => window.dispatchEvent(new Event('openSyslogModal')) },
+    { key: 'events', aclKey: 'logs', label: 'Events', icon: <EventNoteIcon fontSize="small" />, onClick: () => window.dispatchEvent(new CustomEvent('openEventsModal', { detail: '' })) },
+    { key: 'syslog', aclKey: 'logs', label: 'Syslog', icon: <ArticleIcon fontSize="small" />, onClick: () => window.dispatchEvent(new Event('openSyslogModal')) },
     { key: 'help', label: 'Help Center', icon: <HelpOutlineIcon fontSize="small" />, onClick: () => window.open('https://voipappz.zendesk.com/hc/en-us', '_blank', 'noopener') },
     { key: 'devzone', label: 'API DevZone', icon: <CodeIcon fontSize="small" />, onClick: () => navigate('/devzone') },
     { key: 'mcp', label: 'MCP', icon: <HubOutlinedIcon fontSize="small" />, onClick: () => navigate('/mcp') },
-    { key: 'theme', label: isDarkMode ? 'Light Mode' : 'Dark Mode', icon: isDarkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />, onClick: toggleTheme },
-  ];
+    // Appearance is the viewer's, not a permission: always offered.
+    { key: 'theme', always: true, label: isDarkMode ? 'Light Mode' : 'Dark Mode', icon: isDarkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />, onClick: toggleTheme },
+  ].filter((tool) => tool.always || allow(tool.aclKey));
 
   return (
     <>
@@ -846,6 +860,11 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
             without this the current scope was invisible: with hundreds of apps
             selectable you could read a table and not know what it covered.
             Doubles as the popover anchor (was a bare span). */}
+        {userSession ? (
+          <Typography data-testid="topbar-user-environment" sx={{ fontSize: '0.75rem', fontWeight: 600, px: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--theme-text-primary)' }}>
+            {userEnvironmentName}
+          </Typography>
+        ) : (
         <Tooltip title={selectedEnvSummary.tooltip} placement="bottom-start">
           <Button
             ref={orgBreadcrumbRef}
@@ -884,6 +903,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
             </Box>
           </Button>
         </Tooltip>
+        )}
         <Box sx={{ width: 8 }} />
 
         {/* Global search moved to ⌘K only (no visible box). */}
@@ -894,11 +914,15 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           {/* Actions + observability nav — inline on desktop, in ⋮ on phones */}
           {!isPhone && (
           <>
+          {allow(null) && (
           <Tooltip title="Wizard">
             <IconButton size="small" onClick={() => window.dispatchEvent(new Event('openWizardModal'))} sx={{ color: 'var(--theme-text-secondary)', '&:hover': { backgroundColor: 'var(--theme-hover)' } }}>
               <AutoFixHighIcon fontSize="small" />
             </IconButton>
           </Tooltip>
+          )}
+          {allow('logs') && (
+          <>
           <Tooltip title="Events">
             <IconButton size="small" onClick={() => window.dispatchEvent(new CustomEvent('openEventsModal', { detail: '' }))} sx={{ color: 'var(--theme-text-secondary)', '&:hover': { backgroundColor: 'var(--theme-hover)' } }}>
               <EventNoteIcon fontSize="small" />
@@ -911,10 +935,13 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           </Tooltip>
           </>
           )}
+          </>
+          )}
 
           {/* App Health — the API's own dependencies (database / redis / nats)
               from /health?verbose, always visible at the top. One dot per
-              dependency; click opens the full Health dialog. */}
+              dependency; click opens the full Health dialog. An account's. */}
+          {!userSession && (
           <Box
             onClick={() => window.dispatchEvent(new Event('openHealthDialog'))}
             role="button"
@@ -957,14 +984,16 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
               </Tooltip>
             )}
           </Box>
+          )}
 
           {/* (Help / API DevZone / Theme moved to the sidebar bottom tools) */}
 
           {/* Divider between admin and utility icons */}
           <Box sx={{ width: '1px', height: 24, backgroundColor: 'var(--border-light, #e5e7eb)', mx: 0.5, flexShrink: 0 }} />
 
-          <TopBarPhoneButton />
+          {!userSession && <TopBarPhoneButton />}
 
+          {allow('notifications') && (
           <Tooltip title="Notifications">
             <IconButton
               size="small"
@@ -976,6 +1005,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
               </Badge>
             </IconButton>
           </Tooltip>
+          )}
 
           {/* Overflow ⋮ — phones only: holds the secondary tools that don't fit */}
           {isPhone && (

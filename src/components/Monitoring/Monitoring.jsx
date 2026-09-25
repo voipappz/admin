@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
   Box, Typography, Chip, IconButton, Tooltip, Switch, FormControlLabel,
   Paper, Select, MenuItem, FormControl,
@@ -16,9 +17,7 @@ import ArticleIcon from '@mui/icons-material/Article';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import AppsIcon from '@mui/icons-material/Apps';
-import TerminalIcon from '@mui/icons-material/Terminal';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import InfluxMetricExplorer from './InfluxMetricExplorer/InfluxMetricExplorer.jsx';
 import YabedaMetricViewer from './YabedaMetricViewer.jsx';
 import GatusHealthPanel from './GatusHealthPanel.jsx';
 import MonitoringNodes from './MonitoringNodes.jsx';
@@ -155,6 +154,7 @@ const IntegrationsPanel = ({ minutes, bucket, host, alertConfig }) => {
 };
 
 const Monitoring = () => {
+  const navigate = useNavigate();
   const {
     timeRange, setTimeRange, TIME_RANGES,
     hosts, selectedHost, setSelectedHost,
@@ -167,7 +167,6 @@ const Monitoring = () => {
   const apiHealth = useApiHealth();
   const health = apiHealth.response;
 
-  const [influxOpen, setInfluxOpen] = useState(false);
   const [monitorNodes, setMonitorNodes] = useState([]);
 
   // Syslog hosts are display names; the Gatus relay is addressed by node UUID.
@@ -299,7 +298,7 @@ const Monitoring = () => {
                   yDomain={m.unit === '%' ? [0, 100] : undefined}
                   threshold={thresholds(m.key).crit}
                   loading={loading}
-                  onEditQuery={() => setInfluxOpen(true)}
+                  onEditQuery={() => navigate('/admin/dashboard')}
                 />
               ))}
             </Box>
@@ -356,23 +355,6 @@ const Monitoring = () => {
                 />
               </Box>
             </Paper>
-
-            {/* Ad-hoc querying — the server builds the query with Influxer; the
-                client only picks measurement → field → aggregation. */}
-            <Accordion expanded={influxOpen} onChange={(e, exp) => setInfluxOpen(exp)}
-              disableGutters elevation={0}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, '&:before': { display: 'none' } }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <TerminalIcon fontSize="small" />
-                  <Typography sx={{ fontWeight: 600 }}>Metric explorer</Typography>
-                  <Chip size="small" variant="outlined" label="Influxer" />
-                </Box>
-              </AccordionSummary>
-              <AccordionDetails>
-                <InfluxMetricExplorer host={selectedHost || ''} />
-              </AccordionDetails>
-            </Accordion>
 
             <Accordion defaultExpanded disableGutters elevation={0}
               sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, '&:before': { display: 'none' } }}>

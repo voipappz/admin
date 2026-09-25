@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { useAuth } from './AuthContext';
 
 /**
  * ONE sidebar, whatever is in it.
@@ -14,13 +15,19 @@ const Context = createContext({ view: null, params: null, open: () => {}, toggle
 
 export function PortalSidebarProvider({ children }) {
   const [state, setState] = useState({ view: null, params: null });
+  const { isAuthenticated } = useAuth();
 
-  const open = useCallback((view, params = null) => setState({ view, params }), []);
+  // Call details are shared; the softphone is an account-console tool.
+  const open = useCallback((view, params = null) => {
+    if (view === 'phone' && !isAuthenticated) return;
+    setState({ view, params });
+  }, [isAuthenticated]);
   const close = useCallback(() => setState({ view: null, params: null }), []);
   // Same view again closes it; a different view replaces what is showing.
   const toggle = useCallback((view, params = null) => {
+    if (view === 'phone' && !isAuthenticated) return;
     setState((current) => (current.view === view && !params ? { view: null, params: null } : { view, params }));
-  }, []);
+  }, [isAuthenticated]);
 
   const value = useMemo(() => ({ ...state, open, toggle, close }), [state, open, toggle, close]);
   return <Context.Provider value={value}>{children}</Context.Provider>;

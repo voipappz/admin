@@ -91,13 +91,13 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
   // Load apps (no loading flash on the main table)
   const loadApps = useCallback(async () => {
     try {
-      const response = await syslogsApi.fetchApps();
+      const response = await syslogsApi.fetchApps(customerUuid || null);
       setApps(Array.isArray(response) ? response : response?.data || []);
     } catch (error) {
       console.error('Failed to load apps:', error);
       setApps([]);
     }
-  }, []);
+  }, [customerUuid]);
 
   // Load nodes for host filtering
   const loadNodes = useCallback(async () => {
@@ -288,6 +288,13 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     loadApps();
     loadNodes();
   }, [loadApps, loadNodes]);
+
+  // A source only has meaning inside its customer scope. Do not retain a
+  // source selected under the previous customer while the new source list is
+  // loading; that produced an empty, confusing log table after a scope switch.
+  useEffect(() => {
+    setSelectedApp('');
+  }, [customerUuid]);
 
   // Load logs when filters change
   useEffect(() => {

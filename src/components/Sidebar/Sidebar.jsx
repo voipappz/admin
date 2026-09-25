@@ -1,10 +1,13 @@
 import { useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router';
+import { useState } from 'react';
 import {
   Avatar,
   Box,
   IconButton,
   List,
+  Menu,
+  MenuItem,
   ListItem,
   ListItemButton,
   ListItemIcon,
@@ -24,6 +27,9 @@ import CircleIcon from '@mui/icons-material/Circle';
 import useApiHealth from '../../hooks/useApiHealth';
 import useGatusHealth from '../../hooks/useGatusHealth';
 import { useAuth } from '../../context/AuthContext';
+import { useUserAuth } from '../../context/UserAuthContext';
+import { useThemeMode } from '../../context/ThemeContext';
+import { useIsUserSession } from '../../hooks/useIsUserSession';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
 import { getPermittedNavItems, getPermittedTopbarItems } from '../../config/navConfig';
 import useNavBadges from '../../hooks/useNavBadges';
@@ -37,7 +43,17 @@ const customerInitial = (name) => (name?.trim()?.[0] || '🏢').toUpperCase();
 const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onToggleSidebar }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { acl, user } = useAuth();
+  const account = useAuth();
+  const userAuth = useUserAuth();
+  // A portal USER signs in to this same console. Same ACL model as an account:
+  // the same items, filtered strictly by the user's ACL; nothing without a key.
+  const userSession = useIsUserSession();
+  const acl = userSession ? userAuth.acl : account.acl;
+  const user = userSession
+    ? { email: userAuth.user?.email, fullName: userAuth.user?.fullname || userAuth.user?.name }
+    : account.user;
+  const { isDarkMode, toggleTheme } = useThemeMode();
+  const [userMenuAnchor, setUserMenuAnchor] = useState(null);
   const { selectedCustomer } = useCustomerEnvironment();
   const isMobile = useMediaQuery((t) => t.breakpoints.down('md'));
   // ── Health, as one colour ────────────────────────────────────────────────
@@ -102,10 +118,16 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
   // Opens the topbar's combined customer+environment box, anchored to this button.
   const openEnvSelector = (e) => window.dispatchEvent(new CustomEvent('openEnvSelector', { detail: e.currentTarget }));
 
-  const badges = useNavBadges();                        // live nav counts (calls/events)
+  const badges = useNavBadges(!userSession);            // live nav counts (account only)
 
-  const menuItems = getPermittedNavItems(acl);          // day-to-day (top)
-  const adminItems = getPermittedTopbarItems(acl);      // professional/admin (pinned bottom)
+  const menuItems = getPermittedNavItems(acl, { strict: userSession });     // day-to-day (top)
+  const adminItems = getPermittedTopbarItems(acl, { strict: userSession }); // professional/admin (pinned bottom)
+  // A user has one environment, their own: a label, never a selector.
+  const userEnvironmentName = userAuth.user?.environment?.name || '';
+  // The account's profile opens the account dialog; a user's opens this menu.
+  const openProfile = (e) => (userSession
+    ? setUserMenuAnchor(e.currentTarget)
+    : window.dispatchEvent(new Event('openAccountDialog')));
   const isActive = (path) => location.pathname === path;
 
   // Navigate, then let the host (e.g. mobile drawer) close itself. The event lets
@@ -176,6 +198,14 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
             <MenuIcon sx={{ fontSize: 20 }} />
           </IconButton>
         </Tooltip>
+        {userSession ? (
+          <Tooltip title={userEnvironmentName} placement="right" arrow disableHoverListener={expanded}>
+            <Box className="sidebar-env-trigger" data-testid="sidebar-user-environment" sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
+              <Avatar className="sidebar-env-avatar">{customerInitial(userEnvironmentName)}</Avatar>
+              <span className="sidebar-nav-text" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500, fontSize: '0.82rem' }}>{userEnvironmentName}</span>
+            </Box>
+          </Tooltip>
+        ) : (
         <Tooltip title={fullCustomerName} placement="right" arrow disableHoverListener={expanded}>
           <ListItemButton className="sidebar-env-trigger" onClick={openEnvSelector} aria-label="Customer and application" sx={{ flex: 1, minWidth: 0 }}>
             <Avatar className="sidebar-env-avatar">{customerInitial(selectedCustomer?.name)}</Avatar>
@@ -183,6 +213,7 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
             <KeyboardArrowDownIcon className="sidebar-nav-text" sx={{ fontSize: 16, opacity: 0.5 }} />
           </ListItemButton>
         </Tooltip>
+        )}
       </Box>
 
       {/* Day-to-day navigation — flat list, no groups */}
@@ -203,6 +234,8 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
           devzone/MCP/settings/tickets, then the account row. Wizard moved into the customer
           box; Notifications moved to the Monitoring right rail. Events/Syslog
           live under Logs. */}
+      {/* None of these has an ACL key: account-console tools, not a user's. */}
+      {userSession ? <Box sx={{ mt: 'auto' }} /> : (
       <Box className="sidebar-bottom-tools" sx={{ mt: 'auto' }}>
         {/* Health — a COLOUR, not an icon. This was a plain Timeline glyph, so
             the one thing an operator wants at a glance ("is anything wrong?")
@@ -282,6 +315,7 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
           </IconButton>
         </Tooltip>
       </Box>
+      )}
 
       {/* Account — pinned at the bottom. Expanded: a full profile row
           (avatar + name + email); collapsed rail: just the avatar. */}
@@ -289,7 +323,7 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
         {expanded ? (
           <Box
             className="sidebar-profile-row"
-            onClick={() => window.dispatchEvent(new Event('openAccountDialog'))}
+            onClick={openProfile}
             role="button"
             aria-label="Account"
           >
@@ -317,7 +351,7 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
           >
             <IconButton
               className="sidebar-profile-button"
-              onClick={() => window.dispatchEvent(new Event('openAccountDialog'))}
+              onClick={openProfile}
               aria-label="Edit account"
             >
               <Avatar className="sidebar-profile-avatar">
@@ -327,6 +361,20 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
           </Tooltip>
         )}
       </Box>
+
+      {/* A user's profile menu: appearance and sign out (the account dialog
+          is an account's). */}
+      <Menu
+        anchorEl={userMenuAnchor} open={Boolean(userMenuAnchor)} onClose={() => setUserMenuAnchor(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }} transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        <MenuItem onClick={() => { toggleTheme(); setUserMenuAnchor(null); }} data-testid="user-menu-theme">
+          {isDarkMode ? 'Light mode' : 'Dark mode'}
+        </MenuItem>
+        <MenuItem onClick={() => { setUserMenuAnchor(null); userAuth.logout(); }} data-testid="user-menu-sign-out">
+          Sign out
+        </MenuItem>
+      </Menu>
     </Box>
   );
 };

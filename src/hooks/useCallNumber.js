@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { usePortalSidebar } from '../context/PortalSidebarContext';
+import { useIsUserSession } from './useIsUserSession';
 
 // Only what a dialpad accepts: "+972 (3) 555-1234" -> "+97235551234".
 const dialable = (number) => String(number ?? '').replace(/[^\d+*#]/g, '');
@@ -11,10 +12,11 @@ const dialable = (number) => String(number ?? '').replace(/[^\d+*#]/g, '');
  */
 export function useCallNumber() {
   const { open } = usePortalSidebar();
+  const userSession = useIsUserSession();
   return useCallback((number) => {
     const n = dialable(number);
-    if (n) open('phone', { tab: 'dialpad', number: n });
-  }, [open]);
+    if (n && !userSession) open('phone', { tab: 'dialpad', number: n });
+  }, [open, userSession]);
 }
 
 /**
@@ -23,7 +25,8 @@ export function useCallNumber() {
  */
 export function useOpenPhoneAs() {
   const { open } = usePortalSidebar();
+  const userSession = useIsUserSession();
   return useCallback((device) => {
-    if (device) open('phone', { tab: 'dialpad', device });
-  }, [open]);
+    if (device && !userSession) open('phone', { tab: 'dialpad', device });
+  }, [open, userSession]);
 }
