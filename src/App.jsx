@@ -15,6 +15,7 @@ import Layout from './components/Layout/Layout.jsx';
 import { TourOverlay } from './components/Tour';
 import { usePermissions } from './hooks/usePermissions';
 import { getPermittedNavItems } from './config/navConfig';
+import { canUserEnterRoute } from './routing/routeAccess';
 import { CircularProgress, Box, Typography } from '@mui/material';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import { ConfirmProvider } from './components/ui';
@@ -119,12 +120,6 @@ const NoAccess = () => (
     <Typography variant="body2">Your access does not include this screen.</Typography>
   </Box>
 );
-
-// User sessions are deliberately stricter than account sessions: a route must
-// declare a key and that key must be granted. Exported for the route-guard
-// unit test so this policy cannot drift back to permitting key-less pages.
-export const canUserEnterRoute = (requiredAcl, canAccess) =>
-  Boolean(requiredAcl && canAccess(requiredAcl));
 
 function AppContent() {
   // Define route guards INSIDE AppContent so they're guaranteed to be inside AuthProvider

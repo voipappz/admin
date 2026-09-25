@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canUserEnterRoute } from './App';
+import { canUserEnterRoute } from './routing/routeAccess';
 
 describe('user route guard policy', () => {
   const canAccess = (key) => key === 'calls';

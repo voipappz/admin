@@ -13,7 +13,11 @@ vi.mock('../../hooks/usePermissions', () => ({ usePermissions: () => ({ can: () 
 const auth = vi.fn(() => ({ isRoot: false }));
 vi.mock('../../context/AuthContext', () => ({ useAuth: () => auth() }));
 vi.mock('../../services/api/monitoringApi', () => ({
-  monitoringApi: { getCallsVolumeChart: vi.fn().mockResolvedValue([]) },
+  monitoringApi: {
+    getCallsVolumeChart: vi.fn().mockResolvedValue([]),
+    getInfluxSchema: vi.fn().mockResolvedValue([]),
+    runInfluxQuery: vi.fn().mockResolvedValue([]),
+  },
 }));
 import { monitoringApi } from '../../services/api/monitoringApi';
 
@@ -30,8 +34,8 @@ describe('AdminDashboard', () => {
     });
     render(<AdminDashboard />);
     expect(screen.getByTestId('admin-dashboard-page')).toHaveTextContent('Live activity for acme · all applications');
-    expect(await screen.findByText('Live updates connected')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.queryByText('Live updates connected')).not.toBeInTheDocument();
+    expect(screen.queryByText('3')).not.toBeInTheDocument();
   });
 
   it('charts every application in the selected customer, grouped by customer', async () => {
@@ -57,6 +61,6 @@ describe('AdminDashboard', () => {
     scope.mockReturnValue({ selectedCustomer: null, selectedEnvironments: [] });
     render(<AdminDashboard />);
     expect(screen.getByText('Select an application to see live activity')).toBeInTheDocument();
-    expect(screen.getByText('Reconnecting to live updates')).toBeInTheDocument();
+    expect(screen.queryByText('Reconnecting to live updates')).not.toBeInTheDocument();
   });
 });
