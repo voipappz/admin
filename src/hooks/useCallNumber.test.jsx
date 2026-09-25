@@ -1,9 +1,16 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useCallNumber, useOpenPhoneAs } from './useCallNumber';
 
 const open = vi.fn();
+let userSession = false;
 vi.mock('../context/PortalSidebarContext', () => ({ usePortalSidebar: () => ({ open }) }));
+vi.mock('./useIsUserSession', () => ({ useIsUserSession: () => userSession }));
+
+beforeEach(() => {
+  open.mockClear();
+  userSession = false;
+});
 
 describe('useCallNumber', () => {
   // A click on a number opens the phone on the right with the number in the
@@ -15,9 +22,15 @@ describe('useCallNumber', () => {
   });
 
   it('ignores an empty number', () => {
-    open.mockClear();
     const { result } = renderHook(() => useCallNumber());
     result.current('  ');
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('does not open the account phone for a user session', () => {
+    userSession = true;
+    const { result } = renderHook(() => useCallNumber());
+    result.current('+972 3 555 1234');
     expect(open).not.toHaveBeenCalled();
   });
 });

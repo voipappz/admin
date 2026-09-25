@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import LogoutIcon from '@mui/icons-material/Logout';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
@@ -19,6 +18,8 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { getPermittedNavItems } from '../../config/navConfig';
 import { useRecentPages } from '../../context/RecentPagesContext';
 import { useAuth } from '../../context/AuthContext';
+import { useUserAuth } from '../../context/UserAuthContext';
+import { useIsUserSession } from '../../hooks/useIsUserSession';
 import { useThemeMode } from '../../context/ThemeContext';
 import { apiService } from '../../services/apiService';
 import { readRecentObjects } from '../../utils/recentObjects';
@@ -65,7 +66,13 @@ const OBJECT_ICONS = { user: EditOutlinedIcon };
 
 export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
   const navigate = useNavigate();
-  const { acl, logout } = useAuth();
+  const account = useAuth();
+  const userAuth = useUserAuth();
+  // A portal USER in the console: navigation filtered strictly by their ACL,
+  // no resource search (those endpoints are an account's), their own sign-out.
+  const userSession = useIsUserSession();
+  const acl = userSession ? userAuth.acl : account.acl;
+  const logout = userSession ? userAuth.logout : account.logout;
   const { isDarkMode, toggleTheme } = useThemeMode();
   const { recentPages } = useRecentPages();
   const [query, setQuery] = useState('');
@@ -90,10 +97,10 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
       setResourceResults({});
       setResourceLoading(false);
       setShowAllChips(false);
-      setRecentObjects(readRecentObjects());
+      setRecentObjects(userSession ? [] : readRecentObjects());
       setAnswer(null);
     }
-  }, [open, initialQuery]);
+  }, [open, initialQuery, userSession]);
 
   // A new question starts from the typed text; the old answer is for other words.
   useEffect(() => { setAnswer(null); }, [query]);
@@ -144,7 +151,7 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
   // Trigger debounced search when query changes
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (query.trim().length >= 2) {
+    if (query.trim().length >= 2 && !userSession) {
       setResourceLoading(true);
       debounceRef.current = setTimeout(() => {
         searchResources(query, resourceType);
@@ -156,7 +163,7 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, resourceType, searchResources]);
+  }, [query, resourceType, searchResources, userSession]);
 
   // Build grouped results
   const groups = useMemo(() => {
@@ -166,6 +173,7 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
     // Quick actions — ask, call, the phone — ahead of everything else.
     const quick = buildQuickActions({
       query,
+      phoneEnabled: !userSession,
       on: {
         ask,
         call: (n) => { callNumber(n); onClose(); },
@@ -204,7 +212,7 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
     }
 
     // Navigation
-    const navItems = getPermittedNavItems(acl);
+    const navItems = getPermittedNavItems(acl, { strict: userSession });
     const filteredNav = lowerQuery
       ? navItems.filter(item => item.text.toLowerCase().includes(lowerQuery) || item.path.toLowerCase().includes(lowerQuery))
       : navItems;
@@ -262,12 +270,6 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
     // Actions
     const actions = [
       {
-        id: 'action-ai',
-        label: 'AI Assistant',
-        iconComponent: AutoAwesomeIcon,
-        action: () => { navigate('/ai'); onClose(); },
-      },
-      {
         id: 'action-theme',
         label: isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
         iconComponent: isDarkMode ? LightModeIcon : DarkModeIcon,
@@ -288,7 +290,7 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
     }
 
     return result;
-  }, [query, acl, recentPages, recentObjects, isDarkMode, resourceResults, navigate, onClose, logout, toggleTheme, ask, callNumber, openSidebar]);
+  }, [query, acl, userSession, recentPages, recentObjects, isDarkMode, resourceResults, navigate, onClose, logout, toggleTheme, ask, callNumber, openSidebar]);
 
   // Flat list for keyboard navigation
   const flatItems = useMemo(() => groups.flatMap(g => g.items), [groups]);
@@ -323,5 +325,6 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
     groups, flatItems,
     handleKeyDown,
     answer,
+    resourceSearch: !userSession,
   };
 }

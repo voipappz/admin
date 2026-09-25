@@ -25,20 +25,20 @@ import AdminDashboard from './AdminDashboard.jsx';
 describe('AdminDashboard', () => {
   it('follows the selected customer and environment', async () => {
     scope.mockReturnValue({
-      selectedCustomer: { name: 'acme' },
+      selectedCustomer: { uuid: 'c-1', name: 'acme' },
       selectedEnvironments: [{ uuid: 'env-1', name: 'main' }, { uuid: 'env-2', name: 'other' }],
     });
     render(<AdminDashboard />);
-    expect(screen.getByTestId('admin-dashboard-page')).toHaveTextContent('Live activity for acme · main');
+    expect(screen.getByTestId('admin-dashboard-page')).toHaveTextContent('Live activity for acme · all applications');
     expect(await screen.findByText('Live updates connected')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
   });
 
-  it('charts the selected scope, split by direction', async () => {
+  it('charts every application in the selected customer, grouped by customer', async () => {
     scope.mockReturnValue({ selectedCustomer: { uuid: 'c-1', name: 'acme' }, selectedEnvironments: [{ uuid: 'env-1', name: 'main' }] });
     render(<AdminDashboard />);
     await vi.waitFor(() => expect(monitoringApi.getCallsVolumeChart)
-      .toHaveBeenCalledWith('env-1', 1440, '1h', 'c-1', 'direction'));
+      .toHaveBeenCalledWith(null, 1440, '1h', 'c-1', 'customer_uuid'));
   });
 
   // The bird's-eye view: a root admin with nothing selected sees every

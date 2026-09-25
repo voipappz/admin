@@ -198,9 +198,11 @@ const SystemLogs = ({ initialParams }) => {
     async (e) => {
       const enabled = e.target.checked;
       if (enabled) {
-        await enableTrace();
+        const changed = await enableTrace();
+        if (!changed) return;
       } else {
-        await disableTrace();
+        const changed = await disableTrace();
+        if (!changed) return;
       }
       setTraceEnabled(enabled);
     },
@@ -212,9 +214,11 @@ const SystemLogs = ({ initialParams }) => {
     async (e) => {
       const enabled = e.target.checked;
       if (enabled) {
-        await enableConsole();
+        const changed = await enableConsole();
+        if (!changed) return;
       } else {
-        await disableConsole();
+        const changed = await disableConsole();
+        if (!changed) return;
       }
       setConsoleEnabled(enabled);
     },

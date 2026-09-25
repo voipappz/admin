@@ -8,6 +8,8 @@ import useFilterHandlers from './FilterHandlers/FilterHandlers.js';
 import useRowHandlers from './RowHandlers/useRowHandlers.js';
 import useUrlSync from './UrlSync/useUrlSync.js';
 import { useAuth } from '../../context/AuthContext';
+import { useUserAuth } from '../../context/UserAuthContext';
+import { useIsUserSession } from '../../hooks/useIsUserSession';
 import { useGlobalSearch } from '../../context/GlobalSearchContext';
 import { useNavigateToEvents } from '../../hooks/useNavigateToLogs';
 import { formatDuration } from '../../utils/phoneUtils';
@@ -87,7 +89,9 @@ const Calls = () => {
   const [liveDrawerOpen, setLiveDrawerOpen] = useState(false);
   const [chartMode, setChartMode] = useState('timeline'); // 'timeline' | 'live' — Live replaces the chart
   // Live call count for the "Live now" toggle (real-time from the switch node).
-  const { totalCount: liveCallsTotal, refresh: refreshLiveCalls } = useLiveCalls(true);
+  // action=live is served to an account only; a portal user has no live count.
+  const userSession = useIsUserSession();
+  const { totalCount: liveCallsTotal, refresh: refreshLiveCalls } = useLiveCalls(!userSession);
   // useLiveCalls fetches once on mount and never again, so the count next to a
   // control labelled "Live" was frozen at whatever the switch reported when the
   // screen opened. Poll only while the live view is actually on screen — a
@@ -102,8 +106,12 @@ const Calls = () => {
   // logs are read on the Logs screen (/logs) only.
   const goToEvents = useNavigateToEvents();
 
-  // Get authentication context
+  // Get authentication context. `access` is the ACCOUNT token: saved searches
+  // (action=params/save_params) are an account's, so they stay off for a user.
+  // `sessionToken` is whichever session is signed in, for the export.
   const { access } = useAuth();
+  const { token: userToken } = useUserAuth();
+  const sessionToken = userSession ? userToken : access;
   const { showNotification } = useNotification();
   const { registerScreen, unregisterScreen } = useGlobalSearch();
 
@@ -166,7 +174,7 @@ const Calls = () => {
     handleCancelEdit,
     setEditValue,
     setEditOperator,
-  } = useFilterHandlers(allRows, setCurrentSearchParams, syncUrl, fetchCalls, dateRange, access);
+  } = useFilterHandlers(allRows, setCurrentSearchParams, syncUrl, fetchCalls, dateRange, userSession ? null : access);
 
   // Column visibility handlers - pass API columns for dynamic column loading
   const {
@@ -305,7 +313,7 @@ const Calls = () => {
         method: 'GET',
         headers: {
           'Accept': 'application/json, text/plain, */*',
-          'Authorization': access ? `Bearer ${access}` : '',
+          'Authorization': sessionToken ? `Bearer ${sessionToken}` : '',
         },
       });
 
@@ -690,7 +698,7 @@ const Calls = () => {
             {/* Live is a view toggle, not a filter — it swaps what this chart
                 shows. It used to sit in the counter row, where it read as a
                 sixth statistic you could filter by. */}
-            <Tooltip title="Show calls happening right now instead of the timeline">
+            {!userSession && <Tooltip title="Show calls happening right now instead of the timeline">
               <Chip
                 size="small"
                 onClick={() => setChartMode((mode) => (mode === 'live' ? 'timeline' : 'live'))}
@@ -715,7 +723,7 @@ const Calls = () => {
                   '&:hover': { bgcolor: chartMode === 'live' ? '#3f4fb5' : 'var(--theme-hover)' },
                 }}
               />
-            </Tooltip>
+            </Tooltip>}
 
             {/* Date bucket — top-right of the chart bar, purple button group.
                 Timeline-only: live mode has no buckets to size. */}
