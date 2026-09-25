@@ -59,7 +59,7 @@ const parseLogFields = (message = '') => {
 
 // Main SystemLogs component
 const SystemLogs = ({ initialParams }) => {
-  const { selectedCustomer } = useCustomerEnvironment();
+  const { selectedCustomer, isRoot } = useCustomerEnvironment();
   const {
     logs,
     loading,
@@ -100,7 +100,14 @@ const SystemLogs = ({ initialParams }) => {
     enableConsole,
     disableConsole,
     getConsoleStatus,
-  } = useSystemLogs({ customerUuid: selectedCustomer?.uuid, initialParams });
+  } = useSystemLogs({
+    // Root is already restricted by the API to this deployment's organization.
+    // Do not additionally narrow it to the selected customer: infrastructure
+    // producers such as Crystal may not carry a customer_uuid on every line.
+    // Non-root sessions remain customer-scoped server-side.
+    customerUuid: isRoot ? null : selectedCustomer?.uuid,
+    initialParams,
+  });
 
   const [traceEnabled, setTraceEnabled] = useState(false);
   const [consoleEnabled, setConsoleEnabled] = useState(false);
