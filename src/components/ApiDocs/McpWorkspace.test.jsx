@@ -16,6 +16,7 @@ describe('McpWorkspace', () => {
 
     expect(screen.getByRole('heading', { name: 'MCP' })).toBeVisible();
     expect(screen.getByText('JSON-RPC 2.0 over POST')).toBeVisible();
+    expect(screen.getByText('Quick connect')).toBeVisible();
     expect(screen.getByText(/Authorization: Bearer/)).toBeVisible();
     expect(screen.getByTestId('mcp-workspace-endpoint')).toHaveTextContent('https://api.example.test/api/mcp');
     expect(screen.getByTestId('mcp-connect')).toHaveTextContent('https://api.example.test/api/mcp');
