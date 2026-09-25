@@ -240,6 +240,28 @@ const SystemLogs = ({ initialParams }) => {
     return [...groups.entries()];
   }, [logs, groupBy]);
 
+  const applyGroupFilter = useCallback((value) => {
+    if (groupBy === 'host') {
+      setSelectedHost(value === 'Unknown' ? '' : value);
+      return;
+    }
+    if (groupBy === 'severity') {
+      const severity = String(value).toLowerCase();
+      setSelectedSeverity(severity === 'error' ? 'err' : severity === 'warn' ? 'warning' : severity);
+      return;
+    }
+    if (groupBy === 'source') {
+      const sourceNames = apps.map((app) => typeof app === 'string' ? app : app.name);
+      if (sourceNames.includes(value)) {
+        setSelectedApp(value);
+      } else {
+        const query = `${value}:`;
+        setLocalSearch(query);
+        setSearchQuery(query);
+      }
+    }
+  }, [groupBy, apps, setSelectedHost, setSelectedSeverity, setSelectedApp, setSearchQuery]);
+
   if (!selectedCustomer) {
     return (
       <Box sx={{ p: 3 }}>
@@ -551,10 +573,9 @@ const SystemLogs = ({ initialParams }) => {
               inputProps={{ 'aria-label': 'Group log timeline by' }}
               sx={{ fontSize: '12px' }}
             >
-              <MenuItem value="severity">Level</MenuItem>
               <MenuItem value="source">Source</MenuItem>
               <MenuItem value="host">Server</MenuItem>
-              <MenuItem value="facility">Facility</MenuItem>
+              <MenuItem value="severity">Level</MenuItem>
             </Select>
           </FormControl>
 
@@ -571,6 +592,14 @@ const SystemLogs = ({ initialParams }) => {
             </Button>
           )}
         </Box>
+        {hasActiveFilters && (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }} aria-label="Active log filters">
+            {selectedApp && <Chip size="small" label={`Source: ${selectedApp}`} onDelete={() => setSelectedApp('')} sx={{ height: 22, fontSize: '0.68rem' }} />}
+            {selectedHost && <Chip size="small" label={`Server: ${selectedHost}`} onDelete={() => setSelectedHost('')} sx={{ height: 22, fontSize: '0.68rem' }} />}
+            {selectedSeverity && <Chip size="small" label={`Level: ${selectedSeverity}`} onDelete={() => setSelectedSeverity('')} sx={{ height: 22, fontSize: '0.68rem' }} />}
+            {searchQuery && <Chip size="small" label={`Message: ${searchQuery}`} onDelete={handleClearSearch} sx={{ height: 22, fontSize: '0.68rem' }} />}
+          </Box>
+        )}
       </Paper>
 
       {/* Message-first stream. Sources and other structured values are useful
@@ -582,9 +611,15 @@ const SystemLogs = ({ initialParams }) => {
           <Typography sx={{ p: 3, textAlign: 'center', color: 'text.secondary', fontSize: '0.82rem' }}>No log messages found</Typography>
         ) : groupedLogs.map(([group, entries]) => (
           <Box key={group} component="section">
-            <Box sx={{ position: 'sticky', top: 0, zIndex: 1, px: 1, py: 0.35, display: 'flex', alignItems: 'center', gap: 0.75, bgcolor: 'var(--mui-palette-surface-muted)', borderTop: '1px solid var(--mui-palette-divider)', borderBottom: '1px solid var(--mui-palette-divider)' }}>
+            <Box
+              role="button"
+              tabIndex={0}
+              onClick={() => applyGroupFilter(group)}
+              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') applyGroupFilter(group); }}
+              sx={{ position: 'sticky', top: 0, zIndex: 1, px: 1, py: 0.35, display: 'flex', alignItems: 'center', gap: 0.75, bgcolor: 'var(--mui-palette-surface-muted)', borderTop: '1px solid var(--mui-palette-divider)', borderBottom: '1px solid var(--mui-palette-divider)', cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+            >
               <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
-                {groupBy === 'source' ? 'Source' : groupBy === 'host' ? 'Server' : groupBy === 'severity' ? 'Level' : groupBy === 'facility' ? 'Facility' : 'Messages'}
+                {groupBy === 'source' ? 'Source' : groupBy === 'host' ? 'Server' : groupBy === 'severity' ? 'Level' : 'Messages'}
               </Typography>
               <Typography sx={{ fontSize: '0.75rem', fontWeight: 600 }}>{group}</Typography>
               <Chip label={entries.length} size="small" sx={{ ml: 'auto', height: 18, fontSize: '0.62rem' }} />
