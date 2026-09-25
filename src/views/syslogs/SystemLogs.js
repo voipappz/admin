@@ -2,15 +2,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import syslogsApi from '../../services/api/syslogsApi';
 import { computePeriodRange } from '../../utils/logFormatting';
 
-const useDebouncedValue = (value, delay = 350) => {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value.trim()), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
-};
-
 export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
   // Log data
   const [logs, setLogs] = useState([]);
@@ -24,7 +15,7 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
   // Pagination
   const [pagination, setPagination] = useState({
     page: 0,
-    limit: 25,
+    limit: 100,
   });
 
   // Filters — seeded from `initialParams` when a caller embeds the viewer, and
@@ -43,7 +34,6 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
       app: q.get('app') || '',
       host: q.get('host') || '',
       severity: ({ error: 'err', warn: 'warning' })[q.get('severity')] || q.get('severity') || '',
-      action: q.get('action') || '',
       period: q.get('period') || '1h',
     };
   }, [initialParams]);
@@ -52,24 +42,17 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
   const [selectedApp, setSelectedApp] = useState(initial.app);
   const [selectedHost, setSelectedHost] = useState(initial.host);
   const [selectedSeverity, setSelectedSeverity] = useState(initial.severity);
-  // `action` is a tag on the syslog series (config/initializers/log.rb), so it
-  // can be filtered on AND grouped by — a line that names an action is the same
-  // line that becomes an event.
-  const [selectedAction, setSelectedAction] = useState(initial.action);
-  const debouncedAction = useDebouncedValue(selectedAction);
   const filterText = useMemo(() => ({
-    action: debouncedAction,
     customerUuid: customerUuid || '',
-  }), [debouncedAction, customerUuid]);
+  }), [customerUuid]);
   const requestFilters = useMemo(() => Object.fromEntries(Object.entries({
     app: selectedApp,
     host: selectedHost,
     severity: selectedSeverity,
-    action: filterText.action,
     customer_uuid: filterText.customerUuid,
     inline: searchQuery,
   }).filter(([, value]) => value)), [selectedApp, selectedHost, selectedSeverity, filterText, searchQuery]);
-  const [groupBy, setGroupBy] = useState('app');
+  const [groupBy, setGroupBy] = useState('source');
 
   // Date range with period tracking (Events-style shape)
   const [dateRange, setDateRange] = useState(() => computePeriodRange(initial.period));
@@ -160,9 +143,8 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
       (searchQuery && searchQuery.trim() !== '') ||
       selectedApp !== '' ||
       selectedHost !== '' ||
-      selectedSeverity !== '' ||
-      selectedAction !== '',
-    [searchQuery, selectedApp, selectedHost, selectedSeverity, selectedAction]
+      selectedSeverity !== '',
+    [searchQuery, selectedApp, selectedHost, selectedSeverity]
   );
 
   const clearFilters = useCallback(() => {
@@ -170,7 +152,6 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     setSelectedApp('');
     setSelectedHost('');
     setSelectedSeverity('');
-    setSelectedAction('');
   }, []);
 
   // Enable trace (for live syslog streaming)
@@ -294,8 +275,6 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     selectedHost,
     setSelectedHost,
     selectedSeverity,
-    selectedAction,
-    setSelectedAction,
     setSelectedSeverity,
     groupBy,
     setGroupBy,

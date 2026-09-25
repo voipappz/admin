@@ -43,7 +43,6 @@ import {
   LEVEL_CONFIG,
   AUTO_REFRESH_OPTIONS,
   normalizeSeverityKey,
-  formatAbsolute,
   PERIOD_OPTIONS,
   SEVERITY_ORDER,
 } from '../../utils/logFormatting';
@@ -55,6 +54,20 @@ const parseLogFields = (message = '') => {
     return _match;
   });
   return fields;
+};
+
+// Crystal's NATS relay preserves the logger/component by prefixing the stored
+// message (`http.client: Performing request`). Split that transport shape for
+// display without changing the raw value shown in Log details.
+const displayLog = (log) => {
+  const rawMessage = String(log.message || log.msg || '');
+  const relayedNodeLine = (log.app === 'node' || log.app === 'crystal')
+    ? rawMessage.match(/^([\w./-]+):\s+([\s\S]+)$/)
+    : null;
+  return {
+    source: log.source || relayedNodeLine?.[1] || log.app || log.type || 'Unknown',
+    message: relayedNodeLine?.[2] || rawMessage,
+  };
 };
 
 // Main SystemLogs component
@@ -78,8 +91,6 @@ const SystemLogs = ({ initialParams }) => {
     setSelectedHost,
     selectedSeverity,
     setSelectedSeverity,
-    selectedAction,
-    setSelectedAction,
     groupBy,
     setGroupBy,
 
@@ -214,11 +225,10 @@ const SystemLogs = ({ initialParams }) => {
   // actually present on the API rows; missing values stay in one honest bucket.
   const groupedLogs = useMemo(() => {
     const valueFor = (log) => {
-      if (groupBy === 'app') return log.app || log.source || log.type;
+      if (groupBy === 'source') return displayLog(log).source;
       if (groupBy === 'host') return log.host || log.node || log.server;
       if (groupBy === 'severity') return log.severity || log.level;
       if (groupBy === 'facility') return log.facility;
-      if (groupBy === 'action') return log.action;
       return 'All messages';
     };
     const groups = new Map();
@@ -247,8 +257,8 @@ const SystemLogs = ({ initialParams }) => {
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        p: 2,
-        gap: 1,
+        p: 1,
+        gap: 0.5,
         // See Events.jsx — no 64px top bar exists to subtract; the shell's
         // content row is already footer-aware.
         height: '100%',
@@ -261,14 +271,15 @@ const SystemLogs = ({ initialParams }) => {
       <Paper
         elevation={0}
         sx={{
-          p: 1.5,
+          px: 1,
+          py: 0.75,
           bgcolor: 'var(--mui-palette-background-paper)',
           border: '1px solid var(--mui-palette-divider)',
           borderRadius: 1,
           flexShrink: 0,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
           {/* Period Quick Select */}
           <ButtonGroup size="small" variant="outlined">
             {PERIOD_OPTIONS.map((period) => (
@@ -456,15 +467,15 @@ const SystemLogs = ({ initialParams }) => {
       <Paper
         elevation={0}
         sx={{
-          px: 1.5,
-          py: 1,
+          px: 1,
+          py: 0.6,
           bgcolor: 'var(--mui-palette-background-paper)',
           border: '1px solid var(--mui-palette-divider)',
           borderRadius: 1,
           flexShrink: 0,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.65, flexWrap: 'wrap' }}>
           <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5, fontWeight: 600 }}>
             Level:
           </Typography>
@@ -485,8 +496,6 @@ const SystemLogs = ({ initialParams }) => {
             </Select>
           </FormControl>
 
-          <TextField size="small" label="Action" value={selectedAction}
-            onChange={(e) => setSelectedAction(e.target.value)} sx={{ width: 150 }} />
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
           <FormControl size="small" sx={{ minWidth: 140 }}>
@@ -543,10 +552,9 @@ const SystemLogs = ({ initialParams }) => {
               sx={{ fontSize: '12px' }}
             >
               <MenuItem value="severity">Level</MenuItem>
-              <MenuItem value="app">Source</MenuItem>
+              <MenuItem value="source">Source</MenuItem>
               <MenuItem value="host">Server</MenuItem>
               <MenuItem value="facility">Facility</MenuItem>
-              <MenuItem value="action">Action</MenuItem>
             </Select>
           </FormControl>
 
@@ -574,9 +582,9 @@ const SystemLogs = ({ initialParams }) => {
           <Typography sx={{ p: 3, textAlign: 'center', color: 'text.secondary', fontSize: '0.82rem' }}>No log messages found</Typography>
         ) : groupedLogs.map(([group, entries]) => (
           <Box key={group} component="section">
-            <Box sx={{ position: 'sticky', top: 0, zIndex: 1, px: 1.5, py: 0.6, display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'var(--mui-palette-surface-muted)', borderTop: '1px solid var(--mui-palette-divider)', borderBottom: '1px solid var(--mui-palette-divider)' }}>
+            <Box sx={{ position: 'sticky', top: 0, zIndex: 1, px: 1, py: 0.35, display: 'flex', alignItems: 'center', gap: 0.75, bgcolor: 'var(--mui-palette-surface-muted)', borderTop: '1px solid var(--mui-palette-divider)', borderBottom: '1px solid var(--mui-palette-divider)' }}>
               <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
-                {groupBy === 'app' ? 'Source' : groupBy === 'host' ? 'Server' : groupBy === 'severity' ? 'Level' : groupBy === 'action' ? 'Action' : groupBy === 'facility' ? 'Facility' : 'Messages'}
+                {groupBy === 'source' ? 'Source' : groupBy === 'host' ? 'Server' : groupBy === 'severity' ? 'Level' : groupBy === 'facility' ? 'Facility' : 'Messages'}
               </Typography>
               <Typography sx={{ fontSize: '0.75rem', fontWeight: 600 }}>{group}</Typography>
               <Chip label={entries.length} size="small" sx={{ ml: 'auto', height: 18, fontSize: '0.62rem' }} />
@@ -585,25 +593,26 @@ const SystemLogs = ({ initialParams }) => {
               const rawLevel = String(log.severity || log.level || 'info').toLowerCase();
               const level = normalizeSeverityKey(rawLevel);
               const levelStyle = LEVEL_CONFIG[level] || LEVEL_CONFIG[rawLevel] || LEVEL_CONFIG.info;
-              const message = log.message || log.msg || '';
+              const displayed = displayLog(log);
+              const message = displayed.message;
               const time = log.time || log.timestamp || log.isodate;
+              const rawLine = `${String(time || '')} ${rawLevel.toUpperCase()} ${displayed.source} - ${message}`;
               return (
                 <Box
                   key={log.uuid || log.id || `${group}-${index}`}
                   onClick={() => setSelectedLog(log)}
-                  sx={{ display: 'grid', gridTemplateColumns: '168px 64px minmax(0, 1fr) 28px', alignItems: 'start', gap: 1, px: 1.5, py: 0.75, borderBottom: '1px solid var(--mui-palette-divider)', cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1, py: 0.25, minHeight: 26, borderBottom: '1px solid var(--mui-palette-divider)', cursor: 'pointer', overflow: 'hidden', '&:hover': { bgcolor: 'action.hover' } }}
                 >
-                  <Typography component="time" sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: '0.68rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                    {formatAbsolute(time)}
+                  <Typography noWrap title={rawLine} sx={{ flex: 1, minWidth: 0, fontFamily: '"JetBrains Mono", monospace', fontSize: '0.7rem', lineHeight: 1.25 }}>
+                    <Box component="span" sx={{ color: 'text.secondary' }}>{String(time || '')}</Box>
+                    {' '}
+                    <Box component="span" sx={{ color: levelStyle.color, fontWeight: 700 }}>{rawLevel.toUpperCase()}</Box>
+                    {' '}
+                    <Box component="span" sx={{ color: 'text.secondary' }}>{displayed.source}</Box>
+                    {' - '}{message}
                   </Typography>
-                  <Typography sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: '0.65rem', fontWeight: 700, color: levelStyle.color }}>
-                    {rawLevel.toUpperCase()}
-                  </Typography>
-                  <Typography sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: '0.76rem', lineHeight: 1.45, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                    {message}
-                  </Typography>
-                  <Tooltip title="Copy message">
-                    <IconButton size="small" onClick={(event) => { event.stopPropagation(); navigator.clipboard.writeText(String(message)); }} sx={{ p: 0.25 }}>
+                  <Tooltip title="Copy raw line">
+                    <IconButton size="small" onClick={(event) => { event.stopPropagation(); navigator.clipboard.writeText(rawLine); }} sx={{ p: 0.2, flexShrink: 0 }}>
                       <ContentCopyIcon sx={{ fontSize: 14 }} />
                     </IconButton>
                   </Tooltip>
@@ -649,7 +658,6 @@ const SystemLogs = ({ initialParams }) => {
               level: selectedLog?.severity || selectedLog?.level,
               server: selectedLog?.host,
               source: selectedLog?.app,
-              event_type: selectedLog?.action || selectedFields.action,
               ...selectedFields,
             }).filter(([, value]) => value !== undefined && value !== '').map(([key, value]) => (
               <React.Fragment key={key}>
