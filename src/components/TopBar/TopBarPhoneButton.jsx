@@ -18,7 +18,10 @@ export default function TopBarPhoneButton() {
     <Tooltip title={label}>
       <IconButton
         size="small" aria-label={label} data-testid="topbar-phone-button" onClick={() => toggle('phone')}
-        sx={{ color: status === 'registered' ? DOT.registered : 'var(--theme-text-secondary)' }}
+        sx={{
+          color: '#15803d', bgcolor: 'rgba(34, 197, 94, 0.14)', border: '1px solid rgba(34, 197, 94, 0.35)',
+          '&:hover': { bgcolor: 'rgba(34, 197, 94, 0.24)' },
+        }}
       >
         <Badge
           overlap="circular" anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}

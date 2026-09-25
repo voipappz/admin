@@ -15,7 +15,6 @@ import HomeIcon from '@mui/icons-material/Home';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import ChatIcon from '@mui/icons-material/Chat';
 import BoltIcon from '@mui/icons-material/Bolt';
-import CodeIcon from '@mui/icons-material/Code';
 import SubjectIcon from '@mui/icons-material/Subject';
 import { canAccessScreen } from '../utils/jwt';
 
@@ -66,7 +65,6 @@ export const NAV_ITEMS = [
 // not a left-menu item.
 export const TOPBAR_NAV_ITEMS = [
   { text: 'Templates',     path: '/templates',      iconComponent: ArticleIcon,               aclKey: 'templates',                      group: 'ADMIN'    },
-  { text: 'API Docs',      path: '/devzone',        iconComponent: CodeIcon,                                                          group: 'ADMIN'    },
 ];
 
 // `strict` (a portal USER session — same ACL model as an account): an item is

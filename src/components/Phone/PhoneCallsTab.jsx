@@ -32,7 +32,7 @@ function counterparty(call) {
   return (inbound ? call.from_number : call.to_number) || call.from_number || call.to_number || '';
 }
 
-export default function PhoneCallsTab({ active, onDial }) {
+export default function PhoneCallsTab({ active, onDial, onOpenCall }) {
   const [calls, setCalls] = useState(null); // null = not loaded yet
   const [error, setError] = useState(null);
 
@@ -76,7 +76,16 @@ export default function PhoneCallsTab({ active, onDial }) {
             direction="row"
             alignItems="center"
             spacing={1}
-            sx={{ px: 1.5, py: 1, borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+            onClick={() => onOpenCall?.(call.call)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onOpenCall?.(call.call);
+              }
+            }}
+            sx={{ px: 1.5, py: 1, borderBottom: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', '&:hover': { bgcolor: 'rgba(255,255,255,0.06)' } }}
           >
             {inbound
               ? <CallReceivedIcon fontSize="small" sx={{ color: '#60a5fa' }} />
@@ -95,7 +104,7 @@ export default function PhoneCallsTab({ active, onDial }) {
                 <IconButton
                   size="small"
                   disabled={!number}
-                  onClick={() => onDial(number)}
+                  onClick={(event) => { event.stopPropagation(); onDial(number); }}
                   sx={{ color: GREEN }}
                   data-testid="phone-calls-dial"
                 >

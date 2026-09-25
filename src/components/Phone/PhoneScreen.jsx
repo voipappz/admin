@@ -281,7 +281,11 @@ export default function PhoneScreen({ embedded = false, initialTab, device, init
               </Button>
             </Box>
           ) : tab === 0 ? (
-            <PhoneCallsTab active={!inCall && tab === 0} onDial={(n) => { setNumber(n); startCall(n); }} />
+            <PhoneCallsTab
+              active={!inCall && tab === 0}
+              onDial={(n) => { setNumber(n); startCall(n); }}
+              onOpenCall={(call) => sidebar.open('call', { call })}
+            />
           ) : tab === 1 ? (
             <Box sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ position: 'relative', mb: 2 }}>
