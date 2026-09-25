@@ -29,8 +29,8 @@ export default function McpWorkspace() {
     <Box
       data-testid="mcp-workspace"
       sx={{
-        flex: '1 1 0', minHeight: 0, overflowY: 'auto',
-        p: { xs: 1.5, sm: 2, md: 3 }, width: '100%', maxWidth: 1440, mx: 'auto',
+        flex: '1 1 0', minHeight: 0, height: '100%', overflowY: 'auto',
+        p: { xs: 1.5, sm: 2, md: 3 }, width: '100%', maxWidth: 'none',
       }}
     >
       <Stack

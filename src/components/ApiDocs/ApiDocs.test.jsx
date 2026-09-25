@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ApiDocs from './ApiDocs.jsx';
 
@@ -13,7 +13,6 @@ vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ access: 'admin-a
 const themeMode = vi.hoisted(() => ({ isDarkMode: false }));
 vi.mock('../../context/ThemeContext', () => ({ useThemeMode: () => themeMode }));
 vi.mock('../../config.js', () => ({ config: { apiBaseUrl: 'https://api.example.test' } }));
-vi.mock('./McpConnect', () => ({ default: ({ endpointUrl }) => <div data-testid="mcp-connect">{endpointUrl}</div> }));
 
 const contract = { openapi: '3.0.1', servers: [], paths: { '/api/calls': { get: {} } } };
 
@@ -24,7 +23,7 @@ describe('ApiDocs', () => {
     document.documentElement.classList.remove('dark-mode');
   });
 
-  it('renders one Swagger screen with MCP available only from a button', async () => {
+  it('renders the Swagger screen without duplicating the MCP workspace', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true, json: async () => contract });
     render(<ApiDocs />);
 
@@ -36,11 +35,7 @@ describe('ApiDocs', () => {
     expect(swagger).toHaveAttribute('data-server', 'https://api.example.test');
     expect(swagger).toHaveAttribute('data-authorization', 'Bearer admin-access-token');
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('mcp-connect')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'MCP' }));
-    expect(screen.getByText('MCP endpoint')).toBeVisible();
-    expect(screen.getByTestId('mcp-connect')).toHaveTextContent('https://api.example.test/api/mcp');
+    expect(screen.queryByRole('button', { name: 'MCP' })).not.toBeInTheDocument();
   });
 
   it('mirrors dark mode for Swagger and removes the flag on unmount', async () => {

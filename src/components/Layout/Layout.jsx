@@ -41,6 +41,7 @@ const Layout = ({ children }) => {
   // while no session exists.
   const isLoginPage = ['/', '/admin'].includes(location.pathname)
     && !userAuth.isAuthenticated && !isAuthenticated;
+  const isMcpWorkspace = location.pathname === '/mcp';
   // Zendesk support widget (answer bot + "Get in touch" tickets) — admin
   // console only; the portal's corner belongs to the phone FAB.
   useZendeskWidget(isAuthenticated && !isLoginPage, user, customerUuid);
@@ -117,12 +118,14 @@ const Layout = ({ children }) => {
           <RecentPagesProvider>
           <Box data-testid="authenticated-layout" data-tour="welcome">
             {/* Fixed sidebar — hidden on mobile, shown via the drawer */}
-            <Box className="sidebar-desktop">
-              <Sidebar collapsed={sidebarCollapsed} expanded={sidebarExpanded} onToggleExpand={handleToggleExpand} onToggleSidebar={handleToggleSidebar} />
-            </Box>
+            {!isMcpWorkspace && (
+              <Box className="sidebar-desktop">
+                <Sidebar collapsed={sidebarCollapsed} expanded={sidebarExpanded} onToggleExpand={handleToggleExpand} onToggleSidebar={handleToggleSidebar} />
+              </Box>
+            )}
 
             {/* Mobile sidebar drawer */}
-            <Drawer
+            {!isMcpWorkspace && <Drawer
               variant="temporary"
               open={mobileDrawerOpen}
               onClose={() => setMobileDrawerOpen(false)}
@@ -133,33 +136,33 @@ const Layout = ({ children }) => {
               }}
             >
               <Sidebar expanded onNavigate={() => setMobileDrawerOpen(false)} onToggleSidebar={handleToggleSidebar} />
-            </Drawer>
+            </Drawer>}
 
             {/* TopBar — fixed at top, offset by the sidebar */}
-            <TopBar
+            {!isMcpWorkspace && <TopBar
               sidebarCollapsed={sidebarCollapsed}
               sidebarExpanded={sidebarExpanded}
               onToggleSidebar={handleToggleSidebar}
               onToggleExpand={handleToggleExpand}
-            />
+            />}
 
             {/* Main content area */}
-            <Box className={`content-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${sidebarExpanded ? 'sidebar-expanded' : ''}`} data-testid="main-content">
+            <Box className={`content-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${sidebarExpanded ? 'sidebar-expanded' : ''} ${isMcpWorkspace ? 'mcp-fullscreen' : ''}`} data-testid="main-content">
               <Box sx={{ flex: '1 1 0', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 {children}
               </Box>
-              <Box className="app-footer">
+              {!isMcpWorkspace && <Box className="app-footer">
                 <Typography className="app-footer-text" variant="caption" data-testid="app-version">
                   v{APP_VERSION}
                 </Typography>
-              </Box>
+              </Box>}
               {/* Brand watermark — pinned bottom-right of the content area so it's
                   always visible (not at the end of scroll). */}
-              <img
+              {!isMcpWorkspace && <img
                 className="app-watermark"
                 src={isDarkMode ? LOGO_WHITE : LOGO_DARK}
                 alt="VoipAppz"
-              />
+              />}
             </Box>
           </Box>
           <PortalSidebar />

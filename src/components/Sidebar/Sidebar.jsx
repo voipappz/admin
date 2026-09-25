@@ -16,7 +16,6 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import CodeIcon from '@mui/icons-material/Code';
 import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
 import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -276,15 +275,6 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate, onToggleExpand, onTo
             aria-label="Help Center"
           >
             <HelpOutlineIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="API DevZone" placement="right" arrow>
-          <IconButton
-            className="sidebar-tool-button"
-            onClick={() => handleNavigate('/devzone')}
-            aria-label="API DevZone"
-          >
-            <CodeIcon />
           </IconButton>
         </Tooltip>
         <Tooltip title="MCP" placement="right" arrow>

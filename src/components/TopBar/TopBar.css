@@ -1,9 +1,4 @@
-/* TopBar - the visible strip is removed (minimal layout); the TopBar component
-   stays mounted for its shared popovers/modals, which the sidebar triggers. */
 .topbar-container {
-  display: none !important;
-}
-.topbar-container--legacy {
   position: fixed;
   top: 0;
   left: 80px;
