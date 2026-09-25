@@ -58,6 +58,12 @@ export function connectRecipes(endpointUrl, authorization = PLACEHOLDER) {
       code: json,
     },
     {
+      key: 'codex',
+      label: 'Codex',
+      note: 'Codex uses a bearer-token environment variable for HTTP MCP. Create a token for this account, export it in your shell, then run the command once.',
+      code: `export VOIPAPPZ_MCP_TOKEN="<account bearer token>"\ncodex mcp add voipappz --url ${endpointUrl} --bearer-token-env-var VOIPAPPZ_MCP_TOKEN`,
+    },
+    {
       key: 'curl',
       label: 'curl',
       note: 'The same request the Test button sends. A 401 is the credential, not the server.',
@@ -118,7 +124,7 @@ export default function McpConnect({ endpointUrl, copyText }) {
       <Box sx={{ px: 2, pt: 1.5 }}>
         <Typography sx={{ fontWeight: 700 }}>Connect your agent</Typography>
         <Typography variant="caption" sx={MUTED_SX}>
-          Type the account&apos;s email and password, press Test, copy the config. Nothing is stored; the credential goes only to the MCP endpoint.
+          Choose Claude, Cursor, or Codex below. Claude/Cursor use the typed account credential; Codex uses an account bearer token from your shell. Nothing is stored.
         </Typography>
       </Box>
 
