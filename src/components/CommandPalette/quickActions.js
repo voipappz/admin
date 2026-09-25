@@ -1,7 +1,7 @@
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CallIcon from '@mui/icons-material/Call';
 import DialpadIcon from '@mui/icons-material/Dialpad';
-import { ASSISTANT_CAN_ANSWER } from '../../services/portalAssistant';
+import { ASSISTANT_CAN_ANSWER } from '../../services/mcpAssistant';
 
 // Kept with the command palette now that its portal predecessor is gone.
 const NUMBER_SHAPE = /^\+?(\(\d{1,4}\)|\d{1,4})([ .-]?(\(\d{1,4}\)|\d{1,4}))*$/;
@@ -29,7 +29,7 @@ export function buildQuickActions({ query = '', on, phoneEnabled = true }) {
 
   // Anything typed can be a QUESTION, and it is the one row that reads the
   // words rather than matching them, so it comes first. No LLM runs: see
-  // services/portalAssistant.
+  // services/mcpAssistant.
   if (q) {
     rows.push({
       id: 'quick-ask', label: `Ask: “${q}”`, description: `About ${ASSISTANT_CAN_ANSWER}`,

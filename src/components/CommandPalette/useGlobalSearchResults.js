@@ -26,7 +26,7 @@ import { readRecentObjects } from '../../utils/recentObjects';
 import { timeAgo, splitMatch } from '../../utils/searchText';
 import { usePortalSidebar } from '../../context/PortalSidebarContext';
 import { useCallNumber } from '../../hooks/useCallNumber';
-import { askPortal } from '../../services/portalAssistant';
+import { askMcpAssistant } from '../../services/mcpAssistant';
 import { buildQuickActions } from './quickActions';
 
 export { timeAgo, splitMatch };
@@ -107,7 +107,7 @@ export function useGlobalSearchResults({ open, initialQuery = '', onClose }) {
 
   const ask = useCallback(async (question) => {
     setAnswer({ question, pending: true });
-    const { text } = await askPortal(apiService.getToken(), question);
+    const { text } = await askMcpAssistant(apiService.getToken(), question);
     // A second question asked while this one was in flight wins.
     setAnswer((current) => (current?.question === question ? { question, text } : current));
   }, []);
