@@ -77,7 +77,6 @@ import AccountDialog from '../Accounts/AccountDialog/AccountDialog';
 import { accountsApi } from '../../services/api/accountsApi';
 // Screens reused inside modals (lazy so they stay out of the always-loaded TopBar bundle)
 const Events = lazy(() => import('../Events/Events.jsx'));
-const SystemLogs = lazy(() => import('../../views/syslogs/SystemLogs.jsx'));
 const Schema = lazy(() => import('../Appz/Schema.jsx'));
 import AccountCreateDialog from '../Account/AccountCreateDialog/AccountCreateDialog.jsx';
 import CustomerEditDialog from '../Account/CustomerEditDialog/CustomerEditDialog.jsx';
@@ -764,15 +763,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     return () => window.removeEventListener('openEventsModal', handler);
   }, []);
 
-  // Syslog modal — opened by the Syslog tool. Same pattern as the Events modal:
-  // the full system-logs view inside its own window instead of a Monitoring tab.
-  const [syslogModalOpen, setSyslogModalOpen] = useState(false);
-  useEffect(() => {
-    const handler = () => setSyslogModalOpen(true);
-    window.addEventListener('openSyslogModal', handler);
-    return () => window.removeEventListener('openSyslogModal', handler);
-  }, []);
-
   // Wizard (Schema) modal — the top-right "Wizard" icon for quick resource creation.
   const [wizardModalOpen, setWizardModalOpen] = useState(false);
   useEffect(() => {
@@ -835,7 +825,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
   const overflowTools = [
     { key: 'wizard', label: 'Wizard', icon: <AutoFixHighIcon fontSize="small" />, onClick: () => window.dispatchEvent(new Event('openWizardModal')) },
     { key: 'events', aclKey: 'logs', label: 'Events', icon: <EventNoteIcon fontSize="small" />, onClick: () => window.dispatchEvent(new CustomEvent('openEventsModal', { detail: '' })) },
-    { key: 'syslog', aclKey: 'logs', label: 'Syslog', icon: <ArticleIcon fontSize="small" />, onClick: () => window.dispatchEvent(new Event('openSyslogModal')) },
+    { key: 'syslog', aclKey: 'logs', label: 'Logs', icon: <ArticleIcon fontSize="small" />, onClick: () => navigate('/logs') },
     { key: 'help', label: 'Help Center', icon: <HelpOutlineIcon fontSize="small" />, onClick: () => window.open('https://voipappz.zendesk.com/hc/en-us', '_blank', 'noopener') },
     { key: 'mcp', label: 'MCP', icon: <HubOutlinedIcon fontSize="small" />, onClick: () => navigate('/mcp') },
     // Appearance is the viewer's, not a permission: always offered.
@@ -929,8 +919,8 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
               <EventNoteIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Syslog">
-            <IconButton size="small" onClick={() => window.dispatchEvent(new Event('openSyslogModal'))} sx={{ color: 'var(--theme-text-secondary)', '&:hover': { backgroundColor: 'var(--theme-hover)' } }}>
+          <Tooltip title="Logs">
+            <IconButton size="small" onClick={() => navigate('/logs')} sx={{ color: 'var(--theme-text-secondary)', '&:hover': { backgroundColor: 'var(--theme-hover)' } }}>
               <ArticleIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -1475,7 +1465,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Logs">
-                  <IconButton size="small" onClick={() => { setNodesPopoverAnchor(null); window.dispatchEvent(new Event('openSyslogModal')); }} sx={{ p: 0.25 }}>
+                  <IconButton size="small" onClick={() => { setNodesPopoverAnchor(null); navigate(`/logs?host=${encodeURIComponent(node.name)}`); }} sx={{ p: 0.25 }}>
                     <TerminalIcon sx={{ fontSize: 13, color: 'var(--theme-text-secondary)' }} />
                   </IconButton>
                 </Tooltip>
@@ -1617,32 +1607,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           {eventsModalOpen && (
             <Suspense fallback={null}>
               <Events key={eventsModalParams} initialParams={eventsModalParams} />
-            </Suspense>
-          )}
-        </Box>
-      </Dialog>
-
-      {/* Syslog Modal — the full system-logs view in its own window (same pattern
-          as the Events modal), instead of living as a Monitoring tab. */}
-      <Dialog
-        open={syslogModalOpen}
-        onClose={() => setSyslogModalOpen(false)}
-        maxWidth="xl"
-        fullWidth
-        PaperProps={{ sx: { height: '90vh', display: 'flex', flexDirection: 'column' } }}
-      >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1.5, pr: 1 }}>
-          <Typography variant="h6" sx={{ flex: 1 }}>Syslog</Typography>
-          <IconButton size="small" onClick={() => setSyslogModalOpen(false)} sx={{ ml: 0.5 }}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </DialogTitle>
-        <Box sx={{ flex: 1, overflow: 'auto', p: 0 }}>
-          {syslogModalOpen && (
-            <Suspense fallback={null}>
-              {/* '' = the whole stream, explicitly unfiltered: the Syslog
-                  tool is a whole-fleet view, never scoped to one record. */}
-              <SystemLogs initialParams="" />
             </Suspense>
           )}
         </Box>
