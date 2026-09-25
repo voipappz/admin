@@ -44,10 +44,9 @@ const SERIES_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#
 
 const ANSWERED = /^(answer|answered|normal_clearing)$/i;
 const CDR_GROUPS = [
-  { key: 'customer_uuid', label: 'Customer' },
   { key: 'direction', label: 'Direction' },
   { key: 'disposition', label: 'Disposition' },
-  { key: 'cause', label: 'Cause' },
+  { key: 'type', label: 'Type' },
   { key: 'hangup_disposition', label: 'Hangup disposition' },
 ];
 
@@ -73,8 +72,8 @@ export default function AdminDashboard() {
   const [outcome, setOutcome] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [metricExplorerOpen, setMetricExplorerOpen] = useState(false);
-  const [cdrGroupBy, setCdrGroupBy] = useState('customer_uuid');
+  const [metricExplorerOpen, setMetricExplorerOpen] = useState(true);
+  const [cdrGroupBy, setCdrGroupBy] = useState('direction');
   const timer = useRef(null);
 
   const range = PERIODS.find((p) => p.key === period) || PERIODS[1];
@@ -199,11 +198,11 @@ export default function AdminDashboard() {
               loading={loading} footnote={`${totals.answered.toLocaleString()} of ${totals.all.toLocaleString()}`} />
           </Slot>
           <Slot span={3}>
-            <MetricCard title={fleetView ? 'Customers with calls' : 'Directions'} value={totals.groups}
+            <MetricCard title={groupLabel(splitBy)} value={totals.groups}
               icon={<GroupsIcon fontSize="small" />} color="#8b5cf6" loading={loading} />
           </Slot>
           <Slot span={3}>
-            <MetricCard title={fleetView ? 'Busiest customer' : 'Most calls'} value={totals.busiest}
+            <MetricCard title={`Most calls by ${groupLabel(splitBy).toLowerCase()}`} value={totals.busiest}
               icon={<CallMadeIcon fontSize="small" />} color="#f59e0b" loading={loading} />
           </Slot>
 
@@ -246,7 +245,7 @@ export default function AdminDashboard() {
             </Box>
           </AccordionSummary>
           <AccordionDetails>
-            <InfluxMetricExplorer />
+            <InfluxMetricExplorer defaultMeasurement="cdr" defaultField="duration" />
           </AccordionDetails>
         </Accordion>
       </Box>

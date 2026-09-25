@@ -27,7 +27,7 @@ const PALETTE = ['#65758E', '#28A7E9', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6
  * field → aggregation; the selected node and time window are injected. No
  * hand-written InfluxQL — but the InfluxQL Influxer generated is shown read-only.
  */
-export default function InfluxMetricExplorer({ host = '' }) {
+export default function InfluxMetricExplorer({ host = '', defaultMeasurement = '', defaultField = '' }) {
   const [schema, setSchema] = useState([]);
   const [schemaErr, setSchemaErr] = useState(null);
   const [measurement, setMeasurement] = useState('');
@@ -53,10 +53,23 @@ export default function InfluxMetricExplorer({ host = '' }) {
     return (m?.fields || []).map((f) => (typeof f === 'string' ? f : f.name)).filter(Boolean).sort();
   }, [schema, measurement]);
 
+  // A dashboard can point the explorer at the measurement it is explaining
+  // without replacing the general-purpose browser. The Monitoring screen has
+  // no preferred series; the calls dashboard starts on CDRs so the query
+  // surface is useful as soon as it opens.
+  useEffect(() => {
+    if (measurement || measurements.length === 0) return;
+    setMeasurement(measurements.includes(defaultMeasurement) ? defaultMeasurement : measurements[0]);
+  }, [defaultMeasurement, measurement, measurements]);
+
   // Keep field valid when the measurement changes.
   useEffect(() => {
-    if (measurement && fields.length && !fields.includes(field)) setField(fields[0]);
-  }, [measurement, fields, field]);
+    if (!measurement || fields.length === 0 || fields.includes(field)) return;
+    const preferred = measurement === defaultMeasurement && fields.includes(defaultField)
+      ? defaultField
+      : fields[0];
+    setField(preferred);
+  }, [defaultField, defaultMeasurement, measurement, fields, field]);
 
   const run = async () => {
     if (!measurement || !field) return;
