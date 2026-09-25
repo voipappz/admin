@@ -7,7 +7,8 @@ import { ZENDESK_TICKET_SUBMITTED } from '../../services/zendeskWidget';
  * Custom hook for Tickets management
  * Handles business logic for ticket CRUD operations with table pattern and filters
  */
-export const useTickets = () => {
+// `enabled` false (a portal user session): the tickets API is account-only.
+export const useTickets = ({ enabled = true } = {}) => {
   // State management
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -138,9 +139,10 @@ export const useTickets = () => {
    * Load tickets and stats on component mount and when dependencies change
    */
   useEffect(() => {
+    if (!enabled) return;
     fetchTickets();
     fetchTicketStats();
-  }, [fetchTickets, fetchTicketStats]);
+  }, [enabled, fetchTickets, fetchTicketStats]);
 
   /**
    * Handle opening create dialog

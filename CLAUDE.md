@@ -101,23 +101,22 @@ const { access, refresh, csrf } = await otpResp.json();
 
 ## Sessions: one at a time
 
-The admin console (`AuthContext`, storage `auth`) and the end-user portal
-(`UserAuthContext`, storage `user_auth`) are two unrelated JWTs, and
-`apiService.getToken()` can send only one of them. They used to be able to
-coexist, and then the portal dashboard at `/` sent every request with the
-ADMIN token. Both sign in on ONE page at `/` (`SignIn.jsx`), toggled User /
-Account; there is no /admin page (`/admin` and `/login` redirect to
-`/?as=account`). Now signing in on either door ends the other session first
-(`src/services/sessionIsolation.js`: revoke, clear its keys, tell its context).
-A browser that still holds both keeps the admin session. Pinned by
-`src/services/sessionIsolation.test.jsx`, which runs in CI.
+`AuthContext` (storage `auth`) and `UserAuthContext` (storage `user_auth`) use
+separate JWTs, but both sign in through `/` (`SignIn.jsx`, toggled User /
+Account) and enter the same admin console. Signing in on either door ends the
+other session (`src/services/sessionIsolation.js`), so requests always use the
+active identity. `/admin` and `/login` only select the Account sign-in view.
 
-Ending a session on either side also forgets the person (`forgetPerson`):
-`apiService` drops every cached and in-flight response (they are keyed by the
-signed-in token too, so one identity is never served another's), and the
-personal keys go (chat session ids, recent pages/objects, customer branding and
-selection). A portal user sees only their own environment: gate every
-customer/environment control on `useIsUserSession()` / `portalMode`.
+An account can choose customer and environment. A user has one environment and
+uses the same sidebar, top bar, and routes, filtered strictly by their ACL: a
+screen or control with no ACL key is account-only. The phone drawer is also
+account-only. Keep account token-only Calls features (column configuration,
+saved filters, and live-call count) off for user sessions; list, segments,
+aggregates, and export must use the user's token. `useIsUserSession()`
+identifies this branch.
+
+Ending either session calls `forgetPerson`: `apiService` drops cached and
+in-flight data and clears personal keys so identities cannot share data.
 
 ## Running Tests
 

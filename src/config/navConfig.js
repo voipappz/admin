@@ -69,8 +69,12 @@ export const TOPBAR_NAV_ITEMS = [
   { text: 'API Docs',      path: '/devzone',        iconComponent: CodeIcon,                                                          group: 'ADMIN'    },
 ];
 
-export function getPermittedNavItems(acl) {
+// `strict` (a portal USER session — same ACL model as an account): an item is
+// shown only when the ACL grants its key. Items with no key, or alwaysShow,
+// are account-console affordances and stay hidden.
+export function getPermittedNavItems(acl, { strict = false } = {}) {
   return NAV_ITEMS.filter(item => {
+    if (strict) return Boolean(item.aclKey && acl && canAccessScreen(acl, item.aclKey));
     if (item.alwaysShow) return true;
     if (!item.aclKey) return true; // utility screens (e.g. Settings) — no ACL gate
     if (!acl) return false;
@@ -78,8 +82,9 @@ export function getPermittedNavItems(acl) {
   });
 }
 
-export function getPermittedTopbarItems(acl) {
+export function getPermittedTopbarItems(acl, { strict = false } = {}) {
   return TOPBAR_NAV_ITEMS.filter(item => {
+    if (strict) return Boolean(item.aclKey && acl && canAccessScreen(acl, item.aclKey));
     if (!item.aclKey) return true; // utility screens (e.g. Settings) — no ACL gate
     if (!acl) return false;
     return canAccessScreen(acl, item.aclKey);

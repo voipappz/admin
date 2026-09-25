@@ -45,6 +45,8 @@ export default function LiveCallsDashboard({
   callsAllowed = true,
   historyPath = '/my-calls',
   testId = 'dashboard-page',
+  liveEnabled = Boolean(environmentUuid),
+  recentCallsEnabled = Boolean(environmentUuid),
   children = null,
 }) {
   const navigate = useNavigate();
@@ -54,7 +56,7 @@ export default function LiveCallsDashboard({
   const [callsLoading, setCallsLoading] = useState(true);
 
   const loadRecentCalls = useCallback(async () => {
-    if (!callsAllowed) { setCallsLoading(false); return; }
+    if (!callsAllowed || !recentCallsEnabled) { setCallsLoading(false); return; }
     try {
       setCallsLoading(true);
       setCallsError(false);
@@ -68,7 +70,7 @@ export default function LiveCallsDashboard({
     } finally {
       setCallsLoading(false);
     }
-  }, [callsAllowed]);
+  }, [callsAllowed, recentCallsEnabled]);
 
   useEffect(() => { loadRecentCalls(); }, [loadRecentCalls]);
 
@@ -88,33 +90,35 @@ export default function LiveCallsDashboard({
 
   return (
     <Box data-testid={testId} sx={{ p: { xs: 2, md: 3 }, width: '100%', maxWidth: 1440, mx: 'auto' }}>
-      <PageHeader title={title} subtitle={subtitle} actions={callsAllowed ? <Button variant="outlined" onClick={() => navigate(historyPath)}>View call history</Button> : null} />
+      <PageHeader title={title} subtitle={subtitle} actions={callsAllowed && recentCallsEnabled ? <Button variant="outlined" onClick={() => navigate(historyPath)}>View call history</Button> : null} />
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <Chip
-          size="small"
-          color={live.connected ? 'success' : 'default'}
-          label={live.connected ? 'Live updates connected' : 'Reconnecting to live updates'}
-        />
-        {live.error && (
-          <Typography variant="caption" color="text.secondary">
-            Live aggregates are temporarily unavailable.
-          </Typography>
-        )}
-      </Box>
+      {liveEnabled && <>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <Chip
+            size="small"
+            color={live.connected ? 'success' : 'default'}
+            label={live.connected ? 'Live updates connected' : 'Reconnecting to live updates'}
+          />
+          {live.error && (
+            <Typography variant="caption" color="text.secondary">
+              Live aggregates are temporarily unavailable.
+            </Typography>
+          )}
+        </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1, mb: 2 }}>
-        <Box><StatCard label="Calls in progress" value={live.connected ? aggregate.active : '—'} icon={PhoneInTalkIcon} color="success.main" /></Box>
-        <Box><StatCard label="Incoming" value={live.connected ? aggregate.incoming : '—'} icon={CallReceivedIcon} color="info.main" /></Box>
-        <Box><StatCard label="Outgoing" value={live.connected ? aggregate.outgoing : '—'} icon={CallMadeIcon} color="primary.main" /></Box>
-      </Box>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1, mb: 2 }}>
+          <Box><StatCard label="Calls in progress" value={live.connected ? aggregate.active : '—'} icon={PhoneInTalkIcon} color="success.main" /></Box>
+          <Box><StatCard label="Incoming" value={live.connected ? aggregate.incoming : '—'} icon={CallReceivedIcon} color="info.main" /></Box>
+          <Box><StatCard label="Outgoing" value={live.connected ? aggregate.outgoing : '—'} icon={CallMadeIcon} color="primary.main" /></Box>
+        </Box>
+      </>}
 
       {/* A wrapper's own panels (the admin's calls chart) sit between the live
           tiles and the recent-calls list: live now, then the period, then the
           detail. */}
       {children}
 
-      {callsAllowed && <Paper elevation={0} sx={{ p: { xs: 1.5, md: 2 }, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+      {callsAllowed && recentCallsEnabled && <Paper elevation={0} sx={{ p: { xs: 1.5, md: 2 }, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
         <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 700 }}>Recent calls</Typography>
         {callsLoading ? <CircularProgress size={24} aria-label="Loading recent calls" /> : callsError ? (
           <Box role="alert"><Typography color="error" variant="body2">Could not load call history.</Typography><Button onClick={loadRecentCalls}>Retry</Button></Box>

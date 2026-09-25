@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { loadFilterParameters, convertApiParamsToSearchParams } from '../../../services/callsService';
 import { useAuth } from '../../../context/AuthContext';
+import { useIsUserSession } from '../../../hooks/useIsUserSession';
 
 const useUrlSync = (fetchCalls, dateRange) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { access } = useAuth();
+  const userSession = useIsUserSession();
   const [currentSearchParams, setCurrentSearchParams] = useState({});
 
   // Keep URL in sync with current search parameters
@@ -29,7 +31,7 @@ const useUrlSync = (fetchCalls, dateRange) => {
     if (qsEntries.length === 0) {
       // No URL parameters, try to load saved parameters
       const loadSavedParams = async () => {
-        if (access) {
+        if (access && !userSession) {
           try {
             const result = await loadFilterParameters(access);
             if (result.success && result.data && result.data.length > 0) {
@@ -83,7 +85,7 @@ const useUrlSync = (fetchCalls, dateRange) => {
 
       fetchCalls(dateRange, allParams);
     }
-  }, [access, dateRange, fetchCalls, location.search]);
+  }, [access, dateRange, fetchCalls, location.search, userSession]);
 
   return {
     currentSearchParams,

@@ -4,7 +4,7 @@ import { useSoftphone } from '../../context/SoftphoneContext';
 import { usePortalSidebar } from '../../context/PortalSidebarContext';
 
 // The phone in the account console's top bar: opens the right-hand sidebar,
-// as the portal bar's phone button does (PortalActions). Green when
+// as the shared command palette's phone action does. Green when
 // registered; the dot carries the finer states.
 const DOT = { registered: '#22c55e', registering: '#f59e0b', connecting: '#f59e0b', failed: '#ef4444', unregistered: '#94a3b8' };
 

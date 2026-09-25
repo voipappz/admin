@@ -13,7 +13,11 @@ vi.mock('../../hooks/usePermissions', () => ({ usePermissions: () => ({ can: () 
 const auth = vi.fn(() => ({ isRoot: false }));
 vi.mock('../../context/AuthContext', () => ({ useAuth: () => auth() }));
 vi.mock('../../services/api/monitoringApi', () => ({
-  monitoringApi: { getCallsVolumeChart: vi.fn().mockResolvedValue([]) },
+  monitoringApi: {
+    getCallsVolumeChart: vi.fn().mockResolvedValue([]),
+    getInfluxSchema: vi.fn().mockResolvedValue([]),
+    runInfluxQuery: vi.fn().mockResolvedValue([]),
+  },
 }));
 import { monitoringApi } from '../../services/api/monitoringApi';
 
@@ -25,20 +29,20 @@ import AdminDashboard from './AdminDashboard.jsx';
 describe('AdminDashboard', () => {
   it('follows the selected customer and environment', async () => {
     scope.mockReturnValue({
-      selectedCustomer: { name: 'acme' },
+      selectedCustomer: { uuid: 'c-1', name: 'acme' },
       selectedEnvironments: [{ uuid: 'env-1', name: 'main' }, { uuid: 'env-2', name: 'other' }],
     });
     render(<AdminDashboard />);
-    expect(screen.getByTestId('admin-dashboard-page')).toHaveTextContent('Live activity for acme · main');
-    expect(await screen.findByText('Live updates connected')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-dashboard-page')).toHaveTextContent('Live activity for acme · all applications');
+    expect(screen.queryByText('Live updates connected')).not.toBeInTheDocument();
+    expect(screen.queryByText('3')).not.toBeInTheDocument();
   });
 
-  it('charts the selected scope, split by direction', async () => {
+  it('charts every application in the selected customer, grouped by customer', async () => {
     scope.mockReturnValue({ selectedCustomer: { uuid: 'c-1', name: 'acme' }, selectedEnvironments: [{ uuid: 'env-1', name: 'main' }] });
     render(<AdminDashboard />);
     await vi.waitFor(() => expect(monitoringApi.getCallsVolumeChart)
-      .toHaveBeenCalledWith('env-1', 1440, '1h', 'c-1', 'direction'));
+      .toHaveBeenCalledWith(null, 1440, '1h', 'c-1', 'customer_uuid'));
   });
 
   // The bird's-eye view: a root admin with nothing selected sees every
@@ -57,6 +61,6 @@ describe('AdminDashboard', () => {
     scope.mockReturnValue({ selectedCustomer: null, selectedEnvironments: [] });
     render(<AdminDashboard />);
     expect(screen.getByText('Select an application to see live activity')).toBeInTheDocument();
-    expect(screen.getByText('Reconnecting to live updates')).toBeInTheDocument();
+    expect(screen.queryByText('Reconnecting to live updates')).not.toBeInTheDocument();
   });
 });

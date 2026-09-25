@@ -1,11 +1,18 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useUserAuth } from '../../context/UserAuthContext';
+import { useIsUserSession } from '../../hooks/useIsUserSession';
+import { USER_CALL_COLUMNS } from './userCallColumns';
 
 const API_BASE_URL = '/api';
-// Fixed: Updated to use access token from useAuth hook
 
 const useCalls = () => {
-  const { access } = useAuth();
+  // The active session's token: an account's, or a portal user's (the same
+  // screen serves both; the API scopes a user token to its own environment).
+  const { access: accountToken } = useAuth();
+  const { token: userToken } = useUserAuth();
+  const userSession = useIsUserSession();
+  const access = userSession ? userToken : accountToken;
   
   const [columns, setColumns] = useState([]);
   const [calls, setCalls] = useState([]);
@@ -55,6 +62,14 @@ const useCalls = () => {
   useEffect(() => {
 
     const fetchColumns = async () => {
+      // action=columns is served to an ACCOUNT only: a user gets the fields
+      // its :portal_list rows carry.
+      if (userSession) {
+        setColumns(USER_CALL_COLUMNS);
+        setErrorColumns(null);
+        setLoadingColumns(false);
+        return;
+      }
       setLoadingColumns(true);
       setErrorColumns(null);
       try {
@@ -79,7 +94,7 @@ const useCalls = () => {
     if (access || commonHeaders.Authorization) {
       fetchColumns();
     }
-  }, [commonHeaders, access]);
+  }, [commonHeaders, access, userSession]);
 
   // Fetch segments for filter sidebar
   useEffect(() => {

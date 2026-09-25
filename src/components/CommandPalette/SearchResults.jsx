@@ -28,6 +28,7 @@ const SearchResults = ({ search }) => {
     resourceType, setResourceType,
     showAllChips, setShowAllChips,
     answer,
+    resourceSearch = true,
   } = search;
   const resultsRef = useRef(null);
 
@@ -45,7 +46,7 @@ const SearchResults = ({ search }) => {
   return (
     <>
       {/* Resource type filter chips — only shown when typing */}
-      {hasQuery && (
+      {hasQuery && resourceSearch && (
         <Box className="command-palette-chips">
           {visibleChips.map(rt => (
             <button
