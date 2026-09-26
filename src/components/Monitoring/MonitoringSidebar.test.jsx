@@ -35,19 +35,36 @@ const search = async (value) => {
 beforeEach(() => { vi.clearAllMocks(); unread = [...ROWS]; });
 
 describe('MonitoringSidebar', () => {
+  it('preserves the notification payload when opening details', async () => {
+    const onSelect = vi.fn();
+    render(<MonitoringSidebar notificationType="" onSelect={onSelect} />);
+    await screen.findByText('Notifications (3)');
+    fireEvent.click(screen.getByText('High CPU Usage on voipappz'));
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ uuid: 'a1', msg: 'CPU at 86%' }));
+    expect(notificationsApi.getUnreadAlerts).toHaveBeenCalledWith({ level: '', search: '', type: '' });
+  });
+
+  it('marks a row read without opening its details', async () => {
+    const onSelect = vi.fn();
+    render(<MonitoringSidebar onSelect={onSelect} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark "High CPU Usage on voipappz" as read' }));
+    await waitFor(() => expect(notificationsApi.markRead).toHaveBeenCalledWith('a1'));
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it('lists unread alerts from /api/notifications, newest first, with the counts', async () => {
     render(<MonitoringSidebar />);
     expect(await screen.findByText('Alerts (3)')).toBeInTheDocument();
     expect(subjects()).toEqual(['Security: weak SIP passwords', 'High CPU Usage on voipappz', 'High Disk Usage on memo-db']);
     expect(screen.getByTestId('alerts-level-critical')).toHaveTextContent('critical 1');
-    expect(notificationsApi.getUnreadAlerts).toHaveBeenCalledWith({ level: '', search: '' });
+    expect(notificationsApi.getUnreadAlerts).toHaveBeenCalledWith({ level: '', search: '', type: 'alert' });
   });
 
   it('filters by level in the API, and the chip toggles back', async () => {
     render(<MonitoringSidebar />);
     fireEvent.click(await screen.findByTestId('alerts-level-critical'));
     await waitFor(() => expect(subjects()).toEqual(['High Disk Usage on memo-db']));
-    expect(notificationsApi.getUnreadAlerts).toHaveBeenLastCalledWith({ level: 'critical', search: '' });
+    expect(notificationsApi.getUnreadAlerts).toHaveBeenLastCalledWith({ level: 'critical', search: '', type: 'alert' });
     fireEvent.click(screen.getByTestId('alerts-level-critical'));
     await waitFor(() => expect(subjects()).toHaveLength(3));
   });
@@ -57,7 +74,7 @@ describe('MonitoringSidebar', () => {
     await screen.findByText('Alerts (3)');
     await search('disk');
     await waitFor(() => expect(subjects()).toEqual(['High Disk Usage on memo-db']));
-    expect(notificationsApi.getUnreadAlerts).toHaveBeenLastCalledWith({ level: '', search: 'disk' });
+    expect(notificationsApi.getUnreadAlerts).toHaveBeenLastCalledWith({ level: '', search: 'disk', type: 'alert' });
     await search('nothing-like-this');
     expect(await screen.findByText('No alerts match.')).toBeInTheDocument();
   });

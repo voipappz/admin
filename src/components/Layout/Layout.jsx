@@ -110,7 +110,7 @@ const Layout = ({ children }) => {
             {/* Fixed sidebar — hidden on mobile, shown via the drawer */}
             {!isMcpWorkspace && (
               <Box className="sidebar-desktop">
-                <Sidebar collapsed={sidebarCollapsed} />
+                <Sidebar collapsed={sidebarCollapsed} expanded={sidebarExpanded} />
               </Box>
             )}
 
@@ -145,14 +145,12 @@ const Layout = ({ children }) => {
                 <Typography className="app-footer-text" variant="caption" data-testid="app-version">
                   v{APP_VERSION}
                 </Typography>
-              </Box>}
-              {/* Brand watermark — pinned bottom-right of the content area so it's
-                  always visible (not at the end of scroll). */}
-              {!isMcpWorkspace && <img
+              <img
                 className="app-watermark"
                 src={isDarkMode ? LOGO_WHITE : LOGO_DARK}
                 alt="VoipAppz"
-              />}
+              />
+              </Box>}
             </Box>
           </Box>
           <PortalSidebar />

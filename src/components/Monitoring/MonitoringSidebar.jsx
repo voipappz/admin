@@ -37,7 +37,7 @@ const SORTS = {
   oldest: (a, b) => time(a) - time(b),
   severity: (a, b) => (SEVERITY[a.level] ?? 9) - (SEVERITY[b.level] ?? 9) || time(b) - time(a),
 };
-const toAlert = (n) => ({ id: n.uuid, level: n.level, subject: n.subject, message: n.msg, timestamp: n.created_at });
+const toAlert = (n) => ({ ...n, id: n.uuid, level: n.level, subject: n.subject, message: n.msg, timestamp: n.created_at });
 
 const SectionHeader = ({ icon, title, right }) => (
   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
@@ -58,7 +58,8 @@ const Empty = ({ children }) => (
   </Typography>
 );
 
-const MonitoringSidebar = () => {
+const MonitoringSidebar = ({ notificationType = 'alert', onSelect, onCountChange }) => {
+  const noun = notificationType === 'alert' ? 'alerts' : 'notifications';
   const [level, setLevel] = useState('');        // '' = every level
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');      // the query, once typing pauses
@@ -75,15 +76,16 @@ const MonitoringSidebar = () => {
 
   const load = useCallback(async () => {
     const [list, ...totals] = await Promise.allSettled([
-      notificationsApi.getUnreadAlerts({ level, search }),
-      notificationsApi.countUnreadAlerts(),
-      ...LEVELS.map(l => notificationsApi.countUnreadAlerts(l)),
+      notificationsApi.getUnreadAlerts({ level, search, type: notificationType }),
+      notificationsApi.countUnreadAlerts('', notificationType),
+      ...LEVELS.map(l => notificationsApi.countUnreadAlerts(l, notificationType)),
     ]);
     if (list.status === 'fulfilled') setRows(list.value.rows.map(toAlert));
     const n = (r) => (r.status === 'fulfilled' ? r.value : 0);
     setCounts({ all: n(totals[0]), ...Object.fromEntries(LEVELS.map((l, i) => [l, n(totals[i + 1])])) });
+    if (totals[0].status === 'fulfilled') onCountChange?.(totals[0].value);
     setLoading(false);
-  }, [level, search]);
+  }, [level, search, notificationType, onCountChange]);
 
   useEffect(() => {
     load();
@@ -107,7 +109,7 @@ const MonitoringSidebar = () => {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <SectionHeader
         icon={<NotificationsActiveIcon sx={{ fontSize: 16, color: counts.all ? '#ef4444' : 'var(--theme-text-secondary)' }} />}
-        title={`Alerts (${counts.all ?? 0})`}
+        title={`${notificationType === 'alert' ? 'Alerts' : 'Notifications'} (${counts.all ?? 0})`}
         right={filtered && shown.length > 0 && (
           <Tooltip title="Mark the alerts shown as read">
             <span>
@@ -137,8 +139,8 @@ const MonitoringSidebar = () => {
         ))}
       </Box>
       <Box sx={{ display: 'flex', gap: 0.5, mb: 1 }}>
-        <TextField size="small" placeholder="Search alerts" value={query} onChange={e => setQuery(e.target.value)}
-          inputProps={{ 'aria-label': 'Search alerts', style: { fontSize: '0.72rem', padding: '4px 6px' } }}
+        <TextField size="small" placeholder={`Search ${noun}`} value={query} onChange={e => setQuery(e.target.value)}
+          inputProps={{ 'aria-label': `Search ${noun}`, style: { fontSize: '0.72rem', padding: '4px 6px' } }}
           InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 14 }} /></InputAdornment> }}
           sx={{ flex: 1 }} />
         <Select size="small" value={sort} onChange={e => setSort(e.target.value)}
@@ -151,14 +153,25 @@ const MonitoringSidebar = () => {
 
       <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {loading ? <CircularProgress size={16} />
-          : !shown.length ? <Empty>{filtered ? 'No alerts match.' : 'Nothing above threshold.'}</Empty>
+          : !shown.length ? <Empty>{filtered ? `No ${noun} match.` : notificationType === 'alert' ? 'Nothing above threshold.' : 'No unread notifications.'}</Empty>
           : shown.map(a => (
             <Box key={a.id} data-testid="alert-row" sx={{
               py: 0.75, borderBottom: '1px solid var(--theme-border)',
               borderLeft: `3px solid ${LEVEL_COLOR[a.level] || '#9ca3af'}`, pl: 1,
               display: 'flex', alignItems: 'flex-start', gap: 0.5,
             }}>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Box
+                role={onSelect ? 'button' : undefined}
+                tabIndex={onSelect ? 0 : undefined}
+                onClick={() => onSelect?.(a)}
+                onKeyDown={event => {
+                  if (onSelect && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault();
+                    onSelect(a);
+                  }
+                }}
+                sx={{ flex: 1, minWidth: 0, cursor: onSelect ? 'pointer' : 'default' }}
+              >
                 <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--theme-text-primary)' }}>
                   {a.subject || a.level}
                 </Typography>

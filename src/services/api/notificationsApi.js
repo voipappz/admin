@@ -90,11 +90,12 @@ export const notificationsApi = {
    * first, so this walks the pages (up to maxPages) and the caller orders.
    * @returns {Promise<{rows: Array, total: number}>}
    */
-  getUnreadAlerts: async ({ level = '', search = '', maxPages = 10 } = {}) => {
+  getUnreadAlerts: async ({ level = '', search = '', maxPages = 10, type = 'alert' } = {}) => {
     const rows = [];
     let total = 0;
     for (let page = 1; page <= maxPages; page += 1) {
-      const params = new URLSearchParams({ type: 'alert', action: 'pending', page: String(page) });
+      const params = new URLSearchParams({ action: 'pending', page: String(page) });
+      if (type) params.set('type', type);
       if (level) params.append('level', level);
       if (search) params.append('search[inline]', search);
       const res = await apiService.get(`/api/notifications?${params.toString()}`, {}, 'fetching alerts', false, true);
@@ -110,8 +111,9 @@ export const notificationsApi = {
    * How many unread alerts (optionally of one level): the X-Total of the first
    * page of the same list, so no rows are walked for a count.
    */
-  countUnreadAlerts: async (level = '') => {
-    const params = new URLSearchParams({ type: 'alert', action: 'pending', page: '1' });
+  countUnreadAlerts: async (level = '', type = 'alert') => {
+    const params = new URLSearchParams({ action: 'pending', page: '1' });
+    if (type) params.set('type', type);
     if (level) params.append('level', level);
     const res = await apiService.get(`/api/notifications?${params.toString()}`, {}, 'counting alerts', false, true);
     return Array.isArray(res) ? res.length : (Number(res?.total) || 0);
