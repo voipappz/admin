@@ -1034,7 +1034,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           {/* Divider between admin and utility icons */}
           <Box sx={{ width: '1px', height: 24, backgroundColor: 'var(--border-light, #e5e7eb)', mx: 0.5, flexShrink: 0 }} />
 
-          {!userSession && <TopBarPhoneButton />}
+          <TopBarPhoneButton />
 
           {allow('notifications') && (
           <Tooltip title="Notifications">
