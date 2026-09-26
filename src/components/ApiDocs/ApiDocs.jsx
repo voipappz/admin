@@ -1,16 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Button, CircularProgress, Dialog, DialogContent, DialogTitle,
-  IconButton, Snackbar, Stack, Typography,
+  Alert, Box, CircularProgress, Stack, Typography,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
 import SwaggerUI from 'swagger-ui-react';
 import 'swagger-ui-react/swagger-ui.css';
 import { useAuth } from '../../context/AuthContext';
 import { useThemeMode } from '../../context/ThemeContext';
 import { config } from '../../config.js';
-import McpConnect from './McpConnect';
 
 const publicFetchOptions = {
   credentials: 'omit',
@@ -52,18 +48,15 @@ const swaggerSx = {
   '& .swagger-ui .btn': { boxShadow: 'none' },
 };
 
-/** Swagger is the DevZone screen; MCP connection help is available only from its button. */
+/** Swagger is the DevZone screen. MCP lives in its dedicated workspace. */
 export default function ApiDocs() {
   const { access } = useAuth();
   const { isDarkMode } = useThemeMode();
   const [spec, setSpec] = useState(null);
   const [error, setError] = useState('');
-  const [mcpOpen, setMcpOpen] = useState(false);
-  const [notice, setNotice] = useState('');
   const apiBaseUrl = config.apiBaseUrl.replace(/\/$/, '');
   const serverUrl = apiBaseUrl || window.location.origin;
   const openApiUrl = `${apiBaseUrl}/tasks/openapi.json`;
-  const mcpUrl = new URL(`${apiBaseUrl}/api/mcp`, window.location.origin).toString();
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark-mode', isDarkMode);
@@ -95,10 +88,6 @@ export default function ApiDocs() {
     return request;
   }, [access]);
 
-  const copyText = (text, message) => navigator.clipboard?.writeText(text)
-    .then(() => setNotice(message))
-    .catch(() => setNotice('Could not copy to the clipboard.'));
-
   return (
     <Box sx={swaggerSx} data-testid="swagger-screen">
       <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
@@ -108,9 +97,6 @@ export default function ApiDocs() {
             Explore the live VoipAppz contract and try requests against this environment.
           </Typography>
         </Box>
-        <Button variant="outlined" startIcon={<HubOutlinedIcon />} onClick={() => setMcpOpen(true)}>
-          MCP
-        </Button>
       </Stack>
 
       {error && <Alert severity="error">{error}</Alert>}
@@ -127,24 +113,6 @@ export default function ApiDocs() {
         />
       )}
 
-      <Dialog open={mcpOpen} onClose={() => setMcpOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ pr: 6 }}>
-          MCP endpoint
-          <Typography component="div" variant="body2" sx={{ mt: 0.5, fontFamily: 'monospace', wordBreak: 'break-all' }}>
-            {mcpUrl}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            JSON-RPC 2.0 over POST · Authorization: Bearer &lt;token&gt; or Basic &lt;email:password&gt;
-          </Typography>
-          <IconButton aria-label="Close MCP" onClick={() => setMcpOpen(false)} sx={{ position: 'absolute', right: 12, top: 12 }}>
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: { xs: 1.5, sm: 2.5 } }}>
-          <McpConnect endpointUrl={mcpUrl} copyText={copyText} />
-        </DialogContent>
-      </Dialog>
-      <Snackbar open={Boolean(notice)} autoHideDuration={2500} onClose={() => setNotice('')} message={notice} />
     </Box>
   );
 }

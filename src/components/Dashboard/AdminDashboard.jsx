@@ -11,13 +11,15 @@
 // empty screen, which is the bird's-eye case this screen exists for.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Box, FormControl, FormControlLabel, IconButton, MenuItem, Paper, Select, Switch, Tooltip, Typography,
+  Accordion, AccordionDetails, AccordionSummary, Box, Chip, FormControl, FormControlLabel, IconButton, MenuItem, Paper, Select, Switch, Tooltip, Typography,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import PhoneInTalkIcon from '@mui/icons-material/PhoneInTalk';
 import CallMadeIcon from '@mui/icons-material/CallMade';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import GroupsIcon from '@mui/icons-material/Groups';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import TerminalIcon from '@mui/icons-material/Terminal';
 import { useAuth } from '../../context/AuthContext';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext.jsx';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -25,6 +27,7 @@ import { monitoringApi } from '../../services/api/monitoringApi';
 import { MetricCard, ChartPanel, WidgetGrid, Slot } from '../Monitoring/widgets';
 import LiveCallsDashboard from './LiveCallsDashboard.jsx';
 import CallsBreakdown, { sumByKey } from './CallsBreakdown.jsx';
+import InfluxMetricExplorer from '../Monitoring/InfluxMetricExplorer/InfluxMetricExplorer.jsx';
 
 // Same cadence as Monitoring, so a console with both open refreshes together.
 const REFRESH_MS = 30000;
@@ -40,13 +43,27 @@ const PERIODS = [
 const SERIES_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
 
 const ANSWERED = /^(answer|answered|normal_clearing)$/i;
+const CDR_GROUPS = [
+  { key: 'direction', label: 'Direction' },
+  { key: 'disposition', label: 'Disposition' },
+  { key: 'type', label: 'Type' },
+  { key: 'hangup_disposition', label: 'Hangup disposition' },
+];
+
+const groupLabel = (key) => CDR_GROUPS.find((group) => group.key === key)?.label || key.replace(/_/g, ' ');
 
 export default function AdminDashboard() {
   const { selectedCustomer, selectedEnvironments } = useCustomerEnvironment();
   const { isRoot } = useAuth();
   const { can } = usePermissions();
   const environment = selectedEnvironments?.[0] || null;
-  const scope = [selectedCustomer?.name, environment?.name].filter(Boolean).join(' · ');
+  // CDR monitoring follows the selected customer across every one of its
+  // environments. A single environment remains useful to the live panel, but
+  // must not silently narrow historical monitoring to the first selection.
+  const cdrEnvironmentUuid = selectedCustomer?.uuid ? null : environment?.uuid || null;
+  const scope = selectedCustomer?.uuid && selectedCustomer?.name
+    ? `${selectedCustomer.name} · all applications`
+    : environment?.name || selectedCustomer?.name || '';
   const fleetView = isRoot && !selectedCustomer?.uuid && !environment?.uuid;
 
   const [period, setPeriod] = useState('24h');
@@ -55,10 +72,12 @@ export default function AdminDashboard() {
   const [outcome, setOutcome] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [metricExplorerOpen, setMetricExplorerOpen] = useState(true);
+  const [cdrGroupBy, setCdrGroupBy] = useState('direction');
   const timer = useRef(null);
 
   const range = PERIODS.find((p) => p.key === period) || PERIODS[1];
-  const splitBy = fleetView ? 'customer_uuid' : 'direction';
+  const splitBy = cdrGroupBy;
 
   const load = useCallback(async () => {
     if (!fleetView && !selectedCustomer?.uuid && !environment?.uuid) { setLoading(false); return; }
@@ -68,10 +87,10 @@ export default function AdminDashboard() {
       // Two views of one window — when the calls happened, and how they ended.
       const [rows, outcomeRows] = await Promise.all([
         monitoringApi.getCallsVolumeChart(
-          environment?.uuid || null, range.minutes, range.bucket, selectedCustomer?.uuid || null, splitBy,
+          cdrEnvironmentUuid, range.minutes, range.bucket, selectedCustomer?.uuid || null, splitBy,
         ),
         monitoringApi.getCallsVolumeChart(
-          environment?.uuid || null, range.minutes, range.bucket, selectedCustomer?.uuid || null, 'disposition',
+          cdrEnvironmentUuid, range.minutes, range.bucket, selectedCustomer?.uuid || null, 'disposition',
         ),
       ]);
       setVolume(Array.isArray(rows) ? rows : []);
@@ -83,7 +102,7 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [fleetView, selectedCustomer?.uuid, environment?.uuid, range.minutes, range.bucket, splitBy]);
+  }, [fleetView, selectedCustomer?.uuid, cdrEnvironmentUuid, range.minutes, range.bucket, splitBy]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -131,6 +150,8 @@ export default function AdminDashboard() {
       callsAllowed={can('calls', 'read')}
       historyPath="/calls"
       testId="admin-dashboard-page"
+      liveEnabled={!selectedCustomer?.uuid && Boolean(environment?.uuid)}
+      recentCallsEnabled={!selectedCustomer?.uuid && Boolean(environment?.uuid)}
     >
       <Box sx={{ mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap', mb: 1.5 }}>
@@ -141,6 +162,15 @@ export default function AdminDashboard() {
             <FormControl size="small" sx={{ minWidth: 150 }}>
               <Select value={period} onChange={(e) => setPeriod(e.target.value)} inputProps={{ 'aria-label': 'Period' }}>
                 {PERIODS.map((p) => <MenuItem key={p.key} value={p.key}>{p.label}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 165 }}>
+              <Select
+                value={cdrGroupBy}
+                onChange={(e) => setCdrGroupBy(e.target.value)}
+                inputProps={{ 'aria-label': 'Group CDR calls by' }}
+              >
+                {CDR_GROUPS.map((group) => <MenuItem key={group.key} value={group.key}>By {group.label}</MenuItem>)}
               </Select>
             </FormControl>
             <FormControlLabel
@@ -168,17 +198,17 @@ export default function AdminDashboard() {
               loading={loading} footnote={`${totals.answered.toLocaleString()} of ${totals.all.toLocaleString()}`} />
           </Slot>
           <Slot span={3}>
-            <MetricCard title={fleetView ? 'Customers with calls' : 'Directions'} value={totals.groups}
+            <MetricCard title={groupLabel(splitBy)} value={totals.groups}
               icon={<GroupsIcon fontSize="small" />} color="#8b5cf6" loading={loading} />
           </Slot>
           <Slot span={3}>
-            <MetricCard title={fleetView ? 'Busiest customer' : 'Most calls'} value={totals.busiest}
+            <MetricCard title={`Most calls by ${groupLabel(splitBy).toLowerCase()}`} value={totals.busiest}
               icon={<CallMadeIcon fontSize="small" />} color="#f59e0b" loading={loading} />
           </Slot>
 
-          <Slot span={8}>
+          <Slot span={12}>
             <ChartPanel
-              title={fleetView ? 'Calls by customer' : 'Calls by direction'}
+              title={`Calls by ${groupLabel(splitBy)}`}
               data={volume}
               series={series}
               timeRange={range.timeRange}
@@ -186,7 +216,7 @@ export default function AdminDashboard() {
               loading={loading}
             />
           </Slot>
-          <Slot span={4}>
+          <Slot span={12}>
             <Paper elevation={0} sx={{ p: 2, height: '100%', border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>How they ended</Typography>
               {error
@@ -195,6 +225,29 @@ export default function AdminDashboard() {
             </Paper>
           </Slot>
         </WidgetGrid>
+
+        {/* The dashboard is the operational monitoring surface. Keep ad-hoc
+            metric exploration beside its live and CDR charts, using the same
+            safe structured Influxer query builder as the former Monitoring
+            panel: the browser selects fields, never submits InfluxQL. */}
+        <Accordion
+          expanded={metricExplorerOpen}
+          onChange={(_, expanded) => setMetricExplorerOpen(expanded)}
+          disableGutters
+          elevation={0}
+          sx={{ mt: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, '&:before': { display: 'none' } }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <TerminalIcon fontSize="small" />
+              <Typography sx={{ fontWeight: 600 }}>Metric explorer</Typography>
+              <Chip size="small" variant="outlined" label="Influxer" />
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails>
+            <InfluxMetricExplorer defaultMeasurement="cdr" defaultField="duration" />
+          </AccordionDetails>
+        </Accordion>
       </Box>
     </LiveCallsDashboard>
   );

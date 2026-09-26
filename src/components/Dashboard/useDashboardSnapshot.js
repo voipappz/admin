@@ -70,7 +70,11 @@ export function mapRecentCall(row, index) {
     // Calls/ColumnHandlers/useColumnHandlers.jsx) — the recording lands under
     // different keys depending on the row's shape.
     recording_url: row.recording?.url || row.profile?.recordingUrl || row.profile?.recording_url
-      || row.recordingUrl || row.recording_url || null
+      || row.recordingUrl || row.recording_url || null,
+    // Keep the complete Calls API row for the shared side detail panel. The
+    // compact phone list only renders a few fields, but opening a row must
+    // retain its recording, transcript and call metadata.
+    call: row,
   };
 }
 

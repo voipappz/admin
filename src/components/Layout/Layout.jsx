@@ -1,13 +1,11 @@
 import { Box, Drawer, Typography, Snackbar, Button, useMediaQuery } from '@mui/material';
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useLayout } from './Layout';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import Sidebar from '../Sidebar/Sidebar.jsx';
 import TopBar from '../TopBar/TopBar.jsx';
 import { useAuth } from '../../context/AuthContext';
 import { useUserAuth } from '../../context/UserAuthContext';
-import PortalHeader from './PortalHeader.jsx';
-import { usePortalPreferences } from '../../context/PortalPreferencesContext';
 import PortalSidebar from '../Portal/PortalSidebar.jsx';
 import { PortalSidebarProvider } from '../../context/PortalSidebarContext';
 import { GlobalSearchProvider } from '../../context/GlobalSearchContext';
@@ -35,19 +33,15 @@ const LOGO_WHITE = '/images/VA_logo_white.png';
 const Layout = ({ children }) => {
   useLayout();
   const location = useLocation();
+  const navigate = useNavigate();
   const { isAuthenticated, logout, user, customerUuid } = useAuth();
   const userAuth = useUserAuth();
-  const portalPreferences = usePortalPreferences();
   const { isDarkMode } = useThemeMode();
-  // `/` is BOTH the sign-in page (user or account, toggled) and, once signed
-  // in, the portal itself (App.jsx's PortalRoot). Only treat it as a login
-  // page while there is no session — otherwise the portal renders bare, with
-  // no bar and no phone.
-  const isLoginPage = location.pathname === '/' && !userAuth.isAuthenticated && !isAuthenticated;
-  // A signed-in portal user (not an admin) gets a minimal shell below — the
-  // admin sidebar/topbar are admin-console concepts a portal user has no
-  // business seeing.
-  const isUserOnlySession = userAuth.isAuthenticated && !isAuthenticated;
+  // `/` is user sign-in and `/admin` is account sign-in. Both are bare only
+  // while no session exists.
+  const isLoginPage = ['/', '/admin'].includes(location.pathname)
+    && !userAuth.isAuthenticated && !isAuthenticated;
+  const isMcpWorkspace = location.pathname === '/mcp';
   // Zendesk support widget (answer bot + "Get in touch" tickets) — admin
   // console only; the portal's corner belongs to the phone FAB.
   useZendeskWidget(isAuthenticated && !isLoginPage, user, customerUuid);
@@ -58,7 +52,7 @@ const Layout = ({ children }) => {
   // Warns 1 minute before logging out; any activity keeps the session alive.
   const { warningOpen: idleWarningOpen, staySignedIn } = useIdleTimeout({
     enabled: isAuthenticated && !isLoginPage,
-    onTimeout: logout,
+    onTimeout: () => { logout(); navigate('/admin'); },
   });
 
   // Load and apply customer branding when authenticated (once)
@@ -88,23 +82,13 @@ const Layout = ({ children }) => {
   // Sidebar state — desktop collapse + mobile drawer (shared by the hamburger).
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  // Desktop: compact icon rail (default) vs labeled rail, toggled by the
-  // sidebar-top hamburger and remembered across sessions.
-  const [sidebarExpanded, setSidebarExpanded] = useState(() => {
-    try { return localStorage.getItem('nimbus_sidebar_expanded') === 'true'; } catch { return false; }
-  });
+  const sidebarExpanded = false;
   const isMobile = useMediaQuery((t) => t.breakpoints.down('md'));
   const handleToggleSidebar = () => {
     if (isMobile) setMobileDrawerOpen(open => !open);
     else setSidebarCollapsed(collapsed => !collapsed);
   };
-  const handleToggleExpand = () => {
-    setSidebarExpanded(prev => {
-      const next = !prev;
-      try { localStorage.setItem('nimbus_sidebar_expanded', String(next)); } catch { /* ignore */ }
-      return next;
-    });
-  };
+  const handleToggleExpand = handleToggleSidebar;
 
   return (
     <Box className="layout-container" data-testid="layout-container">
@@ -113,87 +97,62 @@ const Layout = ({ children }) => {
         <Box data-testid="login-layout">
           {children}
         </Box>
-      ) : isUserOnlySession ? (
-        // Portal user, not an admin: one bar over one screen. The bar holds
-        // the places (Calls, Live), the line — a combobox that is the portal's
-        // only menu, and where a question is asked — and the phone button at
-        // its right end. The phone and a call's details open in ONE sidebar
-        // from that same edge. The admin sidebar/topbar are admin-console
-        // concepts a portal user never sees.
-        //
-        // GlobalSearchProvider wraps it because screens shared with the admin
-        // console (DIDs, the portal's Numbers) register their filter segments
-        // through it, and useGlobalSearch() THROWS without a provider.
-        <GlobalSearchProvider>
-        <PortalSidebarProvider>
-        <Box data-testid="user-layout" sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-          <PortalHeader />
-          <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
-            <Box component="main" sx={{ flex: 1, minWidth: 0 }}>
-              {/* A local Suspense boundary. Without it, any lazy chunk this
-                  subtree pulls in suspends all the way up to App.jsx's
-                  boundary, whose fallback is ANOTHER <Layout> — the shell was
-                  torn down and rebuilt on every route's first load. */}
-              <Suspense fallback={null}>{children}</Suspense>
-            </Box>
-          </Box>
-          {portalPreferences.error && <Box role="alert" sx={{ p: 1, color: 'error.main' }}>{portalPreferences.error}</Box>}
-          <PortalSidebar />
-        </Box>
-        </PortalSidebarProvider>
-        </GlobalSearchProvider>
       ) : (
-        // Authenticated layout: Sidebar + TopBar + Content, and the same
-        // right-hand sidebar as the portal, where the phone opens (the top
-        // bar's phone button, a clicked number, a device's "Open phone").
+        // Signed in — an account or a portal user, the same console: Sidebar +
+        // TopBar + Content, and the right-hand sidebar where the phone opens
+        // (the top bar's phone button, a clicked number, a device's "Open
+        // phone"). What a user sees in it is filtered by their ACL (Sidebar,
+        // TopBar, App.jsx's ProtectedRoute).
         <GlobalSearchProvider>
           <PortalSidebarProvider>
           <RecentPagesProvider>
           <Box data-testid="authenticated-layout" data-tour="welcome">
             {/* Fixed sidebar — hidden on mobile, shown via the drawer */}
-            <Box className="sidebar-desktop">
-              <Sidebar collapsed={sidebarCollapsed} expanded={sidebarExpanded} onToggleExpand={handleToggleExpand} onToggleSidebar={handleToggleSidebar} />
-            </Box>
+            {!isMcpWorkspace && (
+              <Box className="sidebar-desktop">
+                <Sidebar collapsed={sidebarCollapsed} />
+              </Box>
+            )}
 
             {/* Mobile sidebar drawer */}
-            <Drawer
+            {!isMcpWorkspace && <Drawer
               variant="temporary"
               open={mobileDrawerOpen}
               onClose={() => setMobileDrawerOpen(false)}
               ModalProps={{ keepMounted: true }}
               sx={{
                 display: { xs: 'block', md: 'none' },
-                '& .MuiDrawer-paper': { width: 80, boxSizing: 'border-box' }
+                '& .MuiDrawer-paper': { width: 112, boxSizing: 'border-box' }
               }}
             >
-              <Sidebar expanded onNavigate={() => setMobileDrawerOpen(false)} onToggleSidebar={handleToggleSidebar} />
-            </Drawer>
+              <Sidebar onNavigate={() => setMobileDrawerOpen(false)} />
+            </Drawer>}
 
             {/* TopBar — fixed at top, offset by the sidebar */}
-            <TopBar
+            {!isMcpWorkspace && <TopBar
               sidebarCollapsed={sidebarCollapsed}
               sidebarExpanded={sidebarExpanded}
               onToggleSidebar={handleToggleSidebar}
               onToggleExpand={handleToggleExpand}
-            />
+            />}
 
             {/* Main content area */}
-            <Box className={`content-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${sidebarExpanded ? 'sidebar-expanded' : ''}`} data-testid="main-content">
+            <Box className={`content-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${sidebarExpanded ? 'sidebar-expanded' : ''} ${isMcpWorkspace ? 'mcp-fullscreen' : ''}`} data-testid="main-content">
               <Box sx={{ flex: '1 1 0', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 {children}
               </Box>
-              <Box className="app-footer">
+              {!isMcpWorkspace && <Box className="app-footer">
                 <Typography className="app-footer-text" variant="caption" data-testid="app-version">
                   v{APP_VERSION}
                 </Typography>
-              </Box>
+              </Box>}
               {/* Brand watermark — pinned bottom-right of the content area so it's
                   always visible (not at the end of scroll). */}
-              <img
+              {!isMcpWorkspace && <img
                 className="app-watermark"
                 src={isDarkMode ? LOGO_WHITE : LOGO_DARK}
                 alt="VoipAppz"
-              />
+              />}
             </Box>
           </Box>
           <PortalSidebar />

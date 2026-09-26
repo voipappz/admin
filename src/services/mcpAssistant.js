@@ -1,12 +1,10 @@
 import { config } from '../config';
 
 /**
- * Asking the portal a question, in one call.
+ * Asking the shared console's MCP assistant a question, in one call.
  *
- * This is the MCP client the portal's assistant panel used to carry inside a
- * chat component. It lives here because the question is asked from the LINE
- * now — type anything and "Ask" is a row — and a service is what two callers
- * can share without one of them rendering the other's chat window.
+ * This is used by the shared ⌘K command palette. It deliberately stays a
+ * service so no portal-only UI owns the MCP question flow.
  *
  * NO LLM RUNS. A question is matched to a small, deterministic set of
  * read-only MCP tools, and the answer is composed from what the tool returns.
@@ -83,7 +81,7 @@ export const ASSISTANT_CAN_ANSWER = 'today’s call count, abandoned or recent c
  * rejects: a question it cannot map, a tool that fails and a network error are
  * all answers a person needs to read, not exceptions for a search box.
  */
-export async function askPortal(token, question) {
+export async function askMcpAssistant(token, question) {
   const trimmed = String(question || '').trim();
   if (!trimmed) return { text: '' };
   if (!token) return { text: 'Sign in again to ask about your calls.' };

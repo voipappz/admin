@@ -20,6 +20,7 @@ import {
   DialogContent,
   DialogActions,
   Chip,
+  Checkbox,
   CircularProgress,
   TextField,
   Menu,
@@ -56,7 +57,6 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CircleIcon from '@mui/icons-material/Circle';
 import CodeIcon from '@mui/icons-material/Code';
-import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
@@ -76,7 +76,14 @@ import AccountDialog from '../Accounts/AccountDialog/AccountDialog';
 import { accountsApi } from '../../services/api/accountsApi';
 // Screens reused inside modals (lazy so they stay out of the always-loaded TopBar bundle)
 const Events = lazy(() => import('../Events/Events.jsx'));
-const SystemLogs = lazy(() => import('../../views/syslogs/SystemLogs.jsx'));
+const TOOL_SCREENS = {
+  '/logs': lazy(() => import('../../views/syslogs/LogsScreen.jsx')),
+  '/monitoring': lazy(() => import('../Monitoring/Monitoring.jsx')),
+  '/nodes': lazy(() => import('../Monitoring/MonitoringNodes.jsx')),
+  '/providers': lazy(() => import('../Providers/Providers.jsx')),
+  '/templates': lazy(() => import('../Templates/Templates.jsx')),
+};
+import ToolDialog from './ToolDialog.jsx';
 const Schema = lazy(() => import('../Appz/Schema.jsx'));
 import AccountCreateDialog from '../Account/AccountCreateDialog/AccountCreateDialog.jsx';
 import CustomerEditDialog from '../Account/CustomerEditDialog/CustomerEditDialog.jsx';
@@ -99,7 +106,7 @@ import { EnvironmentChartsPanel } from '../Live/panels/EntityChartsPanels.jsx';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import MenuIcon from '@mui/icons-material/Menu';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import EventNoteIcon from '@mui/icons-material/EventNote';
+import { TOPBAR_NAV_ITEMS } from '../../config/navConfig';
 import EditIcon from '@mui/icons-material/Edit';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -107,19 +114,19 @@ import StorageIcon from '@mui/icons-material/Storage';
 import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import CheckIcon from '@mui/icons-material/Check';
 import InfoPopover from './InfoPopover';
 import EnvironmentDialog from '../Environments/EnvironmentDialog/EnvironmentDialog';
 import { environmentsApi } from '../../services/api/environmentsApi';
 import { useNotification } from '../../context/NotificationContext';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import ArticleIcon from '@mui/icons-material/Article';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, useSortable, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import './TopBar.css';
 import TopBarPhoneButton from './TopBarPhoneButton.jsx';
+import { useIsUserSession } from '../../hooks/useIsUserSession';
+import { usePermissions } from '../../hooks/usePermissions';
+import { useUserAuth } from '../../context/UserAuthContext';
 import { ConfirmDialog } from '../ui';
 
 const ITEM_HEIGHT = 68; // application rows: name + type, status/date/id, meta chips
@@ -163,6 +170,13 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
   const { isAuthenticated, user, logout, accountCustomer } = useAuth();
   const { isDarkMode, toggleTheme } = useThemeMode();
   useTour();
+  // A portal USER signs in to this same console, with the account's ACL model:
+  // a tool shows for them only when their ACL grants its key; one without a
+  // key is an account tool. One environment, their own: a label, not a picker.
+  const userSession = useIsUserSession();
+  const { canAccess } = usePermissions();
+  const allow = (aclKey) => !userSession || Boolean(aclKey && canAccess(aclKey));
+  const userEnvironmentName = useUserAuth().user?.environment?.name || '';
 
   // Responsive: below md the fixed sidebar is hidden (hamburger drives the drawer);
   // on phones the secondary top-right tools collapse into a single ⋮ overflow menu.
@@ -246,7 +260,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [badgeCount, setBadgeCount] = useState(0);
 
-  // Health check — singleton hook shared with Sidebar's API status pill.
+  // Health check for the single top-right health button.
   const healthStatus = useApiHealth();
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
   // Node whose Gatus health the Health dialog is scoped to (set from the
@@ -278,7 +292,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     handleRefresh: handleTicketRefresh,
     filters: ticketFilters,
     handleFiltersChange: handleTicketFiltersChange,
-  } = useTickets();
+  } = useTickets({ enabled: !userSession });
 
   // Ref for org breadcrumb button (used to programmatically open popover)
   const orgBreadcrumbRef = useRef(null);
@@ -613,10 +627,14 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           borderBottom: '1px solid var(--border-light, #e0e0e0)',
         }}
       >
-        {/* Enabled indicator dot */}
-        <Tooltip title={env.enabled ? 'Enabled' : 'Disabled'} placement="left">
-          <Box sx={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, mr: 1, bgcolor: env.enabled ? '#4caf50' : '#bdbdbd' }} />
-        </Tooltip>
+        <Checkbox
+          size="small"
+          checked={selected}
+          onClick={(event) => event.stopPropagation()}
+          onChange={() => handleToggleEnvironment(env)}
+          inputProps={{ 'aria-label': `${selected ? 'Deselect' : 'Select'} ${env.name}` }}
+          sx={{ p: 0.25, mr: 0.75, flexShrink: 0 }}
+        />
 
         <Box sx={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
           {/* Name + type/production badge */}
@@ -666,8 +684,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           </IconButton>
         </Tooltip>
 
-        {/* Checkmark for selected state */}
-        {selected && <CheckIcon sx={{ fontSize: 14, color: 'primary.main', flexShrink: 0 }} />}
       </Box>
     );
   }, [searchFilteredEnvironments, isEnvSelected, handleToggleEnvironment, openEnvEdit]);
@@ -742,6 +758,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
   // Events modal — opened by the top-right Events icon (no filter) and by
   // "Events" actions on other screens (carry a subject query string).
   const [eventsModalOpen, setEventsModalOpen] = useState(false);
+  const [activeTool, setActiveTool] = useState(null);
   const [eventsModalParams, setEventsModalParams] = useState('');
   useEffect(() => {
     const handler = (e) => {
@@ -750,15 +767,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     };
     window.addEventListener('openEventsModal', handler);
     return () => window.removeEventListener('openEventsModal', handler);
-  }, []);
-
-  // Syslog modal — opened by the Syslog tool. Same pattern as the Events modal:
-  // the full system-logs view inside its own window instead of a Monitoring tab.
-  const [syslogModalOpen, setSyslogModalOpen] = useState(false);
-  useEffect(() => {
-    const handler = () => setSyslogModalOpen(true);
-    window.addEventListener('openSyslogModal', handler);
-    return () => window.removeEventListener('openSyslogModal', handler);
   }, []);
 
   // Wizard (Schema) modal — the top-right "Wizard" icon for quick resource creation.
@@ -813,39 +821,54 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     if (fresh) { await selectCustomer(fresh); }
   };
 
-  if (!isAuthenticated) return null;
+  // The shared shell serves either active session. Account-only controls below
+  // are individually gated; a user still needs the environment label, ⌘K,
+  // phone button, ACL-granted actions, and profile menu.
+  if (!isAuthenticated && !userSession) return null;
 
-  // Secondary top-right tools. Shown inline on desktop; on phones they collapse
-  // into the ⋮ overflow menu (Tickets, Health, Notifications, Account stay inline).
+  const professionalTools = TOPBAR_NAV_ITEMS.filter(item => canAccess(item.aclKey)).map(item => {
+    const Icon = item.iconComponent;
+    return {
+      key: item.path,
+      aclKey: item.aclKey,
+      label: item.text,
+      icon: <Icon fontSize="small" />,
+      onClick: () => item.path === '/events'
+        ? window.dispatchEvent(new CustomEvent('openEventsModal', { detail: '' }))
+        : setActiveTool(current => current === item.path ? null : item.path),
+    };
+  });
+
+  // Professional tools stay inline on desktop and in the overflow on phones.
+  const ActiveToolScreen = TOOL_SCREENS[activeTool];
+  const activeToolItem = TOPBAR_NAV_ITEMS.find(item => item.path === activeTool && canAccess(item.aclKey));
   const overflowTools = [
     { key: 'wizard', label: 'Wizard', icon: <AutoFixHighIcon fontSize="small" />, onClick: () => window.dispatchEvent(new Event('openWizardModal')) },
-    { key: 'events', label: 'Events', icon: <EventNoteIcon fontSize="small" />, onClick: () => window.dispatchEvent(new CustomEvent('openEventsModal', { detail: '' })) },
-    { key: 'syslog', label: 'Syslog', icon: <ArticleIcon fontSize="small" />, onClick: () => window.dispatchEvent(new Event('openSyslogModal')) },
-    { key: 'help', label: 'Help Center', icon: <HelpOutlineIcon fontSize="small" />, onClick: () => window.open('https://voipappz.zendesk.com/hc/en-us', '_blank', 'noopener') },
-    { key: 'devzone', label: 'API DevZone', icon: <CodeIcon fontSize="small" />, onClick: () => navigate('/devzone') },
-    { key: 'mcp', label: 'MCP', icon: <HubOutlinedIcon fontSize="small" />, onClick: () => navigate('/mcp') },
-    { key: 'theme', label: isDarkMode ? 'Light Mode' : 'Dark Mode', icon: isDarkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />, onClick: toggleTheme },
-  ];
+    ...professionalTools,
+    // Appearance is the viewer's, not a permission: always offered.
+    { key: 'theme', always: true, label: isDarkMode ? 'Light Mode' : 'Dark Mode', icon: isDarkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />, onClick: toggleTheme },
+  ].filter((tool) => tool.always || allow(tool.aclKey));
 
   return (
     <>
       <Box className={`topbar-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''} ${sidebarExpanded ? 'sidebar-expanded' : ''}`}>
-        {/* Hamburger — always in the topbar now (swapped with the customer/env
-            selector, which moved to the sidebar). Toggles the sidebar. */}
+        {/* The single hamburger toggles the tile rail or mobile drawer. */}
         <IconButton
           className="topbar-hamburger"
           onClick={isMobile ? onToggleSidebar : (onToggleExpand || onToggleSidebar)}
           size="small"
           aria-label="Toggle menu"
+          aria-expanded={isMobile ? undefined : !sidebarCollapsed}
           sx={{ display: 'inline-flex' }}
         >
           <MenuIcon sx={{ fontSize: 22 }} />
         </IconButton>
-        {/* Selected applications — an always-visible readout of the scope every
-            screen is filtered by. The selector itself lives in the sidebar, so
-            without this the current scope was invisible: with hundreds of apps
-            selectable you could read a table and not know what it covered.
-            Doubles as the popover anchor (was a bare span). */}
+        {/* Selected applications and the customer/environment selector. */}
+        {userSession ? (
+          <Typography data-testid="topbar-user-environment" sx={{ fontSize: '0.75rem', fontWeight: 600, px: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--theme-text-primary)' }}>
+            {userEnvironmentName}
+          </Typography>
+        ) : (
         <Tooltip title={selectedEnvSummary.tooltip} placement="bottom-start">
           <Button
             ref={orgBreadcrumbRef}
@@ -884,44 +907,44 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
             </Box>
           </Button>
         </Tooltip>
+        )}
         <Box sx={{ width: 8 }} />
 
         {/* Global search moved to ⌘K only (no visible box). */}
         <Box sx={{ flex: 1, minWidth: 0 }} />
 
-        {/* Topbar utility icons (Tickets moved to the sidebar bottom tools) */}
+        {/* Topbar utility icons (support tools live in the left Support menu) */}
         <Box className="topbar-actions">
           {/* Actions + observability nav — inline on desktop, in ⋮ on phones */}
           {!isPhone && (
           <>
+          {allow(null) && (
           <Tooltip title="Wizard">
             <IconButton size="small" onClick={() => window.dispatchEvent(new Event('openWizardModal'))} sx={{ color: 'var(--theme-text-secondary)', '&:hover': { backgroundColor: 'var(--theme-hover)' } }}>
               <AutoFixHighIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Events">
-            <IconButton size="small" onClick={() => window.dispatchEvent(new CustomEvent('openEventsModal', { detail: '' }))} sx={{ color: 'var(--theme-text-secondary)', '&:hover': { backgroundColor: 'var(--theme-hover)' } }}>
-              <EventNoteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Syslog">
-            <IconButton size="small" onClick={() => window.dispatchEvent(new Event('openSyslogModal'))} sx={{ color: 'var(--theme-text-secondary)', '&:hover': { backgroundColor: 'var(--theme-hover)' } }}>
-              <ArticleIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          )}
+          {professionalTools.map(tool => (
+            <Tooltip key={tool.key} title={tool.label}>
+              <IconButton size="small" aria-label={tool.label} onClick={tool.onClick} sx={{ color: 'var(--theme-text-secondary)', '&:hover': { backgroundColor: 'var(--theme-hover)' } }}>
+                {tool.icon}
+              </IconButton>
+            </Tooltip>
+          ))}
           </>
           )}
 
           {/* App Health — the API's own dependencies (database / redis / nats)
               from /health?verbose, always visible at the top. One dot per
-              dependency; click opens the full Health dialog. */}
-          <Box
+              dependency; click opens the full Health dialog. An account's. */}
+          {!userSession && (
+          <Button
+            aria-label="Health"
             onClick={() => window.dispatchEvent(new Event('openHealthDialog'))}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.dispatchEvent(new Event('openHealthDialog')); } }}
             sx={{
               display: 'flex', alignItems: 'center', gap: 0.75, px: 1, py: 0.5,
+              minWidth: 0, textTransform: 'none',
               borderRadius: '14px', cursor: 'pointer',
               border: '1px solid var(--theme-border)',
               '&:hover': { backgroundColor: 'var(--theme-hover)' },
@@ -956,15 +979,17 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
                 <CircleIcon sx={{ fontSize: 12, color: healthStatus.isHealthy ? '#4caf50' : '#f44336' }} />
               </Tooltip>
             )}
-          </Box>
+          </Button>
+          )}
 
-          {/* (Help / API DevZone / Theme moved to the sidebar bottom tools) */}
+          {/* Support tools live in the sidebar; theme lives in the account tools. */}
 
           {/* Divider between admin and utility icons */}
           <Box sx={{ width: '1px', height: 24, backgroundColor: 'var(--border-light, #e5e7eb)', mx: 0.5, flexShrink: 0 }} />
 
-          <TopBarPhoneButton />
+          {!userSession && <TopBarPhoneButton />}
 
+          {allow('notifications') && (
           <Tooltip title="Notifications">
             <IconButton
               size="small"
@@ -976,6 +1001,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
               </Badge>
             </IconButton>
           </Tooltip>
+          )}
 
           {/* Overflow ⋮ — phones only: holds the secondary tools that don't fit */}
           {isPhone && (
@@ -1110,9 +1136,11 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
                     key={c.uuid}
                     onClick={async () => {
                       if (active) return;
-                      setCustomerEnvDialogOpen(false);
-                      setCustomerEnvAnchorEl(null);
                       setEnvironmentSearchValue('');
+                      setTagFilters([]);
+                      // Keep the picker open. The right pane reacts to the
+                      // context change and fetches this customer's applications
+                      // in place, so selecting a customer is one step.
                       await selectCustomer(c);
                     }}
                     sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.75, cursor: 'pointer', borderLeft: active ? '3px solid var(--accent-primary)' : '3px solid transparent', backgroundColor: active ? 'var(--theme-hover)' : 'transparent', '&:hover': { backgroundColor: 'var(--theme-hover)', '& .cust-actions': { opacity: 1 } } }}
@@ -1230,22 +1258,30 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           </Menu>
         </Box>
 
-        {/* Selected-first: the current selection shown as chips at the top,
-            visible before scrolling the list. Drag the grip to reorder (order
-            persists on Apply); × removes via the same toggle. */}
+        {/* Keep the active scope visible without letting a long multi-selection
+            consume the picker. The chips stay on one scrollable line; the
+            complete, clickable result list remains directly below. */}
         {uncommittedEnvironments.length > 0 && (
-          <Box sx={{ px: 1.5, pb: 0.75, display: 'flex', flexWrap: 'wrap', gap: 0.5, maxHeight: 88, overflowY: 'auto' }}>
+          <Box sx={{ px: 1.5, pb: 0.75, display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+            <Typography
+              variant="caption"
+              sx={{ flexShrink: 0, color: 'var(--theme-text-secondary)', fontSize: '0.65rem', fontWeight: 600 }}
+            >
+              Selected ({uncommittedEnvironments.length})
+            </Typography>
             <DndContext sensors={envDragSensors} collisionDetection={closestCenter} onDragEnd={handleEnvDragEnd}>
-              <SortableContext items={uncommittedEnvironments.map((e) => e.uuid)} strategy={horizontalListSortingStrategy}>
-                {uncommittedEnvironments.map((env) => (
-                  <SortableEnvChip
-                    key={env.uuid}
-                    env={env}
-                    onDelete={handleToggleEnvironment}
-                    canDelete={canSelectEnvironment}
-                  />
-                ))}
-              </SortableContext>
+              <Box sx={{ display: 'flex', gap: 0.5, minWidth: 0, overflowX: 'auto', py: 0.15, pr: 0.25, '&::-webkit-scrollbar': { height: 4 } }}>
+                <SortableContext items={uncommittedEnvironments.map((e) => e.uuid)} strategy={horizontalListSortingStrategy}>
+                  {uncommittedEnvironments.map((env) => (
+                    <SortableEnvChip
+                      key={env.uuid}
+                      env={env}
+                      onDelete={handleToggleEnvironment}
+                      canDelete={canSelectEnvironment}
+                    />
+                  ))}
+                </SortableContext>
+              </Box>
             </DndContext>
           </Box>
         )}
@@ -1434,7 +1470,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Logs">
-                  <IconButton size="small" onClick={() => { setNodesPopoverAnchor(null); window.dispatchEvent(new Event('openSyslogModal')); }} sx={{ p: 0.25 }}>
+                  <IconButton size="small" onClick={() => { setNodesPopoverAnchor(null); navigate(`/logs?host=${encodeURIComponent(node.name)}`); }} sx={{ p: 0.25 }}>
                     <TerminalIcon sx={{ fontSize: 13, color: 'var(--theme-text-secondary)' }} />
                   </IconButton>
                 </Tooltip>
@@ -1550,62 +1586,24 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
       </Dialog>
 
 
-      {/* Events Modal — reuses the full Events screen inside a dialog.
-          Opened from the top-right Events icon and from "Events" actions on
-          other screens (which pass a subject query string). Keyed by params
-          so re-opening with different filters re-seeds the screen. */}
-      <Dialog
-        open={eventsModalOpen}
-        onClose={() => setEventsModalOpen(false)}
-        maxWidth="xl"
-        fullWidth
-        PaperProps={{ sx: { height: '90vh', display: 'flex', flexDirection: 'column' } }}
+      <ToolDialog title="Events" open={eventsModalOpen && canAccess('logs')} onClose={() => setEventsModalOpen(false)}>
+        <Suspense fallback={<CircularProgress sx={{ m: 'auto' }} />}>
+          <Events key={eventsModalParams} initialParams={eventsModalParams} />
+        </Suspense>
+      </ToolDialog>
+      <ToolDialog
+        key={activeTool || 'closed'}
+        title={activeToolItem?.text || ''}
+        open={Boolean(activeToolItem)}
+        onClose={() => setActiveTool(null)}
+        confirmClose={activeTool === '/providers' || activeTool === '/templates'}
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1.5, pr: 1 }}>
-          <Typography variant="h6" sx={{ flex: 1 }}>Events</Typography>
-          <Tooltip title="Open full page">
-            <IconButton size="small" onClick={() => { setEventsModalOpen(false); navigate(`/events${eventsModalParams ? `?${eventsModalParams}` : ''}`); }}>
-              <OpenInNewIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <IconButton size="small" onClick={() => setEventsModalOpen(false)} sx={{ ml: 0.5 }}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </DialogTitle>
-        <Box sx={{ flex: 1, overflow: 'auto', p: 0 }}>
-          {eventsModalOpen && (
-            <Suspense fallback={null}>
-              <Events key={eventsModalParams} initialParams={eventsModalParams} />
-            </Suspense>
-          )}
-        </Box>
-      </Dialog>
-
-      {/* Syslog Modal — the full system-logs view in its own window (same pattern
-          as the Events modal), instead of living as a Monitoring tab. */}
-      <Dialog
-        open={syslogModalOpen}
-        onClose={() => setSyslogModalOpen(false)}
-        maxWidth="xl"
-        fullWidth
-        PaperProps={{ sx: { height: '90vh', display: 'flex', flexDirection: 'column' } }}
-      >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1.5, pr: 1 }}>
-          <Typography variant="h6" sx={{ flex: 1 }}>Syslog</Typography>
-          <IconButton size="small" onClick={() => setSyslogModalOpen(false)} sx={{ ml: 0.5 }}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </DialogTitle>
-        <Box sx={{ flex: 1, overflow: 'auto', p: 0 }}>
-          {syslogModalOpen && (
-            <Suspense fallback={null}>
-              {/* '' = the whole stream, explicitly unfiltered: the Syslog
-                  tool is a whole-fleet view, never scoped to one record. */}
-              <SystemLogs initialParams="" />
-            </Suspense>
-          )}
-        </Box>
-      </Dialog>
+        {ActiveToolScreen && <Suspense fallback={<CircularProgress sx={{ m: 'auto' }} />}>
+          <Box sx={{ flex: 1, minHeight: 0, height: '100%', overflow: 'auto', p: activeTool === '/nodes' ? 2 : 0 }}>
+            <ActiveToolScreen />
+          </Box>
+        </Suspense>}
+      </ToolDialog>
 
       {/* Wizard Modal — reuses the Schema screen for quick resource creation. */}
       <Dialog
@@ -1840,7 +1838,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         open={accountDialogOpen}
         onClose={() => setAccountDialogOpen(false)}
         onSave={handleAccountSave}
-        onSignOut={() => { setAccountDialogOpen(false); logout(); }}
+        onSignOut={() => { setAccountDialogOpen(false); logout(); navigate('/admin'); }}
         account={detailedAccountData || user || null}
         loading={accountLoading || accountSaving}
         environments={accountEnvironments}

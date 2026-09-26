@@ -11,7 +11,8 @@ const TimeHistogram = ({
   height = 120,
   timeInterval = 'minute',
   aggregateData = null,  // Pre-aggregated server data: [{ time: Date, total: N, severities: {...} }]
-  onBrushSelection = null // (startDate, endDate) — drag across the chart to filter the screen to that window
+  onBrushSelection = null, // (startDate, endDate) — drag across the chart to filter the screen to that window
+  onBarClick = null // (seriesKey, bucket) — apply the clicked series as a screen filter
 }) => {
   const containerRef = useRef();
   const svgRef = useRef();
@@ -197,7 +198,7 @@ const TimeHistogram = ({
       .attr("height", d => yScale(d[0]) - yScale(d[1]))
       .attr("width", barWidth)
       .attr("rx", 1)
-      .style("cursor", "pointer")
+      .style("cursor", onBarClick ? "pointer" : "default")
       .on("mouseover", function(event, d) {
         d3.select(this).attr("opacity", 0.8);
 
@@ -234,6 +235,12 @@ const TimeHistogram = ({
       .on("mouseout", function() {
         d3.select(this).attr("opacity", 1);
         d3.selectAll(".histogram-tooltip").remove();
+      })
+      .on("click", function(event, d) {
+        if (!onBarClick) return;
+        event.stopPropagation();
+        const seriesKey = d3.select(this.parentNode).datum()?.key;
+        if (seriesKey != null) onBarClick(String(seriesKey), d.data);
       });
 
     // X Axis
@@ -303,7 +310,7 @@ const TimeHistogram = ({
       svg.style('cursor', 'crosshair');
     }
 
-  }, [chartData, severities, height, timeInterval, onBrushSelection]);
+  }, [chartData, severities, height, timeInterval, onBrushSelection, onBarClick]);
 
   if ((!logs || logs.length === 0) && (!aggregateData || aggregateData.length === 0)) {
     return (

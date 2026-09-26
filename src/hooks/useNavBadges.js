@@ -46,10 +46,15 @@ const poll = async () => {
 
 export const refreshNavBadges = () => poll();
 
-export const useNavBadges = () => {
+// `enabled` false (a portal user session): no polling — the three endpoints are
+// account-only — and no counts.
+const EMPTY = { liveCalls: 0, criticalEvents: 0, openAlerts: 0, criticalAlerts: 0 };
+
+export const useNavBadges = (enabled = true) => {
   const [snapshot, setSnapshot] = useState({ ...state });
 
   useEffect(() => {
+    if (!enabled) return undefined;
     subscribers.add(setSnapshot);
     if (!started) {
       started = true;
@@ -64,9 +69,9 @@ export const useNavBadges = () => {
         started = false;
       }
     };
-  }, []);
+  }, [enabled]);
 
-  return snapshot;
+  return enabled ? snapshot : EMPTY;
 };
 
 export default useNavBadges;

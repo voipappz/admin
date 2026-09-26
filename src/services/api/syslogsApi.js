@@ -89,8 +89,12 @@ export const syslogsApi = {
   fetchAlerts: () =>
     apiService.get(`${BASE}/alerts`, {}, 'fetching log alerts', false, true),
 
-  fetchApps: () =>
-    apiService.get(`${BASE}/apps`, {}, 'fetching syslog apps', false, true),
+  fetchApps: (customerUuid = null) => {
+    const qs = new URLSearchParams();
+    if (customerUuid) qs.set('customer_uuid', customerUuid);
+    const suffix = qs.toString();
+    return apiService.get(`${BASE}/apps${suffix ? `?${suffix}` : ''}`, {}, 'fetching syslog apps', false, true);
+  },
 
   fetchNodes: () =>
     apiService.get(`${BASE}/nodes`, {}, 'fetching syslog nodes', false, true),

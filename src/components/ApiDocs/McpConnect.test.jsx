@@ -20,13 +20,15 @@ describe('McpConnect', () => {
 
   it('builds every recipe from the endpoint and the credential', () => {
     const recipes = connectRecipes(URL, TOKEN);
-    expect(recipes.map((r) => r.key)).toEqual(['claude-code', 'desktop', 'curl']);
-    recipes.forEach((r) => {
+    expect(recipes.map((r) => r.key)).toEqual(['claude-code', 'desktop', 'codex', 'curl']);
+    recipes.filter((r) => r.key !== 'codex').forEach((r) => {
       expect(r.code).toContain(URL);
       expect(r.code).toContain(TOKEN);
     });
     expect(recipes[0].code).toContain(`claude mcp add --transport http voipappz ${URL}`);
-    expect(recipes[2].code).toContain('"method":"tools/list"');
+    expect(recipes[2].code).toContain('codex mcp add voipappz');
+    expect(recipes[2].code).toContain('--bearer-token-env-var VOIPAPPZ_MCP_TOKEN');
+    expect(recipes[3].code).toContain('"method":"tools/list"');
   });
 
   it('tests the typed credential against the endpoint with plain fetch and lists the tools', async () => {

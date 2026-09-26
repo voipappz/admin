@@ -162,7 +162,7 @@ const getLogicalName = (fieldKey, columnDef) => {
   return fieldKey;
 };
 
-const useColumnHandlers = (handleOpenRecording, onSearch, currentSearchParams = {}, apiColumns = [], segments = []) => {
+const useColumnHandlers = (handleOpenRecording, onSearch, currentSearchParams = {}, apiColumns = [], segments = [], onOpenCall = null) => {
 
   // Column key -> server segment. `segments` (Segment.calls) is the authority on
   // what the API will actually filter by, so it decides which cells offer the
@@ -598,13 +598,7 @@ const useColumnHandlers = (handleOpenRecording, onSearch, currentSearchParams = 
             return (
               <RecordingControls
                 recordingUrl={recordingUrl}
-                onOpenDialog={() => handleOpenRecording(
-                  recordingUrl,
-                  params.row.uuid,
-                  params.row.profile?.caller,
-                  params.row.profile?.callee,
-                  params.row.created_at
-                )}
+                onOpenCall={() => onOpenCall?.(params.row)}
               />
             );
           }
@@ -747,7 +741,7 @@ const useColumnHandlers = (handleOpenRecording, onSearch, currentSearchParams = 
         }
       };
     }).filter(Boolean);
-  }, [availableColumns, currentSearchParams, cellSearchFor, handleCopy, callNumber, handleOpenRecording]);
+  }, [availableColumns, currentSearchParams, cellSearchFor, handleCopy, callNumber, handleOpenRecording, onOpenCall]);
 
   return {
     visibleColumns,
