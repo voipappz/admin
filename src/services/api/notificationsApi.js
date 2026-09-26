@@ -84,6 +84,45 @@ export const notificationsApi = {
   },
 
   /**
+   * Unread monitoring alerts (Notification rows of type 'alert'), filtered by
+   * the API: GET /api/notifications?type=alert&action=pending[&level][&search].
+   * The API pages unread rows 20 at a time with X-Total and orders newest
+   * first, so this walks the pages (up to maxPages) and the caller orders.
+   * @returns {Promise<{rows: Array, total: number}>}
+   */
+  getUnreadAlerts: async ({ level = '', search = '', maxPages = 10 } = {}) => {
+    const rows = [];
+    let total = 0;
+    for (let page = 1; page <= maxPages; page += 1) {
+      const params = new URLSearchParams({ type: 'alert', action: 'pending', page: String(page) });
+      if (level) params.append('level', level);
+      if (search) params.append('search[inline]', search);
+      const res = await apiService.get(`/api/notifications?${params.toString()}`, {}, 'fetching alerts', false, true);
+      const data = Array.isArray(res) ? res : (res?.data || []);
+      total = Array.isArray(res) ? rows.length + data.length : (Number(res?.total) || 0);
+      rows.push(...data);
+      if (!data.length || rows.length >= total) break;
+    }
+    return { rows, total: Math.max(total, rows.length) };
+  },
+
+  /**
+   * How many unread alerts (optionally of one level): the X-Total of the first
+   * page of the same list, so no rows are walked for a count.
+   */
+  countUnreadAlerts: async (level = '') => {
+    const params = new URLSearchParams({ type: 'alert', action: 'pending', page: '1' });
+    if (level) params.append('level', level);
+    const res = await apiService.get(`/api/notifications?${params.toString()}`, {}, 'counting alerts', false, true);
+    return Array.isArray(res) ? res.length : (Number(res?.total) || 0);
+  },
+
+  /** PATCH /api/notifications/:uuid?action=read — silent: the caller shows the result. */
+  markRead: (notificationUuid) =>
+    apiService.patch(`/api/notifications/${encodeURIComponent(notificationUuid)}?action=read`, {}, {},
+      'marking notification as read', false),
+
+  /**
    * Mark notification as read
    * @param {string} notificationUuid - Notification UUID
    * @returns {Promise<Object>} - Updated notification

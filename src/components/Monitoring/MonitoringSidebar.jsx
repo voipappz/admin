@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box, Typography, Chip, CircularProgress, IconButton, Tooltip, TextField,
   Select, MenuItem, Button, InputAdornment,
@@ -8,32 +8,36 @@ import DoneIcon from '@mui/icons-material/Done';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import SearchIcon from '@mui/icons-material/Search';
 import { formatDate } from '../../utils/dateUtils';
-import { alertsApi } from '../../services/api/alertsApi';
+import { notificationsApi } from '../../services/api/notificationsApi';
 import { refreshNavBadges } from '../../hooks/useNavBadges';
 
 /**
- * The Monitoring right rail: active alerts, full height.
+ * The Monitoring right rail: unread alerts, full height.
  *
- * An alert says something crossed a threshold in config/alerts.yaml, so it
- * belongs next to the charts rather than a click away. The log tail that used to
- * sit underneath is gone — the Logs screen is where you read logs, and here it
- * only stole half the rail from the alerts.
+ * An alert is a Notification row of type 'alert' (threshold breaches from
+ * config/alerts.yaml), so the rail reads /api/notifications as it is:
+ *   - list:   GET ?type=alert&action=pending[&level=][&search[inline]=]
+ *             — the level filter and the search run in the API;
+ *   - counts: the X-Total of that list, per level;
+ *   - read:   PATCH /api/notifications/:uuid?action=read.
+ * The API orders newest first only, so "Oldest" and "Severity" order here.
  *
- * An alert is a Notification row (type 'alert'); the list is the unread ones
- * from the last 7 days. "Mark as read" is PUT /api/monitoring/alerts/:id/
- * acknowledge, which marks that notification read, so it leaves this list and
- * the Monitoring nav badge (useNavBadges) — re-polled at once.
+ * Marking in bulk needs a filter (a level or a search): "Mark N read" acts on
+ * exactly the rows shown. There is deliberately no unfiltered "mark all" — one
+ * click clearing every alert, criticals included, is how one gets missed.
  */
 
 const LEVEL_COLOR = { critical: '#dc2626', error: '#ef4444', warning: '#f59e0b', info: '#3b82f6' };
 const LEVELS = ['critical', 'error', 'warning', 'info'];
 const SEVERITY = { critical: 0, error: 1, warning: 2, info: 3 };
+const REFRESH_MS = 30000;
 const time = (a) => new Date(a.timestamp).getTime() || 0;
 const SORTS = {
   newest: (a, b) => time(b) - time(a),
   oldest: (a, b) => time(a) - time(b),
   severity: (a, b) => (SEVERITY[a.level] ?? 9) - (SEVERITY[b.level] ?? 9) || time(b) - time(a),
 };
+const toAlert = (n) => ({ id: n.uuid, level: n.level, subject: n.subject, message: n.msg, timestamp: n.created_at });
 
 const SectionHeader = ({ icon, title, right }) => (
   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
@@ -54,61 +58,75 @@ const Empty = ({ children }) => (
   </Typography>
 );
 
-const MonitoringSidebar = ({ alerts = [], loading, onChanged }) => {
+const MonitoringSidebar = () => {
   const [level, setLevel] = useState('');        // '' = every level
   const [query, setQuery] = useState('');
+  const [search, setSearch] = useState('');      // the query, once typing pauses
   const [sort, setSort] = useState('newest');
-  const [read, setRead] = useState(() => new Set()); // marked read here, until the next fetch drops them
+  const [rows, setRows] = useState([]);
+  const [counts, setCounts] = useState({});      // { all, critical, error, warning, info }
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  const open = useMemo(() => alerts.filter(a => !read.has(a.id)), [alerts, read]);
-  const counts = useMemo(() => open.reduce((acc, a) => ({ ...acc, [a.level]: (acc[a.level] || 0) + 1 }), {}), [open]);
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [query]);
 
-  const shown = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return open
-      .filter(a => !level || a.level === level)
-      .filter(a => !q || [a.subject, a.message, a.meta?.host].some(v => String(v || '').toLowerCase().includes(q)))
-      .sort(SORTS[sort]);
-  }, [open, level, query, sort]);
+  const load = useCallback(async () => {
+    const [list, ...totals] = await Promise.allSettled([
+      notificationsApi.getUnreadAlerts({ level, search }),
+      notificationsApi.countUnreadAlerts(),
+      ...LEVELS.map(l => notificationsApi.countUnreadAlerts(l)),
+    ]);
+    if (list.status === 'fulfilled') setRows(list.value.rows.map(toAlert));
+    const n = (r) => (r.status === 'fulfilled' ? r.value : 0);
+    setCounts({ all: n(totals[0]), ...Object.fromEntries(LEVELS.map((l, i) => [l, n(totals[i + 1])])) });
+    setLoading(false);
+  }, [level, search]);
+
+  useEffect(() => {
+    load();
+    const id = setInterval(load, REFRESH_MS);
+    return () => clearInterval(id);
+  }, [load]);
+
+  const shown = useMemo(() => [...rows].sort(SORTS[sort]), [rows, sort]);
+  const filtered = !!(level || search);
 
   const markRead = async (ids) => {
     if (!ids.length) return;
     setBusy(true);
-    const done = await Promise.allSettled(ids.map(id => alertsApi.acknowledge(id)));
-    const ok = ids.filter((_, i) => done[i].status === 'fulfilled');
-    setRead(prev => new Set([...prev, ...ok]));
+    await Promise.allSettled(ids.map(id => notificationsApi.markRead(id)));
+    await load();
     setBusy(false);
     refreshNavBadges();
-    onChanged?.();
   };
-
-  const filtered = !!(level || query.trim());
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <SectionHeader
-        icon={<NotificationsActiveIcon sx={{ fontSize: 16, color: open.length ? '#ef4444' : 'var(--theme-text-secondary)' }} />}
-        title={`Alerts (${open.length})`}
-        right={shown.length > 0 && (
-          <Tooltip title={filtered ? 'Mark the alerts shown as read' : 'Mark every alert as read'}>
+        icon={<NotificationsActiveIcon sx={{ fontSize: 16, color: counts.all ? '#ef4444' : 'var(--theme-text-secondary)' }} />}
+        title={`Alerts (${counts.all ?? 0})`}
+        right={filtered && shown.length > 0 && (
+          <Tooltip title="Mark the alerts shown as read">
             <span>
               <Button size="small" startIcon={<DoneAllIcon sx={{ fontSize: 14 }} />} disabled={busy}
-                onClick={() => markRead(shown.map(a => a.id))} data-testid="alerts-mark-all"
+                onClick={() => markRead(shown.map(a => a.id))} data-testid="alerts-mark-filtered"
                 sx={{ textTransform: 'none', fontSize: '0.68rem', minWidth: 0, py: 0 }}>
-                {filtered ? `Mark ${shown.length} read` : 'Mark all read'}
+                {`Mark ${shown.length} read`}
               </Button>
             </span>
           </Tooltip>
         )}
       />
 
-      {/* Filter by level (each chip is its count), search, order */}
+      {/* Filter by level (each chip is its unread count), search, order */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
-        <Chip label={`All ${open.length}`} size="small" onClick={() => setLevel('')} data-testid="alerts-level-all"
+        <Chip label={`All ${counts.all ?? 0}`} size="small" onClick={() => setLevel('')} data-testid="alerts-level-all"
           variant={level ? 'outlined' : 'filled'} sx={{ height: 20, fontSize: '0.64rem' }} />
-        {LEVELS.filter(l => counts[l] > 0).map(l => (
-          <Chip key={l} label={`${l} ${counts[l]}`} size="small" onClick={() => setLevel(level === l ? '' : l)}
+        {LEVELS.filter(l => counts[l] > 0 || level === l).map(l => (
+          <Chip key={l} label={`${l} ${counts[l] ?? 0}`} size="small" onClick={() => setLevel(level === l ? '' : l)}
             data-testid={`alerts-level-${l}`}
             sx={{
               height: 20, fontSize: '0.64rem', textTransform: 'capitalize',
@@ -132,9 +150,8 @@ const MonitoringSidebar = ({ alerts = [], loading, onChanged }) => {
       </Box>
 
       <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-        {loading && !alerts.length ? <CircularProgress size={16} />
-          : !open.length ? <Empty>Nothing above threshold.</Empty>
-          : !shown.length ? <Empty>No alerts match.</Empty>
+        {loading ? <CircularProgress size={16} />
+          : !shown.length ? <Empty>{filtered ? 'No alerts match.' : 'Nothing above threshold.'}</Empty>
           : shown.map(a => (
             <Box key={a.id} data-testid="alert-row" sx={{
               py: 0.75, borderBottom: '1px solid var(--theme-border)',
@@ -145,11 +162,13 @@ const MonitoringSidebar = ({ alerts = [], loading, onChanged }) => {
                 <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--theme-text-primary)' }}>
                   {a.subject || a.level}
                 </Typography>
-                <Typography sx={{ fontSize: '0.7rem', color: 'var(--theme-text-secondary)' }}>
-                  {a.message}
-                </Typography>
+                {a.message && a.message !== a.subject && (
+                  <Typography sx={{ fontSize: '0.7rem', color: 'var(--theme-text-secondary)' }}>
+                    {a.message}
+                  </Typography>
+                )}
                 <Typography sx={{ fontSize: '0.62rem', color: 'var(--theme-text-secondary)' }}>
-                  {a.meta?.host ? `${a.meta.host} · ` : ''}{formatDate(a.timestamp)}
+                  {formatDate(a.timestamp)}
                 </Typography>
               </Box>
               <Tooltip title="Mark as read">
