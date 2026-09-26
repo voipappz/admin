@@ -67,8 +67,6 @@ const useMonitoring = () => {
   const [syslogSeries, setSyslogSeries] = useState([]);     // [{ time, info, err, … }]
   const [systemMetrics, setSystemMetrics] = useState({});   // { cpu: { rows, influxql }, … }
   const [alertConfig, setAlertConfig] = useState(null);     // parsed config/alerts.yaml
-  const [alerts, setAlerts] = useState([]);
-  const [alertStats, setAlertStats] = useState(null);
 
   const timerRef = useRef(null);
 
@@ -111,17 +109,9 @@ const useMonitoring = () => {
         .catch(() => setSystemMetrics(prev => ({ ...prev, [m.key]: null })))
     );
 
-    const alertCalls = [
-      alertsApi.getAlerts()
-        .then(res => {
-          const list = res?.alerts || (Array.isArray(res) ? res : []);
-          setAlerts(list.map((a, i) => ({ id: a.id ?? i, ...a })));
-        })
-        .catch(() => setAlerts([])),
-      alertsApi.getStats().then(r => setAlertStats(r || null)).catch(() => setAlertStats(null)),
-    ];
-
-    await Promise.allSettled([...logCalls, ...metricCalls, ...alertCalls]);
+    // Alerts are not fetched here: the rail (MonitoringSidebar) reads
+    // /api/notifications itself, with its own filters.
+    await Promise.allSettled([...logCalls, ...metricCalls]);
     setLoading(false);
   }, [timeRange, selectedHost]);
 
@@ -225,7 +215,6 @@ const useMonitoring = () => {
     logSummary, appBreakdown, syslogSeries,
     systemMetrics, currentValue, currentByHost, chartRows,
     alertConfig, thresholds,
-    alerts, alertStats,
     fetchData,
   };
 };
