@@ -17,7 +17,7 @@
 // working and only the softphone is disabled.
 import { Component, createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSipPhone } from '../lib/sip/useSipPhone';
-import { loadSipSettings, saveSipSettings, clearSipSettings, defaultSipSettings, sipSettingsReady } from '../lib/sip/sipSettings';
+import { loadSipSettings, saveSipSettings, clearSipSettings, defaultSipSettings, sipSettingsReady, sipSettingsFromUser } from '../lib/sip/sipSettings';
 import { useAuth } from './AuthContext';
 import { useUserAuth } from './UserAuthContext';
 
@@ -144,6 +144,16 @@ function SoftphoneLive({ settings, setSettings, updateSettings, children }) {
   // settings happening to be empty.
   useEffect(() => {
     if (!isAuthenticated) return;
+    // A signed-in portal user owns an extension. Register the phone from the
+    // same user/environment returned by login so the phone is assigned to the
+    // person who opened the session, rather than asking them to sign in again.
+    if (user.isAuthenticated && user.user?.extension && phone.status === 'idle') {
+      const userSettings = sipSettingsFromUser(user.user, '', settings);
+      if (sipSettingsReady(userSettings)) {
+        connect(userSettings).catch(() => { /* surfaced via status */ });
+        return;
+      }
+    }
     if (!settings.autoConnect || !sipSettingsReady(settings)) return;
     if (phone.status !== 'idle') return;
     connect(settings).catch(() => { /* surfaced via status */ });

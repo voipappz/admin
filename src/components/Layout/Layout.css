@@ -42,9 +42,7 @@
   margin-left: 0;
 }
 
-.content-container.sidebar-expanded {
-  margin-left: 210px;
-}
+.content-container.sidebar-expanded { margin-left: 210px; }
 
 .content-container.mcp-fullscreen {
   margin: 0;

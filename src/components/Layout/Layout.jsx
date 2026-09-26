@@ -81,12 +81,12 @@ const Layout = ({ children }) => {
 
   // Sidebar state — desktop collapse + mobile drawer (shared by the hamburger).
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const sidebarExpanded = false;
+  const sidebarCollapsed = false;
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const isMobile = useMediaQuery((t) => t.breakpoints.down('md'));
   const handleToggleSidebar = () => {
     if (isMobile) setMobileDrawerOpen(open => !open);
-    else setSidebarCollapsed(collapsed => !collapsed);
+    else setSidebarExpanded(expanded => !expanded);
   };
   const handleToggleExpand = handleToggleSidebar;
 
@@ -122,10 +122,10 @@ const Layout = ({ children }) => {
               ModalProps={{ keepMounted: true }}
               sx={{
                 display: { xs: 'block', md: 'none' },
-                '& .MuiDrawer-paper': { width: 112, boxSizing: 'border-box' }
+                '& .MuiDrawer-paper': { width: 210, boxSizing: 'border-box' }
               }}
             >
-              <Sidebar onNavigate={() => setMobileDrawerOpen(false)} />
+              <Sidebar expanded onNavigate={() => setMobileDrawerOpen(false)} />
             </Drawer>}
 
             {/* TopBar — fixed at top, offset by the sidebar */}

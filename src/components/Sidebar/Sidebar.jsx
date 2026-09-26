@@ -18,7 +18,6 @@ import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import CodeIcon from '@mui/icons-material/Code';
 import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
 import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
-import SettingsIcon from '@mui/icons-material/Settings';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { useAuth } from '../../context/AuthContext';
 import { useUserAuth } from '../../context/UserAuthContext';
@@ -182,19 +181,10 @@ const Sidebar = ({ collapsed, expanded = false, onNavigate }) => {
         </List>
       )}
 
-      {/* Bottom tools — settings, followed by the account row. */}
+      {/* Bottom tools, followed by the account row. */}
       {/* None of these has an ACL key: account-console tools, not a user's. */}
       {userSession ? <Box sx={{ mt: 'auto' }} /> : (
       <Box className="sidebar-bottom-tools" sx={{ mt: 'auto' }}>
-        <Tooltip title="Settings" placement="right" arrow>
-          <IconButton
-            className="sidebar-tool-button"
-            onClick={() => handleNavigate('/settings')}
-            aria-label="Settings"
-          >
-            <SettingsIcon />
-          </IconButton>
-        </Tooltip>
       </Box>
       )}
 

@@ -61,6 +61,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import SettingsIcon from '@mui/icons-material/Settings';
 import TerminalIcon from '@mui/icons-material/Terminal';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -95,6 +96,8 @@ import { useNodeHealth } from '../../hooks/useNodeHealth';
 import CommandPalette from '../CommandPalette/CommandPalette';
 import EnvironmentResourcesPanel from './EnvironmentResourcesPanel';
 import NotificationPanel from '../Notifications/NotificationPanel/NotificationPanel';
+import MonitoringSidebar from '../Monitoring/MonitoringSidebar.jsx';
+import { alertsApi } from '../../services/api/alertsApi';
 import TicketDetailView from '../Tickets/TicketDetailView/TicketDetailView';
 import { useTickets } from '../Tickets/Tickets';
 import { openZendeskWidget } from '../../services/zendeskWidget';
@@ -257,6 +260,8 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
 
   const [notificationDrawerOpen, setNotificationDrawerOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState(null);
+  const [monitoringAlerts, setMonitoringAlerts] = useState([]);
+  const [monitoringAlertsLoading, setMonitoringAlertsLoading] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [badgeCount, setBadgeCount] = useState(0);
 
@@ -779,7 +784,15 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
 
   const handleNotificationClick = async () => {
     setNotificationDrawerOpen(true);
-    await refreshNotifications();
+    setMonitoringAlertsLoading(true);
+    await Promise.allSettled([
+      refreshNotifications(),
+      alertsApi.getAlerts().then((response) => {
+        const alerts = Array.isArray(response) ? response : (response?.alerts || response?.data || []);
+        setMonitoringAlerts(alerts);
+      }),
+    ]);
+    setMonitoringAlertsLoading(false);
     const unread = notifications.filter(n => !n.read_at).length;
     setBadgeCount(unread);
   };
@@ -858,7 +871,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           onClick={isMobile ? onToggleSidebar : (onToggleExpand || onToggleSidebar)}
           size="small"
           aria-label="Toggle menu"
-          aria-expanded={isMobile ? undefined : !sidebarCollapsed}
+          aria-expanded={isMobile ? undefined : sidebarExpanded}
           sx={{ display: 'inline-flex' }}
         >
           <MenuIcon sx={{ fontSize: 22 }} />
@@ -910,6 +923,28 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         )}
         <Box sx={{ width: 8 }} />
 
+        <Tooltip title="Search and MCP actions (Ctrl+K)">
+          <Button
+            size="small"
+            aria-label="Search and MCP actions (Ctrl+K)"
+            onClick={() => openResourceFinder()}
+            startIcon={<SearchIcon sx={{ fontSize: 17 }} />}
+            sx={{
+              minWidth: 0,
+              px: 1,
+              py: 0.35,
+              textTransform: 'none',
+              color: 'var(--theme-text-secondary)',
+              border: '1px solid var(--theme-border)',
+              borderRadius: '7px',
+              fontSize: '0.72rem',
+              '&:hover': { backgroundColor: 'var(--theme-hover)' },
+            }}
+          >
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Ctrl K</Box>
+          </Button>
+        </Tooltip>
+
         {/* Global search moved to ⌘K only (no visible box). */}
         <Box sx={{ flex: 1, minWidth: 0 }} />
 
@@ -932,6 +967,18 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
               </IconButton>
             </Tooltip>
           ))}
+          {!userSession && (
+            <Tooltip title="Settings">
+              <IconButton
+                size="small"
+                aria-label="Settings"
+                onClick={() => navigate('/settings')}
+                sx={{ color: 'var(--theme-text-secondary)', '&:hover': { backgroundColor: 'var(--theme-hover)' } }}
+              >
+                <SettingsIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           </>
           )}
 
@@ -941,7 +988,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           {!userSession && (
           <Button
             aria-label="Health"
-            onClick={() => window.dispatchEvent(new Event('openHealthDialog'))}
+            onClick={() => navigate('/monitoring')}
             sx={{
               display: 'flex', alignItems: 'center', gap: 0.75, px: 1, py: 0.5,
               minWidth: 0, textTransform: 'none',
@@ -987,7 +1034,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
           {/* Divider between admin and utility icons */}
           <Box sx={{ width: '1px', height: 24, backgroundColor: 'var(--border-light, #e5e7eb)', mx: 0.5, flexShrink: 0 }} />
 
-          {!userSession && <TopBarPhoneButton />}
+          <TopBarPhoneButton />
 
           {allow('notifications') && (
           <Tooltip title="Notifications">
@@ -1526,9 +1573,9 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
               </IconButton>
             </Box>
             {notifications.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <NotificationsIcon sx={{ fontSize: 48, color: 'var(--text-tertiary)', mb: 1 }} />
-                <Typography color="text.secondary">No notifications</Typography>
+              <Box sx={{ textAlign: 'center', py: 2 }}>
+                <NotificationsIcon sx={{ fontSize: 40, color: 'var(--text-tertiary)', mb: 1 }} />
+                <Typography color="text.secondary">No messages</Typography>
               </Box>
             ) : (
               <List sx={{ p: 0 }}>
@@ -1554,6 +1601,17 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
                 ))}
               </List>
             )}
+            <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid var(--border-light)' }}>
+              <MonitoringSidebar
+                alerts={monitoringAlerts}
+                loading={monitoringAlertsLoading}
+                onChanged={async () => {
+                  const response = await alertsApi.getAlerts();
+                  const alerts = Array.isArray(response) ? response : (response?.alerts || response?.data || []);
+                  setMonitoringAlerts(alerts);
+                }}
+              />
+            </Box>
           </Box>
         )}
       </Drawer>
