@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Box, Typography, Chip, IconButton, Tooltip, Switch, FormControlLabel,
-  Paper, Select, MenuItem, FormControl,
+  Paper, Select, MenuItem, FormControl, Dialog, DialogTitle, DialogContent, DialogActions, Button,
   Accordion, AccordionSummary, AccordionDetails,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
@@ -26,6 +26,7 @@ import { nodesApi } from '../../services/api/nodesApi';
 import useNodeHealth from '../../hooks/useNodeHealth';
 import useGatusHealth from '../../hooks/useGatusHealth';
 import useApiHealth from '../../hooks/useApiHealth';
+import ApiHealthPanel from './ApiHealthPanel.jsx';
 import IntegrationCard from './IntegrationCard.jsx';
 import { INTEGRATIONS, useIntegrations } from './integrations.js';
 import useMonitoring, { SYSTEM_METRICS } from './Monitoring.js';
@@ -96,7 +97,7 @@ const HostSelector = ({ hosts, value, onChange }) => (
 );
 
 /** The mothership's lightweight shared status (/health). */
-const ServiceHealthStrip = ({ health }) => {
+const ServiceHealthStrip = ({ health, onOpenDetails }) => {
   if (!health?.checks) return null;
   return (
     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -120,7 +121,9 @@ const ServiceHealthStrip = ({ health }) => {
                 borderColor: ok ? '#10b98140' : '#ef444460',
                 color: ok ? '#10b981' : '#ef4444',
                 backgroundColor: ok ? '#10b98108' : '#ef444410',
+                cursor: onOpenDetails ? 'pointer' : 'default',
               }}
+              onClick={onOpenDetails}
             />
           </Tooltip>
         );
@@ -168,6 +171,7 @@ const Monitoring = () => {
   const health = apiHealth.response;
 
   const [monitorNodes, setMonitorNodes] = useState([]);
+  const [apiHealthDetailsOpen, setApiHealthDetailsOpen] = useState(false);
 
   // Syslog hosts are display names; the Gatus relay is addressed by node UUID.
   // Resolve that mapping once so the monitoring panel calls the existing
@@ -259,7 +263,7 @@ const Monitoring = () => {
                 px: 2, py: 1, border: '1px solid var(--theme-border)',
                 borderRadius: '8px', backgroundColor: 'var(--theme-bg-primary)',
               }}>
-                <ServiceHealthStrip health={health} />
+                <ServiceHealthStrip health={health} onOpenDetails={() => setApiHealthDetailsOpen(true)} />
               </Paper>
             )}
 
@@ -413,6 +417,11 @@ const Monitoring = () => {
       }}>
         <MonitoringSidebar alerts={alerts} loading={loading} onChanged={fetchData} />
       </Box>
+      <Dialog open={apiHealthDetailsOpen} onClose={() => setApiHealthDetailsOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>API detailed health</DialogTitle>
+        <DialogContent><ApiHealthPanel /></DialogContent>
+        <DialogActions><Button onClick={() => setApiHealthDetailsOpen(false)}>Close</Button></DialogActions>
+      </Dialog>
     </Box>
   );
 };
