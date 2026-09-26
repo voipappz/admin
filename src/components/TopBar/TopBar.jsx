@@ -10,7 +10,6 @@ import {
   Divider,
   Drawer,
   List,
-  ListItem,
   ListItemText,
   ListItemIcon,
   Tooltip,
@@ -57,7 +56,6 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CircleIcon from '@mui/icons-material/Circle';
 import CodeIcon from '@mui/icons-material/Code';
-import LogoutIcon from '@mui/icons-material/Logout';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -90,14 +88,13 @@ import AccountCreateDialog from '../Account/AccountCreateDialog/AccountCreateDia
 import CustomerEditDialog from '../Account/CustomerEditDialog/CustomerEditDialog.jsx';
 import { customersApi } from '../../services/api/customersApi';
 import DynamicProfileEditor from '../common/DynamicProfileEditor/DynamicProfileEditor';
-import { formatDate } from '../../utils/dateUtils';
 import { nodesApi } from '../../services/api/nodesApi';
 import { useNodeHealth } from '../../hooks/useNodeHealth';
 import CommandPalette from '../CommandPalette/CommandPalette';
 import EnvironmentResourcesPanel from './EnvironmentResourcesPanel';
 import NotificationPanel from '../Notifications/NotificationPanel/NotificationPanel';
 import MonitoringSidebar from '../Monitoring/MonitoringSidebar.jsx';
-import { alertsApi } from '../../services/api/alertsApi';
+import { notificationsApi } from '../../services/api/notificationsApi';
 import TicketDetailView from '../Tickets/TicketDetailView/TicketDetailView';
 import { useTickets } from '../Tickets/Tickets';
 import { openZendeskWidget } from '../../services/zendeskWidget';
@@ -186,7 +183,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
   const isMobile = useMediaQuery((t) => t.breakpoints.down('md'));
   const isPhone = useMediaQuery((t) => t.breakpoints.down('sm'));
   const [toolsMenuAnchor, setToolsMenuAnchor] = useState(null);
-  const { notifications, markAsRead, deleteNotification, refreshNotifications, fetchNotificationCount, fetchNotificationDetails } = useNotifications();
+  const { deleteNotification, fetchNotificationDetails } = useNotifications();
   const {
     customers,
     isRoot,
@@ -260,8 +257,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
 
   const [notificationDrawerOpen, setNotificationDrawerOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState(null);
-  const [monitoringAlerts, setMonitoringAlerts] = useState([]);
-  const [monitoringAlertsLoading, setMonitoringAlertsLoading] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [badgeCount, setBadgeCount] = useState(0);
 
@@ -351,10 +346,10 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
 
   // Notifications drawer — the bell moved to the sidebar bottom and dispatches this.
   useEffect(() => {
-    const handler = () => { setNotificationDrawerOpen(true); refreshNotifications(); };
+    const handler = () => setNotificationDrawerOpen(true);
     window.addEventListener('openNotifications', handler);
     return () => window.removeEventListener('openNotifications', handler);
-  }, [refreshNotifications]);
+  }, []);
 
   // Organization state
   const [orgNodes, setOrgNodes] = useState([]);
@@ -739,14 +734,16 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
 
   // Notification count
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated || (userSession && canAccess('notifications'))) {
       const loadCount = async () => {
-        const count = await fetchNotificationCount();
+        const count = await notificationsApi.countUnreadAlerts('', '');
         setBadgeCount(count);
       };
-      loadCount();
+      loadCount().catch(() => {});
+      const timer = setInterval(() => { loadCount().catch(() => {}); }, 30000);
+      return () => clearInterval(timer);
     }
-  }, [isAuthenticated, fetchNotificationCount]);
+  }, [isAuthenticated, userSession, canAccess]);
 
   const handleTicketsOpen = useCallback(() => {
     setTicketsModalOpen(true);
@@ -782,20 +779,7 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
     return () => window.removeEventListener('openWizardModal', handler);
   }, []);
 
-  const handleNotificationClick = async () => {
-    setNotificationDrawerOpen(true);
-    setMonitoringAlertsLoading(true);
-    await Promise.allSettled([
-      refreshNotifications(),
-      alertsApi.getAlerts().then((response) => {
-        const alerts = Array.isArray(response) ? response : (response?.alerts || response?.data || []);
-        setMonitoringAlerts(alerts);
-      }),
-    ]);
-    setMonitoringAlertsLoading(false);
-    const unread = notifications.filter(n => !n.read_at).length;
-    setBadgeCount(unread);
-  };
+  const handleNotificationClick = () => setNotificationDrawerOpen(true);
 
   const handleNotificationDrawerClose = () => {
     setNotificationDrawerOpen(false);
@@ -804,7 +788,6 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
 
   const handleNotificationSelect = (notification) => {
     setSelectedNotification(notification);
-    if (!notification.read_at) markAsRead(notification.uuid);
   };
 
   const handleAccountSave = async (formData) => {
@@ -1551,69 +1534,30 @@ const TopBar = ({ sidebarCollapsed, sidebarExpanded = false, onToggleSidebar, on
         sx={{
           '& .MuiDrawer-paper': {
             width: { xs: '100%', sm: 400 },
-            maxWidth: '90vw',
+            maxWidth: '100vw',
             backgroundColor: 'var(--theme-bg-primary)'
           }
         }}
       >
-        {selectedNotification ? (
-          <NotificationPanel
-            notification={selectedNotification}
-            onClose={handleNotificationDrawerClose}
-            onMarkAsRead={markAsRead}
-            onDelete={deleteNotification}
-            fetchNotificationDetails={fetchNotificationDetails}
-          />
-        ) : (
-          <Box sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, borderBottom: '1px solid var(--border-light)', pb: 2 }}>
-              <Typography variant="h6">Notifications ({notifications.length})</Typography>
-              <IconButton onClick={handleNotificationDrawerClose}>
-                <LogoutIcon sx={{ transform: 'rotate(180deg)' }} />
-              </IconButton>
-            </Box>
-            {notifications.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 2 }}>
-                <NotificationsIcon sx={{ fontSize: 40, color: 'var(--text-tertiary)', mb: 1 }} />
-                <Typography color="text.secondary">No messages</Typography>
-              </Box>
-            ) : (
-              <List sx={{ p: 0 }}>
-                {notifications.slice(0, 10).map((notification) => (
-                  <ListItem
-                    key={notification.uuid}
-                    onClick={() => handleNotificationSelect(notification)}
-                    sx={{
-                      cursor: 'pointer', borderRadius: 1, mb: 1,
-                      backgroundColor: !notification.read_at ? 'rgba(101, 117, 142, 0.08)' : 'var(--theme-bg-primary)',
-                      border: '1px solid var(--border-light)',
-                      '&:hover': { backgroundColor: 'var(--theme-hover)' }
-                    }}
-                  >
-                    <ListItemText
-                      primary={<Typography variant="body2" sx={{ fontWeight: !notification.read_at ? 600 : 400, fontSize: '0.9rem' }}>{notification.subject || notification.msg}</Typography>}
-                      secondary={<Typography variant="caption" color="text.secondary">{formatDate(notification.created_at)}</Typography>}
-                    />
-                    {!notification.read_at && (
-                      <Box sx={{ width: 8, height: 8, backgroundColor: 'var(--accent-color, #65758E)', borderRadius: '50%', ml: 1 }} />
-                    )}
-                  </ListItem>
-                ))}
-              </List>
-            )}
-            <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid var(--border-light)' }}>
-              <MonitoringSidebar
-                alerts={monitoringAlerts}
-                loading={monitoringAlertsLoading}
-                onChanged={async () => {
-                  const response = await alertsApi.getAlerts();
-                  const alerts = Array.isArray(response) ? response : (response?.alerts || response?.data || []);
-                  setMonitoringAlerts(alerts);
-                }}
+        <Box sx={{ p: 2, height: '100%', minHeight: 0, boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, flexShrink: 0 }}>
+            {selectedNotification && <Button onClick={() => setSelectedNotification(null)}>Back to notifications</Button>}
+            <IconButton aria-label="Close notifications" onClick={handleNotificationDrawerClose} sx={{ ml: 'auto' }}><CloseIcon /></IconButton>
+          </Box>
+          {notificationDrawerOpen && (selectedNotification ? (
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              <NotificationPanel
+                notification={selectedNotification}
+                onClose={() => setSelectedNotification(null)}
+                onMarkAsRead={notificationsApi.markRead}
+                onDelete={async uuid => { await deleteNotification(uuid); setSelectedNotification(null); }}
+                fetchNotificationDetails={fetchNotificationDetails}
               />
             </Box>
-          </Box>
-        )}
+          ) : (
+            <MonitoringSidebar notificationType="" onSelect={handleNotificationSelect} onCountChange={setBadgeCount} />
+          ))}
+        </Box>
       </Drawer>
 
       {/* Health Details Dialog */}

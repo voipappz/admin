@@ -21,7 +21,6 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import YabedaMetricViewer from './YabedaMetricViewer.jsx';
 import GatusHealthPanel from './GatusHealthPanel.jsx';
 import MonitoringNodes from './MonitoringNodes.jsx';
-import MonitoringSidebar from './MonitoringSidebar.jsx';
 import { nodesApi } from '../../services/api/nodesApi';
 import useNodeHealth from '../../hooks/useNodeHealth';
 import useGatusHealth from '../../hooks/useGatusHealth';
@@ -394,29 +393,9 @@ const Monitoring = () => {
               </AccordionDetails>
             </Accordion>
 
-            {/* The desktop alert rail is hidden below lg. Keep alerts available
-                in the normal page flow on tablets and phones. */}
-            <Paper elevation={0} sx={{
-              display: { xs: 'block', lg: 'none' },
-              width: '100%', minWidth: 0, boxSizing: 'border-box',
-              height: { xs: 300, sm: 360 }, p: 1.5, flexShrink: 0,
-              overflow: 'hidden',
-              border: '1px solid var(--theme-border)', borderRadius: '12px',
-              backgroundColor: 'var(--theme-bg-primary)',
-            }}>
-              <MonitoringSidebar />
-            </Paper>
         </>
       </Box>
 
-      {/* Right rail — active alerts. */}
-      <Box sx={{
-        width: 360, flexShrink: 0, height: '100%', p: 1.5, boxSizing: 'border-box',
-        display: { xs: 'none', lg: 'flex' }, flexDirection: 'column',
-        borderLeft: '1px solid var(--theme-border)',
-      }}>
-        <MonitoringSidebar />
-      </Box>
       <Dialog open={apiHealthDetailsOpen} onClose={() => setApiHealthDetailsOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>API detailed health</DialogTitle>
         <DialogContent><ApiHealthPanel /></DialogContent>
