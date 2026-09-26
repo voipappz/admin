@@ -82,23 +82,13 @@ const Layout = ({ children }) => {
   // Sidebar state — desktop collapse + mobile drawer (shared by the hamburger).
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  // Desktop: compact icon rail (default) vs labeled rail, toggled by the
-  // sidebar-top hamburger and remembered across sessions.
-  const [sidebarExpanded, setSidebarExpanded] = useState(() => {
-    try { return localStorage.getItem('nimbus_sidebar_expanded') === 'true'; } catch { return false; }
-  });
+  const sidebarExpanded = false;
   const isMobile = useMediaQuery((t) => t.breakpoints.down('md'));
   const handleToggleSidebar = () => {
     if (isMobile) setMobileDrawerOpen(open => !open);
     else setSidebarCollapsed(collapsed => !collapsed);
   };
-  const handleToggleExpand = () => {
-    setSidebarExpanded(prev => {
-      const next = !prev;
-      try { localStorage.setItem('nimbus_sidebar_expanded', String(next)); } catch { /* ignore */ }
-      return next;
-    });
-  };
+  const handleToggleExpand = handleToggleSidebar;
 
   return (
     <Box className="layout-container" data-testid="layout-container">
@@ -120,7 +110,7 @@ const Layout = ({ children }) => {
             {/* Fixed sidebar — hidden on mobile, shown via the drawer */}
             {!isMcpWorkspace && (
               <Box className="sidebar-desktop">
-                <Sidebar collapsed={sidebarCollapsed} expanded={sidebarExpanded} onToggleExpand={handleToggleExpand} onToggleSidebar={handleToggleSidebar} />
+                <Sidebar collapsed={sidebarCollapsed} />
               </Box>
             )}
 
@@ -132,10 +122,10 @@ const Layout = ({ children }) => {
               ModalProps={{ keepMounted: true }}
               sx={{
                 display: { xs: 'block', md: 'none' },
-                '& .MuiDrawer-paper': { width: 80, boxSizing: 'border-box' }
+                '& .MuiDrawer-paper': { width: 112, boxSizing: 'border-box' }
               }}
             >
-              <Sidebar expanded onNavigate={() => setMobileDrawerOpen(false)} onToggleSidebar={handleToggleSidebar} />
+              <Sidebar onNavigate={() => setMobileDrawerOpen(false)} />
             </Drawer>}
 
             {/* TopBar — fixed at top, offset by the sidebar */}

@@ -41,29 +41,19 @@ export const NAV_ITEMS = [
   { text: 'Live',          path: '/live',           iconComponent: SensorsIcon,               aclKey: 'reports',                        group: 'MONITOR'  },
   { text: 'Calls',         path: '/calls',          iconComponent: CallIcon,                  aclKey: 'calls',                          group: 'MONITOR'  },
   { text: 'Messages',      path: '/messages',       iconComponent: ChatIcon,                  aclKey: 'calls',                          group: 'MONITOR'  },
-  // Logs: the app log stream from the InfluxDB `syslog` measurement, served
-  // by /api/logs. It is the ONLY place logs are read — the per-record
-  // "View Logs" buttons were removed with the API's per-record trail.
-  // Events is the durable half of the pair: the Postgres event store (a log
-  // line naming an `action` becomes an event — config/initializers/log.rb).
-  { text: 'Logs',          path: '/logs',           iconComponent: SubjectIcon,               aclKey: 'logs',                           group: 'MONITOR'  },
-  { text: 'Events',        path: '/events',         iconComponent: BoltIcon,                  aclKey: 'logs',                           group: 'MONITOR'  },
-  { text: 'Monitoring',    path: '/monitoring',     iconComponent: TimelineIcon,              aclKey: 'monitors',                       group: 'MONITOR'  },
-  // Every node with full CRUD over the nodes API (writes are root-only, so the
-  // buttons show for root). Same screen as Monitoring's Nodes section.
-  { text: 'Nodes',         path: '/nodes',          iconComponent: DnsIcon,                   aclKey: 'nodes',                          group: 'MONITOR'  },
   { text: 'Reports',       path: '/reports',        iconComponent: AssessmentIcon,            aclKey: 'reports',                        group: 'MONITOR'  },
   { text: 'Users',         path: '/users',          iconComponent: PeopleIcon,                aclKey: 'users',                          group: 'MANAGE'   },
   { text: 'Accounts',      path: '/accounts',       iconComponent: BadgeIcon,                 aclKey: 'accounts',                       group: 'MANAGE'   },
-  { text: 'Providers',     path: '/providers',      iconComponent: HubIcon,                   aclKey: 'providers',                      group: 'MANAGE'   },
 ];
 
-// Professional / configuration screens — rendered as a pinned section at the
-// bottom of the left sidebar (no popup). Name kept for back-compat: also consumed
-// by global search (CommandPalette) and breadcrumbs (findNavItemByPath).
-// Settings is not here — it's a gear button in the topbar (see TopBar.jsx),
-// not a left-menu item.
+// Professional tools — top-right icons on desktop and overflow menu on phones.
+// Also consumed by global search and breadcrumbs.
 export const TOPBAR_NAV_ITEMS = [
+  { text: 'Events',        path: '/events',         iconComponent: BoltIcon,                  aclKey: 'logs',                           group: 'MONITOR'  },
+  { text: 'Logs',          path: '/logs',           iconComponent: SubjectIcon,               aclKey: 'logs',                           group: 'MONITOR'  },
+  { text: 'Monitoring',    path: '/monitoring',     iconComponent: TimelineIcon,              aclKey: 'monitors',                       group: 'MONITOR'  },
+  { text: 'Nodes',         path: '/nodes',          iconComponent: DnsIcon,                   aclKey: 'nodes',                          group: 'MONITOR'  },
+  { text: 'Providers',     path: '/providers',      iconComponent: HubIcon,                   aclKey: 'providers',                      group: 'ADMIN'    },
   { text: 'Templates',     path: '/templates',      iconComponent: ArticleIcon,               aclKey: 'templates',                      group: 'ADMIN'    },
 ];
 

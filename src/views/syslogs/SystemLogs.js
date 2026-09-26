@@ -1,15 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import syslogsApi from '../../services/api/syslogsApi';
-import { computePeriodRange, deriveChartInterval } from '../../utils/logFormatting';
-
-const useDebouncedValue = (value, delay = 350) => {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value.trim()), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
-};
+import { computePeriodRange } from '../../utils/logFormatting';
 
 export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
   // Log data
@@ -24,7 +15,7 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
   // Pagination
   const [pagination, setPagination] = useState({
     page: 0,
-    limit: 25,
+    limit: 100,
   });
 
   // Filters — seeded from `initialParams` when a caller embeds the viewer, and
@@ -43,7 +34,6 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
       app: q.get('app') || '',
       host: q.get('host') || '',
       severity: ({ error: 'err', warn: 'warning' })[q.get('severity')] || q.get('severity') || '',
-      action: q.get('action') || '',
       period: q.get('period') || '1h',
     };
   }, [initialParams]);
@@ -52,41 +42,23 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
   const [selectedApp, setSelectedApp] = useState(initial.app);
   const [selectedHost, setSelectedHost] = useState(initial.host);
   const [selectedSeverity, setSelectedSeverity] = useState(initial.severity);
-  // `action` is a tag on the syslog series (config/initializers/log.rb), so it
-  // can be filtered on AND grouped by — a line that names an action is the same
-  // line that becomes an event.
-  const [selectedAction, setSelectedAction] = useState(initial.action);
-  const debouncedAction = useDebouncedValue(selectedAction);
   const filterText = useMemo(() => ({
-    action: debouncedAction,
     customerUuid: customerUuid || '',
-  }), [debouncedAction, customerUuid]);
+  }), [customerUuid]);
   const requestFilters = useMemo(() => Object.fromEntries(Object.entries({
     app: selectedApp,
     host: selectedHost,
     severity: selectedSeverity,
-    action: filterText.action,
     customer_uuid: filterText.customerUuid,
     inline: searchQuery,
   }).filter(([, value]) => value)), [selectedApp, selectedHost, selectedSeverity, filterText, searchQuery]);
-  const [groupBy, setGroupBy] = useState('severity');
+  const [groupBy, setGroupBy] = useState('source');
 
   // Date range with period tracking (Events-style shape)
   const [dateRange, setDateRange] = useState(() => computePeriodRange(initial.period));
 
-  // Chart aggregation data (from server)
-  const [chartAggregation, setChartAggregation] = useState([]);
-  const [severityAggregation, setSeverityAggregation] = useState([]);
-  const [chartLoading, setChartLoading] = useState(false);
-
   // Auto-refresh: 0 = off, 10/30/60 seconds
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(0);
-
-  // Derive chart bucket size from active time range
-  const chartInterval = useMemo(
-    () => deriveChartInterval(dateRange?.start, dateRange?.end),
-    [dateRange]
-  );
 
   // Load apps (no loading flash on the main table)
   const loadApps = useCallback(async () => {
@@ -147,40 +119,6 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     }
   }, [pagination, dateRange, requestFilters]);
 
-  // Load chart aggregation data from server (InfluxDB: count by severity over time)
-  const loadChartData = useCallback(async () => {
-    try {
-      setChartLoading(true);
-
-      const params = { interval: chartInterval, ...requestFilters };
-
-      if (dateRange?.start && dateRange?.end) {
-        params.from = Math.floor(dateRange.start.getTime() / 1000);
-        params.to = Math.floor(dateRange.end.getTime() / 1000);
-      }
-
-      // group_by accepts 'action' too — `action` is a tag on the series, and
-      // "logs by action" is the chart that makes the actioned lines legible.
-      if (groupBy) params.group_by = groupBy;
-
-      const [response, severityResponse] = await Promise.all([
-        syslogsApi.fetchAggregate(params),
-        groupBy === 'severity'
-          ? Promise.resolve(null)
-          : syslogsApi.fetchAggregate({ ...params, group_by: 'severity' }),
-      ]);
-      setChartAggregation(Array.isArray(response) ? response : response?.data || []);
-      const severityData = severityResponse ?? response;
-      setSeverityAggregation(Array.isArray(severityData) ? severityData : severityData?.data || []);
-    } catch (error) {
-      console.error('Failed to load chart data:', error);
-      setChartAggregation([]);
-      setSeverityAggregation([]);
-    } finally {
-      setChartLoading(false);
-    }
-  }, [chartInterval, dateRange, requestFilters, groupBy]);
-
   useEffect(() => {
     setPagination((current) => current.page === 0 ? current : { ...current, page: 0 });
   }, [dateRange, selectedApp, selectedHost, selectedSeverity, filterText, searchQuery]);
@@ -196,9 +134,8 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
       setDateRange(computePeriodRange(dateRange.period));
     } else {
       loadLogs();
-      loadChartData();
     }
-  }, [dateRange?.period, loadLogs, loadChartData]);
+  }, [dateRange?.period, loadLogs]);
 
   // Derived filter state
   const hasActiveFilters = useMemo(
@@ -206,9 +143,8 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
       (searchQuery && searchQuery.trim() !== '') ||
       selectedApp !== '' ||
       selectedHost !== '' ||
-      selectedSeverity !== '' ||
-      selectedAction !== '',
-    [searchQuery, selectedApp, selectedHost, selectedSeverity, selectedAction]
+      selectedSeverity !== '',
+    [searchQuery, selectedApp, selectedHost, selectedSeverity]
   );
 
   const clearFilters = useCallback(() => {
@@ -216,7 +152,6 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     setSelectedApp('');
     setSelectedHost('');
     setSelectedSeverity('');
-    setSelectedAction('');
   }, []);
 
   // Enable trace (for live syslog streaming)
@@ -301,11 +236,6 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     loadLogs();
   }, [loadLogs]);
 
-  // Load chart data when relevant params change
-  useEffect(() => {
-    loadChartData();
-  }, [loadChartData]);
-
   // Auto-refresh interval (independent from Trace)
   const autoRefreshRef = useRef(null);
   useEffect(() => {
@@ -345,8 +275,6 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     selectedHost,
     setSelectedHost,
     selectedSeverity,
-    selectedAction,
-    setSelectedAction,
     setSelectedSeverity,
     groupBy,
     setGroupBy,
@@ -355,12 +283,6 @@ export const useSystemLogs = ({ customerUuid, initialParams } = {}) => {
     dateRange,
     setDateRange,
     handlePeriodSelect,
-
-    // Chart state
-    chartAggregation,
-    severityAggregation,
-    chartLoading,
-    chartInterval,
 
     // Auto-refresh
     autoRefreshInterval,

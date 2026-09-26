@@ -33,38 +33,19 @@ import {
   ContentCopy as ContentCopyIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import { DataGrid } from '@mui/x-data-grid';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useSystemLogs } from './SystemLogs';
 import { useCustomerEnvironment } from '../../context/CustomerEnvironmentContext';
-import { stripedDataGridSx } from '../../components/shared/tableTheme.jsx';
-import TimeHistogram from './TimeHistogram';
 import CustomFooter from '../../components/Calls/CustomFooter/CustomFooter.jsx';
 import {
   LEVEL_CONFIG,
   AUTO_REFRESH_OPTIONS,
-  convertAggregateToHistogramFormat,
   normalizeSeverityKey,
-  getSeverityChipColors,
-  formatRelative,
-  formatAbsolute,
   PERIOD_OPTIONS,
   SEVERITY_ORDER,
 } from '../../utils/logFormatting';
-
-const TOTAL_PILL = { color: 'var(--mui-palette-text-primary)', bg: 'var(--mui-palette-surface-muted)' };
-
-const METRICS_PILLS = [
-  { key: 'total', label: 'TOTAL' },
-  { key: 'crit',  label: 'CRIT' },
-  { key: 'error', filterKey: 'err', label: 'ERROR' },
-  { key: 'warn',  filterKey: 'warning', label: 'WARN' },
-  { key: 'info',  label: 'INFO' },
-  { key: 'debug', label: 'DEBUG' },
-  { key: 'trace', label: 'TRACE' },
-];
 
 const parseLogFields = (message = '') => {
   const fields = {};
@@ -75,9 +56,23 @@ const parseLogFields = (message = '') => {
   return fields;
 };
 
+// Crystal's NATS relay preserves the logger/component by prefixing the stored
+// message (`http.client: Performing request`). Split that transport shape for
+// display without changing the raw value shown in Log details.
+const displayLog = (log) => {
+  const rawMessage = String(log.message || log.msg || '');
+  const relayedNodeLine = (log.app === 'node' || log.app === 'crystal')
+    ? rawMessage.match(/^([\w./-]+):\s+([\s\S]+)$/)
+    : null;
+  return {
+    source: log.source || relayedNodeLine?.[1] || log.app || log.type || 'Unknown',
+    message: relayedNodeLine?.[2] || rawMessage,
+  };
+};
+
 // Main SystemLogs component
 const SystemLogs = ({ initialParams }) => {
-  const { selectedCustomer } = useCustomerEnvironment();
+  const { selectedCustomer, isRoot } = useCustomerEnvironment();
   const {
     logs,
     loading,
@@ -96,18 +91,12 @@ const SystemLogs = ({ initialParams }) => {
     setSelectedHost,
     selectedSeverity,
     setSelectedSeverity,
-    selectedAction,
-    setSelectedAction,
     groupBy,
     setGroupBy,
 
     dateRange,
     setDateRange,
     handlePeriodSelect,
-
-    chartAggregation,
-    severityAggregation,
-    chartInterval,
 
     autoRefreshInterval,
     setAutoRefreshInterval,
@@ -122,7 +111,14 @@ const SystemLogs = ({ initialParams }) => {
     enableConsole,
     disableConsole,
     getConsoleStatus,
-  } = useSystemLogs({ customerUuid: selectedCustomer?.uuid, initialParams });
+  } = useSystemLogs({
+    // Root is already restricted by the API to this deployment's organization.
+    // Do not additionally narrow it to the selected customer: infrastructure
+    // producers such as Crystal may not carry a customer_uuid on every line.
+    // Non-root sessions remain customer-scoped server-side.
+    customerUuid: isRoot ? null : selectedCustomer?.uuid,
+    initialParams,
+  });
 
   const [traceEnabled, setTraceEnabled] = useState(false);
   const [consoleEnabled, setConsoleEnabled] = useState(false);
@@ -225,169 +221,46 @@ const SystemLogs = ({ initialParams }) => {
     [enableConsole, disableConsole]
   );
 
-  // Transform server aggregate shape to TimeHistogram's expected format
-  const histogramBuckets = useMemo(
-    () => convertAggregateToHistogramFormat(chartAggregation),
-    [chartAggregation]
-  );
-  const severityHistogramBuckets = useMemo(
-    () => convertAggregateToHistogramFormat(severityAggregation),
-    [severityAggregation]
-  );
-
-  // Metrics derived from the full time-range aggregation (not just visible page)
-  const metrics = useMemo(() => {
-    const tally = { total: 0, crit: 0, error: 0, warn: 0, info: 0, debug: 0, trace: 0 };
-    severityHistogramBuckets.forEach((b) => {
-      tally.total += b.total;
-      Object.entries(b.severities).forEach(([sev, n]) => {
-        const k = normalizeSeverityKey(sev);
-        if (tally[k] !== undefined) tally[k] += n;
-      });
+  // Syslog is a message stream. Group the visible page by fields that are
+  // actually present on the API rows; missing values stay in one honest bucket.
+  const groupedLogs = useMemo(() => {
+    const valueFor = (log) => {
+      if (groupBy === 'source') return displayLog(log).source;
+      if (groupBy === 'host') return log.host || log.node || log.server;
+      if (groupBy === 'severity') return log.severity || log.level;
+      if (groupBy === 'facility') return log.facility;
+      return 'All messages';
+    };
+    const groups = new Map();
+    logs.forEach((log) => {
+      const label = String(valueFor(log) || 'Unknown');
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(log);
     });
-    return tally;
-  }, [severityHistogramBuckets]);
+    return [...groups.entries()];
+  }, [logs, groupBy]);
 
-  const handleMetricClick = useCallback(
-    (key, filterKey = key) => {
-      if (key === 'total') {
-        setSelectedSeverity('');
-        return;
+  const applyGroupFilter = useCallback((value) => {
+    if (groupBy === 'host') {
+      setSelectedHost(value === 'Unknown' ? '' : value);
+      return;
+    }
+    if (groupBy === 'severity') {
+      const severity = String(value).toLowerCase();
+      setSelectedSeverity(severity === 'error' ? 'err' : severity === 'warn' ? 'warning' : severity);
+      return;
+    }
+    if (groupBy === 'source') {
+      const sourceNames = apps.map((app) => typeof app === 'string' ? app : app.name);
+      if (sourceNames.includes(value)) {
+        setSelectedApp(value);
+      } else {
+        const query = `${value}:`;
+        setLocalSearch(query);
+        setSearchQuery(query);
       }
-      setSelectedSeverity((prev) => (prev === filterKey ? '' : filterKey));
-    },
-    [setSelectedSeverity]
-  );
-
-  // DataGrid rows — `id` is required by DataGrid
-  const gridRows = useMemo(
-    () => logs.map((log, index) => ({ ...log, id: log.uuid || log.id || index })),
-    [logs]
-  );
-
-  // DataGrid columns use only the stable Syslog fields. Values embedded in the
-  // message are shown in the details dialog instead of pretending to be columns.
-  // the Events grid so the two log screens look identical.
-  const gridColumns = useMemo(() => [
-    {
-      field: 'time',
-      headerName: 'TIME',
-      width: 110,
-      sortable: false,
-      renderCell: (params) => {
-        const t = params.row.time || params.row.timestamp || params.row.isodate;
-        return (
-          <Tooltip title={formatAbsolute(t)} placement="top">
-            <Typography variant="body2" sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: '0.72rem', color: 'var(--mui-palette-text-secondary)', whiteSpace: 'nowrap' }}>
-              {formatRelative(t)}
-            </Typography>
-          </Tooltip>
-        );
-      },
-    },
-    {
-      field: 'severity',
-      headerName: 'LEVEL',
-      width: 84,
-      sortable: false,
-      renderCell: (params) => {
-        const level = (params.value || params.row.level || 'info').toLowerCase();
-        const sev = getSeverityChipColors(level);
-        return (
-          <Chip
-            label={level.toUpperCase()}
-            size="small"
-            sx={{ fontWeight: 700, fontSize: '0.6rem', height: 20, minWidth: 52, color: sev.text, bgcolor: sev.bg, border: `1px solid color-mix(in srgb, ${sev.text} 20%, transparent)` }}
-          />
-        );
-      },
-    },
-    {
-      field: 'host',
-      headerName: 'SERVER',
-      width: 150,
-      sortable: false,
-      renderCell: (params) => {
-        const host = params.value;
-        if (!host || host === '-') return <Typography variant="caption" sx={{ color: 'text.disabled' }}>—</Typography>;
-        const isFiltered = selectedHost === host;
-        return (
-          <Tooltip title={`Filter by ${host}`}>
-            <Typography
-              variant="body2"
-              onClick={(e) => { e.stopPropagation(); setSelectedHost((prev) => (prev === host ? '' : host)); }}
-              sx={{ fontSize: '0.72rem', color: 'info.main', fontWeight: isFiltered ? 700 : 500, cursor: 'pointer', fontFamily: '"JetBrains Mono", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
-            >
-              {host}
-            </Typography>
-          </Tooltip>
-        );
-      },
-    },
-    {
-      field: 'app',
-      headerName: 'SOURCE',
-      width: 140,
-      sortable: false,
-      renderCell: (params) => {
-        const app = params.value || params.row.type;
-        if (!app || app === '-') return null;
-        const isFiltered = selectedApp === app;
-        return (
-          <Chip
-            label={app}
-            size="small"
-            variant={isFiltered ? 'filled' : 'outlined'}
-            onClick={(e) => { e.stopPropagation(); setSelectedApp((prev) => (prev === app ? '' : app)); }}
-            sx={{ fontSize: '0.6rem', height: 20, cursor: 'pointer', bgcolor: isFiltered ? 'info.main' : undefined, color: isFiltered ? 'info.contrastText' : undefined, borderColor: isFiltered ? 'info.main' : undefined, '&:hover': { bgcolor: isFiltered ? 'info.dark' : 'action.hover' } }}
-          />
-        );
-      },
-    },
-    {
-      field: 'facility',
-      headerName: 'FACILITY',
-      width: 100,
-      sortable: false,
-      renderCell: (params) =>
-        params.value && params.value !== '-' ? (
-          <Typography variant="body2" sx={{ fontSize: '0.72rem', color: 'var(--mui-palette-severity-trace-color)', fontWeight: 600, fontFamily: '"JetBrains Mono", monospace' }}>
-            {params.value}
-          </Typography>
-        ) : null,
-    },
-    {
-      field: 'action',
-      headerName: 'EVENT TYPE',
-      width: 145,
-      sortable: false,
-      renderCell: (params) => params.value ? <Chip label={params.value} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.62rem' }} /> : null,
-    },
-    {
-      field: 'message',
-      headerName: 'MESSAGE',
-      flex: 1,
-      sortable: false,
-      renderCell: (params) => (
-        <Typography variant="body2" noWrap sx={{ fontSize: '0.78rem', color: 'var(--mui-palette-text-primary)', fontFamily: '"JetBrains Mono", monospace' }}>
-          {params.value || params.row.msg || ''}
-        </Typography>
-      ),
-    },
-    {
-      field: 'copy',
-      headerName: '',
-      width: 36,
-      sortable: false,
-      renderCell: (params) => (
-        <Tooltip title="Copy message">
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(String(params.row.message || params.row.msg || '')); }} sx={{ p: 0.25 }}>
-            <ContentCopyIcon sx={{ fontSize: 14, color: 'var(--mui-palette-text-secondary)' }} />
-          </IconButton>
-        </Tooltip>
-      ),
-    },
-  ], [selectedHost, selectedApp, setSelectedHost, setSelectedApp]);
+    }
+  }, [groupBy, apps, setSelectedHost, setSelectedSeverity, setSelectedApp, setSearchQuery]);
 
   if (!selectedCustomer) {
     return (
@@ -406,8 +279,8 @@ const SystemLogs = ({ initialParams }) => {
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        p: 2,
-        gap: 1,
+        p: 1,
+        gap: 0.5,
         // See Events.jsx — no 64px top bar exists to subtract; the shell's
         // content row is already footer-aware.
         height: '100%',
@@ -420,14 +293,15 @@ const SystemLogs = ({ initialParams }) => {
       <Paper
         elevation={0}
         sx={{
-          p: 1.5,
+          px: 1,
+          py: 0.75,
           bgcolor: 'var(--mui-palette-background-paper)',
           border: '1px solid var(--mui-palette-divider)',
           borderRadius: 1,
           flexShrink: 0,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
           {/* Period Quick Select */}
           <ButtonGroup size="small" variant="outlined">
             {PERIOD_OPTIONS.map((period) => (
@@ -615,15 +489,15 @@ const SystemLogs = ({ initialParams }) => {
       <Paper
         elevation={0}
         sx={{
-          px: 1.5,
-          py: 1,
+          px: 1,
+          py: 0.6,
           bgcolor: 'var(--mui-palette-background-paper)',
           border: '1px solid var(--mui-palette-divider)',
           borderRadius: 1,
           flexShrink: 0,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.65, flexWrap: 'wrap' }}>
           <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5, fontWeight: 600 }}>
             Level:
           </Typography>
@@ -644,8 +518,6 @@ const SystemLogs = ({ initialParams }) => {
             </Select>
           </FormControl>
 
-          <TextField size="small" label="Event type" value={selectedAction}
-            onChange={(e) => setSelectedAction(e.target.value)} sx={{ width: 150 }} />
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
           <FormControl size="small" sx={{ minWidth: 140 }}>
@@ -701,11 +573,9 @@ const SystemLogs = ({ initialParams }) => {
               inputProps={{ 'aria-label': 'Group log timeline by' }}
               sx={{ fontSize: '12px' }}
             >
-              <MenuItem value="severity">Level</MenuItem>
-              <MenuItem value="app">Source</MenuItem>
+              <MenuItem value="source">Source</MenuItem>
               <MenuItem value="host">Server</MenuItem>
-              <MenuItem value="facility">Facility</MenuItem>
-              <MenuItem value="action">Event type</MenuItem>
+              <MenuItem value="severity">Level</MenuItem>
             </Select>
           </FormControl>
 
@@ -722,140 +592,83 @@ const SystemLogs = ({ initialParams }) => {
             </Button>
           )}
         </Box>
+        {hasActiveFilters && (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }} aria-label="Active log filters">
+            {selectedApp && <Chip size="small" label={`Source: ${selectedApp}`} onDelete={() => setSelectedApp('')} sx={{ height: 22, fontSize: '0.68rem' }} />}
+            {selectedHost && <Chip size="small" label={`Server: ${selectedHost}`} onDelete={() => setSelectedHost('')} sx={{ height: 22, fontSize: '0.68rem' }} />}
+            {selectedSeverity && <Chip size="small" label={`Level: ${selectedSeverity}`} onDelete={() => setSelectedSeverity('')} sx={{ height: 22, fontSize: '0.68rem' }} />}
+            {searchQuery && <Chip size="small" label={`Message: ${searchQuery}`} onDelete={handleClearSearch} sx={{ height: 22, fontSize: '0.68rem' }} />}
+          </Box>
+        )}
       </Paper>
 
-      {/* Metrics summary bar — derived from the full time-range server aggregation */}
-      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
-        {METRICS_PILLS.map((pill) => {
-          const cfg = pill.key === 'total' ? TOTAL_PILL : LEVEL_CONFIG[pill.key];
-          const value = metrics[pill.key] || 0;
-          const filterKey = pill.filterKey || pill.key;
-          const isActive = pill.key !== 'total' && selectedSeverity === filterKey;
-          return (
-            <Paper
-              key={pill.key}
-              elevation={0}
-              onClick={() => handleMetricClick(pill.key, filterKey)}
-              sx={{
-                px: 1.25,
-                py: 0.5,
-                bgcolor: cfg.bg,
-                border: '1px solid var(--mui-palette-divider)',
-                borderRadius: 1,
-                cursor: 'pointer',
-                minWidth: 72,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                transition: 'border-color 0.15s',
-                '&:hover': { borderColor: cfg.color },
-                ...(isActive && {
-                  borderColor: cfg.color,
-                  boxShadow: `0 0 0 1px ${cfg.color}`,
-                }),
-              }}
+      {/* Message-first stream. Sources and other structured values are useful
+          as group headers; each line itself stays focused on the log message. */}
+      <Paper elevation={0} sx={{ flex: 1, minHeight: 0, overflow: 'auto', border: '1px solid var(--mui-palette-divider)', borderRadius: 1, bgcolor: 'var(--mui-palette-background-paper)' }}>
+        {loading && logs.length === 0 ? (
+          <Typography sx={{ p: 3, textAlign: 'center', color: 'text.secondary', fontSize: '0.82rem' }}>Loading messages…</Typography>
+        ) : groupedLogs.length === 0 ? (
+          <Typography sx={{ p: 3, textAlign: 'center', color: 'text.secondary', fontSize: '0.82rem' }}>No log messages found</Typography>
+        ) : groupedLogs.map(([group, entries]) => (
+          <Box key={group} component="section">
+            <Box
+              role="button"
+              tabIndex={0}
+              onClick={() => applyGroupFilter(group)}
+              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') applyGroupFilter(group); }}
+              sx={{ position: 'sticky', top: 0, zIndex: 1, px: 1, py: 0.35, display: 'flex', alignItems: 'center', gap: 0.75, bgcolor: 'var(--mui-palette-surface-muted)', borderTop: '1px solid var(--mui-palette-divider)', borderBottom: '1px solid var(--mui-palette-divider)', cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
             >
-              <Typography
-                variant="caption"
-                sx={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.06em', color: cfg.color }}
-              >
-                {pill.label}
+              <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
+                {groupBy === 'source' ? 'Source' : groupBy === 'host' ? 'Server' : groupBy === 'severity' ? 'Level' : 'Messages'}
               </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  fontFamily: '"JetBrains Mono", monospace',
-                  color: cfg.color,
-                }}
-              >
-                {value.toLocaleString()}
-              </Typography>
-            </Paper>
-          );
-        })}
-      </Box>
-
-      {/* Time Histogram — server-aggregated data for the full time range */}
-      <Box sx={{ flexShrink: 0 }}>
-        <TimeHistogram
-          logs={logs}
-          aggregateData={histogramBuckets}
-          height={100}
-          timeInterval={chartInterval}
-        />
-      </Box>
-
-      {/* Main Content: DataGrid — styled identically to the Events grid */}
-      <Box sx={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ flex: 1, minHeight: 0 }}>
-            <DataGrid
-              aria-label="System log entries"
-              rows={gridRows}
-              columns={gridColumns}
-              loading={loading}
-              disableRowSelectionOnClick
-              disableColumnMenu
-              autoHeight={false}
-              rowHeight={44}
-              onRowClick={(params) => setSelectedLog(params.row)}
-              slots={{
-                footer: () => (
-                  <CustomFooter
-                    loadingMore={loading}
-                    currentPage={pagination.page + 1}
-                    totalPages={totalPages}
-                    totalRecords={totalCount}
-                    hasNextPage={pagination.page + 1 < totalPages}
-                    onGoToPage={(page) => setPagination((current) => ({
-                      ...current,
-                      page: Math.min(Math.max(page - 1, 0), totalPages - 1),
-                    }))}
-                  />
-                ),
-              }}
-              getRowClassName={(params) => {
-                const lvl = normalizeSeverityKey(params.row.severity || params.row.level || '');
-                if (lvl === 'crit' || lvl === 'error') return 'severity-row-error';
-                if (lvl === 'warn') return 'severity-row-warn';
-                return '';
-              }}
-              sx={{
-                ...stripedDataGridSx,
-                height: '100%',
-                border: '1px solid var(--mui-palette-divider)',
-                borderRadius: '8px',
-                backgroundColor: 'var(--mui-palette-background-paper)',
-                fontFamily: 'Rubik, sans-serif',
-                fontSize: '0.85rem',
-                '& .MuiDataGrid-columnHeaders': {
-                  backgroundColor: 'var(--mui-palette-surface-muted)',
-                  borderBottom: '1px solid var(--mui-palette-divider)',
-                },
-                '& .MuiDataGrid-columnHeader': { backgroundColor: 'var(--mui-palette-surface-muted)' },
-                '& .MuiDataGrid-columnHeaderTitle': {
-                  fontWeight: 600,
-                  fontSize: '0.7rem',
-                  color: 'var(--mui-palette-text-secondary)',
-                  letterSpacing: '0.05em',
-                },
-                '& .MuiDataGrid-cell': { borderBottom: '1px solid var(--mui-palette-divider)', py: 0.5 },
-                '& .MuiDataGrid-row': {
-                  cursor: 'pointer',
-                  '&:hover': { backgroundColor: 'action.hover' },
-                  '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
-                },
-                '& .MuiDataGrid-virtualScroller': { backgroundColor: 'var(--mui-palette-background-paper)' },
-                '& .severity-row-error': { bgcolor: 'var(--mui-palette-severity-crit-bg)', '&:hover': { bgcolor: 'var(--mui-palette-severity-crit-bg)', filter: 'brightness(0.97)' } },
-                '& .severity-row-warn': { bgcolor: 'var(--mui-palette-severity-warn-bg)', '&:hover': { bgcolor: 'var(--mui-palette-severity-warn-bg)', filter: 'brightness(0.97)' } },
-              }}
-            />
+              <Typography sx={{ fontSize: '0.75rem', fontWeight: 600 }}>{group}</Typography>
+              <Chip label={entries.length} size="small" sx={{ ml: 'auto', height: 18, fontSize: '0.62rem' }} />
+            </Box>
+            {entries.map((log, index) => {
+              const rawLevel = String(log.severity || log.level || 'info').toLowerCase();
+              const level = normalizeSeverityKey(rawLevel);
+              const levelStyle = LEVEL_CONFIG[level] || LEVEL_CONFIG[rawLevel] || LEVEL_CONFIG.info;
+              const displayed = displayLog(log);
+              const message = displayed.message;
+              const time = log.time || log.timestamp || log.isodate;
+              const rawLine = `${String(time || '')} ${rawLevel.toUpperCase()} ${displayed.source} - ${message}`;
+              return (
+                <Box
+                  key={log.uuid || log.id || `${group}-${index}`}
+                  onClick={() => setSelectedLog(log)}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1, py: 0.25, minHeight: 26, borderBottom: '1px solid var(--mui-palette-divider)', cursor: 'pointer', overflow: 'hidden', '&:hover': { bgcolor: 'action.hover' } }}
+                >
+                  <Typography noWrap title={rawLine} sx={{ flex: 1, minWidth: 0, fontFamily: '"JetBrains Mono", monospace', fontSize: '0.7rem', lineHeight: 1.25 }}>
+                    <Box component="span" sx={{ color: 'text.secondary' }}>{String(time || '')}</Box>
+                    {' '}
+                    <Box component="span" sx={{ color: levelStyle.color, fontWeight: 700 }}>{rawLevel.toUpperCase()}</Box>
+                    {' '}
+                    <Box component="span" sx={{ color: 'text.secondary' }}>{displayed.source}</Box>
+                    {' - '}{message}
+                  </Typography>
+                  <Tooltip title="Copy raw line">
+                    <IconButton size="small" onClick={(event) => { event.stopPropagation(); navigator.clipboard.writeText(rawLine); }} sx={{ p: 0.2, flexShrink: 0 }}>
+                      <ContentCopyIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              );
+            })}
           </Box>
+        ))}
+      </Paper>
 
-        </Box>
-      </Box>
+      <CustomFooter
+        loadingMore={loading}
+        currentPage={pagination.page + 1}
+        totalPages={totalPages}
+        totalRecords={totalCount}
+        hasNextPage={pagination.page + 1 < totalPages}
+        onGoToPage={(page) => setPagination((current) => ({
+          ...current,
+          page: Math.min(Math.max(page - 1, 0), totalPages - 1),
+        }))}
+      />
 
       <Dialog
         open={Boolean(selectedLog)}
@@ -880,7 +693,6 @@ const SystemLogs = ({ initialParams }) => {
               level: selectedLog?.severity || selectedLog?.level,
               server: selectedLog?.host,
               source: selectedLog?.app,
-              event_type: selectedLog?.action || selectedFields.action,
               ...selectedFields,
             }).filter(([, value]) => value !== undefined && value !== '').map(([key, value]) => (
               <React.Fragment key={key}>

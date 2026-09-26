@@ -72,6 +72,16 @@ const GROUPABLE_SEGMENT_TYPES = new Set(['select', 'multi_select', 'select2_ajax
 // Map a segment field name to its aggregate group key (strip the _uuid/_name
 // suffixes the filter fields use — e.g. environment_uuid → environment).
 const segmentGroupKey = (name) => (name || '').replace(/_(uuid|name)$/, '');
+const CALL_GROUP_FILTER_FIELDS = {
+  cause: 'call.cause',
+  direction: 'call.direction',
+  disposition: 'call.disposition',
+  hangup_disposition: 'call.hangup_disposition',
+  queue: 'call.queue_name',
+  did: 'call.did_name',
+  environment: 'call.environment_name',
+  user: 'call.user_name',
+};
 import BarChartIcon from '@mui/icons-material/BarChart';
 import { DataGrid } from '@mui/x-data-grid';
 import SearchIcon from '@mui/icons-material/Search';
@@ -535,6 +545,11 @@ const Calls = () => {
     setGroupBy(g);
     if (!aggregate[g]) fetchAggregate(dateRange, currentSearchParams, aggGrouping, [g]);
   };
+  const handleChartBarClick = useCallback((value) => {
+    const field = CALL_GROUP_FILTER_FIELDS[groupBy];
+    if (!field || !value || value === 'unknown') return;
+    handleSearch({ ...currentSearchParams, [`search[${field}][IS]`]: [value] }, false);
+  }, [groupBy, currentSearchParams, handleSearch]);
 
 
   return (
@@ -809,6 +824,7 @@ const Calls = () => {
                 const to = Math.floor(end.getTime() / 1000);
                 handleSearch({ 'search[created_at]': `${from} - ${to}` }, false);
               }}
+              onBarClick={handleChartBarClick}
             />
           ) : (
             <Typography variant="body2" sx={{ color: 'var(--mui-palette-text-secondary)', textAlign: 'center', py: 3 }}>
